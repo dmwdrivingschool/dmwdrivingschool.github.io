@@ -87,24 +87,24 @@
             .content-workspace { grid-template-columns: 1fr; gap: 30px; }
             .slide img { height: 280px; }
         }
-
-        /* Sticky Floating Enquiry Button Widget Style Classes */
+        
+        /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
         .sticky-enquiry-widget {
             position: fixed;
             bottom: 20px;
-            left: 20px;
+            right: 20px; /* Moves the position anchor over to the right hand side */
             background-color: var(--dmw-main-blue);
             color: #ffffff !important;
-            padding: 14px 22px;
+            padding: 8px 14px; /* Drastically reduces padding to halve the button size */
             border-radius: 50px;
             text-decoration: none;
             font-weight: bold;
-            font-size: 1rem;
-            box-shadow: 0 4px 16px rgba(10, 76, 161, 0.4);
+            font-size: 0.85rem; /* Shrinks text size values for a sleek, non-intrusive footprint */
+            box-shadow: 0 4px 12px rgba(10, 76, 161, 0.35);
             z-index: 99999; 
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             transition: transform 0.2s ease, background-color 0.2s ease;
             font-family: 'Segoe UI', Arial, sans-serif;
         }
@@ -112,6 +112,7 @@
             background-color: var(--dmw-deep-navy);
             transform: scale(1.05);
         }
+
     </style>
 </head>
 <body>
@@ -407,11 +408,10 @@
     </script>
 
     <!-- Professional Base Layout Footer Bar -->
-    <footer><p>&copy; 2018 DMW Driving School | A Grade Approved Driving Instructor | Gloucester.</p></footer>
-
-    <!-- Sticky Floating Left-Side Enquiry Trigger Button Widget Layout -->
+    <footer><p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester.</p></footer>
+    <!-- Compact Sticky Floating Right-Side Booking Trigger Button Widget Layout -->
     <a href="https://totaldrive.app" target="_blank" class="sticky-enquiry-widget">
-        📝 Enquire Online
+        📅 Book Now
     </a>
 </body>
 </html>

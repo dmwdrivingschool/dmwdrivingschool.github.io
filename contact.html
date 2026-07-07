@@ -10,20 +10,29 @@
     <link rel="canonical" href="https://dmwdrivingschool.co.uk">
 
     <style>
-                /* High-Visibility Animated Pulse Booking Strip Banner Class Properties */
+        /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
+        .master-sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 10000;
+            width: 100%;
+            background-color: #111111;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        /* High-Visibility Pulse Booking Strip Banner (Super Bold & Large text) */
         .top-info-banner { 
             background-color: #111111; 
             color: #ffffff; 
             text-align: center; 
             padding: 14px 20px; 
-            font-size: 1.25rem; /* Larger, high-visibility text layout profile */
-            font-weight: 900 !important; /* Thickest possible heavy text weight */
+            font-size: 1.25rem; 
+            font-weight: 900 !important; 
             letter-spacing: 1px;
-            animation: bookingPulse 1.5s infinite ease-in-out; /* Accelerated pulse speed to draw the eye instantly */
+            animation: bookingPulse 1.5s infinite ease-in-out; 
             margin: 0;
             border-bottom: 1px solid #222;
             width: 100%;
-        }
 
         /* Smooth CSS Animation Engine: Transitions text between standard white and a flashing hazard yellow */
         @keyframes bookingPulse {

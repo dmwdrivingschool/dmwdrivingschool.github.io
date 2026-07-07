@@ -3,20 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prices | DMW Driving School Gloucester</title>
-    
-    <!-- Local SEO Meta Tags Optimization -->
-    <meta name="description" content="Affordable manual driving lesson pricing tiers and blocks at DMW Driving School. View competitive manual tuition rates for learners in Gloucester, Quedgeley, and Kingsway.">
-    <meta name="keywords" content="driving lesson prices gloucester, cheap driving lessons quedgeley, block booking discounts driving gloucester, manual tuition rates kingsway">
+    <title>Tuition Fees & Packages | DMW Driving School Gloucester</title>
+    <meta name="description" content="Check our transparent, value-focused manual driving lesson pricing options and block booking discount packages across Gloucester at DMW Driving School.">
     <link rel="canonical" href="https://dmwdrivingschool.co.uk">
 
     <style>
-        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
+        :root { 
+            --dmw-main-blue: #0A4CA1; 
+            --dmw-deep-navy: #062F63; 
+            --bg-light: #F4F7FA; 
+            --text-dark: #222222; 
+        }
         
-        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; font-family: Arial, sans-serif; }
+        html, body { 
+            display: flow-root; 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            background-color: var(--bg-light); 
+            color: var(--text-dark); 
+            line-height: 1.6;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
         * { box-sizing: border-box; }
 
-        /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
+        /* Master Sticky Top Ceiling Bar Wrapper */
         .master-sticky-header {
             position: sticky;
             top: 0;
@@ -26,7 +36,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
-        /* High-Visibility Pulse Booking Strip Banner (Super Bold & Large text) */
+        /* High-Visibility Pulse Booking Strip Banner */
         .top-info-banner { 
             background-color: #111111; 
             color: #ffffff; 
@@ -41,21 +51,58 @@
             width: 100%;
         }
 
-        /* Smooth CSS Animation Engine */
         @keyframes bookingPulse {
             0% { color: #ffffff; text-shadow: none; }
             50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 
             100% { color: #ffffff; text-shadow: none; }
         }
 
-        /* Fixed Navigation Header Bar Area & Core Image Height Constraints */
-        header { background-color: #111111 !important; margin: 0; width: 100%; display: block; position: relative; z-index: 10010; }
+        header { background-color: #111111; margin: 0; width: 100%; }
         .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
         .brand-logo img { height: 60px; width: auto; display: block; }
-        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; margin: 0; padding: 0; }
+        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; padding: 0; margin: 0; }
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
         .nav-links-list li a:hover { color: #3498db; }
-        
+
+        /* Global Layout Workspace Rules for the Pricing Container */
+        .pricing-page-workspace {
+            max-width: 650px; 
+            margin: 40px auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+
+        /* Responsive Mobile Layout Adaptations */
+        .pricing-table-row {
+            display: flex; 
+            padding: 14px 12px; 
+            border-bottom: 1px solid #eee; 
+            align-items: center; 
+            text-align: center; 
+            font-size: 0.95em;
+        }
+
+        .booking-cta-btn {
+            display: inline-block; 
+            background-color: #2ecc71; 
+            color: white; 
+            font-size: 1.1em; 
+            font-weight: bold; 
+            text-decoration: none; 
+            padding: 14px 45px; 
+            border-radius: 6px; 
+            box-shadow: 0 3px 6px rgba(46, 204, 113, 0.25); 
+            letter-spacing: 0.3px;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        .booking-cta-btn:hover {
+            background-color: #27ae60;
+            transform: translateY(-1px);
+        }
+
         /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
         .sticky-enquiry-widget {
             position: fixed;
@@ -80,14 +127,22 @@
             transform: scale(1.05);
         }
 
+        footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 60px; width: 100%; }
+
         @media (max-width: 768px) { 
             .navbar-shell { flex-direction: column; gap: 15px; } 
+            .pricing-page-workspace { margin: 20px auto; }
+            .booking-cta-btn { width: 100%; padding: 14px 15px; text-align: center; }
+        }
+        @media (max-width: 480px) {
+            .pricing-table-row { font-size: 0.85em; padding: 10px 6px; }
+            .table-header-row { font-size: 0.85em; padding: 12px 6px; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Master Wrapper Box Container: Forces both bars to stick to the top glass window when scrolling -->
+    <!-- Master Sticky Header Ceiling Wrapper -->
     <div class="master-sticky-header">
         <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
         <header>
@@ -96,119 +151,108 @@
                 <nav>
                     <ul class="nav-links-list">
                         <li><a href="index.html">Home</a></li>
-                        <li><a href="prices.html">Prices</a></li>
+                        <li><a href="prices.html" style="color: #3498db;">Prices</a></li>
                         <li><a href="pass-photos.html">Pass Photos</a></li>
                         <li><a href="contact.html">Contact Us</a></li>
+                        <li><a href="terms.html">Terms and conditions</a></li>
                     </ul>
                 </nav>
             </div>
         </header>
     </div>
 
-    <!-- Main Content Structural Grid Frame Area -->
-    <div style="max-width: 1140px; margin: 45px auto; padding: 0 20px; box-sizing: border-box; width: 100%;">
-        
-        <h2 style="font-size: 1.6rem; font-weight: bold; color: var(--dmw-deep-navy); margin: 0 0 4px 0; padding: 0; display: flex; align-items: center; gap: 8px;">
-            💳 Tuition Fees & Packages
-        </h2>
-        <p style="margin: 0 0 20px 0; color: #7f8c8d; font-size: 0.95rem;">DMW Driving School Manual Training Rates</p>
-        
-        <p style="margin: 0 0 20px 0; font-size: 1.05rem; line-height: 1.6; color: #333;">Check our transparent, value-focused manual pricing options below. Save money on your route to test day by booking a multi-hour block package upfront.</p>
-        
-        <!-- Recommendation Alert Card -->
-        <div style="background-color: #e8f4fd; border-left: 4px solid #2b6cb0; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 35px; font-size: 0.95rem; line-height: 1.5; color: #2b6cb0; text-align: left;">
-            <strong style="color: var(--dmw-deep-navy); display: block; margin-bottom: 6px; font-size: 1rem;">⏱️ Why we highly recommend 90-minute or 2-hour lessons:</strong>
-            Research shows that learners who take longer sessions progress up to <strong>three times faster</strong>. Shorter 1-hour slots waste too much time on setup, recap, and traveling to specific test roads. 2-hour bookings maximize your actual practice time behind the wheel, giving you significantly better value and helping you pass sooner!
+    <!-- Central Workspace Layout Section Container -->
+    <div class="pricing-page-workspace">
+      
+        <!-- Part 1: Smart Header & Lesson Advice Panel -->
+        <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; text-align: center;">
+          
+            <!-- Seamless Blended Header Bar -->
+            <div style="background-color: #f8f9fa; padding: 18px 20px; text-align: left; border-bottom: 1px solid #e2e8f0;">
+                <h2 style="margin: 0; color: #2c3e50; font-size: 1.4em; letter-spacing: 0.5px; display: flex; align-items: center; gap: 10px;">💳 Tuition Fees & Packages</h2>
+                <p style="margin: 4px 0 0 0; color: #7f8c8d; font-size: 0.9em;">DMW Driving School Manual Training Rates</p>
+            </div>
+
+            <!-- Inner Content Area -->
+            <div style="padding: 24px 20px 20px 20px; box-sizing: border-box;">
+                <p style="line-height: 1.6; margin: 0 0 20px 0; text-align: left; color: #4a5568; font-size: 0.98em;">
+                    Check our transparent, value-focused manual pricing options below. Save money on your route to test day by booking a multi-hour block package upfront.
+                </p>
+                
+                <!-- Recommendation Box -->
+                <div style="background-color: #f0f7ff; border-left: 4px solid #3182ce; padding: 16px; border-radius: 0 8px 8px 0; text-align: left; box-shadow: inset 0 1px 3px rgba(0,0,0,0.01);">
+                    <p style="margin: 0 0 8px 0; font-weight: bold; color: #2b6cb0; font-size: 0.95em;">⏱️ Why we highly recommend 90-minute or 2-hour lessons:</p>
+                    <p style="margin: 0; color: #4a5568; line-height: 1.5; font-size: 0.92em;">
+                        Research shows that learners who take longer sessions progress up to <strong>three times faster</strong>. Shorter 1-hour slots waste too much time on setup, recap, and traveling to specific test roads. 2-hour bookings maximize your actual practice time behind the wheel, giving you significantly better value and helping you pass sooner!
+                    </p>
+                </div>
+            </div>
         </div>
 
+        <!-- Part 2: Interactive Comprehensive Lesson & Package Pricing Matrix Table -->
+        <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box;">
+          
+            <!-- Table Header Row -->
+            <div class="table-header-row" style="display: flex; background-color: #2c3e50; color: white; padding: 14px 12px; font-weight: bold; text-align: center; font-size: 0.95em;">
+                <div style="flex: 2; text-align: left;">Lesson Option</div>
+                <div style="flex: 1;">Total Price</div>
+                <div style="flex: 1;">Price Per Hour</div>
+                <div style="flex: 1.2; color: #2ecc71;">Your Saving</div>
+            </div>
+            
+            <!-- Row 1: 1 Hour -->
+            <div class="pricing-table-row" style="background-color: #fff;">
+                <div style="flex: 2; text-align: left; font-weight: bold; color: #2c3e50;">1-Hour Lesson</div>
+                <div style="flex: 1; font-weight: 500;">£50</div>
+                <div style="flex: 1; color: #7f8c8d;">£50</div>
+                <div style="flex: 1.2; color: #95a5a6; font-size: 0.9em; font-style: italic;">Standard rate</div>
+            </div>
 
-    <!-- Inner Content Area -->
-    <div style="padding: 24px 20px 20px 20px; box-sizing: border-box;">
-      <p style="line-height: 1.6; margin: 0 0 20px 0; text-align: left; color: #4a5568; font-size: 0.98em;">
-        Check our transparent, value-focused manual pricing options below. Save money on your route to test day by booking a multi-hour block package upfront.
-      </p>
-      
-      <!-- Recommendation Box -->
-      <div style="background-color: #f0f7ff; border-left: 4px solid #3182ce; padding: 16px; border-radius: 0 8px 8px 0; text-align: left; box-shadow: inset 0 1px 3px rgba(0,0,0,0.01);">
-        <p style="margin: 0 0 8px 0; font-weight: bold; color: #2b6cb0; font-size: 0.95em;">⏱️ Why we highly recommend 90-minute or 2-hour lessons:</p>
-        <p style="margin: 0; color: #4a5568; line-height: 1.5; font-size: 0.92em;">
-          Research shows that learners who take longer sessions progress up to <strong>three times faster</strong>. Shorter 1-hour slots waste too much time on setup, recap, and traveling to specific test roads. 2-hour bookings maximize your actual practice time behind the wheel, giving you significantly better value and helping you pass sooner!
-        </p>
-      </div>
-    </div>
+            <!-- Row 2: 90 Minutes -->
+            <div class="pricing-table-row" style="background-color: #fcfcfc;">
+                <div style="flex: 2; text-align: left; font-weight: bold; color: #2c3e50;">90-Minute Lesson <span style="display: block; font-size: 0.8em; color: #e67e22; font-weight: normal; margin-top: 2px;">🔥 Most Popular Length</span></div>
+                <div style="flex: 1; font-weight: 500;">£70</div>
+                <div style="flex: 1; color: #7f8c8d;">£46.66</div>
+                <div style="flex: 1.2; color: #2ecc71; font-weight: bold;">Save £5</div>
+            </div>
 
-  </div>
+            <!-- Row 3: 2 Hours -->
+            <div class="pricing-table-row" style="background-color: #fff;">
+                <div style="flex: 2; text-align: left; font-weight: bold; color: #2c3e50;">2-Hour Lesson <span style="display: block; font-size: 0.8em; color: #3498db; font-weight: normal; margin-top: 2px;">⚡ Highly Recommended</span></div>
+                <div style="flex: 1; font-weight: bold; color: #2c3e50;">£90</div>
+                <div style="flex: 1; color: #7f8c8d;">£45</div>
+                <div style="flex: 1.2; color: #2ecc71; font-weight: bold;">Save £10</div>
+            </div>
 
-  <!-- Part 2: Interactive Comprehensive Lesson & Package Pricing Matrix Table -->
-  <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box;">
-    
-    <!-- Table Header Row -->
-    <div style="display: flex; background-color: #2c3e50; color: white; padding: 14px 12px; font-weight: bold; text-align: center; font-size: 0.95em;">
-      <div style="flex: 2; text-align: left;">Lesson Option</div>
-      <div style="flex: 1;">Total Price</div>
-      <div style="flex: 1;">Price Per Hour</div>
-      <div style="flex: 1.2; color: #2ecc71;">Your Saving</div>
-    </div>
-    
-    <!-- Row 1: 1 Hour -->
-    <div style="display: flex; padding: 14px 12px; border-bottom: 1px solid #eee; align-items: center; text-align: center; background-color: #fff; font-size: 0.95em;">
-      <div style="flex: 2; text-align: left; font-weight: bold; color: #2c3e50;">1-Hour Lesson</div>
-      <div style="flex: 1; font-weight: 500;">£50</div>
-      <div style="flex: 1; color: #7f8c8d;">£50</div>
-      <div style="flex: 1.2; color: #95a5a6; font-size: 0.9em; font-style: italic;">Standard rate</div>
-    </div>
+            <!-- Row 4: 5 Hours -->
+            <div class="pricing-table-row" style="background-color: #fcfcfc;">
+                <div style="flex: 2; text-align: left; font-weight: bold; color: #2c3e50;">5-Hour Block Booking<span style="display: block; font-size: 0.8em; color: #7f8c8d; font-weight: normal; margin-top: 2px;">(Paid fully upfront)</span></div>
+                <div style="flex: 1; font-weight: 500;">£220</div>
+                <div style="flex: 1; color: #7f8c8d;">£44</div>
+                <div style="flex: 1.2; color: #2ecc71; font-weight: bold;">Save £30</div>
+            </div>
 
-    <!-- Row 2: 90 Minutes (Updated with Most Popular tag) -->
-    <div style="display: flex; padding: 14px 12px; border-bottom: 1px solid #eee; align-items: center; text-align: center; background-color: #fcfcfc; font-size: 0.95em;">
-      <div style="flex: 2; text-align: left; font-weight: bold; color: #2c3e50;">90-Minute Lesson <span style="display: block; font-size: 0.8em; color: #e67e22; font-weight: normal; margin-top: 2px;">🔥 Most Popular Length</span></div>
-      <div style="flex: 1; font-weight: 500;">£70</div>
-      <div style="flex: 1; color: #7f8c8d;">£46.66</div>
-      <div style="flex: 1.2; color: #2ecc71; font-weight: bold;">Save £5</div>
-    </div>
+            <!-- Row 5: 10 Hours -->
+            <div class="pricing-table-row" style="background-color: #e8f8f5; border-top: 1px solid #a3e4d7; border-bottom: 1px solid #eee;">
+                <div style="flex: 2; text-align: left; font-weight: bold; color: #16a085;">10-Hour Block Booking<span style="display: block; font-size: 0.8em; color: #27ae60; font-weight: bold; margin-top: 2px;">⭐ Best Value Deal</span></div>
+                <div style="flex: 1; font-weight: bold; color: #16a085; font-size: 1.05em;">£430</div>
+                <div style="flex: 1; font-weight: bold; color: #16a085;">£43</div>
+                <div style="flex: 1.2; background-color: #2ecc71; color: white; padding: 5px; border-radius: 4px; font-weight: bold; font-size: 0.85em; letter-spacing: 0.3px;">Save £70!</div>
+            </div>
 
-    <!-- Row 3: 2 Hours (Updated with Highly Recommended tag) -->
-    <div style="display: flex; padding: 14px 12px; border-bottom: 1px solid #eee; align-items: center; text-align: center; background-color: #fff; font-size: 0.95em;">
-      <div style="flex: 2; text-align: left; font-weight: bold; color: #2c3e50;">2-Hour Lesson <span style="display: block; font-size: 0.8em; color: #3498db; font-weight: normal; margin-top: 2px;">⚡ Highly Recommended</span></div>
-      <div style="flex: 1; font-weight: bold; color: #2c3e50;">£90</div>
-      <div style="flex: 1; color: #7f8c8d;">£45</div>
-      <div style="flex: 1.2; color: #2ecc71; font-weight: bold;">Save £10</div>
+            <!-- Row 6: Embedded Form Trigger Link -->
+            <div style="padding: 24px; text-align: center; background-color: #f8f9fa; box-sizing: border-box;">
+                <a href="https://totaldrive.app" target="_blank" class="booking-cta-btn">🚗 Check Availability & Book Now</a>
+            </div>
+        </div>
     </div>
+    <!-- Main Structural Footer Area -->
+    <footer><p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p></footer>
 
-    <!-- Row 4: 5 Hours -->
-    <div style="display: flex; padding: 14px 12px; border-bottom: 1px solid #eee; align-items: center; text-align: center; background-color: #fcfcfc; font-size: 0.95em;">
-      <div style="flex: 2; text-align: left; font-weight: bold; color: #2c3e50;">5-Hour Block Booking<span style="display: block; font-size: 0.8em; color: #7f8c8d; font-weight: normal; margin-top: 2px;">(Paid fully upfront)</span></div>
-      <div style="flex: 1; font-weight: 500;">£220</div>
-      <div style="flex: 1; color: #7f8c8d;">£44</div>
-      <div style="flex: 1.2; color: #2ecc71; font-weight: bold;">Save £30</div>
-    </div>
-
-    <!-- Row 5: 10 Hours -->
-    <div style="display: flex; padding: 14px 12px; align-items: center; text-align: center; background-color: #e8f8f5; border-top: 1px solid #a3e4d7; border-bottom: 1px solid #eee; font-size: 0.95em;">
-      <div style="flex: 2; text-align: left; font-weight: bold; color: #16a085;">10-Hour Block Booking<span style="display: block; font-size: 0.8em; color: #27ae60; font-weight: bold; margin-top: 2px;">⭐ Best Value Deal</span></div>
-      <div style="flex: 1; font-weight: bold; color: #16a085; font-size: 1.05em;">£430</div>
-      <div style="flex: 1; font-weight: bold; color: #16a085;">£43</div>
-      <div style="flex: 1.2; background-color: #2ecc71; color: white; padding: 5px; border-radius: 4px; font-weight: bold; font-size: 0.85em; letter-spacing: 0.3px;">Save £70!</div>
-    </div>
-
-    <!-- Row 6: Fixed New-Tab Booking Action Module -->
-    <div style="padding: 24px; text-align: center; background-color: #f8f9fa; box-sizing: border-box;">
-      <a href="https://www.totaldrive.app/a/enquiry_form.php?15941577856366" target="_blank" style="display: inline-block; background-color: #2ecc71; color: white; font-size: 1.1em; font-weight: bold; text-decoration: none; padding: 14px 45px; border-radius: 6px; box-shadow: 0 3px 6px rgba(46, 204, 113, 0.25); letter-spacing: 0.3px;">🚗 Check Availability & Book Now</a>
-    </div>
-        <!-- Premium Full-Width Center Footer Section Bar Layout -->
-    <footer style="
-        background: #111827; 
-        color: #9ca3af; 
-        text-align: center; 
-        padding: 30px 20px; 
-        margin-top: 80px; 
-        width: 100%;
-        box-sizing: border-box;
-        font-size: 0.9rem;
-        letter-spacing: 0.3px;
-        clear: both;
-    ">
-        <p style="margin: 0; padding: 0;">&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester </p>
-    </footer>
+    <!-- Fixed Desk & Mobile Interactive Widget Trigger -->
+    <a href="https://www.totaldrive.app/a/enquiry_form.php?15941577856366" target="_blank" class="sticky-enquiry-widget">
+        📅 Enquire Now
     </a>
+
 </body>
 </html>

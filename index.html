@@ -7,18 +7,48 @@
     <style>
         :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
         
-        /* Direct Reset: Clears browser base defaults to permanently kill the top white gap gap */
         html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
         * { box-sizing: border-box; }
+
+        /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
+        .master-sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 10000;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
         
-        /* Dark Theme Navigation Header Configuration Styles */
-        .top-info-banner { background-color: #111; color: #ffffff; text-align: center; padding: 9px 20px; font-size: 0.85rem; border-bottom: 1px solid #222; margin: 0; }
-        header { background-color: #111111; box-shadow: 0 4px 12px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000; margin: 0; }
+        /* High-Visibility Pulse Booking Strip Banner (Super Bold & Large text) */
+        .top-info-banner { 
+            background-color: #111111; 
+            color: #ffffff; 
+            text-align: center; 
+            padding: 14px 20px; 
+            font-size: 1.25rem; /* Larger, high-visibility text layout profile */
+            font-weight: 900 !important; /* Thickest possible heavy text weight */
+            letter-spacing: 1px;
+            animation: bookingPulse 1.5s infinite ease-in-out; /* Accelerated pulse speed to draw the eye instantly */
+            margin: 0;
+            border-bottom: 1px solid #222;
+            width: 100%;
+        }
+
+        /* Smooth CSS Animation Engine: Transitions the text back and forth to standard bright white and a flashing glowing hazard yellow */
+        @keyframes bookingPulse {
+            0% { color: #ffffff; text-shadow: none; }
+            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } /* Flashing warning glow effect accent */
+            100% { color: #ffffff; text-shadow: none; }
+        }
+
+        /* Fixed Navigation Header Bar Area */
+        header { background-color: #111111; margin: 0; width: 100%; }
         .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
         .brand-logo img { height: 60px; width: auto; display: block; }
         .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
         .nav-links-list li a:hover { color: #3498db; }
+
         
         /* Balanced-Height Workspace Grid (Forces left column and right column baseline leveling) */
         .content-workspace { max-width: 1140px; margin: 45px auto; padding: 0 20px; display: grid; grid-template-columns: 2.2fr 1.3fr; gap: 45px; align-items: stretch; }
@@ -82,22 +112,24 @@
 </style>
 </head>
 <body>
-    <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
-    
-    <header>
-        <div class="navbar-shell">
-            <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
-            <nav>
-                <ul class="nav-links-list">
-                    <li><a href="index.html">Home</a></li>
-                    <li><a href="prices.html">Prices</a></li>
-                    <li><a href="pass-photos.html">Pass Photos</a></li>
-                    <li><a href="contact.html">Contact Us</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
 
+    <!-- Master Wrapper Box Container: Forces both bars to stick to the top glass window when scrolling -->
+    <div class="master-sticky-header">
+        <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
+        <header>
+            <div class="navbar-shell">
+                <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
+                <nav>
+                    <ul class="nav-links-list">
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="prices.html">Prices</a></li>
+                        <li><a href="pass-photos.html">Pass Photos</a></li>
+                        <li><a href="contact.html">Contact Us</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </header>
+    </div>
     
     <!-- Premium Layered Hero Background Graphic Banner Section -->
     <div style="position: relative; width: 100%; height: 260px; background: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url('car seat1.jpg') no-repeat center center; background-size: cover; overflow: hidden; display: flex; align-items: center; justify-content: center;">

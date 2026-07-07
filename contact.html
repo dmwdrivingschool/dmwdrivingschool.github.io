@@ -3,13 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lesson Prices | DMW Driving School Gloucester</title>
-        <!-- Contact Page SEO Tags Matrix -->
+    <title>Contact Us | DMW Driving School Gloucester</title>
+    
+    <!-- Contact Page SEO Tags Matrix -->
     <meta name="description" content="Get in touch with DMW Driving School to book your manual driving lessons in Gloucester. Contact Grade A instructor Dale by phone, text, or submit your online intake enquiry today!">
     <meta name="keywords" content="contact dmw driving school, book driving lessons gloucester, driving instructor phone number quedgeley, manual driving school slots kingsway">
     <link rel="canonical" href="https://dmwdrivingschool.co.uk">
 
     <style>
+        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
+        
+        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
+        * { box-sizing: border-box; }
+
         /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
         .master-sticky-header {
             position: sticky;
@@ -33,65 +39,73 @@
             margin: 0;
             border-bottom: 1px solid #222;
             width: 100%;
+        }
 
-        /* Smooth CSS Animation Engine: Transitions text between standard white and a flashing hazard yellow */
+        /* Smooth CSS Animation Engine */
         @keyframes bookingPulse {
             0% { color: #ffffff; text-shadow: none; }
-            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } /* Flashing warning glow effect accent */
+            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 
             100% { color: #ffffff; text-shadow: none; }
         }
 
-        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
-        body { background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
-        
-                /* Dark Theme Navigation Header Configuration Styles */
-        .top-info-banner { background-color: #111; color: #ffffff; text-align: center; padding: 9px 20px; font-size: 0.85rem; border-bottom: 1px solid #222; }
-        header { background-color: #111111; box-shadow: 0 4px 12px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000; }
+        /* Fixed Navigation Header Bar Area & Logo Height Constraint */
+        header { background-color: #111111 !important; margin: 0; width: 100%; display: block; position: relative; z-index: 10010; }
         .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
-        .brand-logo img { height: 60px; width: auto; display: block; } /* Filter completely removed to keep original colors */
-        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
+        .brand-logo img { height: 60px; width: auto; display: block; }
+        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; margin: 0; padding: 0; }
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
         .nav-links-list li a:hover { color: #3498db; }
-
-                /* Unified Premium Dark Footer Bar Layout Properties */
-        footer { 
-            background: #111827; 
-            color: #9ca3af; 
-            text-align: center; 
-            padding: 30px 20px; 
-            margin-top: 80px; 
-            width: 100%;
-            font-size: 0.9rem;
-            letter-spacing: 0.3px;
-        }
-        footer p { margin: 0; padding: 0; }
-
         
+        /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
+        .sticky-enquiry-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px; 
+            background-color: var(--dmw-main-blue);
+            color: #ffffff !important;
+            padding: 8px 14px; 
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.85rem; 
+            box-shadow: 0 4px 12px rgba(10, 76, 161, 0.35);
+            z-index: 99999; 
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        .sticky-enquiry-widget:hover {
+            background-color: var(--dmw-deep-navy);
+            transform: scale(1.05);
+        }
+
         @media (max-width: 768px) { 
             .navbar-shell { flex-direction: column; gap: 15px; } 
         }
     </style>
 </head>
 <body>
+
     <!-- Master Wrapper Box Container: Forces both bars to stick to the top glass window when scrolling -->
     <div class="master-sticky-header">
         <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
-    
-    <!-- Sticky White Navbar Shell Component Layout -->
-    <header>
-        <div class="navbar-shell">
-            <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
-            <nav>
-                <ul class="nav-links-list">
-                    <li><a href="index.html">Home</a></li>
-                    <li><a href="prices.html">Prices</a></li>
-                    <li><a href="pass-photos.html">Pass Photos</a></li>
-                <li><a href="terms.html">Terms and conditions</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
+        <header>
+            <div class="navbar-shell">
+                <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
+                <nav>
+                    <ul class="nav-links-list">
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="prices.html">Prices</a></li>
+                        <li><a href="pass-photos.html">Pass Photos</a></li>
+                        <li><a href="terms.html">Terms and Conditions</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </header>
+    </div>
+
 
 
 <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; color: #333;">

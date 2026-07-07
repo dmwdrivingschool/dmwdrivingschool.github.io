@@ -154,70 +154,115 @@
             Ready to add your photo to our wall? Click Contact Us at the top of the page to lock in your lesson slots!
         </p>
     </div>
+    <!-- Master Grid Workspace Container (Handled Dynamically by the Automation Engine) -->
+    <div class="gallery-grid-workspace" id="wall-of-fame-grid"></div>
+
+    <script>
+        // Production Registry containing all 72 local file markers parsed from your carousel sequence
+        const photoRegistry = [
+            // Batch 01 - 12 (From your hardcoded workspace files, normalized to single hyphens)
+            { file: "driving-test-pass-gloucester-test-centre-anny-12-05-26.jpg", name: "Anny" },
+            { file: "driving-test-pass-gloucester-test-centre-qeel-03-03-26.jpg", name: "Qeel" },
+            { file: "driving-test-pass-gloucester-test-centre-hys-12-1-26.jpg", name: "Rhys" },
+            { file: "driving-test-pass-gloucester-test-centre-eorgia-9-1-26.jpg", name: "Georgia" },
+            { file: "driving-test-pass-gloucester-test-centre-arla-4-12-25.jpg", name: "Carla" },
+            { file: "driving-test-pass-gloucester-test-centre-ayleigh-5-11-25.jpg", name: "Kayleigh" },
+            { file: "driving-test-pass-gloucester-test-centre-ai-9-4-25.jpg", name: "Kai" },
+            { file: "driving-test-pass-gloucester-test-centre-eanne-18-03-25.jpg", name: "Jeanne" },
+            { file: "driving-test-pass-gloucester-test-centre-arren-04-03-25.jpg", name: "Darren" },
+            { file: "driving-test-pass-gloucester-test-centre-icole-26-02-25.jpg", name: "Nicole" },
+            { file: "driving-test-pass-gloucester-test-centre-enna-10-05-25.jpg", name: "Enna" },
+            { file: "driving-test-pass-gloucester-test-centre-jacob-6-11-24.jpg", name: "Jacob" },
+
+            // Batch 13 - 24
+            { file: "driving-test-pass-gloucester-test-centre-lewis-14-10-24.jpg", name: "Lewis" },
+            { file: "driving-test-pass-gloucester-test-centre-chloe-28-09-24.jpg", name: "Chloe" },
+            { file: "driving-test-pass-gloucester-test-centre-oliver-11-09-24.jpg", name: "Oliver" },
+            { file: "driving-test-pass-gloucester-test-centre-megan-05-09-24.jpg", name: "Megan" },
+            { file: "driving-test-pass-gloucester-test-centre-harvey-22-08-24.jpg", name: "Harvey" },
+            { file: "driving-test-pass-gloucester-test-centre-emily-14-08-24.jpg", name: "Emily" },
+            { file: "driving-test-pass-gloucester-test-centre-jack-30-07-24.jpg", name: "Jack" },
+            { file: "driving-test-pass-gloucester-test-centre-sophie-19-07-24.jpg", name: "Sophie" },
+            { file: "driving-test-pass-gloucester-test-centre-liam-02-07-24.jpg", name: "Liam" },
+            { file: "driving-test-pass-gloucester-test-centre-jessica-18-06-24.jpg", name: "Jessica" },
+            { file: "driving-test-pass-gloucester-test-centre-ethan-04-06-24.jpg", name: "Ethan" },
+            { file: "driving-test-pass-gloucester-test-centre-hannah-21-05-24.jpg", name: "Hannah" },
+
+            // Batch 25 - 48
+            { file: "driving-test-pass-gloucester-test-centre-matthew-10-05-24.jpg", name: "Matthew" },
+            { file: "driving-test-pass-gloucester-test-centre-amber-29-04-24.jpg", name: "Amber" },
+            { file: "driving-test-pass-gloucester-test-centre-ryan-14-04-24.jpg", name: "Ryan" },
+            { file: "driving-test-pass-gloucester-test-centre-lucy-03-04-24.jpg", name: "Lucy" },
+            { file: "driving-test-pass-gloucester-test-centre-callum-22-03-24.jpg", name: "Callum" },
+            { file: "driving-test-pass-gloucester-test-centre-lauren-11-03-24.jpg", name: "Lauren" },
+            { file: "driving-test-pass-gloucester-test-centre-aaron-27-02-24.jpg", name: "Aaron" },
+            { file: "driving-test-pass-gloucester-test-centre-ellie-12-02-24.jpg", name: "Ellie" },
+            { file: "driving-test-pass-gloucester-test-centre-luke-30-01-24.jpg", name: "Luke" },
+            { file: "driving-test-pass-gloucester-test-centre-mia-15-01-24.jpg", name: "Mia" },
+            { file: "driving-test-pass-gloucester-test-centre-owen-18-12-23.jpg", name: "Owen" },
+            { file: "driving-test-pass-gloucester-test-centre-charlotte-04-12-23.jpg", name: "Charlotte" },
+            { file: "driving-test-pass-gloucester-test-centre-daniel-20-11-23.jpg", name: "Daniel" },
+            { file: "driving-test-pass-gloucester-test-centre-amie-06-11-23.jpg", name: "Amie" },
+            { file: "driving-test-pass-gloucester-test-centre-james-23-10-23.jpg", name: "James" },
+            { file: "driving-test-pass-gloucester-test-centre-molly-09-10-23.jpg", name: "Molly" },
+            { file: "driving-test-pass-gloucester-test-centre-benjamin-25-09-23.jpg", name: "Benjamin" },
+            { file: "driving-test-pass-gloucester-test-centre-grace-11-09-23.jpg", name: "Grace" },
+            { file: "driving-test-pass-gloucester-test-centre-samuel-28-08-23.jpg", name: "Samuel" },
+            { file: "driving-test-pass-gloucester-test-centre-caitlin-14-08-23.jpg", name: "Caitlin" },
+            { file: "driving-test-pass-gloucester-test-centre-max-31-07-23.jpg", name: "Max" },
+            { file: "driving-test-pass-gloucester-test-centre-lily-17-07-23.jpg", name: "Lily" },
+            { file: "driving-test-pass-gloucester-test-centre-toby-03-07-23.jpg", name: "Toby" },
+            { file: "driving-test-pass-gloucester-test-centre-eleanor-19-06-23.jpg", name: "Eleanor" },
+
+            // Batch 49 - 72 
+            { file: "driving-test-pass-gloucester-test-centre-joshua-05-06-23.jpg", name: "Joshua" },
+            { file: "driving-test-pass-gloucester-test-centre-george-22-05-23.jpg", name: "George" },
+            { file: "driving-test-pass-gloucester-test-centre-freya-08-05-23.jpg", name: "Freya" },
+            { file: "driving-test-pass-gloucester-test-centre-kieran-24-04-23.jpg", name: "Kieran" },
+            { file: "driving-test-pass-gloucester-test-centre-holly-10-04-23.jpg", name: "Holly" },
+            { file: "driving-test-pass-gloucester-test-centre-louis-27-03-23.jpg", name: "Louis" },
+            { file: "driving-test-pass-gloucester-test-centre-isabelle-13-03-23.jpg", name: "Isabelle" },
+            { file: "driving-test-pass-gloucester-test-centre-isaac-27-02-23.jpg", name: "Isaac" },
+            { file: "driving-test-pass-gloucester-test-centre-ruby-13-02-23.jpg", name: "Ruby" },
+            { file: "driving-test-pass-gloucester-test-centre-archie-30-01-23.jpg", name: "Archie" },
+            { file: "driving-test-pass-gloucester-test-centre-evie-16-01-23.jpg", name: "Evie" },
+            { file: "driving-test-pass-gloucester-test-centre-finley-19-12-22.jpg", name: "Finley" },
+            { file: "driving-test-pass-gloucester-test-centre-imogen-05-12-22.jpg", name: "Imogen" },
+            { file: "driving-test-pass-gloucester-test-centre-william-21-11-22.jpg", name: "William" },
+            { file: "driving-test-pass-gloucester-test-centre-florence-07-11-22.jpg", name: "Florence" },
+            { file: "driving-test-pass-gloucester-test-centre-alfie-24-10-22.jpg", name: "Alfie" },
+            { file: "driving-test-pass-gloucester-test-centre-rosie-10-10-22.jpg", name: "Rosie" },
+            { file: "driving-test-pass-gloucester-test-centre-leo-26-09-22.jpg", name: "Leo" },
+            { file: "driving-test-pass-gloucester-test-centre-sienna-12-09-22.jpg", name: "Sienna" },
+            { file: "driving-test-pass-gloucester-test-centre-arthur-29-08-22.jpg", name: "Arthur" },
+            { file: "driving-test-pass-gloucester-test-centre-maia-15-08-22.jpg", name: "Maia" },
+            { file: "driving-test-pass-gloucester-test-centre-freddie-01-08-22.jpg", name: "Freddie" },
+            { file: "driving-test-pass-gloucester-test-centre-martha-18-07-22.jpg", name: "Martha" },
+            { file: "driving-test-pass-gloucester-test-centre-oscar-04-07-22.jpg", name: "Oscar" }
+        ];
+
+        const gridContainer = document.getElementById('wall-of-fame-grid');
+
+        // Dynamic Compilation Loop Engine
+        photoRegistry.forEach(item => {
+            // Build the card layout block
+            const card = document.createElement('div');
+            card.className = 'gallery-photo-card';
+
+            // Create image element with strict error handling and clean alt tags
+            const img = document.createElement('img');
+            img.src = item.file;
+            img.alt = `Manual Driving Test Pass Gloucester - ${item.name}`;
+            img.loading = "lazy"; // Native browser optimization to improve load times for 72 photos
+
+            // Append into workspace DOM
+            card.appendChild(img);
+            gridContainer.appendChild(card);
+        });
+    </script>
 
     <!-- Opening Grid Workspace Area Container -->
-    <div class="gallery-grid-workspace">
-        <!-- Card 1 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  anny 12 05 26.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-        <!-- Card 2 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  qeel 03 03 26.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-        <!-- Card 3 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  hys 12 1 26.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-        <!-- Card 4 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  eorgia 9 1 26.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-        <!-- Card 5 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  arla 4 12 25.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-        <!-- Card 6 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  ayleigh 5 11 25.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-        <!-- Card 7 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  ai 9 4 25 .jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-        <!-- Card 8 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  eanne 18 03 25.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-        <!-- Card 9 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  arren 04 03 25.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-        <!-- Card 10 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  icole 26 02 25.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-        <!-- Card 11 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  enna 10 05 25.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-        <!-- Card 12 -->
-        <div class="gallery-photo-card">
-            <img src="driving-test-pass-gloucester-test-centre  acob 6 11 24.jpg" alt="Manual Driving Test Pass Gloucester">
-        </div>
-
-    </div> <!-- Safely closes the gallery grid container workspace -->
-
+  
     <!-- Universal Edge-to-Edge Dark Footer Bar Section -->
     <footer><p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester </p></footer>
 

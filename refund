@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refund Policy | DMW Driving School Gloucester</title>
+    <style>
+        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
+        
+        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
+        * { box-sizing: border-box; }
+
+        /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
+        .master-sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 10000;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        /* High-Visibility Pulse Booking Strip Banner (Super Bold & Large text) */
+        .top-info-banner { 
+            background-color: #111111; 
+            color: #ffffff; 
+            text-align: center; 
+            padding: 14px 20px; 
+            font-size: 1.25rem; 
+            font-weight: 900 !important; 
+            letter-spacing: 1px;
+            animation: bookingPulse 1.5s infinite ease-in-out; 
+            margin: 0;
+            border-bottom: 1px solid #222;
+            width: 100%;
+        }
+
+        /* Smooth CSS Animation Engine: Transitions text between white and flashing hazard yellow */
+        @keyframes bookingPulse {
+            0% { color: #ffffff; text-shadow: none; }
+            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 
+            100% { color: #ffffff; text-shadow: none; }
+        }
+
+        /* Fixed Navigation Header Bar Area */
+        header { background-color: #111111; margin: 0; width: 100%; }
+        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
+        .brand-logo img { height: 60px; width: auto; display: block; }
+        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
+        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
+        .nav-links-list li a:hover { color: #3498db; }
+
+        /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
+        .sticky-enquiry-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px; 
+            background-color: var(--dmw-main-blue);
+            color: #ffffff !important;
+            padding: 8px 14px; 
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.85rem; 
+            box-shadow: 0 4px 12px rgba(10, 76, 161, 0.35);
+            z-index: 99999; 
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        .sticky-enquiry-widget:hover {
+            background-color: var(--dmw-deep-navy);
+            transform: scale(1.05);
+        }
+        footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 60px; }
+
+        @media (max-width: 768px) { 
+            .navbar-shell { flex-direction: column; gap: 15px; } 
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Master Wrapper Box Container: Forces both bars to stick to the top window ceiling when scrolling -->
+    <div class="master-sticky-header">
+        <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
+        <header>
+            <div class="navbar-shell">
+                <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
+                <nav>
+                    <ul class="nav-links-list">
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="pass-photos.html">Pass Photos</a></li>
+                        <li><a href="contact.html">Contact Us</a></li>
+                        <li><a href="terms.html">Terms and Conditions</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </header>
+    </div>
+
+    <!-- Main Content Structural Frame Area -->
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 1140px; margin: 45px auto; padding: 0 20px; color: #333; box-sizing: border-box;">
+      
+      <!-- Header Card (Soft Grey Background Layout) -->
+      <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; background-color: #f8f9fa; padding: 24px 20px; margin-bottom: 35px; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+        <h2 style="margin: 0; color: #2c3e50; font-size: 1.6em; font-weight: bold; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px;">⚖️ Refund Policy</h2>
+        <p style="margin: 6px 0 0 0; color: #7f8c8d; font-size: 0.95em; font-weight: 500;">DMW Driving School Manual Tuition Balance & Processing Rules</p>
+      </div>
+
+      <!-- Content Guidelines Layout Rows -->
+      <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+        <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 15px;">1. LESSON TUITION & CANCELLATIONS</h4>
+        <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+          <p style="margin: 0 0 10px 0;"><strong>1.1.</strong> You are entitled to cancel or rearrange your lesson tuition up to 48 hours prior to the booked time without penalty.</p>
+          <p style="margin: 0 0 10px 0;"><strong>1.2.</strong> Cancellations made with at least 48 hours' notice will entitle you to a full credit or refund. Within 48 hours, the fee is forfeited.</p>
+          <p style="margin: 0 0 10px 0;"><strong>1.3.</strong> No refunds after 6 months from the last lesson, unless agreed otherwise.</p>
+          <p style="margin: 0 0 10px 0;"><strong>1.4.</strong> Valid refunds are subject to a £15 administration charge.</p>
+          <p style="margin: 0 0 10px 0;"><strong>1.5.</strong> Refunds via the original payment method, or bank transfer if not possible.</p>
+          <p style="margin: 0 0 10px 0;"><strong>1.6.</strong> Additional proof of identity may be required.</p>
+          <p style="margin: 0;"><strong>1.7.</strong> Approved refunds may take 14 to 28 working days to clear.</p>
+        </div>
+      </div>
+        
+      <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+        <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 15px;">2. ADVANCED PAYMENTS & BLOCK BOOKINGS</h4>
+        <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+          <p style="margin: 0 0 10px 0;"><strong>2.1.</strong> 14-day cooling-off period for unused, unstarted lessons.</p>
+          <p style="margin: 0 0 10px 0;"><strong>2.2.</strong> Block packages expire after 6 months.</p>
+          <p style="margin: 0;"><strong>2.3.</strong> Refunds for partial blocks recalculated at the standard rate, minus £15 fee.</p>
+        </div>
+      </div>
+      <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; margin-bottom: 35px; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+        <h4 style="color: #c0392b; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #f9ebea; padding-bottom: 8px; margin-bottom: 15px;">3. RESCHEDULING POLICY</h4>
+        <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+          <p style="margin: 0 0 10px 0;"><strong>3.1.</strong> Changes permitted 48 hours in advance, subject to availability.</p>
+          <p style="margin: 0 0 10px 0;"><strong>3.2.</strong> Right to refuse rebooking if lessons missed twice without notice.</p>
+          <p style="margin: 0;"><strong>3.3.</strong> Rescheduled hours must occur within 6 months.</p>
+        </div>
+      </div>
+
+    </div> <!-- Closes out main content structural frame box container -->
+
+    <!-- Professional Site Footer Bar -->
+    <footer><p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p></footer>
+
+
+    </a>
+</body>
+</html>
+

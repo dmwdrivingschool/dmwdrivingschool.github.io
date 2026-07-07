@@ -1,126 +1,216 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms and Conditions | DMW Driving School Gloucester</title>
+    <style>
+        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
+        
+        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
+        * { box-sizing: border-box; }
+
+        /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
+        .master-sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 10000;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        /* High-Visibility Pulse Booking Strip Banner (Super Bold & Large text) */
+        .top-info-banner { 
+            background-color: #111111; 
+            color: #ffffff; 
+            text-align: center; 
+            padding: 14px 20px; 
+            font-size: 1.25rem; 
+            font-weight: 900 !important; 
+            letter-spacing: 1px;
+            animation: bookingPulse 1.5s infinite ease-in-out; 
+            margin: 0;
+            border-bottom: 1px solid #222;
+            width: 100%;
+        }
+
+        /* Smooth CSS Animation Engine: Transitions text between white and flashing hazard yellow */
+        @keyframes bookingPulse {
+            0% { color: #ffffff; text-shadow: none; }
+            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 
+            100% { color: #ffffff; text-shadow: none; }
+        }
+
+        /* Fixed Navigation Header Bar Area */
+        header { background-color: #111111; margin: 0; width: 100%; }
+        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
+        .brand-logo img { height: 60px; width: auto; display: block; }
+        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
+        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
+        .nav-links-list li a:hover { color: #3498db; }
+
+        /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
+        .sticky-enquiry-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px; 
+            background-color: var(--dmw-main-blue);
+            color: #ffffff !important;
+            padding: 8px 14px; 
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.85rem; 
+            box-shadow: 0 4px 12px rgba(10, 76, 161, 0.35);
+            z-index: 99999; 
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        .sticky-enquiry-widget:hover {
+            background-color: var(--dmw-deep-navy);
+            transform: scale(1.05);
+        }
+        footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 60px; }
+
+        @media (max-width: 768px) { 
+            .navbar-shell { flex-direction: column; gap: 15px; } 
+        }
+    </style>
+</head>
 <body>
- <!-- Master Wrapper Box Container: Forces both bars to stick to the top glass window when scrolling -->
+
+    <!-- Master Wrapper Box Container: Forces both bars to stick to the top glass window when scrolling -->
     <div class="master-sticky-header">
         <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
-    
-    <!-- Sticky White Navbar Shell Component -->
-    <header>
-        <div class="navbar-shell">
-            <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
-            <nav>
-                <ul class="nav-links-list">
-                    <li><a href="index.html">Home</a></li>
-                   <li><a href="pass-photos.html">Pass Photos</a></li>
-                  <li><a href="contact.html">Contact Us</a></li>
-                    <li><a href="terms.html">Terms and conditions</a></li>
-                </ul>
-            </nav>
+        <header>
+            <div class="navbar-shell">
+                <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
+                <nav>
+                    <ul class="nav-links-list">
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="pass-photos.html">Pass Photos</a></li>
+                        <li><a href="contact.html">Contact Us</a></li>
+                        <li><a href="terms.html">Terms and Conditions</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </header>
+    </div>
+
+    <!-- Main Content Structural Frame Area -->
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 1140px; margin: 45px auto; padding: 0 20px; color: #333; box-sizing: border-box;">
+      
+      <!-- Header Card (Soft Grey Background) -->
+      <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; background-color: #f8f9fa; padding: 24px 20px; margin-bottom: 35px; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+        <h2 style="margin: 0; color: #2c3e50; font-size: 1.6em; font-weight: bold; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px;">📋 Terms and Conditions</h2>
+        <p style="margin: 6px 0 0 0; color: #7f8c8d; font-size: 0.95em; font-weight: 500;">DMW Driving School Manual Tuition Agreement</p>
+        <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e8f0; color: #e74c3c; font-size: 0.92em; font-weight: bold; line-height: 1.4; text-align: left;">
+          ⚠️ All trainees must possess a valid, signed provisional license and meet DVSA eyesight requirements.
         </div>
-    </header>
-
-<div style="font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; color: #333; box-sizing: border-box; padding: 10px;">
-  
-  <!-- Header Card (Soft Grey Background) -->
-  <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; background-color: #f8f9fa; padding: 24px 20px; margin-bottom: 25px; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
-    <h2 style="margin: 0; color: #2c3e50; font-size: 1.4em; letter-spacing: 0.3px;">📋 Terms and Conditions</h2>
-    <p style="margin: 6px 0 0 0; color: #7f8c8d; font-size: 0.9em; font-weight: 500;">DMW Driving School Manual Tuition Agreement</p>
-    <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e8f0; color: #e74c3c; font-size: 0.92em; font-weight: bold; line-height: 1.4; text-align: left;">
-      ⚠️ All trainees must possess a valid, signed provisional license and meet DVSA eyesight requirements.
-    </div>
-  </div>
-
-  <!-- Content Guidelines Matrix (All 8 Clauses Verbatim with Numbered Decimals) -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 25px;">
-    
-    <!-- 1. INSURANCE -->
-    <div style="border: 1px solid #ddd; padding: 18px; border-radius: 8px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.01); display: flex; flex-direction: column;">
-      <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.05em; border-bottom: 2px solid #edf2f7; padding-bottom: 6px; margin-bottom: 10px;">1. INSURANCE</h4>
-      <div style="font-size: 0.88em; line-height: 1.5; color: #4a5568;">
-        <p style="margin: 0;"><strong>1.1.</strong> Fees include public liability coverage for trainees driving school vehicles, provided they are supervised by the instructor or a DVSA examiner during a test.</p>
       </div>
-    </div>
-    
-    <!-- 2. PAYMENTS & REFUNDS -->
-    <div style="border: 1px solid #ddd; padding: 18px; border-radius: 8px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.01); display: flex; flex-direction: column;">
-      <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.05em; border-bottom: 2px solid #edf2f7; padding-bottom: 6px; margin-bottom: 10px;">2. PAYMENTS & REFUNDS</h4>
-      <div style="font-size: 0.88em; line-height: 1.5; color: #4a5568;">
-        <p style="margin: 0 0 10px 0;"><strong>2.1. Payment is required in advance.</strong></p>
-        <p style="margin: 0 0 10px 0;"><strong>2.2. 14-Day Cancellation:</strong> Per UK law, you have a 14-day cooling-off period to cancel and receive a full refund, provided training has not started. Starting lessons within this period waives this right for hours delivered.</p>
-        <p style="margin: 0 0 10px 0;"><strong>2.3. Refunds:</strong> Unused hours from prepaid blocks are refundable for 6 months. Partial refunds recalculate lessons at the standard rate, with a £15 admin fee.</p>
-        <p style="margin: 0;"><strong>2.4. Invoices:</strong> Requested invoices incur a £2.50 fee.</p>
+
+      <!-- Content Guidelines Matrix (Responsive Layout Grid Engine) -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px; margin-bottom: 35px;">
+        
+        <!-- 1. INSURANCE -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">1. INSURANCE</h4>
+          <div style="font-size: 0.9em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0;"><strong>1.1.</strong> Fees include public liability coverage for trainees driving school vehicles, provided they are supervised by the instructor or a DVSA examiner during a test.</p>
+          </div>
+        </div>
+        
+        <!-- 2. PAYMENTS & REFUNDS -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">2. PAYMENTS & REFUNDS</h4>
+          <div style="font-size: 0.9em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0 0 10px 0;"><strong>2.1. Payment is required in advance.</strong></p>
+            <p style="margin: 0 0 10px 0;"><strong>2.2. 14-Day Cancellation:</strong> Per UK law, you have a 14-day cooling-off period to cancel and receive a full refund, provided training has not started. Starting lessons within this period waives this right for hours delivered.</p>
+            <p style="margin: 0 0 10px 0;"><strong>2.3. Refunds:</strong> Unused hours from prepaid blocks are refundable for 6 months. Partial refunds recalculate lessons at the standard rate, with a £15 admin fee.</p>
+            <p style="margin: 0;"><strong>2.4. Invoices:</strong> Requested invoices incur a £2.50 fee.</p>
+          </div>
+        </div>
+        <!-- 3. CANCELLATION OF BOOKED LESSONS -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: #c0392b; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #f9ebea; padding-bottom: 8px; margin-bottom: 12px;">3. CANCELLATION NOTICE</h4>
+          <div style="font-size: 0.9em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0 0 10px 0;"><strong>3.1.</strong> A minimum of 48 hours' notice is required to cancel or rearrange lessons to avoid losing the full fee.</p>
+            <p style="margin: 0;"><strong>3.2.</strong> The instructor will provide 48 hours' notice for cancellations, except for emergencies or bad weather.</p>
+          </div>
+        </div>
+
+        <!-- 4.a OFFICIAL DRIVING TESTS -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">4.a OFFICIAL TESTS</h4>
+          <div style="font-size: 0.9em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0 0 10px 0;"><strong>4.1.</strong> The school may refuse the vehicle for a test if the trainee is not safe.</p>
+            <p style="margin: 0 0 10px 0;"><strong>4.2.</strong> Pupils are responsible for booking tests and complying with DVSA notice requirements for cancellations.</p>
+            <p style="margin: 0;"><strong>4.3.</strong> The school may claim costs for vehicle damage caused by the pupil.</p>
+          </div>
+        </div>
+
+        <!-- 4.b TEST TERMINATION -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">4.b TEST TERMINATION</h4>
+          <div style="font-size: 0.9em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0 0 10px 0;"><strong>4.4.</strong> If a test is terminated by the examiner, permission to drive the school car terminates immediately.</p>
+            <p style="margin: 0;"><strong>4.5.</strong> You must surrender the keys, as driving without the instructor is illegal, breaches insurance, and violates these terms.</p>
+          </div>
+        </div>
+
+        <!-- 5. APPOINTMENTS -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">5. APPOINTMENTS</h4>
+          <div style="font-size: 0.9em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0 0 10px 0;"><strong>5.1.</strong> The school is not liable for cancellations due to weather, mechanical issues, or staff absence.</p>
+            <p style="margin: 0;"><strong>5.2.</strong> Instructors will wait 15 minutes at the pickup point before charging for a missed lesson.</p>
+          </div>
+        </div>
+
+        <!-- 6. PERSONAL PROPERTY -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">6. PERSONAL PROPERTY</h4>
+          <div style="font-size: 0.9em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0;"><strong>6.1.</strong> The school is not responsible for personal items lost or damaged in vehicles or on premises.</p>
+          </div>
+        </div>
+        <!-- 7. DRUGS/ALCOHOL MISUSE -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: #c0392b; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #f9ebea; padding-bottom: 8px; margin-bottom: 12px;">7. MISUSE POLICY</h4>
+          <div style="font-size: 0.9em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0 0 10px 0;"><strong>7.1.</strong> Driving under the influence is strictly prohibited.</p>
+            <p style="margin: 0 0 10px 0;"><strong>7.2.</strong> Instructors will refuse to provide lessons if misuse is suspected.</p>
+            <p style="margin: 0;"><strong>7.3.</strong> Prescriptions affecting driving must be disclosed.</p>
+          </div>
+        </div>
+
+        <!-- 8. DATA PROTECTION (GDPR) -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">8. DATA PROTECTION</h4>
+          <div style="font-size: 0.9em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0 0 10px 0;"><strong>8.1.</strong> Personal data will be securely processed and stored in compliance with UK regulations.</p>
+            <p style="margin: 0;"><strong>8.2.</strong> No unauthorized sharing of information will occur.</p>
+          </div>
+        </div>
+
+      </div> <!-- Closes out the layout grid matrix safely -->
+
+      <!-- Refund CTA Footer Section Panel -->
+      <div style="padding: 24px 20px; text-align: center; background-color: #fff; border: 1px solid #ddd; border-radius: 12px; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+        <p style="margin: 0 0 16px 0; color: #2c3e50; font-size: 0.95em; font-weight: bold; line-height: 1.5;">By booking lessons, you agree to these terms and the DMW Driving School refund policy.</p>
+        <a href="https://dmwdrivingschool.co.uk" target="_blank" style="display: inline-block; background-color: #2ecc71; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 0.95em; box-shadow: 0 3px 6px rgba(46, 204, 113, 0.2); letter-spacing: 0.3px;">⚖️ View Refund Policy</a>
       </div>
-    </div>
 
-    <!-- 3. CANCELLATION OF BOOKED LESSONS -->
-    <div style="border: 1px solid #ddd; padding: 18px; border-radius: 8px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.01); display: flex; flex-direction: column;">
-      <h4 style="color: #c0392b; margin-top: 0; font-size: 1.05em; border-bottom: 2px solid #f9ebea; padding-bottom: 6px; margin-bottom: 10px;">3. CANCELLATION NOTICE</h4>
-      <div style="font-size: 0.88em; line-height: 1.5; color: #4a5568;">
-        <p style="margin: 0 0 10px 0;"><strong>3.1.</strong> A minimum of 48 hours' notice is required to cancel or rearrange lessons to avoid losing the full fee.</p>
-        <p style="margin: 0;"><strong>3.2.</strong> The instructor will provide 48 hours' notice for cancellations, except for emergencies or bad weather.</p>
-      </div>
-    </div>
+    </div> <!-- Closes out main content structural frame box container -->
 
-    <!-- 4.a OFFICIAL DRIVING TESTS -->
-    <div style="border: 1px solid #ddd; padding: 18px; border-radius: 8px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.01); display: flex; flex-direction: column;">
-      <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.05em; border-bottom: 2px solid #edf2f7; padding-bottom: 6px; margin-bottom: 10px;">4.a OFFICIAL TESTS</h4>
-      <div style="font-size: 0.88em; line-height: 1.5; color: #4a5568;">
-        <p style="margin: 0 0 10px 0;"><strong>4.1.</strong> The school may refuse the vehicle for a test if the trainee is not safe.</p>
-        <p style="margin: 0 0 10px 0;"><strong>4.2.</strong> Pupils are responsible for booking tests and complying with DVSA notice requirements for cancellations.</p>
-        <p style="margin: 0;"><strong>4.3.</strong> The school may claim costs for vehicle damage caused by the pupil.</p>
-      </div>
-    </div>
+    <footer><p>&copy; 2026 DMW Driving School | Professional Manual Instruction Gloucester.</p></footer>
 
-    <!-- 4.b TEST TERMINATION -->
-    <div style="border: 1px solid #ddd; padding: 18px; border-radius: 8px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.01); display: flex; flex-direction: column;">
-      <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.05em; border-bottom: 2px solid #edf2f7; padding-bottom: 6px; margin-bottom: 10px;">4.b TEST TERMINATION</h4>
-      <div style="font-size: 0.88em; line-height: 1.5; color: #4a5568;">
-        <p style="margin: 0 0 10px 0;"><strong>4.4.</strong> If a test is terminated by the examiner, permission to drive the school car terminates immediately.</p>
-        <p style="margin: 0;"><strong>4.5.</strong> You must surrender the keys, as driving without the instructor is illegal, breaches insurance, and violates these terms.</p>
-      </div>
-    </div>
-
-    <!-- 5. APPOINTMENTS -->
-    <div style="border: 1px solid #ddd; padding: 18px; border-radius: 8px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.01); display: flex; flex-direction: column;">
-      <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.05em; border-bottom: 2px solid #edf2f7; padding-bottom: 6px; margin-bottom: 10px;">5. APPOINTMENTS</h4>
-      <div style="font-size: 0.88em; line-height: 1.5; color: #4a5568;">
-        <p style="margin: 0 0 10px 0;"><strong>5.1.</strong> The school is not liable for cancellations due to weather, mechanical issues, or staff absence.</p>
-        <p style="margin: 0;"><strong>5.2.</strong> Instructors will wait 15 minutes at the pickup point before charging for a missed lesson.</p>
-      </div>
-    </div>
-
-    <!-- 6. PERSONAL PROPERTY -->
-    <div style="border: 1px solid #ddd; padding: 18px; border-radius: 8px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.01); display: flex; flex-direction: column;">
-      <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.05em; border-bottom: 2px solid #edf2f7; padding-bottom: 6px; margin-bottom: 10px;">6. PERSONAL PROPERTY</h4>
-      <div style="font-size: 0.88em; line-height: 1.5; color: #4a5568;">
-        <p style="margin: 0;"><strong>6.1.</strong> The school is not responsible for personal items lost or damaged in vehicles or on premises.</p>
-      </div>
-    </div>
-
-    <!-- 7. DRUGS/ALCOHOL MISUSE -->
-    <div style="border: 1px solid #ddd; padding: 18px; border-radius: 8px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.01); display: flex; flex-direction: column;">
-      <h4 style="color: #c0392b; margin-top: 0; font-size: 1.05em; border-bottom: 2px solid #f9ebea; padding-bottom: 6px; margin-bottom: 10px;">7. MISUSE POLICY</h4>
-      <div style="font-size: 0.88em; line-height: 1.5; color: #4a5568;">
-        <p style="margin: 0 0 10px 0;"><strong>7.1.</strong> Driving under the influence is strictly prohibited.</p>
-        <p style="margin: 0 0 10px 0;"><strong>7.2.</strong> Instructors will refuse to provide lessons if misuse is suspected.</p>
-        <p style="margin: 0;"><strong>7.3.</strong> Prescriptions affecting driving must be disclosed.</p>
-      </div>
-    </div>
-
-    <!-- 8. DATA PROTECTION (GDPR) -->
-    <div style="border: 1px solid #ddd; padding: 18px; border-radius: 8px; background-color: #fff; box-sizing: border-box; box-shadow: 0 4px 6px rgba(0,0,0,0.01); display: flex; flex-direction: column;">
-      <h4 style="color: #2c3e50; margin-top: 0; font-size: 1.05em; border-bottom: 2px solid #edf2f7; padding-bottom: 6px; margin-bottom: 10px;">8. DATA PROTECTION</h4>
-      <div style="font-size: 0.88em; line-height: 1.5; color: #4a5568;">
-        <p style="margin: 0 0 10px 0;"><strong>8.1.</strong> Personal data will be securely processed and stored in compliance with UK regulations.</p>
-        <p style="margin: 0;"><strong>8.2.</strong> No unauthorized sharing of information will occur.</p>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Refund CTA (Matches the target="_blank" format of your review page) -->
-  <div style="padding: 24px 20px; text-align: center; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 12px; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
-    <p style="margin: 0 0 14px 0; color: #2c3e50; font-size: 0.92em; font-weight: bold; line-height: 1.4;">By booking lessons, you agree to these terms and the DMW Driving School refund policy.</p>
-    <a href="https://www.dmwdrivingschool.co.uk/terms-and-conditions/refund-policy" target="_blank" style="display: inline-block; background-color: #2ecc71; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 0.95em; box-shadow: 0 3px 6px rgba(46, 204, 113, 0.2); letter-spacing: 0.3px; font-family: Arial, sans-serif;">⚖️ View Refund Policy</a>
-  </div>
-
-</div>
+    <!-- Compact Sticky Floating Right-Side Booking Trigger Button Widget Layout -->
+    <a href="https://totaldrive.app" target="_blank" class="sticky-enquiry-widget">
+        📅 Book Now
+    </a>
+</body>
+</html>

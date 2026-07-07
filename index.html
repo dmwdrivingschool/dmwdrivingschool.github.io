@@ -42,7 +42,6 @@
         @media (max-width: 768px) { 
             .navbar-shell { flex-direction: column; gap: 15px; } 
             .content-workspace { grid-template-columns: 1fr; }
-            .desktop-only { display: none !important; }
         }
     </style>
 </head>
@@ -199,7 +198,7 @@
             "driving-test-pass-gloucester-test-centre  arla 4 12 25.jpg",
             "driving-test-pass-gloucester-test-centre  ayleigh 5 11 25.jpg",
             "driving-test-pass-gloucester-test-centre  ai 9 4 25 .jpg",
-            "driving-test-pass-gloucester-test-centre  anny 12 05 26.jpg"
+            "driving-test-pass-gloucester-test-centre  anny 12 05 26.jpg",
             "driving-test-pass-gloucester-test-centre  eanne 18 03 25.jpg",
             "driving-test-pass-gloucester-test-centre  arren 04 03 25.jpg",
             "driving-test-pass-gloucester-test-centre  icole 26 02 25.jpg",
@@ -274,7 +273,7 @@
                 slideDiv.className = 'slide';
                 
                 const img = document.createElement('img');
-                img.src = encodeURIComponent(filename).replace(/%20/g, ' ');
+                img.src = encodeURI(filename);
                 img.alt = "Manual Driving Test Pass Gloucester";
                 
                 slideDiv.appendChild(img);

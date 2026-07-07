@@ -109,10 +109,9 @@
         </aside>
     </div>
 
-    <footer><p>&copy; 2026 DMW Driving School | Professional Manual Instruction Gloucester.</p></footer>
-
-    <script>
-        // The definitive, full list containing all 72 of your renamed file titles
+    <footer><p>&copy; 2018 DMW Driving School </p></footer>
+        <script>
+        // The full array of your 72 files with automated spaces safety filter applied
         const imagesList = [
             "driving-test-pass-gloucester-test-centre  anny 12 05 26.jpg",
             "driving-test-pass-gloucester-test-centre  qeel 03 03 26.jpg",
@@ -145,7 +144,7 @@
             "first-time-driving-test-pass-gloucester oanne 11 01 2023.jpg",
             "first-time-driving-test-pass-gloucester saiyah 08 11 2022 2 minors.jpg",
             "first-time-driving-test-pass-gloucester aiden 20 10 2022.jpg",
-"first-time-driving-test-pass-gloucester dam 11082022 1st time 6 imnors.jpg",
+            "first-time-driving-test-pass-gloucester dam 11082022 1st time 6 imnors.jpg",
             "first-time-driving-test-pass-gloucester 89963690_1995894340583933_1617668780453710282_n.jpg",
             "first-time-driving-test-pass-gloucester 72747850_1891376601035708_2790622638576925084_n.jpg",
             "first-time-driving-test-pass-gloucester 72996686_1893469770826391_4374105787595496802_n.jpg",
@@ -185,5 +184,40 @@
             "successful-pupil-driving-lessons-gloucester MG_20181220_095335_051.jpg",
             "successful-pupil-driving-lessons-gloucester MG_20190311_160245_014.jpg",
             "successful-pupil-driving-lessons-gloucester MG_20190515_163543_498.jpg",
-            "successful-pupil-driving-lessons-gloucester nnamed (2).jpg"];
-        // Automatically structure the carousel componentsconst container = document.getElementById('megaCarousel');imagesList.forEach((filename) => {const slideDiv = document.createElement('div');slideDiv.className = 'slide';const img = document.createElement('img');img.src = filename;img.alt = "Manual Driving Test Pass Gloucester";const caption = document.createElement('div');caption.className = 'slide-caption';caption.innerText = "Another Fantastic Driving Test Pass in Gloucester!";slideDiv.appendChild(img);slideDiv.appendChild(caption);container.appendChild(slideDiv);});// Sliding Animation Mechanicslet currentSlide = 0;function moveSlide(direction) {const slides = document.getElementById('megaCarousel');const totalSlides = imagesList.length;currentSlide = (currentSlide + direction + totalSlides) % totalSlides;slides.style.transform = translateX(-${currentSlide * 100}%);}// Auto-run carousel rotation interval (Cycles every 4 seconds)setInterval(() => moveSlide(1), 4000);
+            "successful-pupil-driving-lessons-gloucester nnamed (2).jpg"
+        ];
+
+        // Automatically structure the carousel components
+        const container = document.getElementById('megaCarousel');
+        imagesList.forEach((filename) => {
+            const slideDiv = document.createElement('div');
+            slideDiv.className = 'slide';
+            
+            const img = document.createElement('img');
+            img.src = encodeURIComponent(filename).replace(/%20/g, ' '); // Safety filter for double spacing in filenames
+            img.alt = "Manual Driving Test Pass Gloucester";
+            
+            const caption = document.createElement('div');
+            caption.className = 'slide-caption';
+            caption.innerText = "Another Fantastic Driving Test Pass in Gloucester!";
+            
+            slideDiv.appendChild(img);
+            slideDiv.appendChild(caption);
+            container.appendChild(slideDiv);
+        });
+
+        // Sliding Animation Mechanics Fix
+        let currentSlide = 0;
+        function moveSlide(direction) {
+            const slides = document.getElementById('megaCarousel');
+            const totalSlides = imagesList.length;
+            currentSlide = (currentSlide + direction + totalSlides) % totalSlides;
+            slides.style.transform = `translateX(-${currentSlide * 100}%)`;
+        }
+        
+        // Auto-run carousel rotation interval (Cycles every 4 seconds)
+        setInterval(() => moveSlide(1), 4000);
+    </script>
+</body>
+</html>
+

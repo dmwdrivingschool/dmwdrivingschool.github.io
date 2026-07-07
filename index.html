@@ -111,6 +111,7 @@
 
     <footer><p>&copy; 2018 DMW Driving School </p></footer>
         <script>
+           <script>
         // The full array of your 72 files with automated spaces safety filter applied
         const imagesList = [
             "driving-test-pass-gloucester-test-centre  anny 12 05 26.jpg",
@@ -194,15 +195,10 @@
             slideDiv.className = 'slide';
             
             const img = document.createElement('img');
-            img.src = encodeURIComponent(filename).replace(/%20/g, ' '); // Safety filter for double spacing in filenames
+            img.src = encodeURIComponent(filename).replace(/%20/g, ' '); // Handles double spacing
             img.alt = "Manual Driving Test Pass Gloucester";
             
-            const caption = document.createElement('div');
-            caption.className = 'slide-caption';
-            caption.innerText = "Another Fantastic Driving Test Pass in Gloucester!";
-            
             slideDiv.appendChild(img);
-            slideDiv.appendChild(caption);
             container.appendChild(slideDiv);
         });
 
@@ -220,4 +216,3 @@
     </script>
 </body>
 </html>
-

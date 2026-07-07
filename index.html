@@ -6,28 +6,38 @@
     <title>DMW Driving School Gloucester | Grade A Manual Driving Tuition</title>
     <style>
         :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
-        body { background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; margin: 0; padding: 0; }
+        
+        /* Direct Reset: Clears browser base defaults to permanently kill the top white gap gap */
+        html, body { margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
+        * { box-sizing: border-box; }
         
         /* Dark Theme Navigation Header Configuration Styles */
-        .top-info-banner { background-color: #111; color: #ffffff; text-align: center; padding: 9px 20px; font-size: 0.85rem; border-bottom: 1px solid #222; }
-        header { background-color: #111111; box-shadow: 0 4px 12px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000; }
+        .top-info-banner { background-color: #111; color: #ffffff; text-align: center; padding: 9px 20px; font-size: 0.85rem; border-bottom: 1px solid #222; margin: 0; }
+        header { background-color: #111111; box-shadow: 0 4px 12px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000; margin: 0; }
         .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
-        .brand-logo img { height: 60px; width: auto; display: block; } /* Filter completely removed to keep original colors */
+        .brand-logo img { height: 60px; width: auto; display: block; }
         .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
         .nav-links-list li a:hover { color: #3498db; }
         
-        /* Universal Responsive Workspace */
-        .content-workspace { max-width: 1140px; margin: 45px auto; padding: 0 20px; display: grid; grid-template-columns: 2.2fr 1.3fr; gap: 45px; }
+        /* Balanced-Height Workspace Grid (Forces left column and right column baseline leveling) */
+        .content-workspace { max-width: 1140px; margin: 45px auto; padding: 0 20px; display: grid; grid-template-columns: 2.2fr 1.3fr; gap: 45px; align-items: stretch; }
+        .editorial-narrative { display: flex; flex-direction: column; height: 100%; justify-content: space-between; }
         .editorial-narrative h2 { color: var(--dmw-deep-navy); margin-bottom: 18px; }
         .editorial-narrative p { margin-bottom: 20px; font-size: 1.05rem; }
         
-        /* Compact Value Proposition Box (Blue edge removed, height reduced) */
-        .value-propositions-container { background: #ffffff; padding: 16px 20px; border-radius: 12px; border: 1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,0.02); margin-bottom: 25px; }
+        /* Compact Value Proposition Box */
+        .value-propositions-container { background: #ffffff; padding: 14px 20px; border-radius: 12px; border: 1px solid #ddd; box-shadow: 0 4px 12px rgba(0,0,0,0.02); margin-bottom: 25px; }
         .core-benefits-checklist { list-style: none; }
         .core-benefits-checklist li { margin-bottom: 6px; font-weight: 600; font-size: 1.05rem; }
         
+        /* Equal-Height Card Framework Layout Properties */
+        .reviews-flex-grid { font-family: Arial, sans-serif; width: 100%; display: flex; flex-wrap: wrap; gap: 20px; color: #333; margin-top: auto; }
+        .balanced-review-card { flex: 1; min-width: 280px; border: 1px solid #ddd; border-radius: 12px; padding: 22px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        /* Sidebar Card Container Framework */
+        .service-areas-sidebar-card { font-family: Arial, sans-serif; width: 100%; height: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
+
         /* Universal Rolling Carousel Container */
         .carousel-heading { color: var(--dmw-deep-navy); margin: 0 0 15px 0; font-size: 1.6rem; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
         .carousel-container { position: relative; width: 100%; max-width: 650px; margin: 0 auto; overflow: hidden; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; border: 1px solid #e1e8ed; }
@@ -40,7 +50,7 @@
         .prev { left: 15px; }
         .next { right: 15px; }
 
-        .sidebar-panel-wrapper { display: flex; flex-direction: column; gap: 30px; }
+        .sidebar-panel-wrapper { display: flex; flex-direction: column; height: 100%; }
         footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 80px; }
         
         @media (max-width: 768px) { 
@@ -49,6 +59,7 @@
             .slide img { height: 280px; }
         }
     </style>
+
 </head>
     <body>
     <div class="top-info-banner">Questions? Email: admin@dmwdrivingschool.co.uk | Manual Instruction Specialties</div>
@@ -101,18 +112,21 @@
         <!-- Aligned Row Container Box for Double Feedback Cards -->
         <div style="font-family: Arial, sans-serif; display: flex; flex-wrap: wrap; gap: 20px; color: #333; margin-top: 25px;">
           
-          <!-- Card 1: 5-Star Review Spotlight + Integrated Google Review Link -->
-          <div style="flex: 1; min-width: 280px; border: 1px solid #ddd; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-              <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px; font-size: 1.1em; display: flex; align-items: center; gap: 6px;">⭐ Student Feedback</h3>
-              <div style="color: #f1c40f; font-size: 1.1em; margin: 10px 0;">★★★★★</div>
-              <p style="font-style: italic; color: #4a5568; font-size: 0.9em; line-height: 1.5; margin: 0 0 15px 0;">
-                "Absolutely fantastic driving instructor. Really down to earth, makes you feel extremely comfortable and is extremely calm and helpful. Dale helped me to progress quickly and was very helpful in giving great advice... thoroughly worth every single one of the five stars."
-              </p>
-              <div style="font-weight: bold; color: #2c3e50; font-size: 0.9em; text-align: right; margin-bottom: 15px;">
-                — James Godley (Google Review)
-              </div>
-            </div>
+            <!-- Aligned Row Container Box for Double Feedback Cards -->
+            <div class="reviews-flex-grid">
+              
+              <!-- Card 1: 5-Star Review Spotlight + Integrated Google Review Link -->
+              <div class="balanced-review-card">
+                <div>
+                  <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px; font-size: 1.1em; display: flex; align-items: center; gap: 6px;">⭐ Student Feedback</h3>
+                  <div style="color: #f1c40f; font-size: 1.1em; margin: 10px 0;">★★★★★</div>
+                  <p style="font-style: italic; color: #4a5568; font-size: 0.9em; line-height: 1.5; margin: 0 0 15px 0;">
+                    "Absolutely fantastic driving instructor. Really down to earth, makes you feel extremely comfortable and is extremely calm and helpful. Dale helped me to progress quickly and was very helpful in giving great advice... thoroughly worth every single one of the five stars."
+                  </p>
+                  <div style="font-weight: bold; color: #2c3e50; font-size: 0.9em; text-align: right; margin-bottom: 15px;">
+                    — James Godley (Google Review)
+                  </div>
+                </div>
             
             <!-- Integrated Sandbox-Proof Google Button -->
             <div style="border-top: 1px solid #eee; padding-top: 12px; text-align: center;">

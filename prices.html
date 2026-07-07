@@ -13,7 +13,7 @@
     <style>
         :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
         
-        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
+        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; font-family: Arial, sans-serif; }
         * { box-sizing: border-box; }
 
         /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
@@ -48,7 +48,7 @@
             100% { color: #ffffff; text-shadow: none; }
         }
 
-        /* Fixed Navigation Header Bar Area & Logo Height Constraint */
+        /* Fixed Navigation Header Bar Area & Core Image Height Constraints */
         header { background-color: #111111 !important; margin: 0; width: 100%; display: block; position: relative; z-index: 10010; }
         .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
         .brand-logo img { height: 60px; width: auto; display: block; }
@@ -74,7 +74,6 @@
             align-items: center;
             gap: 6px;
             transition: transform 0.2s ease, background-color 0.2s ease;
-            font-family: 'Segoe UI', Arial, sans-serif;
         }
         .sticky-enquiry-widget:hover {
             background-color: var(--dmw-deep-navy);
@@ -106,16 +105,22 @@
         </header>
     </div>
 
+    <!-- Main Content Structural Grid Frame Area -->
+    <div style="max-width: 1140px; margin: 45px auto; padding: 0 20px; box-sizing: border-box; width: 100%;">
+        
+        <h2 style="font-size: 1.6rem; font-weight: bold; color: var(--dmw-deep-navy); margin: 0 0 4px 0; padding: 0; display: flex; align-items: center; gap: 8px;">
+            💳 Tuition Fees & Packages
+        </h2>
+        <p style="margin: 0 0 20px 0; color: #7f8c8d; font-size: 0.95rem;">DMW Driving School Manual Training Rates</p>
+        
+        <p style="margin: 0 0 20px 0; font-size: 1.05rem; line-height: 1.6; color: #333;">Check our transparent, value-focused manual pricing options below. Save money on your route to test day by booking a multi-hour block package upfront.</p>
+        
+        <!-- Recommendation Alert Card -->
+        <div style="background-color: #e8f4fd; border-left: 4px solid #2b6cb0; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 35px; font-size: 0.95rem; line-height: 1.5; color: #2b6cb0; text-align: left;">
+            <strong style="color: var(--dmw-deep-navy); display: block; margin-bottom: 6px; font-size: 1rem;">⏱️ Why we highly recommend 90-minute or 2-hour lessons:</strong>
+            Research shows that learners who take longer sessions progress up to <strong>three times faster</strong>. Shorter 1-hour slots waste too much time on setup, recap, and traveling to specific test roads. 2-hour bookings maximize your actual practice time behind the wheel, giving you significantly better value and helping you pass sooner!
+        </div>
 
-  
-  <!-- Part 1: Smart Header & Lesson Advice Panel -->
-  <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; text-align: center;">
-    
-    <!-- Seamless Blended Header Bar -->
-    <div style="background-color: #f8f9fa; padding: 18px 20px; text-align: left; border-bottom: 1px solid #e2e8f0;">
-      <h2 style="margin: 0; color: #2c3e50; font-size: 1.4em; letter-spacing: 0.5px; display: flex; align-items: center; gap: 10px;">💳 Tuition Fees & Packages</h2>
-      <p style="margin: 4px 0 0 0; color: #7f8c8d; font-size: 0.9em;">DMW Driving School Manual Training Rates</p>
-    </div>
 
     <!-- Inner Content Area -->
     <div style="padding: 24px 20px 20px 20px; box-sizing: border-box;">

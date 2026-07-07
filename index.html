@@ -15,8 +15,8 @@
         .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
         .nav-links-list li a { text-decoration: none; color: #444; font-weight: 600; font-size: 0.95rem; }
         .cta-enquire-btn { background-color: var(--dmw-main-blue); color: #ffffff !important; padding: 10px 22px; border-radius: 6px; }
-        .jumbotron-hero { background: linear-gradient(135deg, var(--dmw-main-blue) 0%, var(--dmw-deep-navy) 100%); color: #ffffff; padding: 85px 20px; text-align: center; }
-        .jumbotron-hero h1 { font-size: 2.8rem; margin-bottom: 12px; }
+        
+        /* Universal Responsive Workspace */
         .content-workspace { max-width: 1140px; margin: 45px auto; padding: 0 20px; display: grid; grid-template-columns: 2.2fr 1.3fr; gap: 45px; }
         .editorial-narrative h2 { color: var(--dmw-deep-navy); margin-bottom: 18px; }
         .editorial-narrative p { margin-bottom: 20px; font-size: 1.05rem; }
@@ -24,14 +24,14 @@
         .core-benefits-checklist { list-style: none; }
         .core-benefits-checklist li { margin-bottom: 12px; font-weight: 600; font-size: 1.1rem; }
         
-        /* Carousel Configuration */
-        .carousel-heading { color: var(--dmw-deep-navy); margin: 35px 0 15px 0; font-size: 1.6rem; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+        /* Universal Rolling Carousel Container */
+        .carousel-heading { color: var(--dmw-deep-navy); margin: 0 0 15px 0; font-size: 1.6rem; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
         .carousel-container { position: relative; width: 100%; max-width: 650px; margin: 0 auto; overflow: hidden; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; border: 1px solid #e1e8ed; }
         .carousel-slides { display: flex; transition: transform 0.4s ease-in-out; }
         .slide { min-width: 100%; position: relative; }
         .slide img { width: 100%; height: 420px; object-fit: cover; display: block; }
         
-        .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(10, 76, 161, 0.85); color: white; border: none; padding: 14px 18px; font-size: 1.3rem; cursor: pointer; border-radius: 50%; z-index: 10; transition: 0.2s; }
+        .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(10, 76, 161, 0.85); color: white; border: none; padding: 14px 18px; font-size: 1.3rem; cursor: pointer; border-radius: 50%; z-index: 10; transition: 0.2s; user-select: none; }
         .carousel-btn:hover { background: var(--dmw-deep-navy); }
         .prev { left: 15px; }
         .next { right: 15px; }
@@ -41,11 +41,13 @@
         
         @media (max-width: 768px) { 
             .navbar-shell { flex-direction: column; gap: 15px; } 
-            .content-workspace { grid-template-columns: 1fr; }
+            .content-workspace { grid-template-columns: 1fr; gap: 30px; }
+            .slide img { height: 280px; }
         }
     </style>
 </head>
-<body>
+
+    <body>
     <div class="top-info-banner">Questions? Email: admin@dmwdrivingschool.co.uk | Manual Instruction Specialties</div>
     <header>
         <div class="navbar-shell">
@@ -71,85 +73,14 @@
             <h2>Professional Manual Driving Tuition</h2>
             <p>At DMW Driving School, we don’t just teach you to pass your practical test—we give you the lifelong confidence and skills required to stay safe on the road for life.</p>
             <p>As a Grade A Approved Driving Instructor, I pride myself on delivering a calm, patient, and highly enjoyable learning environment. Whether you are sitting behind the steering wheel for the very first time or looking for a structured path to test day, my relaxed approach is designed to make learning to drive fun.</p>
-
-            <li>⭐ Higher Than National Average Pass Rate</li>
+            
+            <div class="value-propositions-container">
+                <ul class="core-benefits-checklist">
+                    <li>⭐ Higher Than National Average Pass Rate</li>
                     <li>⭐ Dozens of 5-Star Learner Reviews</li>
                 </ul>
-            </div> <!-- Newly Integrated Student Feedback & TotalDrive Info Layout Cards -->
-<div style="font-family: Arial, sans-serif; width: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box;">
-  
-  <!-- Sleek Section Header Bar -->
-  <div style="background-color: #f8f9fa; padding: 16px 20px; text-align: left; border-bottom: 1px solid #e2e8f0;">
-    <h3 style="margin: 0; color: #2c3e50; font-size: 1.2em; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px;">📍 Our Service Areas</h3>
-    <p style="margin: 4px 0 0 0; color: #7f8c8d; font-size: 0.85em;">Providing reliable manual driving tuition across local communities (Click active areas to view map)</p>
-  </div>
-
-  <!-- Locations Layout Area -->
-  <div style="padding: 20px; box-sizing: border-box;">
-    <p style="margin: 0 0 16px 0; color: #4a5568; font-size: 0.95em; line-height: 1.5;">We offer local pick-up and drop-off services for your driving sessions across the following primary operating areas:</p>
-    
-    <!-- Uniform Local SEO Keyword Tags -->
-    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
-      
-      <!-- Clickable Locations (With Full Google Maps Destination Paths) -->
-      <button onclick="window.open('https://www.google.com/maps/place/Quedgeley,+Gloucester/@51.8244915,-2.2996541,14z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x487108872f20869d:0x9d04f6f653fb8f57!8m2!3d51.823669!4d-2.277564!16zL20vMDhzX2hx?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Quedgeley</button>
-      
-      <button onclick="window.open('https://www.google.com/maps/place/Kingsway,+Quedgeley,+Gloucester/@51.8222198,-2.2882273,14z/data=!3m1!4b1!4m6!3m5!1s0x4871089ac64b9c2f:0x998f9b5611d29849!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Kingsway</button>
-      
-      <button onclick="window.open('https://www.google.com/maps/place/Hardwicke/@51.8140916,-2.324007,14z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x4871081aa75c9bc5:0x26ca25af8253b705!8m2!3d51.8110039!4d-2.297818!16zL20vMDc4X3Ex?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Hardwicke</button>
-      
-      <button onclick="window.open('https://www.google.com/maps/place/Hunts+Grove,+Hardwicke,+Gloucester+GL2+4BH/@51.8090959,-2.2803583,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x487108f2cc5b56d5:0x98698b2da55aaea2!8m2!3d51.8090836!4d-2.2700371!16s%2Fg%2F11fsmwzh8c?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Hunts Grove</button>
-      
-      <button onclick="window.open('https://www.google.com/maps/place/Tuffley,+Gloucester/@51.8303928,-2.2647859,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x4871060282fb9e73:0xeae2466fe872b2e9!8m2!3d51.831861!4d-2.244692!16s%2Fm%2F05mthmn?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Tuffley</button>
-      
-      <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 Linden</span>
-      
-      <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 White City</span>
-      
-      <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 Tredworth</span>
-      
-      <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 Barton</span>
-      
-      <button onclick="window.open('https://www.google.com/maps/place/Gloucester/@51.840496,-2.2670237,13.75z/data=!4m6!3m5!1s0x4870fdfbf6ebf2cf:0xec709b9621e819cf!8m2!3d51.8642449!4d-2.238156!16zL20vMGhjOGg?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Gloucester City Centre</button>
-      
-      <button onclick="window.open('https://www.google.com/maps/place/Matson,+Gloucester/@51.8368718,-2.2275853,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x487105f77f3b3b09:0xa7682a12d029fa9a!8m2!3d51.8364764!4d-2.2143858!16s%2Fm%2F02q4rsy?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Matson</button>
-      
-      <button onclick="window.open('https://www.google.com/maps/place/Abbeydale,+Gloucester/@51.8408655,-2.2202791,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x4871058a44da6295:0x260d8b246aca2c32!8m2!3d51.8459409!4d-2.2151332!16s%2Fg%2F1jmcjfb1g?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Abbeydale/Abbeymead</button>
-      
-      <button onclick="window.open('https://www.google.com/maps/place/Coopers+Edge,+Gloucester+GL3+4FB/@51.8411202,-2.1924992,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x487105786a763a51:0x2950c1a6e8c27e1b!8m2!3d51.8411079!4d-2.182178!16s%2Fm%2F05zs1y2?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Coopers Edge</button>
-      
-      <button onclick="window.open('https://www.google.com/maps/place/Upton+St+Leonards,+Gloucester/@51.8310672,-2.2069224,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x4871058814c388c1:0xa0d8b266793ed30!8m2!3d51.8327372!4d-2.2003568!16s%2Fm%2F0640ktv?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Upton St Leonards</button>
-      
-      <button onclick="window.open('https://www.google.com/maps/place/Stonehouse/@51.7499678,-2.308482,14z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x487108583dd2ee77:0x2ae52ec879f307a9!8m2!3d51.743881!4d-2.279028!16zL20vMDUzYm15?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Stonehouse</button>
-
-    </div>
-
-    <!-- Consideration Note -->
-    <p style="margin: 0 0 14px 0; color: #718096; font-size: 0.88em; font-style: italic; line-height: 1.4;">
-      *Don't see your neighbourhood listed? Other local surrounding areas are gladly considered depending on current diary availability. Please enquire to check!
-    </p>
-
-    <!-- Operating Hours Reminder inside the block -->
-    <div style="background-color: #fffaf0; border-left: 4px solid #dd6b20; padding: 12px; border-radius: 0 6px 6px 0; font-size: 0.88em; color: #7b341e; line-height: 1.4;">
-      <strong>🕒 Lesson Times:</strong> Manual sessions operate strictly Monday to Friday, between 9:00 AM and 3:00 PM. Perfect for scheduling around college blocks, school runs, or work shifts!
-    </div>
-  </div>
-
-</div>
-            <!-- Single Carousel Container Box (Desktop Only) -->
-            <h3 class="carousel-heading">Our Successful Pupils Wall of Fame</h3>
-            <div class="carousel-container">
-                <div class="carousel-slides" id="megaCarousel">
-                    <!-- JavaScript dynamically inserts all 72 photo slides straight into this container box -->
-                </div>
-                <button class="carousel-btn prev" onclick="moveSlide(-1)">&#10094;</button>
-                <button class="carousel-btn next" onclick="moveSlide(1)">&#10095;</button>
             </div>
-        </main>
-        
-                <aside class="sidebar-panel-wrapper">
-            <!-- Student Feedback & TotalDrive -->
-            <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; color: #333; margin-top: 10px;">
+<div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; color: #333; margin-top: 10px;">
   
   <!-- Card 1: 5-Star Review Spotlight + Integrated Google Review Link -->
   <div style="flex: 1; min-width: 280px; border: 1px solid #ddd; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
@@ -191,9 +122,71 @@
   </div>
 
 </div>
-        </aside>
 
-<script
+            <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box;">
+  
+  <!-- Sleek Section Header Bar -->
+  <div style="background-color: #f8f9fa; padding: 16px 20px; text-align: left; border-bottom: 1px solid #e2e8f0;">
+    <h3 style="margin: 0; color: #2c3e50; font-size: 1.2em; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px;">📍 Our Service Areas</h3>
+    <p style="margin: 4px 0 0 0; color: #7f8c8d; font-size: 0.85em;">Providing reliable manual driving tuition across local communities (Click active areas to view map)</p>
+  </div>
+
+  <!-- Locations Layout Area -->
+  <div style="padding: 20px; box-sizing: border-box;">
+    <p style="margin: 0 0 16px 0; color: #4a5568; font-size: 0.95em; line-height: 1.5;">We offer local pick-up and drop-off services for your driving sessions across the following primary operating areas:</p>
+    
+    <!-- Uniform Local SEO Keyword Tags -->
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+      
+      <!-- Clickable Locations (With Full Google Maps Destination Paths) -->
+      <button onclick="window.open('https://www.google.com/maps/place/Quedgeley,+Gloucester/@51.8244915,-2.2996541,14z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x487108872f20869d:0x9d04f6f653fb8f57!8m2!3d51.823669!4d-2.277564!16zL20vMDhzX2hx?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Quedgeley</button>
+      
+      <button onclick="window.open('https://www.google.com/maps/place/Kingsway,+Quedgeley,+Gloucester/@51.8222198,-2.2882273,14z/data=!3m1!4b1!4m6!3m5!1s0x4871089ac64b9c2f:0x998f9b5611d29849!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Kingsway</button>
+      
+      <button onclick="window.open('https://www.google.com/maps/place/Hardwicke/@51.8140916,-2.324007,14z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x4871081aa75c9bc5:0x26ca25af8253b705!8m2!3d51.8110039!4d-2.297818!16zL20vMDc4X3Ex?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Hardwicke</button>
+      
+      <button onclick="window.open('https://www.google.com/maps/place/Hunts+Grove,+Hardwicke,+Gloucester+GL2+4BH/@51.8090959,-2.2803583,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x487108f2cc5b56d5:0x98698b2da55aaea2!8m2!3d51.8090836!4d-2.2700371!16s%2Fg%2F11fsmwzh8c?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Hunts Grove</button>
+      
+      <button onclick="window.open('https://www.google.com/maps/place/Tuffley,+Gloucester/@51.8303928,-2.2647859,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x4871060282fb9e73:0xeae2466fe872b2e9!8m2!3d51.831861!4d-2.244692!16s%2Fm%2F05mthmn?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Tuffley</button>
+      
+      <!-- Unclickable Flat Badges (Linden, White City, Tredworth, Barton) -->
+      <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 Linden</span>
+      
+      <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 White City</span>
+      
+      <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 Tredworth</span>
+      
+      <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 Barton</span>
+      
+      <!-- Remaining Clickable Locations (With Direct Pinned URLs) -->
+      <button onclick="window.open('https://www.google.com/maps/place/Gloucester/@51.840496,-2.2670237,13.75z/data=!4m6!3m5!1s0x4870fdfbf6ebf2cf:0xec709b9621e819cf!8m2!3d51.8642449!4d-2.238156!16zL20vMGhjOGg?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Gloucester City Centre</button>
+      
+      <button onclick="window.open('https://www.google.com/maps/place/Matson,+Gloucester/@51.8368718,-2.2275853,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x487105f77f3b3b09:0xa7682a12d029fa9a!8m2!3d51.8364764!4d-2.2143858!16s%2Fm%2F02q4rsy?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Matson</button>
+      
+      <button onclick="window.open('https://www.google.com/maps/place/Abbeydale,+Gloucester/@51.8408655,-2.2202791,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x4871058a44da6295:0x260d8b246aca2c32!8m2!3d51.8459409!4d-2.2151332!16s%2Fg%2F1jmcjfb1g?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Abbeydale/Abbeymead</button>
+      
+      <button onclick="window.open('https://www.google.com/maps/place/Coopers+Edge,+Gloucester+GL3+4FB/@51.8411202,-2.1924992,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x487105786a763a51:0x2950c1a6e8c27e1b!8m2!3d51.8411079!4d-2.182178!16s%2Fm%2F05zs1y2?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Coopers Edge</button>
+      
+      <button onclick="window.open('https://www.google.com/maps/place/Upton+St+Leonards,+Gloucester/@51.8310672,-2.2069224,15z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x4871058814c388c1:0xa0d8b266793ed30!8m2!3d51.8327372!4d-2.2003568!16s%2Fm%2F0640ktv?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Upton St Leonards</button>
+      
+      <button onclick="window.open('https://www.google.com/maps/place/Stonehouse/@51.7499678,-2.308482,14z/data=!3m1!4b1!4m15!1m8!3m7!1s0x4871089ac64b9c2f:0x998f9b5611d29849!2sKingsway,+Quedgeley,+Gloucester!3b1!8m2!3d51.8225735!4d-2.2659731!16s%2Fm%2F0g58mxf!3m5!1s0x487108583dd2ee77:0x2ae52ec879f307a9!8m2!3d51.743881!4d-2.279028!16zL20vMDUzYm15?entry=ttu&g_ep=EgoyMDI2MDYyOS4wIKXMDSoASAFQAw%3D%3D', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer; font-family: Arial, sans-serif;">📍 Stonehouse</button>
+
+    </div>
+
+    <!-- Consideration Note -->
+    <p style="margin: 0 0 14px 0; color: #718096; font-size: 0.88em; font-style: italic; line-height: 1.4;">
+      *Don't see your neighbourhood listed? Other local surrounding areas are gladly considered depending on current diary availability. Please enquire to check!
+    </p>
+
+    <!-- Operating Hours Reminder inside the block -->
+    <div style="background-color: #fffaf0; border-left: 4px solid #dd6b20; padding: 12px; border-radius: 0 6px 6px 0; font-size: 0.88em; color: #7b341e; line-height: 1.4;">
+      <strong>🕒 Lesson Times:</strong> Manual sessions operate strictly Monday to Friday, between 9:00 AM and 3:00 PM. Perfect for scheduling around college blocks, school runs, or work shifts!
+    </div>
+  </div>
+
+</div>
+
+  <script
         const imagesList = [
             "driving-test-pass-gloucester-test-centre  qeel 03 03 26.jpg",
             "driving-test-pass-gloucester-test-centre  hys 12 1 26.jpg",
@@ -201,7 +194,7 @@
             "driving-test-pass-gloucester-test-centre  arla 4 12 25.jpg",
             "driving-test-pass-gloucester-test-centre  ayleigh 5 11 25.jpg",
             "driving-test-pass-gloucester-test-centre  ai 9 4 25 .jpg",
-            "driving-test-pass-gloucester-test-centre  anny 12 05 26.jpg",
+            "driving-test-pass-gloucester-test-centre  anny 12 05 26.jpg"
             "driving-test-pass-gloucester-test-centre  eanne 18 03 25.jpg",
             "driving-test-pass-gloucester-test-centre  arren 04 03 25.jpg",
             "driving-test-pass-gloucester-test-centre  icole 26 02 25.jpg",
@@ -219,30 +212,6 @@
             "driving-test-pass-gloucester-test-centre  ridie.jpg",
             "driving-test-pass-gloucester-test-centre  mma.jpg",
             "driving-test-pass-gloucester-test-centre  yia 13 3 23.jpg",
-            "driving-test-pass-gloucester-test-centre  qeel 03 03 26.jpg",
-            "driving-test-pass-gloucester-test-centre hys 12 1 26.jpg",
-            "driving-test-pass-gloucester-test-centre eorgia 9 1 26.jpg",
-            "driving-test-pass-gloucester-test-centre arla 4 12 25.jpg",
-            "driving-test-pass-gloucester-test-centre ayleigh 5 11 25.jpg",
-            "driving-test-pass-gloucester-test-centre ai 9 4 25 .jpg",
-            "driving-test-pass-gloucester-test-centre anny 12 05 26.jpg",
-            "driving-test-pass-gloucester-test-centre eanne 18 03 25.jpg",
-            "driving-test-pass-gloucester-test-centre arren 04 03 25.jpg",
-            "driving-test-pass-gloucester-test-centre icole 26 02 25.jpg",
-            "driving-test-pass-gloucester-test-centre enna 10 05 25.jpg",
-            "driving-test-pass-gloucester-test-centre acob 6 11 24.jpg",
-            "driving-test-pass-gloucester-test-centre homas 23 10 24.jpg",
-            "driving-test-pass-gloucester-test-centre aiden 2 10 24 2 minors.jpg",
-            "driving-test-pass-gloucester-test-centre race 01 07 24 3 minors.jpg",
-            "driving-test-pass-gloucester-test-centre ameron 15 05 24 6minors.jpg",
-            "driving-test-pass-gloucester-test-centre aron 23 05 24 6minors.jpg",
-            "driving-test-pass-gloucester-test-centre anessa 29 05 24 4minors.jpg",
-            "driving-test-pass-gloucester-test-centre sobel 6 11 23.jpg",
-            "driving-test-pass-gloucester-test-centre ayton 3 11 23.jpg",
-            "driving-test-pass-gloucester-test-centre organ 17 10 23.jpg",
-            "driving-test-pass-gloucester-test-centre ridie.jpg",
-            "driving-test-pass-gloucester-test-centre mma.jpg",
-            "driving-test-pass-gloucester-test-centre yia 13 3 23.jpg",
             "first-time-driving-test-pass-gloucester yler 8 7 23.jpg",
             "first-time-driving-test-pass-gloucester en 8 8 23.jpg",
             "first-time-driving-test-pass-gloucester yan 1 minor 10 02 23.jpg",
@@ -300,7 +269,7 @@
                 slideDiv.className = 'slide';
                 
                 const img = document.createElement('img');
-                img.src = encodeURI(filename);
+                img.src = encodeURIComponent(filename).replace(/%20/g, ' ');
                 img.alt = "Manual Driving Test Pass Gloucester";
                 
                 slideDiv.appendChild(img);
@@ -323,4 +292,3 @@
 </body>
 </html>
  <footer><p>&copy; 2018 DMW Driving School | Professional Manual Driving Instruction Gloucester.</p></footer>
-

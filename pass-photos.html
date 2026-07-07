@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Successful Pupils Wall of Fame | DMW Driving School Gloucester</title>
-        <!-- Pass Photos Gallery SEO Tags Matrix -->
     <meta name="description" content="See our successful pupils wall of fame at DMW Driving School! Dozens of 5-star learner driving test pass photos across Gloucester, Quedgeley, and Kingsway.">
     <meta name="keywords" content="driving test passes gloucester, gloucester test centre passes, dmw driving school success, learn to drive gloucester reviews">
     <link rel="canonical" href="https://dmwdrivingschool.co.uk">
@@ -12,10 +11,10 @@
     <style>
         :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
         
-        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
+        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; font-family: 'Segoe UI', Arial, sans-serif; }
         * { box-sizing: border-box; }
 
-        /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
+        /* Sticky Layout Ceiling Container */
         .master-sticky-header {
             position: sticky;
             top: 0;
@@ -25,7 +24,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
-        /* High-Visibility Pulse Booking Strip Banner (Super Bold & Large text) */
+        /* High-Visibility Pulse Booking Strip Banner */
         .top-info-banner { 
             background-color: #111111; 
             color: #ffffff; 
@@ -40,22 +39,20 @@
             width: 100%;
         }
 
-        /* Smooth CSS Animation Engine */
         @keyframes bookingPulse {
             0% { color: #ffffff; text-shadow: none; }
             50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 
             100% { color: #ffffff; text-shadow: none; }
         }
 
-        /* Fixed Navigation Header Bar Area */
         header { background-color: #111111; margin: 0; width: 100%; }
         .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
         .brand-logo img { height: 60px; width: auto; display: block; }
-        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
+        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; padding: 0; margin: 0; }
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
         .nav-links-list li a:hover { color: #3498db; }
 
-        /* 3-Column Wall of Fame Responsive Grid Engine */
+        /* Responsive 3-Column Wall of Fame Grid */
         .gallery-grid-workspace {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -82,11 +79,12 @@
             width: 100%;
             height: 380px;
             object-fit: cover;
-            object-position: top;
+            object-position: center;
             display: block;
+            background-color: #e2e8f0;
         }
 
-        /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
+        /* Floating Enquiry Button Pinned Bottom-Right */
         .sticky-enquiry-widget {
             position: fixed;
             bottom: 20px;
@@ -104,12 +102,12 @@
             align-items: center;
             gap: 6px;
             transition: transform 0.2s ease, background-color 0.2s ease;
-            font-family: 'Segoe UI', Arial, sans-serif;
         }
         .sticky-enquiry-widget:hover {
             background-color: var(--dmw-deep-navy);
             transform: scale(1.05);
         }
+        
         footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 60px; width: 100%; }
 
         @media (max-width: 900px) {
@@ -118,6 +116,9 @@
         }
         @media (max-width: 768px) { 
             .navbar-shell { flex-direction: column; gap: 15px; } 
+        }
+        @media (max-width: 480px) {
+            .gallery-grid-workspace { grid-template-columns: 1fr; gap: 15px; }
         }
     </style>
 </head>
@@ -133,7 +134,7 @@
                     <ul class="nav-links-list">
                         <li><a href="index.html">Home</a></li>
                         <li><a href="prices.html">Prices</a></li>
-                        <li><a href="pass-photos.html">Pass Photos</a></li>
+                        <li><a href="pass-photos.html" style="color: #3498db;">Pass Photos</a></li>
                         <li><a href="contact.html">Contact Us</a></li>
                         <li><a href="terms.html">Terms and conditions</a></li>
                     </ul>
@@ -143,7 +144,7 @@
     </div>
 
     <!-- Gallery Narrative Header Box Container -->
-    <div style="max-width: 1140px; margin: 40px auto 10px auto; padding: 0 20px; font-family: 'Segoe UI', Arial, sans-serif; box-sizing: border-box;">
+    <div style="max-width: 1140px; margin: 40px auto 10px auto; padding: 0 20px; box-sizing: border-box;">
         <h2 style="font-size: 1.6rem; font-weight: bold; color: var(--dmw-deep-navy); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
             🎓 DMW Driving School Wall of Fame
         </h2>
@@ -154,15 +155,12 @@
             Ready to add your photo to our wall? Click Contact Us at the top of the page to lock in your lesson slots!
         </p>
     </div>
-    <!-- Master Grid Workspace Container (Handled Dynamically by the Automation Engine) -->
-    <div class="gallery-grid-workspace" id="wall-of-fame-grid"></div>
 
-    <!-- Master Grid Workspace Container -->
+    <!-- Empty Target Grid Container for GitHub Compilation -->
     <div class="gallery-grid-workspace" id="wall-of-fame-grid"></div>
-
     <script>
-        // Production Registry matching your exact local file names with their spaces
-        const photoRegistry = [
+        // The registry containing your exact file list configuration strings
+        const imagesList = [
             "driving-test-pass-gloucester-test-centre  qeel 03 03 26.jpg",
             "driving-test-pass-gloucester-test-centre  hys 12 1 26.jpg",
             "driving-test-pass-gloucester-test-centre  eorgia 9 1 26.jpg",
@@ -236,32 +234,33 @@
             "successful-pupil-driving-lessons-gloucester nnamed (2).jpg"
         ];
 
-        const gridContainer = document.getElementById('wall-of-fame-grid');
+        const targetGrid = document.getElementById('wall-of-fame-grid');
 
-        // Render loop
-        photoRegistry.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'gallery-photo-card';
+        // Dynamic Compilation Script Box Loop
+        imagesList.forEach(fileNameString => {
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'gallery-photo-card';
 
-            const img = document.createElement('img');
-            img.src = item.file;
-            img.alt = `Manual Driving Test Pass Gloucester - ${item.name}`;
-            img.loading = "lazy"; 
+            const photoEl = document.createElement('img');
+            
+            // encodeURI automatically formats raw file name spaces into web-safe URL parameters (%20) for GitHub
+            photoEl.src = encodeURI(fileNameString);
+            
+            photoEl.alt = "Manual Driving Test Pass Gloucester - DMW Driving School Successful Learner";
+            photoEl.loading = "lazy"; // Implements native performance lazy loading across all 71 images
 
-            card.appendChild(img);
-            gridContainer.appendChild(card);
+            cardWrapper.appendChild(photoEl);
+            targetGrid.appendChild(cardWrapper);
         });
     </script>
 
+    <!-- Universal Page Footer Bar -->
+    <footer><p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p></footer>
 
-    <!-- Opening Grid Workspace Area Container -->
-  
-    <!-- Universal Edge-to-Edge Dark Footer Bar Section -->
-    <footer><p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester </p></footer>
-
-    <!-- Compact Sticky Floating Right-Side Booking Trigger Button Widget Layout -->
-    <a href="https://www.totaldrive.app/a/enquiry_form.php?15941577856366" target="_blank" class="sticky-enquiry-widget">
+    <!-- Fixed Enquiry Button Trigger Element Section -->
+    <a href="https://totaldrive.app" target="_blank" class="sticky-enquiry-widget">
         📅 Enquire Now
     </a>
+
 </body>
 </html>

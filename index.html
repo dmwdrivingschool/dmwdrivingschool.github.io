@@ -10,18 +10,19 @@
         body { background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
         .top-info-banner { background-color: #111; color: #ffffff; text-align: center; padding: 9px 20px; font-size: 0.85rem; }
         header { background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 1000; }
-        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; }
-        .brand-title a { font-size: 1.6rem; font-weight: 800; color: var(--dmw-main-blue); text-decoration: none; }
-        .nav-links-list { display: flex; list-style: none; gap: 24px; }
+        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
+        .brand-logo img { height: 60px; width: auto; display: block; }
+        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
         .nav-links-list li a { text-decoration: none; color: #444; font-weight: 600; font-size: 0.95rem; }
         .cta-enquire-btn { background-color: var(--dmw-main-blue); color: #ffffff !important; padding: 10px 22px; border-radius: 6px; }
         .jumbotron-hero { background: linear-gradient(135deg, var(--dmw-main-blue) 0%, var(--dmw-deep-navy) 100%); color: #ffffff; padding: 85px 20px; text-align: center; }
         .jumbotron-hero h1 { font-size: 2.8rem; margin-bottom: 12px; }
         .content-workspace { max-width: 1140px; margin: 45px auto; padding: 0 20px; display: grid; grid-template-columns: 2.2fr 1fr; gap: 45px; }
         .editorial-narrative h2 { color: var(--dmw-deep-navy); margin-bottom: 18px; }
-        .value-propositions-container { background: #ffffff; padding: 30px; border-radius: 12px; border-left: 6px solid var(--dmw-main-blue); }
+        .editorial-narrative p { margin-bottom: 20px; font-size: 1.05rem; }
+        .value-propositions-container { background: #ffffff; padding: 30px; border-radius: 12px; border-left: 6px solid var(--dmw-main-blue); box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
         .core-benefits-checklist { list-style: none; }
-        .core-benefits-checklist li { margin-bottom: 12px; font-weight: 500; }
+        .core-benefits-checklist li { margin-bottom: 12px; font-weight: 600; font-size: 1.1rem; }
         .sidebar-panel-wrapper { display: flex; flex-direction: column; gap: 30px; }
         .widget-card { background: #ffffff; padding: 25px; border-radius: 12px; border: 1px solid #e1e8ed; }
         .widget-card h3 { color: var(--dmw-deep-navy); margin-bottom: 15px; }
@@ -33,25 +34,53 @@
 </head>
 <body>
     <div class="top-info-banner">Questions? Email: admin@dmwdrivingschool.co.uk | Manual Instruction Specialties</div>
-    <header><div class="navbar-shell"><div class="brand-title"><a href="index.html">DMW Driving School</a></div><nav><ul class="nav-links-list"><li><a href="index.html">Home</a></li><li><a href="prices.html">Prices</a></li><li><a href="contact.html" class="cta-enquire-btn">Enquire</a></li></ul></nav></div></header>
-    <section class="jumbotron-hero"><h1>Welcome to DMW Driving School</h1><p>Grade A Manual Driving Tuition in Gloucester</p></section>
+    <header>
+        <div class="navbar-shell">
+            <div class="brand-logo">
+                <a href="index.html"><img src="image-4.jpg" alt="DMW Driving School"></a>
+            </div>
+            <nav>
+                <ul class="nav-links-list">
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="prices.html">Prices</a></li>
+                    <li><a href="contact.html" class="cta-enquire-btn">Enquire</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+    
+    <section class="jumbotron-hero">
+        <h1>🚗 Welcome to DMW Driving School</h1>
+        <p>Grade A Manual Driving Tuition in Gloucester & Surrounding Areas</p>
+    </section>
+
     <div class="content-workspace">
         <main class="editorial-narrative">
-            <h2>Professional Manual Driving Lessons</h2>
-            <p>At DMW Driving School, we provide tailored, Grade A instruction for lasting confidence.</p>
+            <h2>Professional Manual Driving Tuition</h2>
+            <p>At DMW Driving School, we don’t just teach you to pass your practical test—we give you the lifelong confidence and skills required to stay safe on the road for life.</p>
+            <p>As a Grade A Approved Driving Instructor, I pride myself on delivering a calm, patient, and highly enjoyable learning environment. Whether you are sitting behind the steering wheel for the very first time or looking for a structured path to test day, my relaxed approach is designed to make learning to drive fun.</p>
+            
             <div class="value-propositions-container">
-                <h3>Why Choose DMW?</h3>
                 <ul class="core-benefits-checklist">
                     <li>⭐ Higher Than National Average Pass Rate</li>
-                    <li>⭐ 5-Star Learner Reviews</li>
-                    <li>⭐ Tailored for Nervous Drivers</li>
+                    <li>⭐ Dozens of 5-Star Learner Reviews</li>
                 </ul>
             </div>
         </main>
         <aside class="sidebar-panel-wrapper">
-            <div class="widget-card"><h3>Coverage Areas</h3><ul class="geographic-sectors-grid"><li>Quedgeley</li><li>Hardwicke</li><li>Tuffley</li><li>Linden</li><li>Gloucester</li></ul></div>
+            <div class="widget-card">
+                <h3>Coverage Areas</h3>
+                <ul class="geographic-sectors-grid">
+                    <li>Quedgeley</li>
+                    <li>Hardwicke</li>
+                    <li>Tuffley</li>
+                    <li>Linden</li>
+                    <li>Gloucester</li>
+                </ul>
+            </div>
         </aside>
     </div>
+
     <footer><p>&copy; 2026 DMW Driving School | Designed by DMW Web Designs.</p></footer>
 </body>
 </html>

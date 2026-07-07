@@ -20,29 +20,46 @@
         .content-workspace { max-width: 1140px; margin: 45px auto; padding: 0 20px; display: grid; grid-template-columns: 2.2fr 1fr; gap: 45px; }
         .editorial-narrative h2 { color: var(--dmw-deep-navy); margin-bottom: 18px; }
         .editorial-narrative p { margin-bottom: 20px; font-size: 1.05rem; }
-        .value-propositions-container { background: #ffffff; padding: 30px; border-radius: 12px; border-left: 6px solid var(--dmw-main-blue); box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+        .value-propositions-container { background: #ffffff; padding: 30px; border-radius: 12px; border-left: 6px solid var(--dmw-main-blue); box-shadow: 0 4px 12px rgba(0,0,0,0.02); margin-bottom: 35px; }
         .core-benefits-checklist { list-style: none; }
         .core-benefits-checklist li { margin-bottom: 12px; font-weight: 600; font-size: 1.1rem; }
+        
+        /* Carousel Configuration */
+        .carousel-heading { color: var(--dmw-deep-navy); margin: 35px 0 15px 0; font-size: 1.6rem; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+        .carousel-container { position: relative; width: 100%; max-width: 650px; margin: 0 auto; overflow: hidden; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; border: 1px solid #e1e8ed; }
+        .carousel-slides { display: flex; transition: transform 0.4s ease-in-out; }
+        .slide { min-width: 100%; position: relative; }
+        .slide img { width: 100%; height: 420px; object-fit: cover; display: block; }
+        .slide-caption { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(6, 47, 99, 0.85); color: #fff; padding: 12px; text-align: center; font-size: 0.95rem; font-weight: 600; }
+        .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(10, 76, 161, 0.85); color: white; border: none; padding: 14px 18px; font-size: 1.3rem; cursor: pointer; border-radius: 50%; z-index: 10; transition: 0.2s; }
+        .carousel-btn:hover { background: var(--dmw-deep-navy); }
+        .prev { left: 15px; }
+        .next { right: 15px; }
+
         .sidebar-panel-wrapper { display: flex; flex-direction: column; gap: 30px; }
         .widget-card { background: #ffffff; padding: 25px; border-radius: 12px; border: 1px solid #e1e8ed; }
         .widget-card h3 { color: var(--dmw-deep-navy); margin-bottom: 15px; }
         .geographic-sectors-grid { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .geographic-sectors-grid li { background: #edf2f7; padding: 10px; border-radius: 6px; text-align: center; font-size: 0.9rem; font-weight: 600; }
         footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 80px; }
-        @media (max-width: 768px) { .navbar-shell { flex-direction: column; gap: 15px; } .content-workspace { grid-template-columns: 1fr; } }
+        
+        @media (max-width: 768px) { 
+            .navbar-shell { flex-direction: column; gap: 15px; } 
+            .content-workspace { grid-template-columns: 1fr; }
+            .desktop-only { display: none !important; }
+        }
     </style>
 </head>
 <body>
-    <div class="top-info-banner">Spaces Available Email: admin@dmwdrivingschool.co.uk </div>
+    <div class="top-info-banner">Questions? Email: admin@dmwdrivingschool.co.uk | Manual Instruction Specialties</div>
     <header>
         <div class="navbar-shell">
-            <div class="brand-logo">
-                <a href="index.html"><img src="unnamed.png" alt="DMW Driving School"></a>
-            </div>
+            <div class="brand-logo"><a href="index.html"><img src="image-4.jpg" alt="DMW Driving School"></a></div>
             <nav>
                 <ul class="nav-links-list">
                     <li><a href="index.html">Home</a></li>
                     <li><a href="prices.html">Prices</a></li>
+                    <li><a href="pass-photos.html">Pass Photos</a></li>
                     <li><a href="contact.html" class="cta-enquire-btn">Enquire</a></li>
                 </ul>
             </nav>
@@ -66,7 +83,18 @@
                     <li>⭐ Dozens of 5-Star Learner Reviews</li>
                 </ul>
             </div>
+
+            <!-- Single Carousel Container Box (Desktop Only) -->
+            <h3 class="carousel-heading desktop-only">Our Successful Pupils Wall of Fame</h3>
+            <div class="carousel-container desktop-only">
+                <div class="carousel-slides" id="megaCarousel">
+                    <!-- JavaScript dynamically inserts all 72 photo slides straight into this container box -->
+                </div>
+                <button class="carousel-btn prev" onclick="moveSlide(-1)">&#10094;</button>
+                <button class="carousel-btn next" onclick="moveSlide(1)">&#10095;</button>
+            </div>
         </main>
+        
         <aside class="sidebar-panel-wrapper">
             <div class="widget-card">
                 <h3>Coverage Areas</h3>
@@ -81,6 +109,81 @@
         </aside>
     </div>
 
-    <footer><p>&copy; 2018 DMW Driving School | Designed by DMW Web Designs.</p></footer>
-</body>
-</html>
+    <footer><p>&copy; 2026 DMW Driving School | Professional Manual Instruction Gloucester.</p></footer>
+
+    <script>
+        // The definitive, full list containing all 72 of your renamed file titles
+        const imagesList = [
+            "driving-test-pass-gloucester-test-centre  anny 12 05 26.jpg",
+            "driving-test-pass-gloucester-test-centre  qeel 03 03 26.jpg",
+            "driving-test-pass-gloucester-test-centre  hys 12 1 26.jpg",
+            "driving-test-pass-gloucester-test-centre  eorgia 9 1 26.jpg",
+            "driving-test-pass-gloucester-test-centre  arla 4 12 25.jpg",
+            "driving-test-pass-gloucester-test-centre  ayleigh 5 11 25.jpg",
+            "driving-test-pass-gloucester-test-centre  ai 9 4 25 .jpg",
+            "driving-test-pass-gloucester-test-centre  eanne 18 03 25.jpg",
+            "driving-test-pass-gloucester-test-centre  arren 04 03 25.jpg",
+            "driving-test-pass-gloucester-test-centre  icole 26 02 25.jpg",
+            "driving-test-pass-gloucester-test-centre  enna 10 05 25.jpg",
+            "driving-test-pass-gloucester-test-centre  acob 6 11 24.jpg",
+            "driving-test-pass-gloucester-test-centre  homas 23 10 24.jpg",
+            "driving-test-pass-gloucester-test-centre  aiden 2 10 24 2 minors.jpg",
+            "driving-test-pass-gloucester-test-centre  race 01 07 24 3 minors.jpg",
+            "driving-test-pass-gloucester-test-centre  ameron 15 05 24 6minors.jpg",
+            "driving-test-pass-gloucester-test-centre  aron 23 05 24 6minors.jpg",
+            "driving-test-pass-gloucester-test-centre  anessa 29 05 24 4minors.jpg",
+            "driving-test-pass-gloucester-test-centre  sobel 6 11 23.jpg",
+            "driving-test-pass-gloucester-test-centre  ayton 3 11 23.jpg",
+            "driving-test-pass-gloucester-test-centre  organ 17 10 23.jpg",
+            "driving-test-pass-gloucester-test-centre  ridie.jpg",
+            "driving-test-pass-gloucester-test-centre  mma.jpg",
+            "driving-test-pass-gloucester-test-centre  yia 13 3 23.jpg",
+            "first-time-driving-test-pass-gloucester yler 8 7 23.jpg",
+            "first-time-driving-test-pass-gloucester en 8 8 23.jpg",
+            "first-time-driving-test-pass-gloucester yan 1 minor 10 02 23.jpg",
+            "first-time-driving-test-pass-gloucester licia 11 11 22.jpg",
+            "first-time-driving-test-pass-gloucester oanne 11 01 2023.jpg",
+            "first-time-driving-test-pass-gloucester saiyah 08 11 2022 2 minors.jpg",
+            "first-time-driving-test-pass-gloucester aiden 20 10 2022.jpg",
+"first-time-driving-test-pass-gloucester dam 11082022 1st time 6 imnors.jpg",
+            "first-time-driving-test-pass-gloucester 89963690_1995894340583933_1617668780453710282_n.jpg",
+            "first-time-driving-test-pass-gloucester 72747850_1891376601035708_2790622638576925084_n.jpg",
+            "first-time-driving-test-pass-gloucester 72996686_1893469770826391_4374105787595496802_n.jpg",
+            "first-time-driving-test-pass-gloucester 73405258_1896847517155283_1384692774664342426_n.jpg",
+            "first-time-driving-test-pass-gloucester 73901625_1902443089929059_6853101562782008544_n.jpg",
+            "first-time-driving-test-pass-gloucester 75566329_1920762981430403_5604307192166513296_n.jpg",
+            "first-time-driving-test-pass-gloucester 81747862_1974911749348859_6745564028064112905_n.jpg",
+            "first-time-driving-test-pass-gloucester 85192308_1977264279113606_2722181772771044927_n.jpg",
+            "first-time-driving-test-pass-gloucester 85531995_1978645325642168_3090831365468099076_n.jpg",
+            "first-time-driving-test-pass-gloucester 89914311_1994470744059626_5810623768781677501_n.jpg",
+            "first-time-driving-test-pass-gloucester 56828091_1835716386601730_3843852027355097104_n.jpg",
+            "first-time-driving-test-pass-gloucester 44186906_1807958226044213_3377269465008437111_n.jpg",
+            "first-time-driving-test-pass-gloucester 42085642_1793304940842875_6906220524291908619_n.jpg",
+            "first-time-driving-test-pass-gloucester 41763824_1790805094426193_2027259887528106588_n.jpg",
+            "first-time-driving-test-pass-gloucester 29509378_1590962361077135_3129338382671726902_n.jpg",
+            "first-time-driving-test-pass-gloucester 20706411_1538352296338142_5230694467075514905_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 20593226_1536617869844918_7668426592410633303_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 18158967_1500329436807095_1292297194321730429_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 17122699_1487803518059687_8224318920521783553_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 3088346_1339175719589135_8918423921410179072_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 0405665_1126406044199438_8954221885411819520_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 1199615_1135691453270897_7744844629131919360_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 7100829_1171412276365481_6663086978818375680_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 8962146_1190104661162909_7110136595512033280_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 0347135_1205583046281737_7609546085496782848_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 2098908_1233774813462560_9137032538391314432_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 3023372_1237273139779394_7251914123082989568_n.jpg",
+            "successful-pupil-driving-lessons-gloucester 4958178_1261222260717815_3629384391756611584_n.jpg",
+            "successful-pupil-driving-lessons-gloucester lex.jpg",
+            "successful-pupil-driving-lessons-gloucester att 2022.jpg",
+            "successful-pupil-driving-lessons-gloucester an 1 minor 3-12-21.jpg",
+            "successful-pupil-driving-lessons-gloucester ailey 08-2020.jpg",
+            "successful-pupil-driving-lessons-gloucester MG_20190306_120811_795.jpg",
+            "successful-pupil-driving-lessons-gloucester MG_20190129_120503_587.jpg",
+            "successful-pupil-driving-lessons-gloucester MG_20190425_135700_015.jpg",
+            "successful-pupil-driving-lessons-gloucester MG_20190220_175136_380.jpg",
+            "successful-pupil-driving-lessons-gloucester MG_20181220_095335_051.jpg",
+            "successful-pupil-driving-lessons-gloucester MG_20190311_160245_014.jpg",
+            "successful-pupil-driving-lessons-gloucester MG_20190515_163543_498.jpg",
+            "successful-pupil-driving-lessons-gloucester nnamed (2).jpg"];
+        // Automatically structure the carousel componentsconst container = document.getElementById('megaCarousel');imagesList.forEach((filename) => {const slideDiv = document.createElement('div');slideDiv.className = 'slide';const img = document.createElement('img');img.src = filename;img.alt = "Manual Driving Test Pass Gloucester";const caption = document.createElement('div');caption.className = 'slide-caption';caption.innerText = "Another Fantastic Driving Test Pass in Gloucester!";slideDiv.appendChild(img);slideDiv.appendChild(caption);container.appendChild(slideDiv);});// Sliding Animation Mechanicslet currentSlide = 0;function moveSlide(direction) {const slides = document.getElementById('megaCarousel');const totalSlides = imagesList.length;currentSlide = (currentSlide + direction + totalSlides) % totalSlides;slides.style.transform = translateX(-${currentSlide * 100}%);}// Auto-run carousel rotation interval (Cycles every 4 seconds)setInterval(() => moveSlide(1), 4000);

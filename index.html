@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en-GB">
 <head>
     <meta charset="UTF-8">
@@ -25,10 +25,10 @@
             color: #ffffff; 
             text-align: center; 
             padding: 14px 20px; 
-            font-size: 1.25rem; /* Larger, high-visibility text layout profile */
-            font-weight: 900 !important; /* Thickest possible heavy text weight */
+            font-size: 1.25rem; 
+            font-weight: 900 !important; 
             letter-spacing: 1px;
-            animation: bookingPulse 1.5s infinite ease-in-out; /* Accelerated pulse speed to draw the eye instantly */
+            animation: bookingPulse 1.5s infinite ease-in-out; 
             margin: 0;
             border-bottom: 1px solid #222;
             width: 100%;
@@ -37,7 +37,7 @@
         /* Smooth CSS Animation Engine: Transitions the text back and forth to standard bright white and a flashing glowing hazard yellow */
         @keyframes bookingPulse {
             0% { color: #ffffff; text-shadow: none; }
-            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } /* Flashing warning glow effect accent */
+            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 
             100% { color: #ffffff; text-shadow: none; }
         }
 
@@ -48,9 +48,8 @@
         .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
         .nav-links-list li a:hover { color: #3498db; }
-
         
-        /* Balanced-Height Workspace Grid (Forces left column and right column baseline leveling) */
+        /* Balanced-Height Workspace Grid */
         .content-workspace { max-width: 1140px; margin: 45px auto; padding: 0 20px; display: grid; grid-template-columns: 2.2fr 1.3fr; gap: 45px; align-items: stretch; }
         .editorial-narrative { display: flex; flex-direction: column; height: 100%; justify-content: space-between; }
         .editorial-narrative h2 { color: var(--dmw-deep-navy); margin-bottom: 18px; }
@@ -88,28 +87,32 @@
             .content-workspace { grid-template-columns: 1fr; gap: 30px; }
             .slide img { height: 280px; }
         }
-    <style>
-        /* High-Visibility Animated Pulse Booking Strip Banner Class Properties */
-        .top-info-banner { 
-            background-color: #111; 
-            color: #ffffff; 
-            text-align: center; 
-            padding: 12px 20px; 
-            font-size: 1.15rem; 
-            font-weight: 800; 
-            letter-spacing: 0.8px;
-            animation: bookingPulse 2s infinite ease-in-out; 
-            margin: 0;
-            border-bottom: 1px solid #222;
-        }
 
-        /* Smooth CSS Keyframe Engine: Cycles text color and applies a warning glow effect */
-        @keyframes bookingPulse {
-            0% { color: #ffffff; text-shadow: none; }
-            50% { color: #f1c40f; text-shadow: 0 0 10px rgba(241, 196, 15, 0.65); } 
-            100% { color: #ffffff; text-shadow: none; }
+        /* Sticky Floating Enquiry Button Widget Style Classes */
+        .sticky-enquiry-widget {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background-color: var(--dmw-main-blue);
+            color: #ffffff !important;
+            padding: 14px 22px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1rem;
+            box-shadow: 0 4px 16px rgba(10, 76, 161, 0.4);
+            z-index: 99999; 
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+            font-family: 'Segoe UI', Arial, sans-serif;
         }
-</style>
+        .sticky-enquiry-widget:hover {
+            background-color: var(--dmw-deep-navy);
+            transform: scale(1.05);
+        }
+    </style>
 </head>
 <body>
 
@@ -130,6 +133,7 @@
             </div>
         </header>
     </div>
+
     
     <!-- Premium Layered Hero Background Graphic Banner Section -->
     <div style="position: relative; width: 100%; height: 260px; background: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url('car seat1.jpg') no-repeat center center; background-size: cover; overflow: hidden; display: flex; align-items: center; justify-content: center;">
@@ -401,6 +405,14 @@
         
         setInterval(() => moveSlide(1), 4000);
     </script>
+
+    <!-- Professional Base Layout Footer Bar -->
+    <footer><p>&copy; 2026 DMW Driving School | Professional Manual Instruction Gloucester.</p></footer>
+
+    <!-- Sticky Floating Left-Side Enquiry Trigger Button Widget Layout -->
+    <a href="https://totaldrive.app" target="_blank" class="sticky-enquiry-widget">
+        📝 Enquire Online
+    </a>
 </body>
 </html>
- <footer><p>&copy; 2018 DMW Driving School .</p></footer>
+

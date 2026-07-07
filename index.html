@@ -42,7 +42,6 @@
         @media (max-width: 768px) { 
             .navbar-shell { flex-direction: column; gap: 15px; } 
             .content-workspace { grid-template-columns: 1fr; }
-            .desktop-only { display: none !important; }
         }
     </style>
 </head>
@@ -77,7 +76,7 @@
                     <li>⭐ Dozens of 5-Star Learner Reviews</li>
                 </ul>
             </div> <!-- Newly Integrated Student Feedback & TotalDrive Info Layout Cards -->
-<div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box;">
+<div style="font-family: Arial, sans-serif; width: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box;">
   
   <!-- Sleek Section Header Bar -->
   <div style="background-color: #f8f9fa; padding: 16px 20px; text-align: left; border-bottom: 1px solid #e2e8f0;">
@@ -196,13 +195,37 @@
 
 <script
         const imagesList = [
+            "driving-test-pass-gloucester-test-centre  qeel 03 03 26.jpg",
+            "driving-test-pass-gloucester-test-centre  hys 12 1 26.jpg",
+            "driving-test-pass-gloucester-test-centre  eorgia 9 1 26.jpg",
+            "driving-test-pass-gloucester-test-centre  arla 4 12 25.jpg",
+            "driving-test-pass-gloucester-test-centre  ayleigh 5 11 25.jpg",
+            "driving-test-pass-gloucester-test-centre  ai 9 4 25 .jpg",
+            "driving-test-pass-gloucester-test-centre  anny 12 05 26.jpg",
+            "driving-test-pass-gloucester-test-centre  eanne 18 03 25.jpg",
+            "driving-test-pass-gloucester-test-centre  arren 04 03 25.jpg",
+            "driving-test-pass-gloucester-test-centre  icole 26 02 25.jpg",
+            "driving-test-pass-gloucester-test-centre  enna 10 05 25.jpg",
+            "driving-test-pass-gloucester-test-centre  acob 6 11 24.jpg",
+            "driving-test-pass-gloucester-test-centre  homas 23 10 24.jpg",
+            "driving-test-pass-gloucester-test-centre  aiden 2 10 24 2 minors.jpg",
+            "driving-test-pass-gloucester-test-centre  race 01 07 24 3 minors.jpg",
+            "driving-test-pass-gloucester-test-centre  ameron 15 05 24 6minors.jpg",
+            "driving-test-pass-gloucester-test-centre  aron 23 05 24 6minors.jpg",
+            "driving-test-pass-gloucester-test-centre  anessa 29 05 24 4minors.jpg",
+            "driving-test-pass-gloucester-test-centre  sobel 6 11 23.jpg",
+            "driving-test-pass-gloucester-test-centre  ayton 3 11 23.jpg",
+            "driving-test-pass-gloucester-test-centre  organ 17 10 23.jpg",
+            "driving-test-pass-gloucester-test-centre  ridie.jpg",
+            "driving-test-pass-gloucester-test-centre  mma.jpg",
+            "driving-test-pass-gloucester-test-centre  yia 13 3 23.jpg",
             "driving-test-pass-gloucester-test-centre qeel 03 03 26.jpg",
             "driving-test-pass-gloucester-test-centre hys 12 1 26.jpg",
             "driving-test-pass-gloucester-test-centre eorgia 9 1 26.jpg",
             "driving-test-pass-gloucester-test-centre arla 4 12 25.jpg",
             "driving-test-pass-gloucester-test-centre ayleigh 5 11 25.jpg",
             "driving-test-pass-gloucester-test-centre ai 9 4 25 .jpg",
-            "driving-test-pass-gloucester-test-centre anny 12 05 26.jpg"
+            "driving-test-pass-gloucester-test-centre anny 12 05 26.jpg",
             "driving-test-pass-gloucester-test-centre eanne 18 03 25.jpg",
             "driving-test-pass-gloucester-test-centre arren 04 03 25.jpg",
             "driving-test-pass-gloucester-test-centre icole 26 02 25.jpg",
@@ -277,7 +300,7 @@
                 slideDiv.className = 'slide';
                 
                 const img = document.createElement('img');
-                img.src = encodeURIComponent(filename).replace(/%20/g, ' ');
+                img.src = encodeURI(filename);
                 img.alt = "Manual Driving Test Pass Gloucester";
                 
                 slideDiv.appendChild(img);

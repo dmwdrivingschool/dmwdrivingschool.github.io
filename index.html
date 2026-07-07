@@ -58,11 +58,32 @@
             .content-workspace { grid-template-columns: 1fr; gap: 30px; }
             .slide img { height: 280px; }
         }
-    </style>
+    <style>
+        /* High-Visibility Animated Pulse Booking Strip Banner Class Properties */
+        .top-info-banner { 
+            background-color: #111; 
+            color: #ffffff; 
+            text-align: center; 
+            padding: 12px 20px; 
+            font-size: 1.15rem; 
+            font-weight: 800; 
+            letter-spacing: 0.8px;
+            animation: bookingPulse 2s infinite ease-in-out; 
+            margin: 0;
+            border-bottom: 1px solid #222;
+        }
 
+        /* Smooth CSS Keyframe Engine: Cycles text color and applies a warning glow effect */
+        @keyframes bookingPulse {
+            0% { color: #ffffff; text-shadow: none; }
+            50% { color: #f1c40f; text-shadow: 0 0 10px rgba(241, 196, 15, 0.65); } 
+            100% { color: #ffffff; text-shadow: none; }
+        }
+</style>
 </head>
 <body>
-    <div class="top-info-banner">SPACES AVAILABLE | CALL/TEXT 07432 855096</div>
+    <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
+    
     <header>
         <div class="navbar-shell">
             <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
@@ -76,6 +97,7 @@
             </nav>
         </div>
     </header>
+
     
     <!-- Premium Layered Hero Background Graphic Banner Section -->
     <div style="position: relative; width: 100%; height: 260px; background: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url('car seat1.jpg') no-repeat center center; background-size: cover; overflow: hidden; display: flex; align-items: center; justify-content: center;">

@@ -9,14 +9,14 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
         
-        /* Navigation Header & Banner Layout Styles */
-        .top-info-banner { background-color: #111; color: #ffffff; text-align: center; padding: 9px 20px; font-size: 0.85rem; }
-        header { background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 1000; }
+        /* Dark Theme Navigation Header Layout Spacing & Color Overwrite Configurations */
+        .top-info-banner { background-color: #111; color: #ffffff; text-align: center; padding: 9px 20px; font-size: 0.85rem; border-bottom: 1px solid #222; }
+        header { background-color: #111111; box-shadow: 0 4px 12px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000; }
         .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
-        .brand-logo img { height: 60px; width: auto; display: block; }
+        .brand-logo img { height: 60px; width: auto; display: block; filter: brightness(0) invert(1); } /* Flips your dark logo image to high-contrast crisp white */
         .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
-        .nav-links-list li a { text-decoration: none; color: #444; font-weight: 600; font-size: 0.95rem; }
-        .cta-enquire-btn { background-color: var(--dmw-main-blue); color: #ffffff !important; padding: 10px 22px; border-radius: 6px; }
+        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
+        .nav-links-list li a:hover { color: #3498db; } /* Clean hover highlight tracking accent */
         
         @media (max-width: 768px) { 
             .navbar-shell { flex-direction: column; gap: 15px; } 

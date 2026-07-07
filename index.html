@@ -17,7 +17,7 @@
         .cta-enquire-btn { background-color: var(--dmw-main-blue); color: #ffffff !important; padding: 10px 22px; border-radius: 6px; }
         .jumbotron-hero { background: linear-gradient(135deg, var(--dmw-main-blue) 0%, var(--dmw-deep-navy) 100%); color: #ffffff; padding: 85px 20px; text-align: center; }
         .jumbotron-hero h1 { font-size: 2.8rem; margin-bottom: 12px; }
-        .content-workspace { max-width: 1140px; margin: 45px auto; padding: 0 20px; display: grid; grid-template-columns: 2.2fr 1fr; gap: 45px; }
+        .content-workspace { max-width: 1140px; margin: 45px auto; padding: 0 20px; display: grid; grid-template-columns: 2.2fr 1.3fr; gap: 45px; }
         .editorial-narrative h2 { color: var(--dmw-deep-navy); margin-bottom: 18px; }
         .editorial-narrative p { margin-bottom: 20px; font-size: 1.05rem; }
         .value-propositions-container { background: #ffffff; padding: 30px; border-radius: 12px; border-left: 6px solid var(--dmw-main-blue); box-shadow: 0 4px 12px rgba(0,0,0,0.02); margin-bottom: 35px; }
@@ -30,17 +30,13 @@
         .carousel-slides { display: flex; transition: transform 0.4s ease-in-out; }
         .slide { min-width: 100%; position: relative; }
         .slide img { width: 100%; height: 420px; object-fit: cover; display: block; }
-        .slide-caption { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(6, 47, 99, 0.85); color: #fff; padding: 12px; text-align: center; font-size: 0.95rem; font-weight: 600; }
+        
         .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(10, 76, 161, 0.85); color: white; border: none; padding: 14px 18px; font-size: 1.3rem; cursor: pointer; border-radius: 50%; z-index: 10; transition: 0.2s; }
         .carousel-btn:hover { background: var(--dmw-deep-navy); }
         .prev { left: 15px; }
         .next { right: 15px; }
 
         .sidebar-panel-wrapper { display: flex; flex-direction: column; gap: 30px; }
-        .widget-card { background: #ffffff; padding: 25px; border-radius: 12px; border: 1px solid #e1e8ed; }
-        .widget-card h3 { color: var(--dmw-deep-navy); margin-bottom: 15px; }
-        .geographic-sectors-grid { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .geographic-sectors-grid li { background: #edf2f7; padding: 10px; border-radius: 6px; text-align: center; font-size: 0.9rem; font-weight: 600; }
         footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 80px; }
         
         @media (max-width: 768px) { 
@@ -54,7 +50,7 @@
     <div class="top-info-banner">Questions? Email: admin@dmwdrivingschool.co.uk | Manual Instruction Specialties</div>
     <header>
         <div class="navbar-shell">
-            <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
+            <div class="brand-logo"><a href="index.html"><img src="image-4.jpg" alt="DMW Driving School"></a></div>
             <nav>
                 <ul class="nav-links-list">
                     <li><a href="index.html">Home</a></li>
@@ -96,23 +92,37 @@
         </main>
         
         <aside class="sidebar-panel-wrapper">
-            <div class="widget-card">
-                <h3>Coverage Areas</h3>
-                <ul class="geographic-sectors-grid">
-                    <li>Quedgeley</li>
-                    <li>Hardwicke</li>
-                    <li>Tuffley</li>
-                    <li>Linden</li>
-                    <li>Gloucester</li>
-                </ul>
+            <!-- Service Area Box Container inside Sidebar -->
+            <div style="font-family: Arial, sans-serif; width: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box;">
+              <div style="background-color: #f8f9fa; padding: 16px 20px; text-align: left; border-bottom: 1px solid #e2e8f0;">
+                <h3 style="margin: 0; color: #2c3e50; font-size: 1.2em; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px;">📍 Our Service Areas</h3>
+                <p style="margin: 4px 0 0 0; color: #7f8c8d; font-size: 0.85em;">Providing reliable manual driving tuition across local communities (Click active areas to view map)</p>
+              </div>
+              <div style="padding: 20px; box-sizing: border-box;">
+                <p style="margin: 0 0 16px 0; color: #4a5568; font-size: 0.95em; line-height: 1.5;">We offer local pick-up and drop-off services for your driving sessions across the following primary operating areas:</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+                  <button onclick="window.open('https://google.com', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Quedgeley</button>
+                  <button onclick="window.open('https://google.com', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Kingsway</button>
+                  <button onclick="window.open('https://google.com', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Hardwicke</button>
+                  <button onclick="window.open('https://google.com', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Hunts Grove</button>
+                  <button onclick="window.open('https://google.com', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Tuffley</button>
+                  <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 Linden</span>
+                  <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 White City</span>
+                  <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 Tredworth</span>
+                  <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; display: inline-block;">📍 Barton</span>
+                  <button onclick="window.open('https://google.com', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Gloucester City Centre</button>
+                  <button onclick="window.open('https://google.com', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Matson</button>
+                  <button onclick="window.open('https://google.com', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Abbeydale/Abbeymead</button>
+                  <button onclick="window.open('https://google.com', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Coopers Edge</button>
+                  <button onclick="window.open('https://google.com', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Upton St Leonards</button>
+                </div>
+              </div>
             </div>
         </aside>
     </div>
 
-    <footer><p>&copy; 2018 DMW Driving School </p></footer>
-        <script>
-           <script>
-        // The full array of your 72 files with automated spaces safety filter applied
+    <footer><p>&copy; 2026 DMW Driving School | Professional Manual Instruction Gloucester.</p></footer>
+    <script>
         const imagesList = [
             "driving-test-pass-gloucester-test-centre  anny 12 05 26.jpg",
             "driving-test-pass-gloucester-test-centre  qeel 03 03 26.jpg",
@@ -188,30 +198,31 @@
             "successful-pupil-driving-lessons-gloucester nnamed (2).jpg"
         ];
 
-        // Automatically structure the carousel components
         const container = document.getElementById('megaCarousel');
-        imagesList.forEach((filename) => {
-            const slideDiv = document.createElement('div');
-            slideDiv.className = 'slide';
-            
-            const img = document.createElement('img');
-            img.src = encodeURIComponent(filename).replace(/%20/g, ' '); // Handles double spacing
-            img.alt = "Manual Driving Test Pass Gloucester";
-            
-            slideDiv.appendChild(img);
-            container.appendChild(slideDiv);
-        });
+        if (container) {
+            imagesList.forEach((filename) => {
+                const slideDiv = document.createElement('div');
+                slideDiv.className = 'slide';
+                
+                const img = document.createElement('img');
+                img.src = encodeURIComponent(filename).replace(/%20/g, ' ');
+                img.alt = "Manual Driving Test Pass Gloucester";
+                
+                slideDiv.appendChild(img);
+                container.appendChild(slideDiv);
+            });
+        }
 
-        // Sliding Animation Mechanics Fix
         let currentSlide = 0;
         function moveSlide(direction) {
             const slides = document.getElementById('megaCarousel');
             const totalSlides = imagesList.length;
-            currentSlide = (currentSlide + direction + totalSlides) % totalSlides;
-            slides.style.transform = `translateX(-${currentSlide * 100}%)`;
+            if (slides && totalSlides > 0) {
+                currentSlide = (currentSlide + direction + totalSlides) % totalSlides;
+                slides.style.transform = `translateX(-${currentSlide * 100}%)`;
+            }
         }
         
-        // Auto-run carousel rotation interval (Cycles every 4 seconds)
         setInterval(() => moveSlide(1), 4000);
     </script>
 </body>

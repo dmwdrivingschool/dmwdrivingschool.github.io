@@ -275,14 +275,23 @@
             "successful-pupil-driving-lessons-gloucester nnamed (2).jpg"
         ];
 
-        const container = document.getElementById('megaCarousel');
+                const container = document.getElementById('megaCarousel');
         if (container) {
             imagesList.forEach((filename) => {
                 const slideDiv = document.createElement('div');
                 slideDiv.className = 'slide';
                 
                 const img = document.createElement('img');
+                
+                // Smart cleanup: Automatically tries loading with double spaces, 
+                // and if it fails, falls back to a single space filename instantly.
                 img.src = encodeURIComponent(filename).replace(/%20/g, ' ');
+                img.onerror = function() {
+                    const cleanName = filename.replace(/\s+/g, ' ');
+                    this.src = encodeURIComponent(cleanName).replace(/%20/g, ' ');
+                    this.onerror = null; // Prevents infinite error loops
+                };
+                
                 img.alt = "Manual Driving Test Pass Gloucester";
                 
                 slideDiv.appendChild(img);

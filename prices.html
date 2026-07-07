@@ -5,10 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lesson Prices | DMW Driving School Gloucester</title>
     <style>
+                /* High-Visibility Animated Pulse Booking Strip Banner Class Properties */
+        .top-info-banner { 
+            background-color: #111111; 
+            color: #ffffff; 
+            text-align: center; 
+            padding: 14px 20px; 
+            font-size: 1.25rem; /* Larger, high-visibility text layout profile */
+            font-weight: 900 !important; /* Thickest possible heavy text weight */
+            letter-spacing: 1px;
+            animation: bookingPulse 1.5s infinite ease-in-out; /* Accelerated pulse speed to draw the eye instantly */
+            margin: 0;
+            border-bottom: 1px solid #222;
+            width: 100%;
+        }
+
+        /* Smooth CSS Animation Engine: Transitions text between standard white and a flashing hazard yellow */
+        @keyframes bookingPulse {
+            0% { color: #ffffff; text-shadow: none; }
+            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } /* Flashing warning glow effect accent */
+            100% { color: #ffffff; text-shadow: none; }
+        }
+
         :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
-        
+           
         /* Dark Theme Navigation Header Layout Spacing & Color Overwrite Configurations */
         .top-info-banner { background-color: #111; color: #ffffff; text-align: center; padding: 9px 20px; font-size: 0.85rem; border-bottom: 1px solid #222; }
         header { background-color: #111111; box-shadow: 0 4px 12px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000; }
@@ -24,8 +46,9 @@
     </style>
 </head>
 <body>
-    <!-- Top Information Banner Component -->
-   <div class="top-info-banner">SPACES AVAILABLE | CALL/TEXT 07432 855096</div>
+ <!-- Master Wrapper Box Container: Forces both bars to stick to the top glass window when scrolling -->
+    <div class="master-sticky-header">
+        <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
     
     <!-- Sticky White Navbar Shell Component -->
     <header>

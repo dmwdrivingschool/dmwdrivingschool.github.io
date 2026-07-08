@@ -42,12 +42,16 @@
         }
 
         /* Fixed Navigation Header Bar Area */
-        header { background-color: #111111; margin: 0; width: 100%; }
-        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
-        .brand-logo img { height: 60px; width: auto; display: block; }
-        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; }
-        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
-        .nav-links-list li a:hover { color: #3498db; }
+header { background-color: #111111 !important; margin: 0; width: 100%; display: block; position: relative; z-index: 10010; }
+.navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 15px; }
+.brand-logo img { height: 60px; width: auto; display: block; }
+
+/* Fixed: Added wrap, centered items, and adjusted mobile spacing */
+.nav-links-list { display: flex; flex-wrap: wrap; justify-content: center; list-style: none; gap: 16px 24px; align-items: center; margin: 0 auto; padding: 0; }
+
+/* Fixed: Centered the writing horizontally and vertically inside every link */
+.nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; display: inline-flex; text-align: center; justify-content: center; align-items: center; }
+.nav-links-list li a:hover { color: #3498db; }
 
         /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
         .sticky-enquiry-widget {

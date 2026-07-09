@@ -19,23 +19,20 @@
         html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; font-family: Arial, sans-serif; }
         * { box-sizing: border-box; }
 
-        /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
+        /* Master Wrapper: Allows the flashing banner to scroll away naturally on mobile */
         .master-sticky-header {
-            position: sticky;
-            top: 0;
-            z-index: 10000;
+            position: relative;
             width: 100%;
-            background-color: #111111;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 10000;
         }
         
-        /* High-Visibility Pulse Booking Strip Banner (Super Bold & Large text) */
+        /* High-Visibility Pulse Booking Strip Banner (Tightened Padding for Mobile) */
         .top-info-banner { 
             background-color: #111111; 
             color: #ffffff; 
             text-align: center; 
-            padding: 14px 20px; 
-            font-size: 1.25rem; 
+            padding: 10px 15px; 
+            font-size: 1.1rem; 
             font-weight: 900 !important; 
             letter-spacing: 1px;
             animation: bookingPulse 1.5s infinite ease-in-out; 
@@ -51,9 +48,18 @@
             100% { color: #ffffff; text-shadow: none; }
         }
 
-        /* Fixed Navigation Header Bar Area & Logo Height Constraint */
-        header { background-color: #111111 !important; margin: 0; width: 100%; display: block; position: relative; z-index: 10010; }
-        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; } /* 📍 flex-wrap PREVENTS MENU BUTTONS FROM GETTING CUT OFF */
+        /* Fixed Navigation: Locks ONLY the menu bar to the glass ceiling */
+        header { 
+            background-color: #111111 !important; 
+            margin: 0; 
+            width: 100%; 
+            display: block; 
+            position: sticky; 
+            top: 0; 
+            z-index: 10010; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; }
         .brand-logo img { height: 60px; width: auto; display: block; }
         .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; margin: 0; padding: 0; flex-wrap: wrap; }
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
@@ -84,30 +90,35 @@
         }
         footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 80px; width: 100%; clear: both; }
 
+        /* Perfect Center Layout Framework on Mobile Screens */
         @media (max-width: 768px) { 
-            .navbar-shell { flex-direction: column; gap: 15px; } 
+            .navbar-shell { flex-direction: column; gap: 8px; padding: 8px 10px; text-align: center; align-items: center; } 
+            .brand-logo img { height: 45px; margin: 0 auto; } /* Shrinks logo to clear screen space */
+            .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; } 
+            .nav-links-list li a { font-size: 0.88rem; } /* Compact menu links */
         }
     </style>
 </head>
 <body>
 
-    <!-- Master Wrapper Box Container: Forces both bars to stick to the top glass window when scrolling -->
-    <div class="master-sticky-header">
-        <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
-        <header>
-            <div class="navbar-shell">
-                <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
-                <nav>
-                    <ul class="nav-links-list">
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="prices.html">Prices</a></li>
-                        <li><a href="pass-photos.html">Pass Photos</a></li>
-                        <li><a href="terms.html">Terms and Conditions</a></li>
-                        <li><a href="contact.html">Contact Us</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </header>
+    <!-- 📍 The Flashing banner sits ABOVE the header so it scrolls away naturally -->
+    <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
+    
+    <header>
+        <div class="navbar-shell">
+            <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
+            <nav>
+                <ul class="nav-links-list">
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="prices.html">Prices</a></li>
+                    <li><a href="pass-photos.html">Pass Photos</a></li>
+                    <li><a href="faq.html">FAQ</a></li>
+                    <li><a href="contact.html">Contact Us</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
     </div>
 
     <!-- Main Content Structural Frame Area -->

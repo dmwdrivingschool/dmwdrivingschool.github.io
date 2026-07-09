@@ -19,20 +19,23 @@
         html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; font-family: Arial, sans-serif; }
         * { box-sizing: border-box; }
 
-        /* Master Wrapper: Allows the flashing banner to scroll away naturally on mobile */
+        /* Master Sticky Wrapper: Keeps EVERYTHING locked to the top on computers */
         .master-sticky-header {
-            position: relative;
-            width: 100%;
+            position: sticky;
+            top: 0;
             z-index: 10000;
+            width: 100%;
+            background-color: #111111;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
-        /* High-Visibility Pulse Booking Strip Banner (Tightened Padding for Mobile) */
+        /* High-Visibility Pulse Booking Strip Banner (Desktop View) */
         .top-info-banner { 
             background-color: #111111; 
             color: #ffffff; 
             text-align: center; 
-            padding: 10px 15px; 
-            font-size: 1.1rem; 
+            padding: 14px 20px; 
+            font-size: 1.25rem; 
             font-weight: 900 !important; 
             letter-spacing: 1px;
             animation: bookingPulse 1.5s infinite ease-in-out; 
@@ -48,21 +51,19 @@
             100% { color: #ffffff; text-shadow: none; }
         }
 
-        /* Fixed Navigation: Locks ONLY the menu bar to the glass ceiling */
+        /* Fixed Navigation Header Bar Area (Desktop View) */
         header { 
             background-color: #111111 !important; 
             margin: 0; 
             width: 100%; 
             display: block; 
-            position: sticky; 
-            top: 0; 
+            position: relative; 
             z-index: 10010; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; }
+        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 15px; }
         .brand-logo img { height: 60px; width: auto; display: block; }
-        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; margin: 0; padding: 0; flex-wrap: wrap; }
-        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
+        .nav-links-list { display: flex; flex-wrap: wrap; justify-content: center; list-style: none; gap: 16px 24px; align-items: center; margin: 0 auto; padding: 0; }
+        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; display: inline-flex; text-align: center; justify-content: center; align-items: center; }
         .nav-links-list li a:hover { color: #3498db; }
         
         /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
@@ -90,35 +91,40 @@
         }
         footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 80px; width: 100%; clear: both; }
 
-        /* Perfect Center Layout Framework on Mobile Screens */
+        /* 📱 MOBILE ONLY CONFIGURATION: Controls mobile viewports and disables stickiness */
         @media (max-width: 768px) { 
+            /* Disables stickiness completely for mobile phones */
+            .master-sticky-header { position: relative !important; box-shadow: none; } 
+            header { position: relative !important; } 
+            
+            /* Tighter, cleaner adjustments for phones */
+            .top-info-banner { padding: 10px 15px; font-size: 1.1rem; }
             .navbar-shell { flex-direction: column; gap: 8px; padding: 8px 10px; text-align: center; align-items: center; } 
-            .brand-logo img { height: 45px; margin: 0 auto; } /* Shrinks logo to clear screen space */
+            .brand-logo img { height: 45px; margin: 0 auto; } /* Cleaner phone image footprint */
             .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; } 
-            .nav-links-list li a { font-size: 0.88rem; } /* Compact menu links */
+            .nav-links-list li a { font-size: 0.88rem; } 
         }
     </style>
 </head>
 <body>
 
-    <!-- 📍 The Flashing banner sits ABOVE the header so it scrolls away naturally -->
-    <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
-    
-    <header>
-        <div class="navbar-shell">
-            <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
-            <nav>
-                <ul class="nav-links-list">
-                    <li><a href="index.html">Home</a></li>
-                    <li><a href="prices.html">Prices</a></li>
-                    <li><a href="pass-photos.html">Pass Photos</a></li>
-                    <li><a href="faq.html">FAQ</a></li>
-                    <li><a href="contact.html">Contact Us</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
-
+    <!-- Unified Master Sticky Header Wrapper -->
+    <div class="master-sticky-header">
+        <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
+        <header>
+            <div class="navbar-shell">
+                <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
+                <nav>
+                    <ul class="nav-links-list">
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="prices.html">Prices</a></li>
+                        <li><a href="pass-photos.html">Pass Photos</a></li>
+                        <li><a href="faq.html">FAQ</a></li>
+                        <li><a href="contact.html">Contact Us</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </header>
     </div>
 
     <!-- Main Content Structural Frame Area -->

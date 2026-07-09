@@ -4,25 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Refund Policy | DMW Driving School Gloucester</title>
+
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="canonical" href="https://dmwdrivingschool.co.uk">
+
     <style>
         :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
         
-       <link rel="icon" type="image/png" href="favicon.png">
-<link rel="apple-touch-icon" href="favicon.png">
-
-        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
+        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; font-family: 'Segoe UI', Arial, sans-serif; }
         * { box-sizing: border-box; }
 
-        /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
+        /* Master Sticky Wrapper: Keeps EVERYTHING locked to the top on computers */
         .master-sticky-header {
             position: sticky;
             top: 0;
             z-index: 10000;
             width: 100%;
+            background-color: #111111;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
-        /* High-Visibility Pulse Booking Strip Banner (Super Bold & Large text) */
+        /* High-Visibility Pulse Booking Strip Banner (Desktop View) */
         .top-info-banner { 
             background-color: #111111; 
             color: #ffffff; 
@@ -44,17 +47,17 @@
             100% { color: #ffffff; text-shadow: none; }
         }
 
-/* Fixed Navigation Header Bar Area */
-header { background-color: #111111 !important; margin: 0; width: 100%; display: block; position: relative; z-index: 10010; }
-.navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 15px; }
-.brand-logo img { height: 60px; width: auto; display: block; }
+        /* Fixed Navigation Header Bar Area (Desktop View) */
+        header { background-color: #111111 !important; margin: 0; width: 100%; display: block; position: relative; z-index: 10010; }
+        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 15px; }
+        .brand-logo img { height: 60px; width: auto; display: block; }
 
-/* Fixed: Added wrap, centered items, and adjusted mobile spacing */
-.nav-links-list { display: flex; flex-wrap: wrap; justify-content: center; list-style: none; gap: 16px 24px; align-items: center; margin: 0 auto; padding: 0; }
+        /* Fixed: Added wrap, centered items, and adjusted mobile spacing */
+        .nav-links-list { display: flex; flex-wrap: wrap; justify-content: center; list-style: none; gap: 16px 24px; align-items: center; margin: 0 auto; padding: 0; }
 
-/* Fixed: Centered the writing horizontally and vertically inside every link */
-.nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; display: inline-flex; text-align: center; justify-content: center; align-items: center; }
-.nav-links-list li a:hover { color: #3498db; }
+        /* Fixed: Centered the writing horizontally and vertically inside every link */
+        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; display: inline-flex; text-align: center; justify-content: center; align-items: center; }
+        .nav-links-list li a:hover { color: #3498db; }
 
         /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
         .sticky-enquiry-widget {
@@ -74,13 +77,13 @@ header { background-color: #111111 !important; margin: 0; width: 100%; display: 
             align-items: center;
             gap: 6px;
             transition: transform 0.2s ease, background-color 0.2s ease;
-            font-family: 'Segoe UI', Arial, sans-serif;
         }
         .sticky-enquiry-widget:hover {
             background-color: var(--dmw-deep-navy);
             transform: scale(1.05);
         }
-                /* Unified Premium Dark Footer Bar Layout Properties */
+
+        /* Unified Premium Dark Footer Bar Layout Properties */
         footer { 
             background: #111827; 
             color: #9ca3af; 
@@ -93,14 +96,24 @@ header { background-color: #111111 !important; margin: 0; width: 100%; display: 
         }
         footer p { margin: 0; padding: 0; }
 
-@media (max-width: 768px) { 
-            .navbar-shell { flex-direction: column; gap: 15px; } 
+        /* 📱 MOBILE ONLY CONSTRAINTS: Handles mobile padding compressions and scrolls header away */
+        @media (max-width: 768px) { 
+            /* Releases sticky controls for mobile devices */
+            .master-sticky-header { position: relative !important; box-shadow: none; } 
+            header { position: relative !important; } 
+            
+            /* Compact padding and scaling configurations for small screens */
+            .top-info-banner { padding: 10px 15px; font-size: 1.1rem; }
+            .navbar-shell { flex-direction: column; gap: 8px; padding: 8px 10px; text-align: center; align-items: center; } 
+            .brand-logo img { height: 45px; margin: 0 auto; } /* Scaled down logo footprint on mobile phone viewports */
+            .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; } 
+            .nav-links-list li a { font-size: 0.88rem; } 
         }
     </style>
 </head>
 <body>
 
-    <!-- Master Wrapper Box Container: Forces both bars to stick to the top window ceiling when scrolling -->
+    <!-- Unified Master Sticky Header Wrapper Box Container -->
     <div class="master-sticky-header">
         <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 855096 ✨</div>
         <header>
@@ -109,10 +122,10 @@ header { background-color: #111111 !important; margin: 0; width: 100%; display: 
                 <nav>
                     <ul class="nav-links-list">
                         <li><a href="index.html">Home</a></li>
+                        <li><a href="prices.html">Prices</a></li>
                         <li><a href="pass-photos.html">Pass Photos</a></li>
+                        <li><a href="faq.html">FAQ</a></li>
                         <li><a href="contact.html">Contact Us</a></li>
-                        <li><a href="terms.html">Terms and Conditions</a></li>
-                        <li><a href="faq.html">F.A.Q</a></li>
                     </ul>
                 </nav>
             </div>

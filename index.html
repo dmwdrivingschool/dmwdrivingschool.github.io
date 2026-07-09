@@ -118,12 +118,11 @@
             transform: scale(1.05);
         }
 
-        /* 📱 MOBILE ONLY CONSTRAINTS: Keeps all subpages identical and allows layout to scroll away */
+        /* 📱 MOBILE ONLY CONSTRAINTS */
         @media (max-width: 768px) { 
             .master-sticky-header { position: relative !important; box-shadow: none; } 
             header { position: relative !important; } 
             
-            /* Clean uniform compression rules */
             .top-info-banner { padding: 10px 15px; font-size: 1.1rem; }
             .navbar-shell { flex-direction: column; gap: 8px; padding: 8px 10px; text-align: center; align-items: center; } 
             .brand-logo img { height: 45px; margin: 0 auto; } 
@@ -136,19 +135,20 @@
 </head>
 <body>
 
-    <!-- Unified Master Sticky Header Wrapper Box Container -->
+    <!-- Unified Master Header Block Layer -->
     <div class="master-sticky-header">
-        <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 855096 ✨</div>
+        <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
         <header>
             <div class="navbar-shell">
                 <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
                 <nav>
                     <ul class="nav-links-list">
                         <li><a href="index.html" class="active-page">Home</a></li>
-                        <li><a href="prices.html">Prices</a></li>
                         <li><a href="pass-photos.html">Pass Photos</a></li>
                         <li><a href="faq.html">FAQ</a></li>
                         <li><a href="contact.html">Contact Us</a></li>
+                        <li><a href="prices.html">Prices</a></li>
+                        <li><a href="terms.html">Terms & Conditions</a></li>
                     </ul>
                 </nav>
             </div>
@@ -159,7 +159,6 @@
     <div style="position: relative; width: 100%; height: 260px; background: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url('car seat1.jpg') no-repeat center center; background-size: cover; overflow: hidden; display: flex; align-items: center; justify-content: center;">
         <div style="position: relative; z-index: 2; width: 100%; max-width: 1140px; padding: 0 20px; display: flex; align-items: center; justify-content: center;">
             <div style="flex: 0 0 auto; text-align: center;">
-
                 <img src="grade a instructor dmw.png" alt="Grade A Approved Driving Instructor Badge" style="height: 140px; width: auto; max-height: 35vw; display: block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.45)); margin: 0 auto;">
             </div>
         </div>

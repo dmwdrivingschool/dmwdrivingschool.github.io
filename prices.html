@@ -39,7 +39,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
-        /* High-Visibility Pulse Booking Strip Banner (Desktop View) */
+        /* High-Visibility Pulse Booking Strip Banner (Standardized Desktop View) */
         .top-info-banner { 
             background-color: #111111; 
             color: #ffffff; 
@@ -74,6 +74,9 @@
         .nav-links-list { display: flex; flex-wrap: wrap; justify-content: center; list-style: none; gap: 16px 24px; align-items: center; margin: 0 auto; padding: 0; }
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; display: inline-flex; text-align: center; justify-content: center; align-items: center; }
         .nav-links-list li a:hover { color: #3498db; }
+        
+        /* Highlights the active page link in bright blue */
+        .active-page { color: #3498db !important; font-weight: bold; border-bottom: 2px solid #3498db; padding-bottom: 2px; }
 
         /* Global Layout Workspace Rules for the Pricing Container */
         .pricing-page-workspace {
@@ -140,23 +143,14 @@
 
         footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 60px; width: 100%; }
 
-        /* 📱 MOBILE ONLY CONFIGURATION */
+        /* 📱 MOBILE ONLY CONSTRAINTS: Keeps all subpages identical and allows layout to scroll away */
         @media (max-width: 768px) { 
-            /* 📍 Turning this to relative tells phones: "Let the entire header area scroll away naturally!" */
-            .master-sticky-header { 
-                position: relative !important; 
-                box-shadow: none;
-            } 
+            .master-sticky-header { position: relative !important; box-shadow: none; } 
+            header { position: relative !important; } 
             
-            /* 📍 Keeps the interior menu block moving relative with the page on mobile */
-            header { 
-                position: relative !important; 
-            } 
-            
-            /* Compact mobile adjustments */
             .top-info-banner { padding: 10px 15px; font-size: 1.1rem; }
             .navbar-shell { flex-direction: column; gap: 8px; padding: 8px 10px; text-align: center; align-items: center; } 
-            .brand-logo img { height: 45px; margin: 0 auto; } /* Cleaner smaller logo sizes on mobile phones */
+            .brand-logo img { height: 45px; margin: 0 auto; } 
             .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; } 
             .nav-links-list li a { font-size: 0.88rem; } 
             .pricing-page-workspace { margin: 20px auto; }
@@ -179,16 +173,18 @@
                 <nav>
                     <ul class="nav-links-list">
                         <li><a href="index.html">Home</a></li>
-                        <li><a href="prices.html">Prices</a></li>
                         <li><a href="pass-photos.html">Pass Photos</a></li>
                         <li><a href="faq.html">FAQ</a></li>
                         <li><a href="contact.html">Contact Us</a></li>
+                        <li><a href="prices.html" class="active-page">Prices</a></li>
                         <li><a href="terms.html">Terms & Conditions</a></li>
                     </ul>
                 </nav>
             </div>
         </header>
     </div>
+
+
 
 
     <!-- Central Workspace Layout Section Container -->

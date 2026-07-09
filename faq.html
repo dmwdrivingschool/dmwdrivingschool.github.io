@@ -40,10 +40,11 @@
             font-weight: 900 !important; 
             letter-spacing: 1px !important;
             line-height: 1.2 !important;
-            animation: bookingPulse 1.5s infinite ease-in-out; 
-            margin: 0;
-            border-bottom: 1px solid #222;
-            width: 100%;
+            animation: bookingPulse 1.5s infinite ease-in-out !important; 
+            margin: 0 !important;
+            border-bottom: 1px solid #222 !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
         }
 
         /* Smooth CSS Animation Engine */
@@ -54,7 +55,7 @@
         }
 
         /* Fixed Navigation Header Bar Area (Desktop View) */
-        header { background-color: #111111 !important; margin: 0 !important; width: 100% !important; display: block; position: relative; z-index: 10010; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        header { background-color: #111111 !important; margin: 0 !important; width: 100% !important; display: block; position: relative; z-index: 10010; }
         .navbar-shell { max-width: 1140px; margin: 0 auto !important; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 15px; box-sizing: border-box; }
         .brand-logo img { height: 60px; width: auto; display: block; }
         
@@ -93,7 +94,7 @@
             header { position: relative !important; } 
             
             .top-info-banner { padding: 10px 15px !important; font-size: 1.1rem !important; font-family: Arial, Helvetica, sans-serif !important; }
-            .navbar-shell { flex-direction: column; gap: 8px; padding: 8px 10px; text-align: center; align-items: center; } 
+            .navbar-shell { flex-direction: column !important; gap: 8px !important; padding: 8px 10px !important; text-align: center !important; align-items: center !important; } 
             .brand-logo img { height: 45px; margin: 0 auto; } 
             .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; } 
             .nav-links-list li a { font-size: 0.88rem; height: auto !important; } 
@@ -121,6 +122,7 @@
             </div>
         </header>
     </div>
+
 
     <!-- Main Content Structural Frame Area -->
     <div style="max-width: 1140px; margin: 45px auto; padding: 0 20px; box-sizing: border-box; width: 100%;">

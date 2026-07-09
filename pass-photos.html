@@ -27,7 +27,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
-        /* High-Visibility Pulse Booking Strip Banner (Desktop View) */
+        /* High-Visibility Pulse Booking Strip Banner (Standardized Desktop View) */
         .top-info-banner { 
             background-color: #111111; 
             color: #ffffff; 
@@ -59,13 +59,12 @@
         }
         .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 15px; }
         .brand-logo img { height: 60px; width: auto; display: block; }
-
-        /* Fixed: Added wrap, centered items, and adjusted mobile spacing */
         .nav-links-list { display: flex; flex-wrap: wrap; justify-content: center; list-style: none; gap: 16px 24px; align-items: center; margin: 0 auto; padding: 0; }
-
-        /* Fixed: Centered the writing horizontally and vertically inside every link */
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; display: inline-flex; text-align: center; justify-content: center; align-items: center; }
         .nav-links-list li a:hover { color: #3498db; }
+
+        /* Highlights the active page link in bright blue */
+        .active-page { color: #3498db !important; font-weight: bold; border-bottom: 2px solid #3498db; padding-bottom: 2px; }
 
         /* Responsive 3-Column Wall of Fame Grid */
         .gallery-grid-workspace {
@@ -131,16 +130,14 @@
             .gallery-photo-card img { height: 280px; }
         }
 
-        /* 📱 MOBILE ONLY CONTRAINTS: Controls smaller phones and disables stickiness */
+        /* 📱 MOBILE ONLY CONSTRAINTS: Keeps all subpages identical and allows layout to scroll away */
         @media (max-width: 768px) { 
-            /* Disables stickiness completely for mobile phones */
             .master-sticky-header { position: relative !important; box-shadow: none; } 
             header { position: relative !important; } 
             
-            /* Tighter alignments for mobile frames */
             .top-info-banner { padding: 10px 15px; font-size: 1.1rem; }
             .navbar-shell { flex-direction: column; gap: 8px; padding: 8px 10px; text-align: center; align-items: center; } 
-            .brand-logo img { height: 45px; margin: 0 auto; } /* Clean, downscaled phone logo size */
+            .brand-logo img { height: 45px; margin: 0 auto; } 
             .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; } 
             .nav-links-list li a { font-size: 0.88rem; } 
         }
@@ -161,16 +158,16 @@
                 <nav>
                     <ul class="nav-links-list">
                         <li><a href="index.html">Home</a></li>
-                        <li><a href="prices.html">Prices</a></li>
-                        <li><a href="pass-photos.html">Pass Photos</a></li>
+                        <li><a href="pass-photos.html" class="active-page">Pass Photos</a></li>
                         <li><a href="faq.html">FAQ</a></li>
                         <li><a href="contact.html">Contact Us</a></li>
+                        <li><a href="prices.html">Prices</a></li>
+                        <li><a href="terms.html">Terms & Conditions</a></li>
                     </ul>
                 </nav>
             </div>
         </header>
     </div>
-
 
     <!-- Gallery Narrative Header Box Container -->
     <div style="max-width: 1140px; margin: 40px auto 10px auto; padding: 0 20px; box-sizing: border-box;">

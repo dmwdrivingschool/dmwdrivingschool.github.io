@@ -28,7 +28,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
-        /* High-Visibility Pulse Booking Strip Banner (Desktop View) */
+        /* High-Visibility Pulse Booking Strip Banner (Standardized Desktop View) */
         .top-info-banner { 
             background-color: #111111; 
             color: #ffffff; 
@@ -43,7 +43,7 @@
             width: 100%;
         }
 
-        /* Smooth CSS Animation Engine: Transitions text between white and flashing hazard yellow */
+        /* Smooth CSS Animation Engine */
         @keyframes bookingPulse {
             0% { color: #ffffff; text-shadow: none; }
             50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 
@@ -61,6 +61,9 @@
         /* Fixed: Centered the writing horizontally and vertically inside every link */
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; display: inline-flex; text-align: center; justify-content: center; align-items: center; }
         .nav-links-list li a:hover { color: #3498db; }
+
+        /* Highlights the active page link in bright blue */
+        .active-page { color: #3498db !important; font-weight: bold; border-bottom: 2px solid #3498db; padding-bottom: 2px; }
 
         /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
         .sticky-enquiry-widget {
@@ -88,16 +91,14 @@
         }
         footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 60px; }
 
-        /* 📱 MOBILE ONLY CONTRAINTS: Controls smaller phones and disables stickiness */
+        /* 📱 MOBILE ONLY CONSTRAINTS */
         @media (max-width: 768px) { 
-            /* Disables stickiness completely for mobile phones */
             .master-sticky-header { position: relative !important; box-shadow: none; } 
             header { position: relative !important; } 
             
-            /* Tighter alignments for mobile frames */
             .top-info-banner { padding: 10px 15px; font-size: 1.1rem; }
             .navbar-shell { flex-direction: column; gap: 8px; padding: 8px 10px; text-align: center; align-items: center; } 
-            .brand-logo img { height: 45px; margin: 0 auto; } /* Clean, downscaled phone logo size */
+            .brand-logo img { height: 45px; margin: 0 auto; } 
             .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; } 
             .nav-links-list li a { font-size: 0.88rem; } 
         }
@@ -114,16 +115,16 @@
                 <nav>
                     <ul class="nav-links-list">
                         <li><a href="index.html">Home</a></li>
-                        <li><a href="prices.html">Prices</a></li>
                         <li><a href="pass-photos.html">Pass Photos</a></li>
                         <li><a href="faq.html">FAQ</a></li>
                         <li><a href="contact.html">Contact Us</a></li>
+                        <li><a href="prices.html">Prices</a></li>
+                        <li><a href="terms.html" class="active-page">Terms & Conditions</a></li>
                     </ul>
                 </nav>
             </div>
         </header>
     </div>
-
 
     <!-- Main Content Structural Frame Area -->
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 1140px; margin: 45px auto; padding: 0 20px; color: #333; box-sizing: border-box;">

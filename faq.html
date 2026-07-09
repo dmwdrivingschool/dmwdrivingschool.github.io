@@ -53,9 +53,9 @@
 
         /* Fixed Navigation Header Bar Area & Logo Height Constraint */
         header { background-color: #111111 !important; margin: 0; width: 100%; display: block; position: relative; z-index: 10010; }
-        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
+        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; } /* 📍 flex-wrap PREVENTS MENU BUTTONS FROM GETTING CUT OFF */
         .brand-logo img { height: 60px; width: auto; display: block; }
-        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; margin: 0; padding: 0; }
+        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; margin: 0; padding: 0; flex-wrap: wrap; }
         .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
         .nav-links-list li a:hover { color: #3498db; }
         

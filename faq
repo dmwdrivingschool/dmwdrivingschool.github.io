@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frequently Asked Questions | DMW Driving School Gloucester</title>
+    
+    <!-- FAQ Page SEO Tags Matrix -->
+    <meta name="description" content="Find answers to frequently asked questions about manual driving lessons, block bookings, and practical driving test requirements at DMW Driving School Gloucester.">
+    <meta name="keywords" content="driving school faq gloucester, manual driving lesson questions, gloucester test centre route faq, driving instructor answers quedgeley">
+    <link rel="canonical" href="https://dmwdrivingschool.co.uk">
+
+    <style>
+        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
+        
+        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; font-family: Arial, sans-serif; }
+        * { box-sizing: border-box; }
+
+        /* Master Sticky Wrapper: Locks both the top banner and navbar menu to the ceiling together */
+        .master-sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 10000;
+            width: 100%;
+            background-color: #111111;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        /* High-Visibility Pulse Booking Strip Banner (Super Bold & Large text) */
+        .top-info-banner { 
+            background-color: #111111; 
+            color: #ffffff; 
+            text-align: center; 
+            padding: 14px 20px; 
+            font-size: 1.25rem; 
+            font-weight: 900 !important; 
+            letter-spacing: 1px;
+            animation: bookingPulse 1.5s infinite ease-in-out; 
+            margin: 0;
+            border-bottom: 1px solid #222;
+            width: 100%;
+        }
+
+        /* Smooth CSS Animation Engine */
+        @keyframes bookingPulse {
+            0% { color: #ffffff; text-shadow: none; }
+            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 
+            100% { color: #ffffff; text-shadow: none; }
+        }
+
+        /* Fixed Navigation Header Bar Area & Logo Height Constraint */
+        header { background-color: #111111 !important; margin: 0; width: 100%; display: block; position: relative; z-index: 10010; }
+        .navbar-shell { max-width: 1140px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; }
+        .brand-logo img { height: 60px; width: auto; display: block; }
+        .nav-links-list { display: flex; list-style: none; gap: 24px; align-items: center; margin: 0; padding: 0; }
+        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
+        .nav-links-list li a:hover { color: #3498db; }
+        
+        /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
+        .sticky-enquiry-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px; 
+            background-color: var(--dmw-main-blue);
+            color: #ffffff !important;
+            padding: 8px 14px; 
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.85rem; 
+            box-shadow: 0 4px 12px rgba(10, 76, 161, 0.35);
+            z-index: 99999; 
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+        .sticky-enquiry-widget:hover {
+            background-color: var(--dmw-deep-navy);
+            transform: scale(1.05);
+        }
+        footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 80px; width: 100%; clear: both; }
+
+        @media (max-width: 768px) { 
+            .navbar-shell { flex-direction: column; gap: 15px; } 
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Master Wrapper Box Container: Forces both bars to stick to the top glass window when scrolling -->
+    <div class="master-sticky-header">
+        <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 853096 ✨</div>
+        <header>
+            <div class="navbar-shell">
+                <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
+                <nav>
+                    <ul class="nav-links-list">
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="prices.html">Prices</a></li>
+                        <li><a href="pass-photos.html">Pass Photos</a></li>
+                        <li><a href="faq.html">FAQ</a></li>
+                        <li><a href="contact.html">Contact Us</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </header>
+    </div>
+
+    <!-- Main Content Structural Frame Area -->
+    <div style="max-width: 1140px; margin: 45px auto; padding: 0 20px; box-sizing: border-box; width: 100%;">
+      
+      <!-- Header Card (Soft Grey Background) -->
+      <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; background-color: #f8f9fa; padding: 24px 20px; margin-bottom: 35px; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+        <h2 style="margin: 0; color: #2c3e50; font-size: 1.6em; font-weight: bold; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px;">❓ Frequently Asked Questions</h2>
+        <p style="margin: 6px 0 0 0; color: #7f8c8d; font-size: 0.95em; font-weight: 500;">Everything you need to know about learning to drive with DMW</p>
+      </div>
+
+      <!-- FAQ Responsive Layout Grid Engine -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 25px; margin-bottom: 35px;">
+        <!-- Q1 -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: var(--dmw-deep-navy); margin-top: 0; font-size: 1.05em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">What areas do you cover for lessons?</h4>
+          <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0;">We provide manual tuition across Gloucester and surrounding areas, focusing heavily on Quedgeley, Kingsway, Hardwicke, and the standard practice routes used by the Gloucester DVSA Test Centre.</p>
+          </div>
+        </div>
+        
+        <!-- Q2 -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: var(--dmw-deep-navy); margin-top: 0; font-size: 1.05em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">What do I need before my first lesson?</h4>
+          <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0;">You must hold a valid UK provisional driving licence. You also need to be able to read a standard car number plate from a distance of 20.5 metres (with glasses or contact lenses if required).</p>
+          </div>
+        </div>
+
+        <!-- Q3 -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: var(--dmw-deep-navy); margin-top: 0; font-size: 1.05em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">Do you offer automatic driving lessons?</h4>
+          <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0;">No. DMW Driving School strictly provides high-quality, patient instruction in a <strong>manual gearbox car</strong> only. We do not operate automatic dual-controlled training vehicles.</p>
+          </div>
+        </div>
+
+        <!-- Q4 -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: var(--dmw-deep-navy); margin-top: 0; font-size: 1.05em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">How many lessons will I need to pass?</h4>
+          <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0;">According to the DVSA, the average learner takes around 45 hours of professional tuition combined with private practice. However, everyone learns at a different pace, and your instructor will track your progress closely.</p>
+          </div>
+        </div>
+        <!-- Q5 -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: var(--dmw-deep-navy); margin-top: 0; font-size: 1.05em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">What is your cancellation policy?</h4>
+          <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0;">We operate a strict <strong>48-hour cancellation policy</strong>. If you cancel or reschedule a booked lesson with less than 48 hours' notice, the full fee for that session will be forfeited, as outlined in our Terms.</p>
+          </div>
+        </div>
+
+        <!-- Q6 -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: var(--dmw-deep-navy); margin-top: 0; font-size: 1.05em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">Can I use the school car for my test?</h4>
+          <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0;">Yes, provided your instructor agrees that you have reached a safe, test-ready standard. Using the instructor's dual-controlled car for the practical test includes a warm-up lesson beforehand and covers the test duration.</p>
+          </div>
+        </div>
+
+        <!-- Q7 -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: var(--dmw-deep-navy); margin-top: 0; font-size: 1.05em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">Do you offer block booking discounts?</h4>
+          <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0;">Yes. While we offer standard hourly pay-as-you-go rates, booking a block package of hours in advance provides a discount per hour. Check our <strong>Prices</strong> subpage for our current tiers.</p>
+          </div>
+        </div>
+
+        <!-- Q8 -->
+        <div style="border: 1px solid #ddd; padding: 20px; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+          <h4 style="color: var(--dmw-deep-navy); margin-top: 0; font-size: 1.05em; font-weight: bold; border-bottom: 2px solid #edf2f7; padding-bottom: 8px; margin-bottom: 12px;">Do I need to pass the theory test first?</h4>
+          <div style="font-size: 0.92em; line-height: 1.6; color: #4a5568;">
+            <p style="margin: 0;">No, you can start practical in-car driving lessons immediately as long as you have your provisional licence. However, you must pass your theory test before you can book your final practical driving test.</p>
+          </div>
+        </div>
+
+      </div> <!-- Closes grid container safely -->
+
+    </div> <!-- Closes main content wrapper safely -->
+
+    <!-- Universal Full-Width Dark Footer Section -->
+    <footer><p>&copy; 2026 DMW Driving School | Professional Manual Instruction Gloucester.</p></footer>
+
+    <!-- Pinned Bottom-Right Corner Compact Booking Pill Button Layout Widget -->
+    <a href="https://www.totaldrive.app/a/enquiry_form.php?15941577856366" target="_blank" class="sticky-enquiry-widget">
+        📅 Book Now
+    </a>
+</body>
+</html>

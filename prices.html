@@ -128,6 +128,18 @@
             .pricing-table-row { font-size: 0.85em; padding: 10px 6px; }
             .table-header-row { font-size: 0.85em; padding: 12px 6px; }
         }
+        
+                /* Smooth Breathing Pulse for the Main Booking Text */
+        .pulse-booking-text {
+            animation: textGlowPulse 2.0s infinite ease-in-out !important;
+        }
+
+        @keyframes textGlowPulse {
+            0% { color: #ffffff; text-shadow: none; }
+            50% { color: #f1c40f; text-shadow: 0 0 8px rgba(241, 196, 15, 0.6); }
+            100% { color: #ffffff; text-shadow: none; }
+        }
+
    </style>
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
@@ -248,9 +260,9 @@
                 <div style="flex: 1.2; color: #95a5a6; font-size: 0.9em; font-style: italic;">N/A</div>
             </div>
             
-            <!-- Row 6: Embedded Form Trigger Link -->
+                        <!-- Row 6: Embedded Form Trigger Link -->
             <div style="padding: 24px; text-align: center; background-color: #f8f9fa; box-sizing: border-box;">
-                <a href="https://www.dmwdrivingschool.co.uk/contact.html" class="booking-cta-btn">🚗 Check Availability & Book Now</a>
+                <a href="https://www.dmwdrivingschool.co.uk/contact.html" class="booking-cta-btn">🚗 <span class="pulse-booking-text">Check Availability & Book Now</span></a>
             </div>
         </div>
     </div>

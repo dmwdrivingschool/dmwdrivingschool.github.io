@@ -98,6 +98,17 @@
             .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; } 
             .nav-links-list li a { font-size: 0.88rem; height: auto !important; } 
         }
+                /* Smooth Breathing Pulse for the Main Enquire Text */
+        .pulse-booking-text {
+            animation: textGlowPulse 2.0s infinite ease-in-out !important;
+        }
+
+        @keyframes textGlowPulse {
+            0% { color: #ffffff; text-shadow: none; }
+            50% { color: #f1c40f; text-shadow: 0 0 8px rgba(241, 196, 15, 0.6); }
+            100% { color: #ffffff; text-shadow: none; }
+        }
+
    </style>
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
@@ -148,9 +159,9 @@
         Want to book your manual driving lessons or check our current availability? The absolute fastest way to get into my diary is to click the <strong>Enquire Now</strong> button below to securely submit your training request into our online booking calendar.
       </p>
       
-      <!-- Functional Native-Style Enquire Now Button -->
-      <a href="https://www.totaldrive.app/a/enquiry_form.php?15941577856366" style="display: inline-block; background-color: #2ecc71; color: white; font-size: 1.1em; font-weight: bold; text-decoration: none; padding: 14px 50px; border-radius: 6px; box-shadow: 0 3px 6px rgba(46, 204, 113, 0.3); margin-bottom: 24px; border: none; letter-spacing: 0.5px;">🚗 Enquire Now</a>
-      
+            <!-- Functional Native-Style Enquire Now Button -->
+      <a href="https://www.totaldrive.app/a/enquiry_form.php?15941577856366" style="display: inline-block; background-color: #2ecc71; color: white; font-size: 1.1em; font-weight: bold; text-decoration: none; padding: 14px 50px; border-radius: 6px; box-shadow: 0 3px 6px rgba(46, 204, 113, 0.3); margin-bottom: 24px; border: none; letter-spacing: 0.5px;">🚗 <span class="pulse-booking-text">Enquire Now</span></a>
+
       <!-- Process Tracker Box -->
       <div style="background-color: #f8f9fa; border-left: 4px solid #2ecc71; padding: 16px; border-radius: 0 8px 8px 0; text-align: left; box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);">
         <p style="margin: 0 0 10px 0; font-weight: bold; color: #2c3e50; font-size: 0.95em;">📋 How applications are handled:</p>

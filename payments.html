@@ -199,19 +199,21 @@
               <div style="margin-bottom: 12px; background-color: #fff; border: 1px solid #edf2f7; border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
                 <span style="color: #7f8c8d; font-size: 0.9em; font-weight: bold;">Name:</span> 
                 <span style="color: #cbd5e0; font-weight: bold; margin-right: auto; margin-left: 10px; font-size: 0.85em;">•••• •••••••</span>
-                <button onclick="document.getElementById('dmwName').select(); document.execCommand('copy'); alert('🔒 Business Name (DMW Driving School) copied securely!')" style="background-color: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8em; font-family: Arial, sans-serif;">📋 Copy</button>
+                <button id="btnName" onclick="document.getElementById('dmwName').select(); document.execCommand('copy'); const b=document.getElementById('btnName'); b.innerText='🔒 Copied! Paste into bank and come back for other details'; b.style.backgroundColor='#2ecc71'; setTimeout(()=>{b.innerText='📋 Copy'; b.style.backgroundColor='#3498db'},4000);" style="background-color: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8em; font-family: Arial, sans-serif; transition: all 0.2s ease; max-width: 180px;">📋 Copy</button>
               </div>
 
+              <!-- Individual Sort Code Row & Button -->
               <div style="margin-bottom: 12px; background-color: #fff; border: 1px solid #edf2f7; border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
                 <span style="color: #7f8c8d; font-size: 0.9em; font-weight: bold;">Sort Code:</span> 
                 <span style="color: #cbd5e0; font-weight: bold; letter-spacing: 2px; margin-right: auto; margin-left: 10px;">•• •• ••</span>
-                <button onclick="document.getElementById('dmwSort').select(); document.execCommand('copy'); alert('🔒 Sort Code (608371) copied securely!')" style="background-color: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8em; font-family: Arial, sans-serif;">📋 Copy</button>
+                <button id="btnSort" onclick="document.getElementById('dmwSort').select(); document.execCommand('copy'); const b=document.getElementById('btnSort'); b.innerText='🔒 Copied! Paste into bank and come back for other details'; b.style.backgroundColor='#2ecc71'; setTimeout(()=>{b.innerText='📋 Copy'; b.style.backgroundColor='#3498db'},4000);" style="background-color: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8em; font-family: Arial, sans-serif; transition: all 0.2s ease; max-width: 180px;">📋 Copy</button>
               </div>
               
+              <!-- Individual Account Number Row & Button -->
               <div style="margin-bottom: 15px; background-color: #fff; border: 1px solid #edf2f7; border-radius: 8px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;">
                 <span style="color: #7f8c8d; font-size: 0.9em; font-weight: bold;">Account No:</span> 
                 <span style="color: #cbd5e0; font-weight: bold; letter-spacing: 2px; margin-right: auto; margin-left: 10px;">•••• ••••</span>
-                <button onclick="document.getElementById('dmwAcc').select(); document.execCommand('copy'); alert('🔒 Account Number (50658536) copied securely!')" style="background-color: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8em; font-family: Arial, sans-serif;">📋 Copy</button>
+                <button id="btnAcc" onclick="document.getElementById('dmwAcc').select(); document.execCommand('copy'); const b=document.getElementById('btnAcc'); b.innerText='🔒 Copied! Paste into bank and come back for other details'; b.style.backgroundColor='#2ecc71'; setTimeout(()=>{b.innerText='📋 Copy'; b.style.backgroundColor='#3498db'},4000);" style="background-color: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8em; font-family: Arial, sans-serif; transition: all 0.2s ease; max-width: 180px;">📋 Copy</button>
               </div>
 
               <div style="background-color: #fffaf0; border-left: 4px solid #dd6b20; padding: 10px; border-radius: 0 6px 6px 0; font-size: 0.82em; color: #7b341e; text-align: left; line-height: 1.4; box-sizing: border-box;">
@@ -224,8 +226,9 @@
 
     <a href="contact.html" class="sticky-enquiry-widget">📩 Enquire Now</a>
 
+    <!-- Perfectly Corrected Live Footer Bar -->
     <footer>
-        <p style="margin: 0; font-size: 0.9rem;">&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
+        <p style="margin: 0; font-size: 0.9rem; color: #9ca3af;">&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
     </footer>
 
 </body>

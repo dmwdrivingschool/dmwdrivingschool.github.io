@@ -9,6 +9,7 @@
         :root { 
             --dmw-dark: #1e1e24;       /* Primary dark header & background tone */
             --dmw-accent: #ffcc00;     /* Yellow brand accent color */
+            --dmw-green: #2ecc71;     /* Vibrant card accent color from design */
             --dmw-bg: #f5f6f8;         /* Light content background */
             --card-bg: #ffffff; 
             --text-main: #2b2d42;      /* Deep neutral text color */
@@ -18,11 +19,10 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: var(--dmw-bg); color: var(--text-main); line-height: 1.6; }
 
-        /* --- Website Layout Header (Clean Branding Minimal Style) --- */
+        /* --- Website Layout Header (Logo Style) --- */
         .site-header {
             background-color: var(--dmw-dark);
-            color: #ffffff;
-            padding: 18px 0;
+            padding: 12px 0;
             position: sticky;
             top: 0;
             z-index: 1000;
@@ -32,22 +32,28 @@
             max-width: 1200px;
             margin: 0 auto;
             display: flex;
-            justify-content: center; /* Centers the brand badge for clean portal aesthetic */
+            justify-content: center; 
             align-items: center;
             padding: 0 20px;
         }
-        .logo {
-            color: #ffffff;
-            font-size: 24px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
+        
+        /* Logo Component Layout */
+        .logo-container {
+            display: block;
+            max-width: 220px;       
+            height: auto;
+        }
+        .logo-img {
+            display: block;
+            width: 100%;
+            height: auto;
+            object-fit: contain;
             user-select: none;
         }
-        .logo span { color: var(--dmw-accent); }
 
         /* --- Centered Screen Layout for Login Box --- */
         .viewport-wrapper {
-            min-height: calc(100vh - 148px); /* Adapts page box perfectly to avoid viewport layout jumps */
+            min-height: calc(100vh - 148px); 
             display: flex;
             justify-content: center;
             align-items: center;
@@ -94,10 +100,9 @@
         .login-btn:hover { background: #e6b800; }
         .error-msg { color: #d9534f; font-size: 0.85rem; margin-top: 12px; display: none; font-weight: 500; }
 
-        /* --- Portal Content Area --- */
-        #portal-content { display: none; max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        /* --- Portal Content Area Layout Rules --- */
+        #portal-content { display: none; max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
         
-        /* Dashboard Context Banner */
         .portal-banner {
             display: flex;
             justify-content: space-between;
@@ -108,7 +113,7 @@
             border-radius: 6px;
             margin-bottom: 35px;
         }
-        .portal-banner h1 { font-size: 1.8rem; }
+        .portal-banner h1 { font-size: 1.6rem; }
         .logout-btn { 
             background: transparent; 
             color: var(--dmw-accent); 
@@ -121,30 +126,42 @@
         }
         .logout-btn:hover { background: var(--dmw-accent); color: var(--dmw-dark); }
 
-        /* Content Display Grids */
-        .grid { display: grid; gap: 25px; }
+        .grid { display: grid; gap: 30px; }
         @media(min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; } }
         
+        /* Modern Card System CSS rules replicating uploaded format */
         .card { 
             background: var(--card-bg); 
-            border-radius: 8px; 
+            border-radius: 16px; 
             padding: 25px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03); 
-            border-left: 5px solid var(--dmw-dark); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04); 
+            border: 1px solid #e2e8f0;
+            border-left: 8px solid var(--dmw-green); 
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
-        .card h2 { font-size: 1.3rem; margin-bottom: 15px; color: var(--dmw-dark); }
+        .card h2 { font-size: 1.4rem; color: #1e293b; font-weight: 700; }
         
-        /* Video Container matching responsive sizing */
         .video-placeholder { 
-            background: #2b2d42; 
-            color: #fff; 
+            background: #2d3748; 
+            color: #ffffff; 
             aspect-ratio: 16/9;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            border-radius: 4px; 
-            font-weight: 500;
+            border-radius: 12px; 
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-align: center;
+            padding: 20px;
+            line-height: 1.4;
         }
+        .video-placeholder span { font-size: 0.85rem; color: #cbd5e1; font-weight: 400; margin-top: 4px; }
+
+        .card-meta { font-size: 0.92rem; color: #475569; line-height: 1.5; padding-top: 5px; border-top: 1px solid #f1f5f9; }
+        .card-meta strong { color: #1e293b; }
 
         /* --- Website Layout Footer --- */
         .site-footer {
@@ -167,7 +184,6 @@
         .footer-links li a { color: #888888; text-decoration: none; }
         .footer-links li a:hover { color: #ffffff; }
 
-        /* Responsive Mobile Breakpoints */
         @media (max-width: 600px) {
             .footer-container, .portal-banner { flex-direction: column; text-align: center; gap: 15px; }
             .footer-links li { margin: 0 10px; }
@@ -176,10 +192,12 @@
 </head>
 <body>
 
-    <!-- Simplified Header Section without Menus or Callout Buttons -->
+    <!-- Header Section containing image-1.jpg Logo Path -->
     <header class="site-header">
         <div class="header-container">
-            <div class="logo">DMW <span>Driving School</span></div>
+            <div class="logo-container">
+                <img src="image-1.jpg" alt="DMW Driving School Logo" class="logo-img">
+            </div>
         </div>
     </header>
 
@@ -199,29 +217,55 @@
             <button class="login-btn" onclick="checkLogin()">Login</button>
             <div id="error" class="error-msg">Invalid login credentials!</div>
         </div>
-
         <!-- Authenticated Dashboard State -->
         <div id="portal-content">
             <div class="portal-banner">
-                <h1>Student Briefing Hub</h1>
+                <h1>Interactive 3D Driving Guides & Manoeuvres</h1>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
             
             <div class="grid">
+                <!-- Card 1 -->
                 <div class="card">
                     <h2>1. Parallel Parking</h2>
-                    <div class="video-placeholder">3D Animation Placeholder</div>
+                    <div class="video-placeholder">
+                        3D Animation Coming Soon
+                        <span>(Parallel Park Reference Points)</span>
+                    </div>
+                    <p class="card-meta">
+                        <strong>Key Points:</strong> Pull up level with target car. Select reverse. Check all around blindspots. Turn left when your rear wheels clear their bumper.
+                    </p>
                 </div>
+
+                <!-- Card 2 -->
                 <div class="card">
-                    <h2>2. Junctions</h2>
-                    <div class="video-placeholder">3D Animation Placeholder</div>
+                    <h2>2. Emerging at Junctions</h2>
+                    <div class="video-placeholder">
+                        3D Animation Coming Soon
+                        <span>(T-Junction Bird's Eye View)</span>
+                    </div>
+                    <p class="card-meta">
+                        <strong>Key Points:</strong> M-S-M routine. Assess junction early. Look right, look left, look right again. Creep forward using clutch control if view is restricted.
+                    </p>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="card">
+                    <h2>3. Roundabouts</h2>
+                    <div class="video-placeholder">
+                        3D Animation Coming Soon
+                        <span>(Lane Discipline Rules)</span>
+                    </div>
+                    <p class="card-meta">
+                        <strong>Key Points:</strong> Check mirrors and signal early. Give way to traffic already on the roundabout from your right. Maintain proper lane discipline.
+                    </p>
                 </div>
             </div>
         </div>
 
     </main>
 
-    <!-- Consistent Footer Layout -->
+    <!-- Standard Domain Footer Component -->
     <footer class="site-footer">
         <div class="footer-container">
             <p>&copy; 2026 DMW Driving School. All rights reserved.</p>

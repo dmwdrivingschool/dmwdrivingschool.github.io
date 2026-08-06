@@ -165,7 +165,7 @@
         /* --- Website Layout Footer --- */
         .site-footer {
             background-color: var(--dmw-dark);
-            color: #888888;
+            color: #a4a4b5;
             padding: 25px 0;
             font-size: 14px;
             border-top: 1px solid #2a2a35;
@@ -174,18 +174,14 @@
             max-width: 1200px;
             margin: 0 auto;
             display: flex;
-            justify-content: space-between;
+            justify-content: center; /* Centered layout for clean text focus */
             align-items: center;
             padding: 0 20px;
+            text-align: center;
         }
-        .footer-links { display: flex; list-style: none; }
-        .footer-links li { margin-left: 20px; }
-        .footer-links li a { color: #888888; text-decoration: none; }
-        .footer-links li a:hover { color: #ffffff; }
 
         @media (max-width: 600px) {
-            .footer-container, .portal-banner { flex-direction: column; text-align: center; gap: 15px; }
-            .footer-links li { margin: 0 10px; }
+            .portal-banner { flex-direction: column; text-align: center; gap: 15px; }
         }
     </style>
 </head>
@@ -224,9 +220,37 @@
             </div>
             
             <div class="grid">
-                <!-- Subject 1: Junctions -->
+                <!-- Subject 1: Cockpit Drill -->
                 <div class="card">
-                    <h2>1. Junctions & Emerging</h2>
+                    <h2>1. Cockpit Drill & Safety Checks</h2>
+                    <div class="video-container">
+                        <video controls controlsList="nodownload" playsinline preload="metadata">
+                            <source src="video-cockpit.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <p class="card-meta">
+                        <strong>Key Points:</strong> Adjust seat for full clutch travel. Set steering wheel clearance. Adjust rearview and side mirrors for optimal rear visibility.
+                    </p>
+                </div>
+
+                <!-- Subject 2: Moving Off & Stopping -->
+                <div class="card">
+                    <h2>2. Moving Off & Stopping Procedures</h2>
+                    <div class="video-container">
+                        <video controls controlsList="nodownload" playsinline preload="metadata">
+                            <source src="video-movingoff.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <p class="card-meta">
+                        <strong>Key Points:</strong> M-S-M routine. Prepare: Clutch down, 1st gear, set gas, find bite. Observe 6-points. Move. To stop: mirrors, signal, brake, clutch down, secure with handbrake & neutral.
+                    </p>
+                </div>
+
+                <!-- Subject 3: Junctions -->
+                <div class="card">
+                    <h2>3. Junctions & Emerging</h2>
                     <div class="video-container">
                         <video controls controlsList="nodownload" playsinline preload="metadata">
                             <source src="video-junctions.mp4" type="video/mp4">
@@ -238,9 +262,9 @@
                     </p>
                 </div>
 
-                <!-- Subject 2: Roundabouts -->
+                <!-- Subject 4: Roundabouts -->
                 <div class="card">
-                    <h2>2. Roundabouts & Lane Discipline</h2>
+                    <h2>4. Roundabouts & Lane Discipline</h2>
                     <div class="video-container">
                         <video controls controlsList="nodownload" playsinline preload="metadata">
                             <source src="video-roundabouts.mp4" type="video/mp4">
@@ -252,9 +276,9 @@
                     </p>
                 </div>
 
-                <!-- Subject 3: Dual Carriageways -->
+                <!-- Subject 5: Dual Carriageways -->
                 <div class="card">
-                    <h2>3. Dual Carriageways & Slip Roads</h2>
+                    <h2>5. Dual Carriageways & Slip Roads</h2>
                     <div class="video-container">
                         <video controls controlsList="nodownload" playsinline preload="metadata">
                             <source src="video-dual-carriageway.mp4" type="video/mp4">
@@ -266,9 +290,9 @@
                     </p>
                 </div>
 
-                <!-- Subject 4: Overtaking -->
+                <!-- Subject 6: Overtaking -->
                 <div class="card">
-                    <h2>4. Overtaking & Lane Changing</h2>
+                    <h2>6. Overtaking & Lane Changing</h2>
                     <div class="video-container">
                         <video controls controlsList="nodownload" playsinline preload="metadata">
                             <source src="video-overtaking.mp4" type="video/mp4">
@@ -280,9 +304,9 @@
                     </p>
                 </div>
 
-                <!-- Subject 5: Pedestrian Crossings -->
+                <!-- Subject 7: Pedestrian Crossings -->
                 <div class="card">
-                    <h2>5. Pedestrian Crossings & Hazards</h2>
+                    <h2>7. Pedestrian Crossings & Hazards</h2>
                     <div class="video-container">
                         <video controls controlsList="nodownload" playsinline preload="metadata">
                             <source src="video-crossings.mp4" type="video/mp4">
@@ -294,9 +318,9 @@
                     </p>
                 </div>
 
-                <!-- Subject 6: Weather -->
+                <!-- Subject 8: Weather -->
                 <div class="card">
-                    <h2>6. Driving in Adverse Weather</h2>
+                    <h2>8. Driving in Adverse Weather</h2>
                     <div class="video-container">
                         <video controls controlsList="nodownload" playsinline preload="metadata">
                             <source src="video-weather.mp4" type="video/mp4">
@@ -307,47 +331,15 @@
                         <strong>Key Points:</strong> Double your total stopping gap on wet roads. Use dipped headlights in low visibility. Ease off the gas pedal smoothly if tires begin to slide or aquaplane.
                     </p>
                 </div>
-
-                <!-- Subject 7: Independent Driving -->
-                <div class="card">
-                    <h2>7. Independent Driving & SatNav</h2>
-                    <div class="video-container">
-                        <video controls controlsList="nodownload" playsinline preload="metadata">
-                            <source src="video-independent.mp4" type="video/mp4">
-                            Your browser does not support the video tag.
-                        </video>
-                    </div>
-                    <p class="card-meta">
-                        <strong>Key Points:</strong> Focus heavily on road signage rather than guessing directions. Listen to GPS prompts well in advance. Remain calm if you misinterpret a turn.
-                    </p>
-                </div>
-
-                <!-- Subject 8: Emergency Stop -->
-                <div class="card">
-                    <h2>8. Emergency Stop Procedure</h2>
-                    <div class="video-container">
-                        <video controls controlsList="nodownload" playsinline preload="metadata">
-                            <source src="video-emergencystop.mp4" type="video/mp4">
-                            Your browser does not support the video tag.
-                        </video>
-                    </div>
-                    <p class="card-meta">
-                        <strong>Key Points:</strong> Secure a solid grip on the steering wheel. Apply immediate and heavy brake force. Push the clutch all the way down just before coming to a full stop. Securing parking brake immediately.
-                    </p>
-                </div>
             </div>
         </div>
 
     </main>
 
-    <!-- Standard Domain Footer Component -->
+    <!-- Standard Domain Footer Component with Custom Subheadings -->
     <footer class="site-footer">
         <div class="footer-container">
-            <p>&copy; 2026 DMW Driving School. All rights reserved.</p>
-            <ul class="footer-links">
-                <li><a href="#">Terms & Conditions</a></li>
-                <li><a href="#">Privacy Policy</a></li>
-            </ul>
+            <p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
         </div>
     </footer>
 

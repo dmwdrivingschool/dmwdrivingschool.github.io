@@ -5,69 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DMW Briefing Portal</title>
     <style>
-        :root {
-            --primary-color: #2ecc71; /* Driving school green theme */
-            --bg-color: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-color: #2c3e50;
-        }
+        :root { --primary-color: #2ecc71; --bg-color: #f8f9fa; --card-bg: #ffffff; --text-color: #2c3e50; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Arial', sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-color); padding: 20px; }
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .login-box { background: var(--card-bg); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; border-top: 5px solid var(--primary-color); }
+        .login-box h2 { font-size: 1.4rem; margin-bottom: 8px; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group input { width: 100%; padding: 12px; border: 1px solid #ccd1d1; border-radius: 6px; }
+        .login-btn { width: 100%; padding: 12px; background: var(--primary-color); border: none; color: white; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        .error-msg { color: #e74c3c; font-size: 0.85rem; margin-top: 10px; display: none; }
+        #portal-content { display: none; width: 100%; max-width: 800px; margin: 0 auto; }
         header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #eaeded; }
-        header h1 { font-size: 1.5rem; margin-bottom: 5px; color: var(--text-color); }
-        header p { font-size: 0.9rem; color: #7f8c8d; }
-        .grid { display: grid; grid-template-columns: 1fr; gap: 15px; max-width: 600px; margin: 0 auto; }
+        .grid { display: grid; gap: 15px; }
         @media(min-width: 600px) { .grid { grid-template-columns: 1fr 1fr; } }
         .card { background: var(--card-bg); border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 5px solid var(--primary-color); }
-        .card h2 { font-size: 1.1rem; margin-bottom: 10px; }
-        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; background: #e5e8e8; border-radius: 8px; margin-bottom: 10px; }
-        .video-container iframe, .video-container video, .video-placeholder { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-        .video-placeholder { display: flex; align-items: center; justify-content: center; background: #34495e; color: #fff; font-size: 0.85rem; font-weight: bold; text-align: center; padding: 10px; }
-        .notes { font-size: 0.85rem; line-height: 1.4; color: #566573; background: #fdfefe; padding: 8px; border-radius: 6px; border: 1px solid #eaeded; }
+        .video-placeholder { background: #34495e; color: #fff; padding: 20px; text-align: center; border-radius: 8px; }
+        .logout-btn { background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
-
-    <header>
-        <h1>DMW Briefing Portal</h1>
-        <p>Interactive 3D Driving Guides & Manoeuvres</p>
-    </header>
-
-    <div class="grid">
-        <!-- Manoeuvre 1 -->
-        <div class="card">
-            <h2>1. Parallel Parking</h2>
-            <div class="video-container">
-                <!-- Placeholder until 3D video is ready -->
-                <div class="video-placeholder">3D Animation Coming Soon<br>(Parallel Park Reference Points)</div>
-            </div>
-            <div class="notes">
-                <strong>Key Points:</strong> Pull up level with target car. Select reverse. Check all around blindspots. Turn left when your rear wheels clear their bumper.
-            </div>
-        </div>
-
-        <!-- Manoeuvre 2 -->
-        <div class="card">
-            <h2>2. Emerging at Junctions</h2>
-            <div class="video-container">
-                <div class="video-placeholder">3D Animation Coming Soon<br>(T-Junction Bird's Eye View)</div>
-            </div>
-            <div class="notes">
-                <strong>Key Points:</strong> M-S-M routine. Assess junction early. Look right, look left, look right again. Creep forward using clutch control if view is restricted.
-            </div>
-        </div>
-
-        <!-- Manoeuvre 3 -->
-        <div class="card">
-            <h2>3. Roundabouts</h2>
-            <div class="video-container">
-                <div class="video-placeholder">3D Animation Coming Soon<br>(Lane Discipline Rules)</div>
-            </div>
-            <div class="notes">
-                <strong>Key Points:</strong> Check mirrors and signal early. Give way to traffic already on the roundabout from your right. Maintain proper lane discipline.
-            </div>
+    <div id="login-screen" class="login-box">
+        <h2>DMW Briefing Portal</h2>
+        <p>Enter access details to view 3D guides.</p>
+        <div class="input-group"><input type="text" id="username" placeholder="Username"></div>
+        <div class="input-group"><input type="password" id="password" placeholder="Password"></div>
+        <button class="login-btn" onclick="checkLogin()">Login</button>
+        <div id="error" class="error-msg">Invalid details!</div>
+    </div>
+    <div id="portal-content">
+        <header><h1>DMW Portal</h1><button class="logout-btn" onclick="logout()">Logout</button></header>
+        <div class="grid">
+            <div class="card"><h2>1. Parallel Parking</h2><div class="video-placeholder">3D Animation Placeholder</div></div>
+            <div class="card"><h2>2. Junctions</h2><div class="video-placeholder">3D Animation Placeholder</div></div>
         </div>
     </div>
+    <script>
+        // Set master login details
+        const CORRECT_USER = "dmwstudent"; 
+        const CORRECT_PASS = "drive2026"; 
 
+        if (sessionStorage.getItem("authenticated") === "true") showDashboard();
+
+        function checkLogin() {
+            if (document.getElementById("username").value === CORRECT_USER && document.getElementById("password").value === CORRECT_PASS) {
+                sessionStorage.setItem("authenticated", "true");
+                showDashboard();
+            } else { document.getElementById("error").style.display = "block"; }
+        }
+        function showDashboard() { document.getElementById("login-screen").style.display = "none"; document.getElementById("portal-content").style.display = "block"; }
+        function logout() { sessionStorage.removeItem("authenticated"); window.location.reload(); }
+    </script>
 </body>
 </html>

@@ -7,9 +7,9 @@
     <style>
         /* --- DMW Brand Colors & Variables --- */
         :root { 
-            --dmw-dark: #1e1e24;       /* Primary dark header & background tone */
+            --dmw-dark: #1e1e24;       /* Primary dark header tone */
             --dmw-accent: #ffcc00;     /* Yellow brand accent color */
-            --dmw-green: #2ecc71;     /* Vibrant card accent color from design */
+            --dmw-green: #2ecc71;     /* Vibrant card sidebar accent */
             --dmw-bg: #f5f6f8;         /* Light content background */
             --card-bg: #ffffff; 
             --text-main: #2b2d42;      /* Deep neutral text color */
@@ -19,7 +19,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: var(--dmw-bg); color: var(--text-main); line-height: 1.6; }
 
-        /* --- Website Layout Header (Logo Style) --- */
+        /* --- Website Layout Header (GitHub Logo Route) --- */
         .site-header {
             background-color: var(--dmw-dark);
             padding: 12px 0;
@@ -37,7 +37,7 @@
             padding: 0 20px;
         }
         
-        /* Logo Component Layout */
+        /* Logo Graphic Wrapper Rules */
         .logo-container {
             display: block;
             max-width: 220px;       
@@ -101,7 +101,7 @@
         .error-msg { color: #d9534f; font-size: 0.85rem; margin-top: 12px; display: none; font-weight: 500; }
 
         /* --- Portal Content Area Layout Rules --- */
-        #portal-content { display: none; max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+        #portal-content { display: none; max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
         
         .portal-banner {
             display: flex;
@@ -113,7 +113,7 @@
             border-radius: 6px;
             margin-bottom: 35px;
         }
-        .portal-banner h1 { font-size: 1.6rem; }
+        .portal-banner h1 { font-size: 1.5rem; }
         .logout-btn { 
             background: transparent; 
             color: var(--dmw-accent); 
@@ -129,7 +129,7 @@
         .grid { display: grid; gap: 30px; }
         @media(min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; } }
         
-        /* Modern Card System CSS rules replicating uploaded format */
+        /* Modern Card System CSS rules replicating your design upload */
         .card { 
             background: var(--card-bg); 
             border-radius: 16px; 
@@ -141,24 +141,23 @@
             flex-direction: column;
             gap: 15px;
         }
-        .card h2 { font-size: 1.4rem; color: #1e293b; font-weight: 700; }
+        .card h2 { font-size: 1.35rem; color: #1e293b; font-weight: 700; }
         
-        .video-placeholder { 
-            background: #2d3748; 
-            color: #ffffff; 
+        /* Video Container layout scaling gracefully for hosted mp4 files */
+        .video-container { 
+            width: 100%;
             aspect-ratio: 16/9;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            background: #2d3748;
             border-radius: 12px; 
-            font-weight: 600;
-            font-size: 0.95rem;
-            text-align: center;
-            padding: 20px;
-            line-height: 1.4;
+            overflow: hidden;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
         }
-        .video-placeholder span { font-size: 0.85rem; color: #cbd5e1; font-weight: 400; margin-top: 4px; }
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
 
         .card-meta { font-size: 0.92rem; color: #475569; line-height: 1.5; padding-top: 5px; border-top: 1px solid #f1f5f9; }
         .card-meta strong { color: #1e293b; }
@@ -192,7 +191,7 @@
 </head>
 <body>
 
-    <!-- Header Section containing image-1.jpg Logo Path -->
+    <!-- Header Block displaying image-1.jpg -->
     <header class="site-header">
         <div class="header-container">
             <div class="logo-container">
@@ -220,44 +219,120 @@
         <!-- Authenticated Dashboard State -->
         <div id="portal-content">
             <div class="portal-banner">
-                <h1>Interactive 3D Driving Guides & Manoeuvres</h1>
+                <h1>Interactive AI Driving Guides & Core Lessons</h1>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
             
             <div class="grid">
-                <!-- Card 1 -->
+                <!-- Subject 1: Junctions -->
                 <div class="card">
-                    <h2>1. Parallel Parking</h2>
-                    <div class="video-placeholder">
-                        3D Animation Coming Soon
-                        <span>(Parallel Park Reference Points)</span>
+                    <h2>1. Junctions & Emerging</h2>
+                    <div class="video-container">
+                        <video controls controlsList="nodownload" playsinline preload="metadata">
+                            <source src="video-junctions.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
                     </div>
                     <p class="card-meta">
-                        <strong>Key Points:</strong> Pull up level with target car. Select reverse. Check all around blindspots. Turn left when your rear wheels clear their bumper.
+                        <strong>Key Points:</strong> Apply the M-S-M routine early. Assess zoning speed. Look right, left, and right again. Creep out with clutch control if lines of sight are limited.
                     </p>
                 </div>
 
-                <!-- Card 2 -->
+                <!-- Subject 2: Roundabouts -->
                 <div class="card">
-                    <h2>2. Emerging at Junctions</h2>
-                    <div class="video-placeholder">
-                        3D Animation Coming Soon
-                        <span>(T-Junction Bird's Eye View)</span>
+                    <h2>2. Roundabouts & Lane Discipline</h2>
+                    <div class="video-container">
+                        <video controls controlsList="nodownload" playsinline preload="metadata">
+                            <source src="video-roundabouts.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
                     </div>
                     <p class="card-meta">
-                        <strong>Key Points:</strong> M-S-M routine. Assess junction early. Look right, look left, look right again. Creep forward using clutch control if view is restricted.
+                        <strong>Key Points:</strong> Check mirrors and signal early. Give way to traffic already approaching from the right. Maintain solid positioning inside your lane markings.
                     </p>
                 </div>
 
-                <!-- Card 3 -->
+                <!-- Subject 3: Dual Carriageways -->
                 <div class="card">
-                    <h2>3. Roundabouts</h2>
-                    <div class="video-placeholder">
-                        3D Animation Coming Soon
-                        <span>(Lane Discipline Rules)</span>
+                    <h2>3. Dual Carriageways & Slip Roads</h2>
+                    <div class="video-container">
+                        <video controls controlsList="nodownload" playsinline preload="metadata">
+                            <source src="video-dual-carriageway.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
                     </div>
                     <p class="card-meta">
-                        <strong>Key Points:</strong> Check mirrors and signal early. Give way to traffic already on the roundabout from your right. Maintain proper lane discipline.
+                        <strong>Key Points:</strong> Build up speed on the slip road to match main traffic flows. Check your right blind spot quickly. Merge smoothly without disrupting passing vehicles.
+                    </p>
+                </div>
+
+                <!-- Subject 4: Overtaking -->
+                <div class="card">
+                    <h2>4. Overtaking & Lane Changing</h2>
+                    <div class="video-container">
+                        <video controls controlsList="nodownload" playsinline preload="metadata">
+                            <source src="video-overtaking.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <p class="card-meta">
+                        <strong>Key Points:</strong> Confirm a safe following distance ahead. Perform mirror checks to verify rear clearance. Signal clearly, change lanes smoothly, and cancel the indicator prompt promptly.
+                    </p>
+                </div>
+
+                <!-- Subject 5: Pedestrian Crossings -->
+                <div class="card">
+                    <h2>5. Pedestrian Crossings & Hazards</h2>
+                    <div class="video-container">
+                        <video controls controlsList="nodownload" playsinline preload="metadata">
+                            <source src="video-crossings.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <p class="card-meta">
+                        <strong>Key Points:</strong> Scan walking paths and pavements early. Look for pedestrians approaching boundaries. Check your interior mirror before braking gently.
+                    </p>
+                </div>
+
+                <!-- Subject 6: Weather -->
+                <div class="card">
+                    <h2>6. Driving in Adverse Weather</h2>
+                    <div class="video-container">
+                        <video controls controlsList="nodownload" playsinline preload="metadata">
+                            <source src="video-weather.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <p class="card-meta">
+                        <strong>Key Points:</strong> Double your total stopping gap on wet roads. Use dipped headlights in low visibility. Ease off the gas pedal smoothly if tires begin to slide or aquaplane.
+                    </p>
+                </div>
+
+                <!-- Subject 7: Independent Driving -->
+                <div class="card">
+                    <h2>7. Independent Driving & SatNav</h2>
+                    <div class="video-container">
+                        <video controls controlsList="nodownload" playsinline preload="metadata">
+                            <source src="video-independent.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <p class="card-meta">
+                        <strong>Key Points:</strong> Focus heavily on road signage rather than guessing directions. Listen to GPS prompts well in advance. Remain calm if you misinterpret a turn.
+                    </p>
+                </div>
+
+                <!-- Subject 8: Emergency Stop -->
+                <div class="card">
+                    <h2>8. Emergency Stop Procedure</h2>
+                    <div class="video-container">
+                        <video controls controlsList="nodownload" playsinline preload="metadata">
+                            <source src="video-emergencystop.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <p class="card-meta">
+                        <strong>Key Points:</strong> Secure a solid grip on the steering wheel. Apply immediate and heavy brake force. Push the clutch all the way down just before coming to a full stop. Securing parking brake immediately.
                     </p>
                 </div>
             </div>
@@ -276,7 +351,7 @@
         </div>
     </footer>
 
-    <!-- Verification & State Switching Engine -->
+    <!-- Script Handling Authentication -->
     <script>
         const CORRECT_USER = "dmwstudent"; 
         const CORRECT_PASS = "drive2026"; 
@@ -299,10 +374,8 @@
 
         function showDashboard() { 
             document.getElementById("login-screen").style.display = "none"; 
-            
             document.getElementById("page-wrapper").style.display = "block";
             document.getElementById("page-wrapper").style.minHeight = "auto";
-            
             document.getElementById("portal-content").style.display = "block"; 
         }
 

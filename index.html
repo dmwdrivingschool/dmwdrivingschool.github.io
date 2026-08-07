@@ -140,6 +140,45 @@
             flex-direction: column; 
             justify-content: flex-start; /* 🆕 Changed from space-between to prevent ugly gaps */
         }
+/* --- Sidebar Stats & Success Card Component --- */
+.sidebar-success-card {
+    background: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 22px;
+    margin-top: 25px; /* Creates clean separation directly below your service map card */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+}
+.sidebar-success-card h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e1e24;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sidebar-success-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.sidebar-success-card li {
+    font-size: 0.92rem;
+    color: #334155;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.4;
+}
+.sidebar-success-card li:last-child {
+    margin-bottom: 0;
+}
+.sidebar-success-card li strong {
+    color: #0f172a;
+    font-weight: 600;
+}
 
         /* Universal Rolling Carousel Container */
         .carousel-heading { color: var(--dmw-deep-navy); margin: 0 0 15px 0; font-size: 1.6rem; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
@@ -373,6 +412,25 @@
           </div>
         </div>
     </div>
+
+<!-- 🆕 New Sidebar Success & Stats Tracking Layout Component Card -->
+<div class="sidebar-success-card">
+    <h3>🏆 Why Choose DMW?</h3>
+    <ul>
+        <li>
+            <span>⭐</span>
+            <span><strong>Higher Than National Average Pass Rate</strong> – Proven instructional techniques tailored to build lifelong driving confidence and skill.</span>
+        </li>
+        <li>
+            <span>⭐</span>
+            <span><strong>Dozens of 5-Star Learner Reviews</strong> – Highly recommended across Gloucester for maintaining a calm, patient, and highly structured training environment.</span>
+        </li>
+    </ul>
+</div>
+
+<!-- Line 411: This opens the next section container below -->
+<div class="feedback-layout-grid-row"> 
+    
 
     <!-- Centered Full-Width Image Carousel Section Wrapper Box -->
     <div style="max-width: 1140px; margin: 0 auto; padding: 0 20px; box-sizing: border-box; width: 100%;">

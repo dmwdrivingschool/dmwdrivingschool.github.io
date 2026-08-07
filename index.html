@@ -29,6 +29,49 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
+/* --- Video Hub Marketing Card Component --- */
+.video-hub-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 30px; /* Provides spacing above the bottom columns */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.01);
+}
+.video-hub-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #1e1e24; /* DMW Dark */
+}
+.video-hub-card .card-line {
+    height: 3px;
+    background: #1e1e24; /* Matching solid header line layout */
+    margin: 12px 0 16px 0;
+    border-radius: 2px;
+}
+.video-hub-card p {
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+.video-hub-card ul {
+    list-style: none;
+    padding: 0;
+}
+.video-hub-card li {
+    font-size: 0.92rem;
+    color: #1e293b;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+        
         /* High-Visibility Pulse Booking Strip Banner (Standardized Desktop View) */
         .top-info-banner { 
             background-color: #111111 !important; 
@@ -194,13 +237,17 @@
             
             <p style="margin: 0 0 20px 0; font-size: 1.05rem; line-height: 1.5;">As a <strong>Grade A</strong> Approved Driving Instructor, I pride myself on delivering a calm, patient, and highly enjoyable learning environment. Whether you are sitting behind the steering wheel for the very first time or looking for a structured path to test day, my relaxed approach is designed to make learning to drive fun.</p>
             
-            <!-- Bullet Items (Outer box boundary styled outlines completely removed) -->
-            <div style="margin: 0 0 25px 0; padding: 0;">
-                <ul class="core-benefits-checklist">
-                    <li style="margin-bottom: 6px; font-weight: 600; font-size: 1.05rem; color: var(--text-dark);">⭐ Higher Than National Average Pass Rate</li>
-                    <li style="margin-bottom: 0; font-weight: 600; font-size: 1.05rem; color: var(--text-dark);">⭐ Dozens of 5-Star Learner Reviews</li>
-                </ul>
-            </div>
+<!-- 🆕 New Portrait Video Hub Marketing Component Layout Box -->
+<div class="video-hub-card">
+    <h3>🎬 The DMW Video Hub</h3>
+    <div class="card-line"></div>
+    <p>Get exclusive, free access to our interactive visual resource portal between lessons to accelerate your progress on test day:</p>
+    <ul>
+        <li>⭐ Higher Than National Average Pass Rate</li>
+        <li>⭐ Dozens of 5-Star Learner Reviews</li>
+        <li>🚗 30+ Top-Down Instructional Video Modules</li>
+    </ul>
+</div>
 
             <!-- Side-by-Side Level Content Grid (feedback boxes positioned higher up) -->
             <div class="reviews-flex-grid" style="margin-top: 0;">

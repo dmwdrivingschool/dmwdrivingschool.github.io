@@ -643,127 +643,143 @@
         const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co"
         const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B"
 
-        // --- GLOBAL GITHUB STORAGE PATH CONFIGURATION ---
-        const GITHUB_RAW_BASE = "https://" + 
-                                "raw." + 
-                                "githubusercontent" + 
-                                ".com/" + 
-                                "dmwdrivingschool/" + 
-                                "dmwdrivingschool.github.io/" + 
-                                "main/";
+        <!-- Script Engine Routing Core -->
+<script>
+// --- PRE-CONFIGURED SYSTEM DMW CONNECTION ARCHITECTURE ---
+const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
 
-        if (sessionStorage.getItem("authenticated") === "true") {
+// --- GLOBAL GITHUB STORAGE PATH CONFIGURATION ---
+const GITHUB_RAW_BASE = "https://" +
+"raw." +
+"githubusercontent" +
+".com/" +
+"dmwdrivingschool/" +
+"dmwdrivingschool.github.io/" +
+"main/";
+
+// Auto-login checking upon refreshing the layout profile
+if (sessionStorage.getItem("authenticated") === "true") {
+    // We wrap this inside a window listener to ensure HTML components exist first
+    window.addEventListener('DOMContentLoaded', showDashboard);
+}
+
+// Upgraded Real-time Cloud Account Verification Engine
+async function checkLogin() {
+    const userField = document.getElementById("username").value.trim().toLowerCase();
+    const passField = document.getElementById("password").value.trim();
+
+    if (!userField || !passField) { 
+        document.getElementById("error").style.display = "block"; 
+        return; 
+    }
+
+    try {
+        // Queries your live cloud table spreadsheet looking for a matching profile row entry
+        const fetchUrl = SUPABASE_URL + "/rest/v1/students?username=eq." + userField + "&password=eq." + passField + "&select=*";
+        
+        const response = await fetch(fetchUrl, { 
+            method: 'GET', 
+            headers: { 
+                'apikey': SUPABASE_KEY, 
+                'Authorization': 'Bearer ' + SUPABASE_KEY 
+            }
+        });
+
+        const profileMatches = await response.json();
+
+        // If rows return matching criteria layout parameters, unlock the workspace portal
+        if (profileMatches && profileMatches.length > 0) {
+            sessionStorage.setItem("authenticated", "true");
             showDashboard();
+        } else {
+            document.getElementById("error").innerText = "Invalid credentials, check details and retry!";
+            document.getElementById("error").style.display = "block";
         }
-
-        // Upgraded Real-time Cloud Account Verification Engine
-        async function checkLogin() {
-            const userField = document.getElementById("username").value.trim().toLowerCase();
-            const passField = document.getElementById("password").value.trim();
-
-            if (!userField || !passField) { document.getElementById("error").style.display = "block"; return; }
-
-            try {
-                // Queries your live cloud table spreadsheet looking for a matching profile row entry
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/students?username=eq.${userField}&password=eq.${passField}&select=*`, {
-                    method: 'GET',
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-                
-                const profileMatches = await response.json();
-
-                // If rows return matching criteria layout parameters, unlock the workspace portal
-                if (profileMatches && profileMatches.length > 0) {
-                    sessionStorage.setItem("authenticated", "true");
-                    showDashboard();
-                } else { 
-                    document.getElementById("error").style.display = "block"; 
-                }
-            } catch (error) {
-                // Secure backup script account access fallback profile configuration 
-                if (userField === "dmwstudent" && passField === "drive2026") {
-                    sessionStorage.setItem("authenticated", "true");
-                    showDashboard();
-                } else {
-                    document.getElementById("error").innerText = "Database connection error. Try again!";
-                    document.getElementById("error").style.display = "block";
-                }
-            }
+    } catch (error) {
+        console.error("Database Error: ", error);
+        // Secure backup script account access fallback profile configuration
+        if (userField === "dmwstudent" && passField === "drive2026") {
+            sessionStorage.setItem("authenticated", "true");
+            showDashboard();
+        } else {
+            document.getElementById("error").innerText = "Database connection error. Try again!";
+            document.getElementById("error").style.display = "block";
         }
+    }
+}
 
-        function showDashboard() { 
-            document.getElementById("login-screen").style.display = "none"; 
-            document.getElementById("page-wrapper").style.display = "block";
-            document.getElementById("page-wrapper").style.minHeight = "auto";
-            document.getElementById("portal-content").style.display = "block"; 
-            
-            const firstCard = document.querySelector('.category-card');
-            if(firstCard) toggleCategory(firstCard.querySelector('.category-header'));
-        }
+function showDashboard() {
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("portal-content").style.display = "block";
 
-        function logout() { 
-            sessionStorage.removeItem("authenticated"); 
-            window.location.reload(); 
-        }
+    const firstCard = document.querySelector('.category-card');
+    if(firstCard) toggleCategory(firstCard.querySelector('.category-header'));
+}
 
-        function toggleCategory(headerElement) {
-            const currentCard = headerElement.parentElement;
-            const currentDrawer = currentCard.querySelector('.topic-drawer');
-            const isActive = currentCard.classList.contains('active');
-            
-            const mobilePlayer = document.getElementById('reusable-mobile-player');
-            mobilePlayer.style.display = 'none';
-            document.body.appendChild(mobilePlayer);
+function logout() {
+    sessionStorage.removeItem("authenticated");
+    window.location.reload();
+}
 
-            document.querySelectorAll('.category-card').forEach(card => {
-                card.classList.remove('active');
-                card.querySelector('.topic-drawer').style.display = 'none';
-            });
+function toggleCategory(headerElement) {
+    const currentCard = headerElement.parentElement;
+    const currentDrawer = currentCard.querySelector('.topic-drawer');
+    const isActive = currentCard.classList.contains('active');
 
-            if (!isActive) {
-                currentCard.classList.add('active');
-                currentDrawer.style.display = 'block';
-            }
-        }
+    const mobilePlayer = document.getElementById('reusable-mobile-player');
+    mobilePlayer.style.display = 'none';
+    document.body.appendChild(mobilePlayer);
 
-        function loadVideo(topicTitle, videoFilename, descriptionText, elementClicked) {
-            document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
-            elementClicked.classList.add('active');
+    document.querySelectorAll('.category-card').forEach(card => {
+        card.classList.remove('active');
+        card.querySelector('.topic-drawer').style.display = 'none';
+    });
 
-            const isMobileView = window.innerWidth < 900;
-            const videoFullUrl = GITHUB_RAW_BASE + videoFilename;
+    if (!isActive) {
+        currentCard.classList.add('active');
+        currentDrawer.style.display = 'block';
+    }
+}
 
-            if (isMobileView) {
-                document.getElementById('desktop-video').pause();
-                const mobilePlayer = document.getElementById('reusable-mobile-player');
-                const mobileVideo = document.getElementById('mobile-video');
-                const mobileSource = document.getElementById('mobile-source');
-                
-                document.getElementById('mobile-meta').innerHTML = `<strong>Key Points:</strong> ${descriptionText}`;
-                mobileSource.src = videoFullUrl;
+function loadVideo(topicTitle, videoFilename, descriptionText, elementClicked) {
+    document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
+    elementClicked.classList.add('active');
 
-                elementClicked.parentNode.insertBefore(mobilePlayer, elementClicked.nextSibling);
-                mobilePlayer.style.display = 'block';
-                mobilePlayer.style.margin = '10px 0';
-                
-                mobileVideo.load();
-                mobileVideo.play().catch(e => console.log("Auto-playback paused."));
-            } else {
-                document.getElementById('mobile-video').pause();
-                document.getElementById('reusable-mobile-player').style.display = 'none';
+    const isMobileView = window.innerWidth < 900;
+    const videoFullUrl = GITHUB_RAW_BASE + videoFilename;
 
-                document.getElementById('desktop-title').innerText = topicTitle;
-                document.getElementById('desktop-meta').innerHTML = `<strong>Key Points:</strong> ${descriptionText}`;
+    if (isMobileView) {
+        document.getElementById('desktop-video').pause();
+        const mobilePlayer = document.getElementById('reusable-mobile-player');
+        const mobileVideo = document.getElementById('mobile-video');
+        const mobileSource = document.getElementById('mobile-source');
 
-                const desktopVideo = document.getElementById('desktop-video');
-                const desktopSource = document.getElementById('desktop-source');
-                
-                desktopSource.src = videoFullUrl;
-                
-                desktopVideo.load();
-                desktopVideo.play().catch(e => console.log("Auto-playback paused."));
-            }
-        }
-    </script>
+        document.getElementById('mobile-meta').innerHTML = "<strong>Key Points:</strong> " + descriptionText;
+        mobileSource.src = videoFullUrl;
+
+        elementClicked.parentNode.insertBefore(mobilePlayer, elementClicked.nextSibling);
+        mobilePlayer.style.display = 'block';
+        mobilePlayer.style.margin = '10px 0';
+
+        mobileVideo.load();
+        mobileVideo.play().catch(e => console.log("Auto-playback paused."));
+    } else {
+        document.getElementById('mobile-video').pause();
+        document.getElementById('reusable-mobile-player').style.display = 'none';
+
+        document.getElementById('desktop-title').innerText = topicTitle;
+        document.getElementById('desktop-meta').innerHTML = "<strong>Key Points:</strong> " + descriptionText;
+
+        const desktopVideo = document.getElementById('desktop-video');
+        const desktopSource = document.getElementById('desktop-source');
+
+        desktopSource.src = videoFullUrl;
+
+        desktopVideo.load();
+        desktopVideo.play().catch(e => console.log("Auto-playback paused."));
+    }
+}
+</script>
 </body>
 </html>

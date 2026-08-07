@@ -600,6 +600,11 @@
             if (!isActive) {
                 currentCard.classList.add('active');
                 currentDrawer.style.display = 'block';
+                
+                // 🆕 Auto-scroll phone viewport directly to the top edge of the newly opened drawer:
+                setTimeout(() => {
+                    currentCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 80);
             }
         }
 

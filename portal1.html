@@ -498,7 +498,13 @@
 
         // --- GLOBAL GITHUB STORAGE PATH CONFIGURATION ---
         // Change 'YOUR_USERNAME' and 'YOUR_REPOSITORY' inside the quotes to your actual GitHub values
-        const GITHUB_RAW_BASE = "https://githubusercontent.com/dmwdrivingschool/dmwdrivingschool.github.io/main";
+        const GITHUB_RAW_BASE = "https://" + 
+                        "raw." + 
+                        "githubusercontent" + 
+                        ".com/" + 
+                        "dmwdrivingschool/" + 
+                        "dmwdrivingschool.github.io/" + 
+                        "main/";
 
         // Automatically bypass login screen if student is already authenticated
         if (sessionStorage.getItem("authenticated") === "true") {

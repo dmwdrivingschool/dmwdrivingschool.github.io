@@ -99,6 +99,15 @@
         .login-btn:hover { background: #e6b800; }
         .error-msg { color: #df4744; font-size: 0.85rem; margin-top: 12px; display: none; font-weight: 600; }
 
+        /* Styling to neatly format the instructor warning notice */
+.instructor-warning {
+    font-size: 0.82rem;
+    color: #64748b;
+    margin-top: 15px;
+    line-height: 1.4;
+    font-weight: 500;
+}
+        
         /* --- Dashboard Content Panel & Layout Workspace --- */
         #portal-content { display: none; max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
         
@@ -261,8 +270,13 @@
                 <input type="password" id="password" placeholder="Password" autocomplete="current-password">
             </div>
             <button class="login-btn" onclick="checkLogin()">Secure Login</button>
+            
+            <!-- 🆕 Paste this new warning message line here: -->
+            <p class="instructor-warning">Please contact your driving instructor if you do not have your student login details.</p>
+            
             <div id="error" class="error-msg">Invalid credentials, check details and retry!</div>
         </div>
+
 
         <!-- Authenticated System Dashboard View Layer -->
         <div id="portal-content">

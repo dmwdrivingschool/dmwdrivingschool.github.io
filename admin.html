@@ -118,16 +118,40 @@
         const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
         const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";//
 
-        // Admin Security Gateway Access Master Key
-        const ADMIN_SECRET_PASS = "2kHcW^hHsXGH1^QY3]ENAX-J^z5YIC;o6soi~}7BBf1(s0b2Pk";
+        // Upgraded Secure Cloud Database Gateway Validation Engine
+        async function verifyAdminGate() {
+            const inputPass = document.getElementById('admin-gate-pass').value.trim();
 
-        function verifyAdminGate() {
-            const inputPass = document.getElementById('admin-gate-pass').value;
-            if (inputPass === ADMIN_SECRET_PASS) {
-                document.getElementById('admin-gate-screen').style.display = 'none';
-                document.getElementById('admin-dashboard').style.display = 'block';
-                fetchLiveRoster();
-            } else {
+            if (!inputPass) {
+                alert("Please enter a passcode.");
+                return;
+            }
+
+            try {
+                // Queries your live database table directly using secure network parameters
+                const fetchUrl = SUPABASE_URL + "/rest/v1/credentials?role=eq.admin&password=eq." + encodeURIComponent(inputPass) + "&select=*";
+                
+                const response = await fetch(fetchUrl, {
+                    method: 'GET',
+                    headers: { 
+                        'apikey': SUPABASE_KEY, 
+                        'Authorization': 'Bearer ' + SUPABASE_KEY 
+                    }
+                });
+
+                const securityMatches = await response.json();
+
+                // If row layout verification parameters match, unlock management views
+                if (securityMatches && securityMatches.length > 0) {
+                    document.getElementById('admin-gate-screen').style.display = 'none';
+                    document.getElementById('admin-dashboard').style.display = 'block';
+                    fetchLiveRoster();
+                } else {
+                    document.getElementById('gate-error').style.display = 'block';
+                }
+            } catch (error) {
+                console.error("Cloud check security error:", error);
+                document.getElementById('gate-error').innerText = "Database connection error. Try again!";
                 document.getElementById('gate-error').style.display = 'block';
             }
         }
@@ -137,6 +161,7 @@
             document.getElementById('admin-gate-screen').style.display = 'block';
             document.getElementById('admin-dashboard').style.display = 'none';
         }
+
         // Pull active user roster spreadsheet arrays from Cloud database
         async function fetchLiveRoster() {
             const rosterContainer = document.getElementById('live-roster-mount');

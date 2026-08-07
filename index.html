@@ -29,15 +29,16 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         
-/* --- Video Hub Marketing Card Component --- */
+/* --- Video Hub Marketing Card Component (Updated Spacing) --- */
 .video-hub-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
     padding: 24px;
-    margin-bottom: 30px; /* Provides spacing above the bottom columns */
+    margin-bottom: 35px; /* Creates clean spatial padding separating lower cards */
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.01);
 }
+
 .video-hub-card h3 {
     display: flex;
     align-items: center;
@@ -125,7 +126,20 @@
         .balanced-review-card { flex: 1; min-width: 280px; border: 1px solid #ddd; border-radius: 12px; padding: 22px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
         
         /* Sidebar Card Container Framework */
-        .service-areas-sidebar-card { font-family: Arial, sans-serif; width: 100%; height: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
+        .service-areas-sidebar-card { 
+            font-family: Arial, sans-serif; 
+            width: 100%; 
+            height: auto; /* 🆕 Changed from 100% to auto so it wraps your content naturally */
+            border: 1px solid #ddd; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04); 
+            background-color: #fff; 
+            box-sizing: border-box; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-start; /* 🆕 Changed from space-between to prevent ugly gaps */
+        }
 
         /* Universal Rolling Carousel Container */
         .carousel-heading { color: var(--dmw-deep-navy); margin: 0 0 15px 0; font-size: 1.6rem; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
@@ -237,15 +251,16 @@
             
             <p style="margin: 0 0 20px 0; font-size: 1.05rem; line-height: 1.5;">As a <strong>Grade A</strong> Approved Driving Instructor, I pride myself on delivering a calm, patient, and highly enjoyable learning environment. Whether you are sitting behind the steering wheel for the very first time or looking for a structured path to test day, my relaxed approach is designed to make learning to drive fun.</p>
             
-<!-- 🆕 New Portrait Video Hub Marketing Component Layout Box -->
+<!-- Fully Corrected Video Hub Marketing Box Component -->
 <div class="video-hub-card">
     <h3>🎬 The DMW Video Hub</h3>
     <div class="card-line"></div>
-    <p>Get exclusive, free access to our interactive visual resource portal between lessons to accelerate your progress on test day:</p>
+    <p>Get exclusive, free access to our private interactive resource portal between lessons to accelerate your progress on test day:</p>
     <ul>
-        <li>⭐ Higher Than National Average Pass Rate</li>
-        <li>⭐ Dozens of 5-Star Learner Reviews</li>
-        <li>🚗 30+ Top-Down Instructional Video Modules</li>
+        <li>🛣️ <strong>30+ Top-Down Video Modules</strong> – Premium visual breakdowns of complex road layouts.</li>
+        <li>🔄 <strong>Roundabouts & Junctions</strong> – Master precise lane tracking, positioning, and spiral exits.</li>
+        <li>┼ <strong>Crossroads & Lights</strong> – Clear blueprints for navigating offside, nearside, and box junctions.</li>
+        <li>🅿️ <strong>Test Manoeuvres</strong> – Step-by-step guides for parallel parking, bay parking, and hill starts.</li>
     </ul>
 </div>
 

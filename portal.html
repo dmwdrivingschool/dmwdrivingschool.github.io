@@ -10,7 +10,7 @@
             --dmw-dark: #1e1e24;       /* Primary dark header tone */
             --dmw-accent: #ffcc00;     /* Brand yellow accent color */
             --dmw-blue: #0084ff;       /* Active category contrast color */
-            --dmw-bg: #f8f9fa;         /* Crisp off-white workspace layout */
+            --dmw-bg: #f5f6f8;         /* Crisp off-white workspace layout */
             --card-bg: #ffffff; 
             --text-dark: #1e293b;      /* Deep obsidian main text readability */
             --text-muted: #64748b;    /* Clean charcoal subtitle tone */
@@ -99,7 +99,7 @@
         .login-btn:hover { background: #e6b800; }
         .error-msg { color: #df4744; font-size: 0.85rem; margin-top: 12px; display: none; font-weight: 600; }
 
-        /* --- Dashboard Content Panel & Dual-Column Controls --- */
+        /* --- Dashboard Content Panel & Layout Workspace --- */
         #portal-content { display: none; max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
         
         .portal-banner {
@@ -127,11 +127,11 @@
         }
         .logout-btn:hover { background: var(--dmw-accent); color: var(--dmw-dark); }
 
-        /* Course Layout Workspace Grid splitting Categories and Content Video Display */
+        /* Flexible Workspace Layout */
         .workspace-layout { display: grid; gap: 30px; grid-template-columns: 1fr; }
-        @media(min-width: 900px) { .workspace-layout { grid-template-columns: 420px 1fr; align-items: start; } }
+        @media(min-width: 900px) { .workspace-layout { grid-template-columns: 450px 1fr; align-items: start; } }
 
-        /* Left Side Accordion List Navigation Stack */
+        /* Left Side Menu List Container Stack */
         .category-stack { display: flex; flex-direction: column; gap: 15px; }
         
         .category-card {
@@ -140,7 +140,6 @@
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-            transition: transform 0.2s;
         }
         .category-header {
             background: var(--card-bg);
@@ -150,9 +149,7 @@
             align-items: center;
             cursor: pointer;
             user-select: none;
-            transition: background 0.2s;
         }
-        .category-header:hover { background: #fdfdfd; }
         .category-header h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 10px; }
         .category-header .arrow { font-size: 0.8rem; color: var(--text-muted); transition: transform 0.25s; }
         .category-card.active .category-header h2 { color: var(--dmw-blue); }
@@ -160,8 +157,12 @@
 
         /* Inner Topic Item Lists */
         .topic-drawer { display: none; background: #fafbfc; border-top: 1px solid var(--border-light); padding: 8px 0; }
+        
+        /* Flex item allows smooth conditional block injections */
+        .topic-container-block { display: flex; flex-direction: column; }
+        
         .topic-item {
-            padding: 12px 20px;
+            padding: 14px 20px;
             display: flex;
             align-items: center;
             gap: 12px;
@@ -176,8 +177,18 @@
         .topic-item.active { background: #e0f2fe; color: #0369a1; font-weight: 600; }
         .topic-item.active .icon { color: #0284c7; }
 
-        /* Right Side Content Area Card Display */
-        .content-display-panel { position: sticky; top: 90px; }
+        /* --- Inline Mobile Injected Player Layout --- */
+        .mobile-player-slot {
+            background: #f1f5f9;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-light);
+            display: none;
+        }
+
+        /* --- Right Side Standalone Desktop Display Panel --- */
+        .content-display-panel { position: sticky; top: 90px; display: none; }
+        @media(min-width: 900px) { .content-display-panel { display: block; } }
+        
         .stage-card {
             background: var(--card-bg);
             border-radius: 12px;
@@ -188,9 +199,9 @@
             flex-direction: column;
             gap: 20px;
         }
-        .stage-card h2 { font-size: 1.4rem; font-weight: 700; color: var(--dmw-dark); border-bottom: 2px solid var(--dmw-bg); padding-bottom: 12px; }
+        .stage-card h2 { font-size: 1.3rem; font-weight: 700; color: var(--dmw-dark); border-bottom: 2px solid var(--dmw-bg); padding-bottom: 12px; }
 
-        /* Cinematic Fluid 16:9 Video Box layout config */
+        /* Cinematic Fluid 16:9 Player Viewport Frame Box */
         .video-player-wrapper {
             width: 100%;
             aspect-ratio: 16/9;
@@ -202,8 +213,8 @@
         }
         .video-player-wrapper video { width: 100%; height: 100%; object-fit: cover; display: block; }
         
-        .metadata-box { background: var(--dmw-bg); padding: 18px 20px; border-radius: 8px; border-left: 5px solid var(--dmw-dark); }
-        .metadata-box p { font-size: 0.95rem; color: #334155; }
+        .metadata-box { background: var(--dmw-bg); padding: 15px 18px; border-radius: 8px; border-left: 5px solid var(--dmw-dark); margin-top: 10px; }
+        .metadata-box p { font-size: 0.92rem; color: #334155; line-height: 1.4; }
         .metadata-box strong { color: var(--dmw-dark); }
 
         /* --- Footer Framework Styling --- */
@@ -222,7 +233,6 @@
             align-items: center;
             padding: 0 20px;
             text-align: center;
-            letter-spacing: 0.3px;
         }
         @media (max-width: 600px) { .portal-banner { flex-direction: column; text-align: center; gap: 15px; } }
     </style>
@@ -273,36 +283,37 @@
                             <span class="arrow">▼</span>
                         </div>
                         <div class="topic-drawer">
-                            <div class="topic-item" onclick="loadVideo('Approaching Junctions Turning Left', 'approaching-junctions-turning-left.mp4', 'Routine M-S-M applied early. Check interior and left mirror. Apply left signal. Position approximately 1 meter from curb. Maintain focus on braking gracefully.')">
-                                <span class="icon">📝</span> Approaching Junctions Turning Left
+                            <div class="topic-container-block">
+                                <div class="topic-item" onclick="loadVideo('Approaching Junctions Turning Left', 'approaching-junctions-turning-left.mp4', 'Routine M-S-M applied early. Check interior and left mirror. Apply left signal. Position approximately 1 meter from curb. Maintain focus on braking gracefully.', this)">
+                                    <span class="icon">📝</span> Approaching Junctions Turning Left
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Emerging From An Open Junction Turning Left', 'emerging-from-an-open-junction-turning-left.mp4', 'Assess priority early at open viewpoints. Look right and left. Maintain progressive forward creep using fine clutch slip matching open visibility.', this)">
+                                    <span class="icon">📝</span> Emerging From An Open Junction Turning Left
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Approaching Junctions Turning Right', 'approaching-junctions-turning-right.mp4', 'Routine M-S-M. Check interior and right mirror. Apply right signal. Position vehicle cleanly next to center division divider lines.', this)">
+                                    <span class="icon">📝</span> Approaching Junctions Turning Right
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Emerging From a Closed Junction Turning Right', 'emerging-from-a-closed-junction-turning-right.mp4', 'Views restricted heavily by walls or boundary items. Use slow creeping speed. Keep looking right, left, right while checking corner visibility gap profiles.', this)">
+                                    <span class="icon">📝</span> Emerging From a Closed Junction Turning Right
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Emerging From a Stop Junction', 'emerging-from-a-stop-junction.mp4', 'You MUST come to a full structural halt behind solid white boundary lines. Secure vehicle or balance clutch. Only emerge when crossways paths clear fully.', this)">
+                                    <span class="icon">📝</span> Emerging From a Stop Junction
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Emerging From a One-Way Street Turning Right', 'emerging-from-a-one-way-street-turning-right.mp4', 'Position car cleanly on the extreme right-hand margin boundary line of the road layout before turning. Complete full visual sweeping scans before emerging.', this)">
+                                    <span class="icon">📝</span> Emerging From a One-Way Street Turning Right
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Approaching Junctions Turning Right – Giveway', 'approaching-junctions-turning-right-giving-way-to-oncoming-vehicles.mp4', 'Scan priority road early. Be prepared to slow down or halt if traffic is passing. Match gear selection to clear approach views safely.', this)">
+                                    <span class="icon">📝</span> Approaching Junctions Turning Right – Giveway
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Approaching Long Protected Junctions Turning Rights', 'approaching-junctions-turning-right-using-long-protected-turning-box.mp4', 'Navigate long central safety zones carefully. Maintain safe lane entry geometry. Keep clear gaps from oncoming turning vehicles.', this)">
+                                    <span class="icon">📝</span> Approaching Long Protected Junctions Turning Rights
                             </div>
-                            <div class="topic-item" onclick="loadVideo('Emerging From An Open Junction Turning Left', 'emerging-from-an-open-junction-turning-left.mp4', 'Assess priority early at open viewpoints. Look right and left. Maintain progressive forward creep using fine clutch slip matching open visibility.')">
-                                <span class="icon">📝</span> Emerging From An Open Junction Turning Left
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Approaching Junctions Turning Right', 'approaching-junctions-turning-right.mp4', 'Routine M-S-M. Check interior and right mirror. Apply right signal. Position vehicle cleanly next to center division divider lines.')">
-                                <span class="icon">📝</span> Approaching Junctions Turning Right
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Emerging From a Closed Junction Turning Right', 'emerging-from-a-closed-junction-turning-right.mp4', 'Views restricted heavily by walls or boundary items. Use slow creeping speed. Keep looking right, left, right while checking corner visibility gap profiles.')">
-                                <span class="icon">📝</span> Emerging From a Closed Junction Turning Right
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Emerging From a Stop Junction', 'emerging-from-a-stop-junction.mp4', 'You MUST come to a full structural halt behind solid white boundary lines. Secure vehicle or balance clutch. Only emerge when crossways paths clear fully.')">
-                                <span class="icon">📝</span> Emerging From a Stop Junction
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Emerging From a One-Way Street Turning Right', 'emerging-from-a-one-way-street-turning-right.mp4', 'Position car cleanly on the extreme right-hand margin boundary line of the road layout before turning. Complete full visual sweeping scans before emerging.')">
-                                <span class="icon">📝</span> Emerging From a One-Way Street Turning Right
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Approaching Junctions Turning Right – Giveway', 'approaching-junctions-turning-right-giving-way-to-oncoming-vehicles.mp4', 'Scan priority road early. Be prepared to slow down or halt if traffic is passing. Match gear selection to clear approach views safely.')">
-                                <span class="icon">📝</span> Approaching Junctions Turning Right – Giveway
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Approaching Long Protected Junctions Turning Rights', 'approaching-junctions-turning-right-using-long-protected-turning-box.mp4', 'Navigate long central safety zones carefully. Maintain safe lane entry geometry. Keep clear gaps from oncoming turning vehicles.')">
-                                <span class="icon">📝</span> Approaching Long Protected Junctions Turning Rights
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Approaching Protected Junctions Turning Right', 'approaching-junctions-turning-right-using-protected-turn-box.mp4', 'Utilize central reservation protection strips safely. Ensure the rear of your car does not overhang into active flowing lanes behind you.')">
-                                <span class="icon">📝</span> Approaching Protected Junctions Turning Right
+                                <div class="topic-item" onclick="loadVideo('Approaching Protected Junctions Turning Right', 'approaching-junctions-turning-right-using-protected-turn-box.mp4', 'Utilize central reservation protection strips safely. Ensure the rear of your car does not overhang into active flowing lanes behind you.', this)">
+                                    <span class="icon">📝</span> Approaching Protected Junctions Turning Right
+                                </div>
                             </div>
                         </div>
                     </div>
-
                     <!-- Module 2: Everyday Driving -->
                     <div class="category-card">
                         <div class="category-header" onclick="toggleCategory(this)">
@@ -310,32 +321,35 @@
                             <span class="arrow">▼</span>
                         </div>
                         <div class="topic-drawer">
-                            <div class="topic-item" onclick="loadVideo('Level Crossings', '32-level-crossings.mp4', 'Obey warning lights and alarms instantly. Halt behind solid white road lines if amber or flashing red lights activate. Never try to edge forward prematurely.')">
-                                <span class="icon">📝</span> Level Crossings
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Meeting Traffic', 'meeting-traffic.mp4', 'Assess blockages early. Give priority to oncoming vehicles if obstruction is on your side. Maintain safe clearance margins when passing stationary items.')">
-                                <span class="icon">📝</span> Meeting Traffic
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Following Distance Dry Weather Driving Conditions', 'following-distance-dry-weather-driving-conditions.mp4', 'Maintain a minimum safe gap of 2 seconds behind leading vehicles. Use stationary markers, posts, or bridges to verify safe safety space clearance.')">
-                                <span class="icon">📝</span> Following Distance Dry Weather Driving Conditions
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Following Distance Wet Weather Driving Conditions', 'following-distance-wet-weather-driving-conditions.mp4', 'Double your standard separation gap layout to at least 4 seconds on damp surfaces to account for increased stopping distance.')">
-                                <span class="icon">📝</span> Following Distance Wet Weather Driving Conditions
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Slip Road Onto Dual Carriageway', 'movingoffdmw.mp4', 'Accelerate dynamically on the slip road tracking area to match active lane traffic flows. Perform direct right blind spot checks before sliding in cleanly.')">
-                                <span class="icon">📝</span> Slip Road Onto Dual Carriageway
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Road Position Left Hand Bend', 'road-position-left-hand-bend.mp4', 'Position car cleanly toward the center line markers to maximize safety vision depths through the turn profile. Never cross the white dividing lines.')">
-                                <span class="icon">📝</span> Road Position Left Hand Bend
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Road Position Right Hand Bend', 'road-position-right-hand-bend.mp4', 'Keep safety position slightly left toward the curb line edge. This maximizes lines of sight through blind spaces and protects from oncoming lane drift.')">
-                                <span class="icon">📝</span> Road Position Right Hand Bend
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Satellite Navigation', 'satellite-navigation.mp4', 'Listen closely to GPS spoken voice prompts early. Focus attention safely on upcoming road signs to confirm lane layouts before moving.')">
-                                <span class="icon">📝</span> Satellite Navigation
+                            <div class="topic-container-block">
+                                <div class="topic-item" onclick="loadVideo('Level Crossings', '32-level-crossings.mp4', 'Obey warning lights and alarms instantly. Halt behind solid white road lines if amber or flashing red lights activate. Never try to edge forward prematurely.', this)">
+                                    <span class="icon">📝</span> Level Crossings
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Meeting Traffic', 'meeting-traffic.mp4', 'Assess blockages early. Give priority to oncoming vehicles if obstruction is on your side. Maintain safe clearance margins when passing stationary items.', this)">
+                                    <span class="icon">📝</span> Meeting Traffic
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Following Distance Dry Weather Driving Conditions', 'following-distance-dry-weather-driving-conditions.mp4', 'Maintain a minimum safe gap of 2 seconds behind leading vehicles. Use stationary markers, posts, or bridges to verify safe safety space clearance.', this)">
+                                    <span class="icon">📝</span> Following Distance Dry Weather Driving Conditions
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Following Distance Wet Weather Driving Conditions', 'following-distance-wet-weather-driving-conditions.mp4', 'Double your standard separation gap layout to at least 4 seconds on damp surfaces to account for increased stopping distance.', this)">
+                                    <span class="icon">📝</span> Following Distance Wet Weather Driving Conditions
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Slip Road Onto Dual Carriageway', 'movingoffdmw.mp4', 'Accelerate dynamically on the slip road tracking area to match active lane traffic flows. Perform direct right blind spot checks before sliding in cleanly.', this)">
+                                    <span class="icon">📝</span> Slip Road Onto Dual Carriageway
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Road Position Left Hand Bend', 'road-position-left-hand-bend.mp4', 'Position car cleanly toward the center line markers to maximize safety vision depths through the turn profile. Never cross the white dividing lines.', this)">
+                                    <span class="icon">📝</span> Road Position Left Hand Bend
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Road Position Right Hand Bend', 'road-position-right-hand-bend.mp4', 'Keep safety position slightly left toward the curb line edge. This maximizes lines of sight through blind spaces and protects from oncoming lane drift.', this)">
+                                    <span class="icon">📝</span> Road Position Right Hand Bend
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Satellite Navigation', 'satellite-navigation.mp4', 'Listen closely to GPS spoken voice prompts early. Focus attention safely on upcoming road signs to confirm lane layouts before moving.', this)">
+                                    <span class="icon">📝</span> Satellite Navigation
+                                </div>
                             </div>
                         </div>
                     </div>
+
                     <!-- Module 3: Crossroads -->
                     <div class="category-card">
                         <div class="category-header" onclick="toggleCategory(this)">
@@ -343,39 +357,40 @@
                             <span class="arrow">▼</span>
                         </div>
                         <div class="topic-drawer">
-                            <div class="topic-item" onclick="loadVideo('Introduction Into Crossroads', 'intro-into-crossroads.mp4', 'Identify crossroads layouts early using signs, road markings, or gaps in houses. Apply full M-S-M scanning routines approach.')">
-                                <span class="icon">📝</span> Introduction Into Crossroads
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Turning Right Offside to Offside', 'turning-right-offside-to-offside.mp4', 'Standard UK layout routine. Pass behind the oncoming turning vehicle. This configuration opens clear, unblocked views of the oncoming lane.')">
-                                <span class="icon">📝</span> Turning Right Offside to Offside
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Turning Right Nearside to Nearside', 'turning-right-nearside-to-nearside.mp4', 'Pass in front of the oncoming turning vehicle. Take extra care, as the oncoming vehicle can completely block your view of active traffic behind it.')">
-                                <span class="icon">📝</span> Turning Right Nearside to Nearside
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Turning Right Using Local Knowledge', 'turning-right-using-local-knowledge.mp4', 'Adapt layout choices safely to known local structural layouts, signs, or painted arrow systems found across Gloucester junctions.')">
-                                <span class="icon">📝</span> Turning Right Using Local Knowledge
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Turning Right At Crossroads But Unsure of Location', 'crossroads-turning-right-using-protected-turn-box.mp4', 'Approach slowly if layout configuration is unclear. Keep looking for signage clues or visual hints before confirming tracking angles.')">
-                                <span class="icon">📝</span> Turning Right At Crossroads But Unsure of Location
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Unmarked Crossroads', 'unmarked-crossroads.mp4', 'No painted layout lines or priority signs present. No individual car has automatic priority. Approach with extreme caution and prepare to halt.')">
-                                <span class="icon">📝</span> Unmarked Crossroads
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Emerging From Crossroads Turning Right With Eye Contact', 'emerging-from-crossroads-turning-right-making-eye-contact.mp4', 'Look across directly at opposing drivers. Confirm intentions using vehicle speed, visual cues, and direct eye contact before moving forward.')">
-                                <span class="icon">📝</span> Emerging From Crossroads Turning Right With Eye Contact
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Traffic Lights Driving Ahead (With Junction Box)', 'crossroads-emerging-car-driving-ahead.mp4', 'Scan yellow hatched box lines. Only enter if your exit space is completely clear. Do not enter the box if your car will block the junction.')">
-                                <span class="icon">📝</span> Traffic Lights Driving Ahead (With Junction Box)
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Traffic Lights Turning Left (With Junction Box)', 'crossroads-turning-left.mp4', 'Check left mirror for cyclists before making your turn. Follow your targeted lane markings cleanly through the corner tracking area.')">
-                                <span class="icon">📝</span> Traffic Lights Turning Left (With Junction Box)
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Traffic Lights Turning Right (With Junction Box)', 'crossroads-emerging-car-turning-right.mp4', 'You can wait inside the yellow box junction area if your exit lane is clear but you are held up by oncoming traffic. Turn safely once a gap opens.')">
-                                <span class="icon">📝</span> Traffic Lights Turning Right (With Junction Box)
+                            <div class="topic-container-block">
+                                <div class="topic-item" onclick="loadVideo('Introduction Into Crossroads', 'intro-into-crossroads.mp4', 'Identify crossroads layouts early using signs, road markings, or gaps in houses. Apply full M-S-M scanning routines approach.', this)">
+                                    <span class="icon">📝</span> Introduction Into Crossroads
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Turning Right Offside to Offside', 'turning-right-offside-to-offside.mp4', 'Standard UK layout routine. Pass behind the oncoming turning vehicle. This configuration opens clear, unblocked views of the oncoming lane.', this)">
+                                    <span class="icon">📝</span> Turning Right Offside to Offside
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Turning Right Nearside to Nearside', 'turning-right-nearside-to-nearside.mp4', 'Pass in front of the oncoming turning vehicle. Take extra care, as the oncoming vehicle can completely block your view of active traffic behind it.', this)">
+                                    <span class="icon">📝</span> Turning Right Nearside to Nearside
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Turning Right Using Local Knowledge', 'turning-right-using-local-knowledge.mp4', 'Adapt layout choices safely to known local structural layouts, signs, or painted arrow systems found across Gloucester junctions.', this)">
+                                    <span class="icon">📝</span> Turning Right Using Local Knowledge
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Turning Right At Crossroads But Unsure of Location', 'crossroads-turning-right-using-protected-turn-box.mp4', 'Approach slowly if layout configuration is unclear. Keep looking for signage clues or visual hints before confirming tracking angles.', this)">
+                                    <span class="icon">📝</span> Turning Right At Crossroads But Unsure of Location
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Unmarked Crossroads', 'unmarked-crossroads.mp4', 'No painted layout lines or priority signs present. No individual car has automatic priority. Approach with extreme caution and prepare to halt.', this)">
+                                    <span class="icon">📝</span> Unmarked Crossroads
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Emerging From Crossroads Turning Right With Eye Contact', 'emerging-from-crossroads-turning-right-making-eye-contact.mp4', 'Look across directly at opposing drivers. Confirm intentions using vehicle speed, visual cues, and direct eye contact before moving forward.', this)">
+                                    <span class="icon">📝</span> Emerging From Crossroads Turning Right With Eye Contact
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Traffic Lights Driving Ahead (With Junction Box)', 'crossroads-emerging-car-driving-ahead.mp4', 'Scan yellow hatched box lines. Only enter if your exit space is completely clear. Do not enter the box if your car will block the junction.', this)">
+                                    <span class="icon">📝</span> Traffic Lights Driving Ahead (With Junction Box)
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Traffic Lights Turning Left (With Junction Box)', 'crossroads-turning-left.mp4', 'Check left mirror for cyclists before making your turn. Follow your targeted lane markings cleanly through the corner tracking area.', this)">
+                                    <span class="icon">📝</span> Traffic Lights Turning Left (With Junction Box)
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Traffic Lights Turning Right (With Junction Box)', 'crossroads-emerging-car-turning-right.mp4', 'You can wait inside the yellow box junction area if your exit lane is clear but you are held up by oncoming traffic. Turn safely once a gap opens.', this)">
+                                    <span class="icon">📝</span> Traffic Lights Turning Right (With Junction Box)
+                                </div>
                             </div>
                         </div>
                     </div>
-
                     <!-- Module 4: Roundabouts -->
                     <div class="category-card">
                         <div class="category-header" onclick="toggleCategory(this)">
@@ -383,35 +398,37 @@
                             <span class="arrow">▼</span>
                         </div>
                         <div class="topic-drawer">
-                            <div class="topic-item" onclick="loadVideo('Introduction To Roundabouts', 'introduction-to-roundabouts.mp4', 'Give way cleanly to traffic approaching from the right. Check mirror paths early, scan lane configurations, and match your entry gear selection early.')">
-                                <span class="icon">📝</span> Introduction To Roundabouts
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Turning Left First Exit', 'turning-left-first-exit.mp4', 'Signal left on approach. Maintain your position in the left-hand lane. Keep the left signal active until you exit the roundabout cleanly.')">
-                                <span class="icon">📝</span> Turning Left First Exit
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Following Road Ahead 2nd Exit', 'following-road-ahead-2nd-exit.mp4', 'Approach in the left-hand lane with no signal. Maintain your lane position. Signal left once you pass the exit just before the one you want.')">
-                                <span class="icon">📝</span> Following Road Ahead 2nd Exit
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Following Road Ahead 2nd Exit Right Hand Lane', 'following-road-ahead-2nd-exit-from-the-right-hand-lane.mp4', 'Check for road markings or arrows that direct traffic flow from the right lane. Signal left safely when exiting the roundabout.')">
-                                <span class="icon">📝</span> Following Road Ahead 2nd Exit Right Hand Lane
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Turning Right With Multiple Lanes', 'turning-right-with-multiple-lanes.mp4', 'Signal right on approach. Enter the roundabout in the right-hand lane. Maintain position and switch to left signal after passing the penultimate exit.')">
-                                <span class="icon">📝</span> Turning Right With Multiple Lanes
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Turning Right At Roundabouts But Exiting The Right Lane', 'turning-right-at-roundabouts-but-exiting-the-right-lane.mp4', 'Follow spiral or lane markers carefully. Keep track of vehicles alongside you, and signal left safely to exit.')">
-                                <span class="icon">📝</span> Turning Right At Roundabouts But Exiting The Right Lane
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Blocking At Roundabouts', 'blocking-at-roundabouts.mp4', 'Never halt across roundabout exit entries or entry paths. Keep hatched yellow spaces or exit paths unblocked during heavy traffic.')">
-                                <span class="icon">📝</span> Blocking At Roundabouts
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Blockers', 'blockers.mp4', 'Utilize larger vehicles safely as shield blocks to cross lines of sight, but ensure your own view is clear before entering active lanes.')">
-                                <span class="icon">📝</span> Blockers
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Mini Roundabouts Following Road Ahead', 'mini-roundabouts-following-road-ahead.mp4', 'Treat this exactly like a large roundabout. Pass around the central painted circle marker whenever possible. Do not cut across the island.')">
-                                <span class="icon">📝</span> Mini Roundabouts Following Road Ahead
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Mini Roundabouts Turning Right 3rd Exit', 'mini-roundabouts-turning-right-3rd-exit.mp4', 'Signal right on approach. Give priority to traffic coming from your right. Pass cleanly around the central markings to make your turn.')">
-                                <span class="icon">📝</span> Mini Roundabouts Turning Right 3rd Exit
+                            <div class="topic-container-block">
+                                <div class="topic-item" onclick="loadVideo('Introduction To Roundabouts', 'introduction-to-roundabouts.mp4', 'Give way cleanly to traffic approaching from the right. Check mirror paths early, scan lane configurations, and match your entry gear selection early.', this)">
+                                    <span class="icon">📝</span> Introduction To Roundabouts
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Turning Left First Exit', 'turning-left-first-exit.mp4', 'Signal left on approach. Maintain your position in the left-hand lane. Keep the left signal active until you exit the roundabout cleanly.', this)">
+                                    <span class="icon">📝</span> Turning Left First Exit
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Following Road Ahead 2nd Exit', 'following-road-ahead-2nd-exit.mp4', 'Approach in the left-hand lane with no signal. Maintain your lane position. Signal left once you pass the exit just before the one you want.', this)">
+                                    <span class="icon">📝</span> Following Road Ahead 2nd Exit
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Following Road Ahead 2nd Exit Right Hand Lane', 'following-road-ahead-2nd-exit-from-the-right-hand-lane.mp4', 'Check for road markings or arrows that direct traffic flow from the right lane. Signal left safely when exiting the roundabout.', this)">
+                                    <span class="icon">📝</span> Following Road Ahead 2nd Exit Right Hand Lane
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Turning Right With Multiple Lanes', 'turning-right-with-multiple-lanes.mp4', 'Signal right on approach. Enter the roundabout in the right-hand lane. Maintain position and switch to left signal after passing the penultimate exit.', this)">
+                                    <span class="icon">📝</span> Turning Right With Multiple Lanes
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Turning Right At Roundabouts But Exiting The Right Lane', 'turning-right-at-roundabouts-but-exiting-the-right-lane.mp4', 'Follow spiral or lane markers carefully. Keep track of vehicles alongside you, and signal left safely to exit.', this)">
+                                    <span class="icon">📝</span> Turning Right At Roundabouts But Exiting The Right Lane
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Blocking At Roundabouts', 'blocking-at-roundabouts.mp4', 'Never halt across roundabout exit entries or entry paths. Keep hatched yellow spaces or exit paths unblocked during heavy traffic.', this)">
+                                    <span class="icon">📝</span> Blocking At Roundabouts
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Blockers', 'blockers.mp4', 'Utilize larger vehicles safely as shield blocks to cross lines of sight, but ensure your own view is clear before entering active lanes.', this)">
+                                    <span class="icon">📝</span> Blockers
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Mini Roundabouts Following Road Ahead', 'mini-roundabouts-following-road-ahead.mp4', 'Treat this exactly like a large roundabout. Pass around the central painted circle marker whenever possible. Do not cut across the island.', this)">
+                                    <span class="icon">📝</span> Mini Roundabouts Following Road Ahead
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Mini Roundabouts Turning Right 3rd Exit', 'mini-roundabouts-turning-right-3rd-exit.mp4', 'Signal right on approach. Give priority to traffic coming from your right. Pass cleanly around the central markings to make your turn.', this)">
+                                    <span class="icon">📝</span> Mini Roundabouts Turning Right 3rd Exit
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -422,70 +439,85 @@
                             <span class="arrow">▼</span>
                         </div>
                         <div class="topic-drawer">
-                            <div class="topic-item" onclick="loadVideo('Queues Of Traffic, Leaving A Gap', 'queues-of-traffic-leaving-a-gap.mp4', 'When stopping in traffic, leave enough space to see the tires of the car ahead touching the road. This gives you a safe escape route if needed.')">
-                                <span class="icon">📝</span> Queues Of Traffic, Leaving A Gap
+                            <div class="topic-container-block">
+                                <div class="topic-item" onclick="loadVideo('Queues Of Traffic, Leaving A Gap', 'queues-of-traffic-leaving-a-gap.mp4', 'When stopping in traffic, leave enough space to see the tires of the car ahead touching the road. This gives you a safe escape route if needed.', this)">
+                                    <span class="icon">📝</span> Queues Of Traffic, Leaving A Gap
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Turn In The Road', 'turn-in-the-road.mp4', 'Maintain effective all-around observation checks throughout. Use slow clutch control and fast steering inputs to turn the car safely.', this)">
+                                    <span class="icon">📝</span> Turn In The Road
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Reversing Left Into Side Road', 'reversing-left-into-side-road.mp4', 'Align your car safely parallel to the curb line. Check all blind spots before reversing, and track the curb line smoothly.', this)">
+                                    <span class="icon">📝</span> Reversing Left Into Side Road
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Reverse Parallel Park', 'reverse-parallel-park.mp4', 'Pull up level with the target vehicle. Select reverse gear. Complete all-around observations, and turn into the space using slow clutch control.', this)">
+                                    <span class="icon">📝</span> Reverse Parallel Park
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Bay Park 90 Degrees', 'bay-park-90-degrees.mp4', 'Use reference marks on your car to find your turning point. Maintain all-around observations, and reverse smoothly into the center of the bay lines.', this)">
+                                    <span class="icon">📝</span> Bay Park 90 Degrees
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Bay Park 45 Degrees', 'bay-park-45-degrees.mp4', 'Angle your car safely to ease entry into the bay lines. Maintain slow, controlled movement and constant observation checks.', this)">
+                                    <span class="icon">📝</span> Bay Park 45 Degrees
                             </div>
-                            <div class="topic-item" onclick="loadVideo('Turn In The Road', 'turn-in-the-road.mp4', 'Maintain effective all-around observation checks throughout. Use slow clutch control and fast steering inputs to turn the car safely.')">
-                                <span class="icon">📝</span> Turn In The Road
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Reversing Left Into Side Road', 'reversing-left-into-side-road.mp4', 'Align your car safely parallel to the curb line. Check all blind spots before reversing, and track the curb line smoothly.')">
-                                <span class="icon">📝</span> Reversing Left Into Side Road
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Reverse Parallel Park', 'reverse-parallel-park.mp4', 'Pull up level with the target vehicle. Select reverse gear. Complete all-around observations, and turn into the space using slow clutch control.')">
-                                <span class="icon">📝</span> Reverse Parallel Park
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Bay Park 90 Degrees', 'bay-park-90-degrees.mp4', 'Use reference marks on your car to find your turning point. Maintain all-around observations, and reverse smoothly into the center of the bay lines.')">
-                                <span class="icon">📝</span> Bay Park 90 Degrees
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Bay Park 45 Degrees', 'bay-park-45-degrees.mp4', 'Angle your car safely to ease entry into the bay lines. Maintain slow, controlled movement and constant observation checks.')">
-                                <span class="icon">📝</span> Bay Park 45 Degrees
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Pull Up Safety On The Right', 'pull-up-safety-on-the-right.mp4', 'Pull over safely parallel to the right-hand curb line. Reverse back cleanly for 2 car lengths while maintaining all-around safety checks.')">
-                                <span class="icon">📝</span> Pull Up Safety On The Right
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Emergency Stop', 'emergency-stop.mp4', 'Apply immediate, firm pressure to the footbrake. Depress the clutch fully just before stopping to prevent a stall, keeping both hands secure on the wheel.')">
-                                <span class="icon">📝</span> Emergency Stop
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Controlled Stop Move Off At Angle', 'controlled-stop-move-off-at-an-angle.mp4', 'Pull up smoothly next to the curb line. Secure the car. When moving away again, complete a full 6-point check, looking deep into your right blind spot.')">
-                                <span class="icon">📝</span> Controlled Stop Move Off At Angle
-                            </div>
-                            <div class="topic-item" onclick="loadVideo('Hill Start', 'hill-start.mp4', 'Set the gas pedal slightly higher to around 1500 RPM. Bring the clutch smoothly to the biting point. Perform a full observation check, and release the handbrake.')">
-                                <span class="icon">📝</span> Hill Start
+                                <div class="topic-item" onclick="loadVideo('Pull Up Safety On The Right', 'pull-up-safety-on-the-right.mp4', 'Pull over safely parallel to the right-hand curb line. Reverse back cleanly for 2 car lengths while maintaining all-around safety checks.', this)">
+                                    <span class="icon">📝</span> Pull Up Safety On The Right
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Emergency Stop', 'emergency-stop.mp4', 'Apply immediate, firm pressure to the footbrake. Depress the clutch fully just before stopping to prevent a stall, keeping both hands secure on the wheel.', this)">
+                                    <span class="icon">📝</span> Emergency Stop
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Controlled Stop Move Off At Angle', 'controlled-stop-move-off-at-an-angle.mp4', 'Pull up smoothly next to the curb line. Secure the car. When moving away again, complete a full 6-point check, looking deep into your right blind spot.', this)">
+                                    <span class="icon">📝</span> Controlled Stop Move Off At Angle
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Hill Start', 'hill-start.mp4', 'Set the gas pedal slightly higher to around 1500 RPM. Bring the clutch smoothly to the biting point. Perform a full observation check, and release the handbrake.', this)">
+                                    <span class="icon">📝</span> Hill Start
+                                </div>
                             </div>
                         </div>
                     </div>
 
                 </div> <!-- End Left Column Category Stack -->
 
-                <!-- Right Pane: Active Dynamic Video Player Viewer Panel -->
+                <!-- Right Pane: Standalone DESKTOP Player Window (Hidden automatically on Mobile layouts) -->
                 <div class="content-display-panel">
                     <div class="stage-card">
-                        <h2 id="active-title">Select a Topic to Start</h2>
+                        <h2 id="desktop-title">Select a Topic to Start</h2>
                         <div class="video-player-wrapper">
-                            <video id="master-video" controls controlsList="nodownload" playsinline preload="metadata">
-                                <source id="video-source" src="" type="video/mp4">
+                            <video id="desktop-video" controls controlsList="nodownload" playsinline preload="metadata">
+                                <source id="desktop-source" src="" type="video/mp4">
                                 Your browser does not support the video tag.
                             </video>
                         </div>
                         <div class="metadata-box">
-                            <p id="active-meta">Select a category drawer on the left side menu, click an instructional topic link, and your streaming lesson content will load here automatically.</p>
+                            <p id="desktop-meta">Select a category drawer on the left side menu, click an instructional topic link, and your streaming lesson content will load here automatically.</p>
                         </div>
                     </div>
-                </div> <!-- End Right Column Content Panel -->
+                </div> <!-- End Desktop Column Panel -->
 
             </div> <!-- End Workspace Layout Grid -->
         </div> <!-- End Portal Content Dashboard Wrapper -->
 
+    </main>
+
+    <!-- Standard Domain Footer Component with centered layout styling -->
     <footer class="site-footer">
         <div class="footer-container">
             <p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
         </div>
     </footer>
-            <!-- Script Engine Routing Core -->
+    <!-- Hidden Reusable Mobile Player Canvas Template (Injected into slots on the fly) -->
+    <div id="reusable-mobile-player" style="display: none;">
+        <div class="video-player-wrapper">
+            <video id="mobile-video" controls controlsList="nodownload" playsinline preload="metadata">
+                <source id="mobile-source" src="" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        <div class="metadata-box">
+            <p id="mobile-meta"></p>
+        </div>
+    </div>
+    <!-- Script Engine Routing Core -->
     <script>
         // --- SECURE STUDENT LOGINS DATABASE ---
-        // Note: Once we link your live Cloud Admin Database next, this local 
-        // list will automatically turn into a backup fallback system.
         const STUDENT_DATABASE = {
             "dmwstudent": "drive2026",        // Default profile login
             "johnsmith": "pass998",           // Pupil Account 1
@@ -494,7 +526,6 @@
         };
 
         // --- GLOBAL GITHUB STORAGE PATH CONFIGURATION ---
-        // This is perfectly configured to stream your batch-renamed files seamlessly.
         const GITHUB_RAW_BASE = "https://" + 
                                 "raw." + 
                                 "githubusercontent" + 
@@ -503,7 +534,6 @@
                                 "dmwdrivingschool.github.io/" + 
                                 "main/";
 
-        // Automatically bypass login screen if student is already authenticated
         if (sessionStorage.getItem("authenticated") === "true") {
             showDashboard();
         }
@@ -527,7 +557,6 @@
             document.getElementById("page-wrapper").style.minHeight = "auto";
             document.getElementById("portal-content").style.display = "block"; 
             
-            // Automatically open the first module group on login for a smooth welcome experience
             const firstCard = document.querySelector('.category-card');
             if(firstCard) toggleCategory(firstCard.querySelector('.category-header'));
         }
@@ -537,13 +566,17 @@
             window.location.reload(); 
         }
 
-        // Left Side Drawer Accordion Animation Actions
+        // Accordion Drawer Actions
         function toggleCategory(headerElement) {
             const currentCard = headerElement.parentElement;
             const currentDrawer = currentCard.querySelector('.topic-drawer');
             const isActive = currentCard.classList.contains('active');
             
-            // Collapse any active category drawers to keep the layout clean
+            // Hide the mobile player element before shifting categories
+            const mobilePlayer = document.getElementById('reusable-mobile-player');
+            mobilePlayer.style.display = 'none';
+            document.body.appendChild(mobilePlayer);
+
             document.querySelectorAll('.category-card').forEach(card => {
                 card.classList.remove('active');
                 card.querySelector('.topic-drawer').style.display = 'none';
@@ -555,27 +588,55 @@
             }
         }
 
-        // Dynamic Media Content Loading Engine
-        function loadVideo(topicTitle, videoFilename, descriptionText) {
-            // Set clicked row visual active color styles
+        // Responsive Media Content Injection Logic Engine
+        function loadVideo(topicTitle, videoFilename, descriptionText, elementClicked) {
+            // Remove previous active item markers
             document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
-            event.currentTarget.classList.add('active');
+            elementClicked.classList.add('active');
 
-            // Update header text and description labels instantly
-            document.getElementById('active-title').innerText = topicTitle;
-            document.getElementById('active-meta').innerHTML = `<strong>Key Points:</strong> ${descriptionText}`;
+            const isMobileView = window.innerWidth < 900;
+            const videoFullUrl = GITHUB_RAW_BASE + videoFilename;
 
-            // Update player parameters and force stream buffer reload
-            const videoPlayer = document.getElementById('master-video');
-            const sourceElement = document.getElementById('video-source');
-            
-            // Build absolute path pointing directly toward your secure GitHub server folder location
-            sourceElement.src = GITHUB_RAW_BASE + videoFilename;
-            
-            videoPlayer.load();
-            videoPlayer.play().catch(error => {
-                console.log("Auto playback held up until user interaction occurs.");
-            });
+            if (isMobileView) {
+                // --- MOBILE INJECTION LAYER ENGINE ---
+                // Stop any video currently streaming on the desktop element player
+                document.getElementById('desktop-video').pause();
+
+                const mobilePlayer = document.getElementById('reusable-mobile-player');
+                const mobileVideo = document.getElementById('mobile-video');
+                const mobileSource = document.getElementById('mobile-source');
+                
+                // Update specific text descriptors inside the mobile layout block
+                document.getElementById('mobile-meta').innerHTML = `<strong>Key Points:</strong> ${descriptionText}`;
+                mobileSource.src = videoFullUrl;
+
+                // Move the hidden player element and inject it right behind the clicked text row element
+                elementClicked.parentNode.insertBefore(mobilePlayer, elementClicked.nextSibling);
+                
+                // Unhide the card element container smoothly
+                mobilePlayer.style.display = 'block';
+                mobilePlayer.style.margin = '10px 0';
+                
+                mobileVideo.load();
+                mobileVideo.play().catch(e => console.log("Auto-playback paused until interaction."));
+
+            } else {
+                // --- DESKTOP DISPLAY LAYER ENGINE ---
+                // Stop any video currently streaming on the mobile element player
+                document.getElementById('mobile-video').pause();
+                document.getElementById('reusable-mobile-player').style.display = 'none';
+
+                document.getElementById('desktop-title').innerText = topicTitle;
+                document.getElementById('desktop-meta').innerHTML = `<strong>Key Points:</strong> ${descriptionText}`;
+
+                const desktopVideo = document.getElementById('desktop-video');
+                const desktopSource = document.getElementById('desktop-source');
+                
+                desktopSource.src = videoFullUrl;
+                
+                desktopVideo.load();
+                desktopVideo.play().catch(e => console.log("Auto-playback paused until interaction."));
+            }
         }
     </script>
 </body>

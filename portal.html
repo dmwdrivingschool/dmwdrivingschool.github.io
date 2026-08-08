@@ -138,10 +138,10 @@
             transition: all 0.25s ease;
         }
         .logout-btn:hover { background: var(--dmw-accent); color: var(--dmw-dark); }
+
         /* Flexible Workspace Layout Grid - Optimized Responsive Breakpoint */
         .workspace-layout { display: grid; gap: 30px; grid-template-columns: 1fr; }
         @media(min-width: 768px) { .workspace-layout { grid-template-columns: 420px 1fr; align-items: start; } }
-
         /* Left Side Menu List Container Stack */
         .category-stack { display: flex; flex-direction: column; gap: 15px; }
         
@@ -347,6 +347,22 @@
     </style>
 </head>
 <body>
+    <!-- Disclaimer Initial Popup Overlay Modal Box -->
+    <div id="student-disclaimer-modal" class="disclaimer-overlay" style="display: none;">
+        <div class="disclaimer-box">
+            <div class="disclaimer-header">📋 Training Disclaimer</div>
+            <div class="disclaimer-body">
+                <p>Please note that all information, animations, and guidance given in these videos are to be used as a <strong>general guideline only</strong>.</p>
+                <br>
+                <p>They may not necessarily reflect the exact local methods, reference points, or specific routines taught by your driving instructor during your live in-car lessons.</p>
+            </div>
+            <div class="disclaimer-footer">
+                <button class="btn-disclaimer" onclick="dismissDisclaimer()">I Understand</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Block displaying image-1.jpg -->
     <header class="site-header">
         <div class="header-container">
             <div class="logo-container">
@@ -355,7 +371,10 @@
         </div>
     </header>
 
+    <!-- Secure Layout Area Wrapper -->
     <main class="viewport-wrapper" id="page-wrapper">
+        
+        <!-- Login Screen State Window Layout -->
         <div id="login-screen" class="login-box">
             <h2>DMW Student Portal</h2>
             <p>Enter your access details to view course media resources</p>
@@ -370,6 +389,7 @@
             <div id="error" class="error-msg">Invalid credentials, check details and retry!</div>
         </div>
 
+        <!-- Authenticated System Dashboard View Layer -->
         <div id="portal-content">
             <div class="portal-banner">
                 <h1>Interactive Video Lesson Hub</h1>
@@ -378,6 +398,8 @@
             
             <div class="workspace-layout">
                 <div class="category-stack">
+
+                    <!-- Permanent Warning Notice Element Box -->
                     <div class="permanent-warning-box">
                         <strong>⚠️ Video Guidance Notice:</strong> These training modules provide general references and may vary slightly from the exact custom reference methods or road patterns taught directly by your instructor during live practical lessons.
                     </div>
@@ -413,7 +435,7 @@
                                 </div>
                                 <div class="topic-item" onclick="loadVideo('Approaching Long Protected Junctions Turning Rights', 'approaching-junctions-turning-right-using-long-protected-turning-box.mp4', 'Navigate long central safety zones carefully. Maintain safe lane entry geometry. Keep clear gaps from oncoming turning vehicles.', this)">
                                     <span class="icon">🔸</span> Approaching Long Protected Junctions Turning Rights
-                            </div>
+                                </div>
                                 <div class="topic-item" onclick="loadVideo('Approaching Protected Junctions Turning Right', 'approaching-junctions-turning-right-using-protected-turn-box.mp4', 'Utilize central reservation protection strips safely. Ensure the rear of your car does not overhang into active flowing lanes behind you.', this)">
                                     <span class="icon">🔸</span> Approaching Protected Junctions Turning Right
                                 </div>
@@ -435,7 +457,7 @@
                                 <div class="topic-item" onclick="loadVideo('Meeting Traffic', 'meeting-traffic.mp4', 'Assess blockages early. Give priority to oncoming vehicles if obstruction is on your side. Maintain safe clearance margins when passing stationary items.', this)">
                                     <span class="icon">🔸</span> Meeting Traffic
                                 </div>
-                                <div class="topic-item" onclick="loadVideo('Following Distance Dry Weather Driving Conditions', 'following-distance-dry-weather-driving-conditions.mp4', 'Maintain a minimum safe gap of 2 seconds behind leading vehicles. Use stationary markers, posts, or bridges to verify safe safety space clearance.', this)">
+<div class="topic-item" onclick="loadVideo('Following Distance Dry Weather Driving Conditions', 'following-distance-dry-weather-driving-conditions.mp4', 'Maintain a minimum safe gap of 2 seconds behind leading vehicles. Use stationary markers, posts, or bridges to verify safe safety space clearance.', this)">
                                     <span class="icon">🔸</span> Following Distance Dry Weather Driving Conditions
                                 </div>
                                 <div class="topic-item" onclick="loadVideo('Following Distance Wet Weather Driving Conditions', 'following-distance-wet-weather-driving-conditions.mp4', 'Double your standard separation gap layout to at least 4 seconds on damp surfaces to account for increased stopping distance.', this)">
@@ -450,7 +472,7 @@
                                 <div class="topic-item" onclick="loadVideo('Road Position Right Hand Bend', 'road-position-right-hand-bend.mp4', 'Keep safety position slightly left toward the curb line edge. This maximizes lines of sight through blind spaces and protects from oncoming lane drift.', this)">
                                     <span class="icon">🔸</span> Road Position Right Hand Bend
                                 </div>
-                                <div class="topic-item" onclick="loadVideo('Satellite Navigation', 'satellite-navigation.mp4', '*From 4th December 2017* Listen closely to GPS spoken voice prompts early. Focus attention safely on upcoming road signs to confirm lane layouts before moving.', this)">
+                                <div class="topic-item" onclick="loadVideo('Satellite Navigation', 'satellite-navigation.mp4', 'Listen closely to GPS spoken voice prompts early. Focus attention safely on upcoming road signs to confirm lane layouts before moving.', this)">
                                     <span class="icon">🔸</span> Satellite Navigation
                                 </div>
                             </div>
@@ -498,7 +520,6 @@
                             </div>
                         </div>
                     </div>
-
                     <!-- Module 4: Roundabouts -->
                     <div class="category-card">
                         <div class="category-header" onclick="toggleCategory(this)">
@@ -536,11 +557,10 @@
                                 </div>
                                 <div class="topic-item" onclick="loadVideo('Mini Roundabouts Turning Right 3rd Exit', 'mini-roundabouts-turning-right-3rd-exit.mp4', 'Signal right on approach. Give priority to traffic coming from your right. Pass cleanly around the central markings to make your turn.', this)">
                                     <span class="icon">🔸</span> Mini Roundabouts Turning Right 3rd Exit
-                                </div>
+</div>
                             </div>
                         </div>
                     </div>
-
                     <!-- Module 5: Manoeuvres & Exercises -->
                     <div class="category-card">
                         <div class="category-header" onclick="toggleCategory(this)">
@@ -555,15 +575,15 @@
                                 <div class="topic-item" onclick="loadVideo('Turn In The Road', 'turn-in-the-road.mp4', 'Maintain effective all-around observation checks throughout. Use slow clutch control and fast steering inputs to turn the car safely.', this)">
                                     <span class="icon">🔸</span> Turn In The Road
                                 </div>
-                                <div class="topic-item" onclick="loadVideo('Reverse Parallel Park', 'reverse-parallel-park.mp4', 'Pull up level with the target vehicle. Select reverse gear. Complete all-around observations, and turn into the space using slow clutch control.', this)">
+                                  <div class="topic-item" onclick="loadVideo('Reverse Parallel Park', 'reverse-parallel-park.mp4', 'Pull up level with the target vehicle. Select reverse gear. Complete all-around observations, and turn into the space using slow clutch control.', this)">
                                     <span class="icon">🔸</span> Reverse Parallel Park
                                 </div>
-                                <div class="topic-item" onclick="loadVideo('Bay Park 90 Degrees', 'bay-park-90-degrees.mp4', '<i><strong>Important Test Tip: On your practical driving test, you can choose to reverse into either a left or right bay. I always advise reversing to the left. Because we drive on the left in the UK, this allows you to set up easily while staying entirely on your correct side of the road, without needing to cross over into oncoming traffic.</strong></i> To execute this smoothly, use your car reference markers to establish your turning point, maintain continuous all-around observations, and use slow clutch control to guide the vehicle cleanly into the center of the lines.', this)">
+                                <div class="topic-item" onclick="loadVideo('Bay Park 90 Degrees', 'bay-park-90-degrees.mp4', 'Use reference marks on your car to find your turning point. Maintain all-around observations, and reverse smoothly into the center of the bay lines.', this)">
                                     <span class="icon">🔸</span> Bay Park 90 Degrees
                                 </div>
                                 <div class="topic-item" onclick="loadVideo('Bay Park 45 Degrees', 'bay-park-45-degrees.mp4', 'Angle your car safely to ease entry into the bay lines. Maintain slow, controlled movement and constant observation checks.', this)">
                                     <span class="icon">🔸</span> Bay Park 45 Degrees
-                                </div>
+                            </div>
                                 <div class="topic-item" onclick="loadVideo('Pull Up Safety On The Right', 'pull-up-safely-on-the-right.mp4', 'Pull over safely parallel to the right-hand curb line. Reverse back cleanly for 2 car lengths while maintaining all-around safety checks.', this)">
                                     <span class="icon">🔸</span> Pull Up Safety On The Right
                                 </div>
@@ -580,23 +600,36 @@
                         </div>
                     </div>
 
-                </div> <!-- End Left Column Category Stack -->
 
-                <!-- Right Pane: Standalone DESKTOP Player Window (Unhides cleanly on wide screens) -->
-                <div class="content-display-panel">
-                    <div class="stage-card">
-                        <h2 id="desktop-title">Select a Topic to Start</h2>
-                        <div class="video-player-wrapper">
-                            <video id="desktop-video" controls controlsList="nodownload" playsinline preload="metadata">
-                                <source id="desktop-source" src="" type="video/mp4">
-                                Your browser does not support the video tag.
-                            </video>
+
+
+
+                                <div class="topic-item" onclick="loadVideo('Reverse Parallel Park', 'reverse-parallel-park.mp4', 'Pull up level with the target vehicle. Select reverse gear. Complete all-around observations, and turn into the space using slow clutch control.', this)">
+                                    <span class="icon">🔸</span> Reverse Parallel Park
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Bay Park 90 Degrees', 'bay-park-90-degrees.mp4', '<i><strong>Important Test Tip: On your practical driving test, you can choose to reverse into either a left or right bay. I always advise reversing to the left. Because we drive on the left in the UK, this allows you to set up easily while staying entirely on your correct side of the road, without needing to cross over into oncoming traffic.</strong></i> To execute this smoothly, use your car reference markers to establish your turning point, maintain continuous all-around observations, and use slow clutch control to guide the vehicle cleanly into the center of the lines.', this)">
+                                    <span class="icon">🔸</span> Bay Park 90 Degrees
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Bay Park 45 Degrees', 'bay-park-45-degrees.mp4', 'Angle your car safely to ease entry into the bay lines. Maintain slow, controlled movement and constant observation checks.', this)">
+                                    <span class="icon">🔸</span> Bay Park 45 Degrees
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Pull Up Safety On The Right', 'pull-up-safety-on-the-right.mp4', 'Pull over safely parallel to the right-hand curb line. Reverse back cleanly for 2 car lengths while maintaining all-around safety checks.', this)">
+                                    <span class="icon">🔸</span> Pull Up Safety On The Right
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Emergency Stop', 'emergency-stop.mp4', 'Apply immediate, firm pressure to the footbrake. Depress the clutch fully just before stopping to prevent a stall, keeping both hands secure on the wheel.', this)">
+                                    <span class="icon">🔸</span> Emergency Stop
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Controlled Stop Move Off At Angle', 'controlled-stop-move-off-at-an-angle.mp4', 'Pull up smoothly next to the curb line. Secure the car. When moving away again, complete a full 6-point check, looking deep into your right blind spot.', this)">
+                                    <span class="icon">🔸</span> Controlled Stop Move Off At Angle
+                                </div>
+                                <div class="topic-item" onclick="loadVideo('Hill Start', 'hill-start.mp4', 'Set the gas pedal slightly higher to around 1500 RPM. Bring the clutch smoothly to the biting point. Perform a full observation check, and release the handbrake.', this)">
+                                    <span class="icon">🔸</span> Hill Start
+                                </div>
+                            </div>
                         </div>
-                        <div class="metadata-box">
-                          <p id="desktop-meta"><strong>👉 How to Start:</strong> Open any training module folder on the left side menu stack list, click on your desired driving lesson topic link, and your interactive animation video will load and play right here automatically.</p>
-                      </div>
                     </div>
-                </div> <!-- End Desktop Column Panel -->
+
+                </div> <!-- End Left Column Category Stack -->
 
             </div> <!-- End Workspace Layout Grid Framework Wrapper -->
         </div> <!-- End Portal Content Dashboard Wrapper -->
@@ -621,7 +654,7 @@
             <p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
         </div>
     </footer>
-        <!-- Script Engine Routing Core (Upgraded Live Database Synchronization Engine) -->
+    <!-- Script Engine Routing Core (Upgraded Live Database Synchronization Engine) -->
     <script>
         // --- PRE-CONFIGURED SYSTEM DMW CONNECTION ARCHITECTURE ---
         const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
@@ -820,3 +853,6 @@
     </script>
 </body>
 </html>
+
+
+                    

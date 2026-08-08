@@ -189,7 +189,11 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
             const userIn = document.getElementById('new-username').value.trim().toLowerCase();
             const passIn = document.getElementById('new-password').value.trim();
 
-            if (!userIn || !passIn) { alert("Please complete both input fields first!"); return; }
+            if (!userIn) { 
+  alert("Please complete the username input field first!"); 
+  return; 
+}
+
 
             try {
                 const response = await fetch(SUPABASE_URL + "/rest/v1/students", {

@@ -1,3 +1,116 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMW Briefing Portal - DMW Driving School</title>
+    <style>
+        /* --- DMW Brand Colors & Structural Tokens --- */
+        :root { 
+            --dmw-dark: #1e1e24;       /* Primary dark header tone */
+            --dmw-accent: #ffcc00;     /* Brand yellow accent color */
+            --dmw-blue: #0084ff;       /* Active category contrast color */
+            --dmw-bg: #f5f6f8;         /* Crisp off-white workspace layout */
+            --card-bg: #ffffff; 
+            --text-dark: #1e293b;      /* Deep obsidian main text readability */
+            --text-muted: #64748b;    /* Clean charcoal subtitle tone */
+            --border-light: #e2e8f0;   /* Muted grid separation line */
+        }
+
+        /* --- Global Reset & Base Setup --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background-color: var(--dmw-bg); color: var(--text-dark); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+        /* --- Branded Minimalist Sticky Header --- */
+        .site-header {
+            background-color: var(--dmw-dark);
+            padding: 14px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+        }
+        .header-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center; 
+            align-items: center;
+            padding: 0 20px;
+        }
+        .logo-container {
+            display: block;
+            max-width: 210px;       
+            height: auto;
+        }
+        .logo-img {
+            display: block;
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            user-select: none;
+        }
+
+        /* --- Centered Screen Layout for Secure Gate Window --- */
+        .viewport-wrapper {
+            min-height: calc(100vh - 146px); 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        /* --- DMW Clean Login Panel --- */
+        .login-box { 
+            background: var(--card-bg); 
+            padding: 40px 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06); 
+            width: 100%; 
+            max-width: 400px; 
+            text-align: center; 
+            border-top: 5px solid var(--dmw-dark); 
+        }
+        .login-box h2 { font-size: 1.45rem; margin-bottom: 6px; color: var(--dmw-dark); font-weight: 700; }
+        .login-box p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 25px; }
+        .input-group { margin-bottom: 18px; text-align: left; }
+        .input-group input { 
+            width: 100%; 
+            padding: 12px 16px; 
+            border: 1px solid var(--border-light); 
+            border-radius: 6px; 
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.25s ease;
+        }
+        .input-group input:focus { border-color: var(--dmw-dark); box-shadow: 0 0 0 3px rgba(30,30,36,0.08); }
+        .login-btn { 
+            width: 100%; 
+            padding: 14px; 
+            background: var(--dmw-accent); 
+            border: none; 
+            color: var(--dmw-dark); 
+            font-weight: 700; 
+            font-size: 1rem;
+            border-radius: 6px; 
+            cursor: pointer; 
+            transition: background 0.2s ease;
+        }
+        .login-btn:hover { background: #e6b800; }
+        .error-msg { color: #df4744; font-size: 0.85rem; margin-top: 12px; display: none; font-weight: 600; }
+
+        /* Styling to neatly format the instructor warning notice */
+        .instructor-warning {
+            font-size: 0.85rem;
+            color: #475569; 
+            margin-top: 18px;
+            line-height: 1.4;
+            font-weight: 600; 
+            background: #f8fafc; 
+            padding: 10px 12px;
+            border-radius: 6px;
+            border-left: 3px solid #ffcc00; 
+        }
+        
         /* --- Dashboard Content Panel & Layout Workspace --- */
         #portal-content { display: none; max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
         
@@ -25,7 +138,6 @@
             transition: all 0.25s ease;
         }
         .logout-btn:hover { background: var(--dmw-accent); color: var(--dmw-dark); }
-
         /* Flexible Workspace Layout Grid - Optimized Responsive Breakpoint */
         .workspace-layout { display: grid; gap: 30px; grid-template-columns: 1fr; }
         @media(min-width: 768px) { .workspace-layout { grid-template-columns: 420px 1fr; align-items: start; } }
@@ -178,7 +290,7 @@
             font-size: 1.3rem; 
             font-weight: 700; 
             color: var(--dmw-dark); 
-            border-bottom: 4px solid #df4744; /* UPGRADED: Thick prominent red accent divider line */
+            border-bottom: 4px solid #df4744; /* Thick prominent red accent divider line */
             padding-bottom: 12px; 
         }
 
@@ -194,7 +306,7 @@
         }
         .video-player-wrapper video { width: 100%; height: 100%; object-fit: cover; display: block; }
         
-        /* UPGRADED: High-visibility instructions helper box standing out boldly with clear directions */
+        /* High-visibility instructions helper box standing out boldly with clear directions */
         .metadata-box { 
             background: #eef2ff; /* Crisp contrast light-indigo banner background */
             padding: 18px 20px; 
@@ -235,22 +347,6 @@
     </style>
 </head>
 <body>
-    <!-- Disclaimer Initial Popup Overlay Modal Box -->
-    <div id="student-disclaimer-modal" class="disclaimer-overlay" style="display: none;">
-        <div class="disclaimer-box">
-            <div class="disclaimer-header">📋 Training Disclaimer</div>
-            <div class="disclaimer-body">
-                <p>Please note that all information, animations, and guidance given in these videos are to be used as a <strong>general guideline only</strong>.</p>
-                <br>
-                <p>They may not necessarily reflect the exact local methods, reference points, or specific routines taught by your driving instructor during your live in-car lessons.</p>
-            </div>
-            <div class="disclaimer-footer">
-                <button class="btn-disclaimer" onclick="dismissDisclaimer()">I Understand</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Header Block displaying image-1.jpg -->
     <header class="site-header">
         <div class="header-container">
             <div class="logo-container">
@@ -259,10 +355,7 @@
         </div>
     </header>
 
-    <!-- Secure Layout Area Wrapper -->
     <main class="viewport-wrapper" id="page-wrapper">
-        
-        <!-- Login Screen State Window Layout -->
         <div id="login-screen" class="login-box">
             <h2>DMW Student Portal</h2>
             <p>Enter your access details to view course media resources</p>
@@ -277,7 +370,6 @@
             <div id="error" class="error-msg">Invalid credentials, check details and retry!</div>
         </div>
 
-        <!-- Authenticated System Dashboard View Layer -->
         <div id="portal-content">
             <div class="portal-banner">
                 <h1>Interactive Video Lesson Hub</h1>
@@ -286,8 +378,6 @@
             
             <div class="workspace-layout">
                 <div class="category-stack">
-
-                    <!-- NEW Permanent Warning Notice Element Box -->
                     <div class="permanent-warning-box">
                         <strong>⚠️ Video Guidance Notice:</strong> These training modules provide general references and may vary slightly from the exact custom reference methods or road patterns taught directly by your instructor during live practical lessons.
                     </div>

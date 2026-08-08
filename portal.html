@@ -373,13 +373,13 @@
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
             
-            <!-- Dual-Column Layout Workspace Splitting Navigation Side and Display Panels -->
+            <!-- Dual-Column Layout Workspace Grid Framework -->
             <div class="workspace-layout">
                 
                 <!-- Left Control Pane: Collapsible Categories Stack -->
                 <div class="category-stack">
 
-                    <!-- NEW Permanent Warning Notice Element Box -->
+                    <!-- Permanent Warning Notice Element Box -->
                     <div class="permanent-warning-box">
                         <strong>⚠️ Video Guidance Notice:</strong> These training modules provide general references and may vary slightly from the exact custom reference methods or road patterns taught directly by your instructor during live practical lessons.
                     </div>
@@ -579,10 +579,9 @@
                             </div>
                         </div>
                     </div>
+                </div> <!-- End Left Column Category Stack -->
 
-                </div> <!-- End Left Column -->
-
-                <!-- Right Pane: Standalone DESKTOP Player Window (Hidden automatically on Mobile layouts) -->
+                <!-- Right Pane: Standalone DESKTOP Player Window (Unhides on Desktop Viewports) -->
                 <div class="content-display-panel">
                     <div class="stage-card">
                         <h2 id="desktop-title">Select a Topic to Start</h2>
@@ -598,11 +597,11 @@
                     </div>
                 </div> <!-- End Desktop Column Panel -->
 
-            </div> <!-- End Workspace Layout Grid -->
+            </div> <!-- End Workspace Layout Grid Framework Wrapper -->
         </div> <!-- End Portal Content Dashboard Wrapper -->
     </main>
 
-    <!-- Hidden Reusable Mobile Player Canvas Template (Injected into slots on the fly) -->
+    <!-- Hidden Reusable Mobile Player Canvas Template (Injected into slots on mobile view) -->
     <div id="reusable-mobile-player" style="display: none;">
         <div class="video-player-wrapper">
             <video id="mobile-video" controls controlsList="nodownload" playsinline preload="metadata">
@@ -621,11 +620,13 @@
             <p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
         </div>
     </footer>
+
     <!-- Script Engine Routing Core (Upgraded Live Database Synchronization Engine) -->
     <script>
         // --- PRE-CONFIGURED SYSTEM DMW CONNECTION ARCHITECTURE ---
-        const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+        const SUPABASE_URL = "https://supabase.co";
         const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+
         // --- GLOBAL GITHUB STORAGE PATH CONFIGURATION ---
         const GITHUB_RAW_BASE = "https://" + 
                                 "raw." + 
@@ -641,7 +642,6 @@
 
         // Silent Cloud Background Activity Tracker
         async function logStudentActivity(actionText) {
-            // Automatically extracts the username typed into the login box to track them
             const currentStudent = document.getElementById("username").value.trim().toLowerCase() || "session_user";
             try {
                 await fetch(SUPABASE_URL + "/rest/v1/activity_logs", {
@@ -653,10 +653,10 @@
                     },
                     body: JSON.stringify({ username: currentStudent, action: actionText })
                 });
-            } catch (e) { console.log("Silent tracking block log."); }
+            } catch (e) { console.log("Silent tracking log failed."); }
         }
 
-        // Upgraded Live Verification Engine (With Automated Login Tracker)
+        // Upgraded Real-time Cloud Account Verification Engine
         async function checkLogin() {
             const userField = document.getElementById("username").value.trim().toLowerCase();
             const passField = document.getElementById("password").value.trim();
@@ -674,7 +674,7 @@
                 if (profileMatches && profileMatches.length > 0) {
                     sessionStorage.setItem("authenticated", "true");
                     showDashboard();
-                    logStudentActivity("Logged Into Portal"); // Logs successful entry
+                    logStudentActivity("Logged Into Portal"); 
                 } else { 
                     document.getElementById("error").style.display = "block"; 
                 }
@@ -735,7 +735,6 @@
             document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
             elementClicked.classList.add('active');
 
-            // AUTOMATICALLY LOGS EXACTLY WHICH VIDEO THE LEARNER CLICKED TO WATCH
             logStudentActivity("Watched Video: " + topicTitle);
 
             const isMobileView = window.innerWidth < 900;
@@ -774,4 +773,4 @@
         }
     </script>
 </body>
-</html>
+</html>        

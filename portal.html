@@ -621,11 +621,12 @@
             <p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
         </div>
     </footer>
-    <!-- Script Engine Routing Core (Upgraded Live Database Synchronization Engine) -->
+        <!-- Script Engine Routing Core (Upgraded Live Database Synchronization Engine) -->
     <script>
         // --- PRE-CONFIGURED SYSTEM DMW CONNECTION ARCHITECTURE ---
         const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
         const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+
         // --- GLOBAL GITHUB STORAGE PATH CONFIGURATION ---
         const GITHUB_RAW_BASE = "https://" + 
                                 "raw." + 
@@ -639,7 +640,7 @@
             showDashboard();
         }
 
-        // Silent Cloud Background Activity Tracker (UPGRADED: Reads username from session memory)
+        // Silent Cloud Background Activity Tracker
         async function logStudentActivity(actionText) {
             const currentStudent = sessionStorage.getItem("current_student_username") || "unknown_learner";
             try {
@@ -672,7 +673,6 @@
 
                 if (profileMatches && profileMatches.length > 0) {
                     sessionStorage.setItem("authenticated", "true");
-                    // STORES USERNAME SECURELY IN SESSION VAULT
                     sessionStorage.setItem("current_student_username", userField);
                     showDashboard();
                     logStudentActivity("Logged Into Portal"); 
@@ -698,12 +698,13 @@
             document.getElementById("page-wrapper").style.minHeight = "auto";
             document.getElementById("portal-content").style.display = "block"; 
             
+            // LAUNCHES THE POPUP DISCLAIMER OVERLAY BOX
             document.getElementById("student-disclaimer-modal").style.display = "flex";
             
             const firstCard = document.querySelector('.category-card');
             if(firstCard) toggleCategory(firstCard.querySelector('.category-header'));
             
-            // Starts checking for playing video milestones
+            // Wires up progress tracking sensor events immediately upon layout load
             attachVideoProgressListeners();
         }
 
@@ -737,7 +738,7 @@
             }
         }
 
-        // SENSOR MODULE: Listens to player duration to log 50% and 100% completions
+        // ADVANCED SENSOR MODULE: Listens to player timeline durations to broadcast tracking states
         function attachVideoProgressListeners() {
             ['desktop-video', 'mobile-video'].forEach(id => {
                 const player = document.getElementById(id);
@@ -773,6 +774,7 @@
             document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
             elementClicked.classList.add('active');
             
+            // Lock active subject name to tracking sensor memory anchor string
             window.activeTopicTitle = topicTitle;
 
             const isMobileView = window.innerWidth < 768;
@@ -818,4 +820,3 @@
     </script>
 </body>
 </html>
-   

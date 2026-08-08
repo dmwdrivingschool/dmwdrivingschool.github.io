@@ -613,7 +613,7 @@
                                 <div class="topic-item" onclick="loadVideo('Bay Park 45 Degrees', 'bay-park-45-degrees.mp4', 'Angle your car safely to ease entry into the bay lines. Maintain slow, controlled movement and constant observation checks.', this)">
                                     <span class="icon">🔸</span> Bay Park 45 Degrees
                                 </div>
-                                <div class="topic-item" onclick="loadVideo('Pull Up Safety On The Right', 'pull-up-safety-on-the-right.mp4', 'Pull over safely parallel to the right-hand curb line. Reverse back cleanly for 2 car lengths while maintaining all-around safety checks.', this)">
+                                <div class="topic-item" onclick="loadVideo('Pull Up Safety On The Right', 'pull-up-safely-on-the-right.mp4', 'Pull over safely parallel to the right-hand curb line. Reverse back cleanly for 2 car lengths while maintaining all-around safety checks.', this)">
                                     <span class="icon">🔸</span> Pull Up Safety On The Right
                                 </div>
                                 <div class="topic-item" onclick="loadVideo('Emergency Stop', 'emergency-stop.mp4', 'Apply immediate, firm pressure to the footbrake. Depress the clutch fully just before stopping to prevent a stall, keeping both hands secure on the wheel.', this)">
@@ -631,9 +631,35 @@
 
                 </div> <!-- End Left Column Category Stack -->
 
+                <!-- Right Content Column -->
+                <div class="content-column">
+                    <div class="content-card" style="background:var(--card-bg); border:1px solid var(--border-light); border-radius:10px; padding:20px;">
+                        <h2 id="desktop-panel-heading">Select a Topic to Start</h2>
+                        <hr style="margin:12px 0 18px 0"/>
+                        <div class="video-card">
+                            <div id="desktop-player" class="desktop-player" style="display:block; margin:0 0 10px 0;">
+                                <h3 id="desktop-title" style="margin:0 0 8px 0; font-size:1.1rem;"></h3>
+                                <div class="video-player-wrapper">
+                                    <video id="desktop-video" controls controlsList="nodownload" playsinline preload="metadata" style="width:100%; max-width:900px;">
+                                        <source id="desktop-source" src="" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="metadata-box">
+                                    <p id="desktop-meta"></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="info-box" style="margin-top:18px; background:#f1f5f9; padding:12px; border-radius:8px;">
+                            <p style="margin:0">Select a category drawer on the left side menu, click an instructional topic link, and your streaming lesson content will load here automatically.</p>
+                        </div>
+                    </div>
+                </div>
+
             </div> <!-- End Workspace Layout Grid Framework Wrapper -->
         </div> <!-- End Portal Content Dashboard Wrapper -->
     </main>
+
 
     <!-- Hidden Reusable Mobile Player Canvas Template (Injected into slots on mobile view) -->
     <div id="reusable-mobile-player" style="display: none;">
@@ -661,7 +687,7 @@
         const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
 
         // --- GLOBAL GITHUB STORAGE PATH CONFIGURATION ---
-        const GITHUB_RAW_BASE = "https://cdn.jsdelivr.net/gh/dmwdrivingschool/dmwdrivingschool.github.io@main/";
+        const GITHUB_RAW_BASE = "./";
 
 
         if (sessionStorage.getItem("authenticated") === "true") {

@@ -5,15 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DMW Portal Control Panel - Admin Only</title>
     <style>
-        :root { 
-            --dmw-dark: #1e1e24; 
-            --dmw-accent: #ffcc00; 
-            --dmw-blue: #0084ff; 
-            --dmw-bg: #f8f9fa; 
-            --card-bg: #ffffff; 
-            --text-dark: #1e293b; 
-            --border-light: #e2e8f0; 
-        }
+        :root { --dmw-dark: #1e1e24; --dmw-accent: #ffcc00; --dmw-blue: #0084ff; --dmw-bg: #f8f9fa; --card-bg: #ffffff; --text-dark: #1e293b; --border-light: #e2e8f0; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: var(--dmw-bg); color: var(--text-dark); line-height: 1.5; padding-bottom: 80px; }
         
@@ -21,15 +13,18 @@
         .logo-container { max-width: 210px; margin: 0 auto; }
         .logo-img { width: 100%; height: auto; display: block; }
         
-        .admin-wrapper { max-width: 800px; margin: 40px auto; padding: 0 20px; display: none; }
+        /* Upgraded wrapper width to hold 3 panels comfortably */
+        .admin-wrapper { max-width: 1200px; margin: 40px auto; padding: 0 20px; display: none; }
         .portal-banner { display: flex; justify-content: space-between; align-items: center; background: var(--dmw-dark); color: #fff; padding: 22px 30px; border-radius: 10px; margin-bottom: 30px; }
         .portal-banner h1 { font-size: 1.35rem; font-weight: 700; }
         .logout-btn { background: transparent; color: var(--dmw-accent); border: 2px solid var(--dmw-accent); padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
         .logout-btn:hover { background: var(--dmw-accent); color: var(--dmw-dark); }
-        .grid-panels { display: grid; gap: 30px; grid-template-columns: 1fr; }
-        @media(min-width: 700px) { .grid-panels { grid-template-columns: 1fr 1fr; } }
         
-        .panel-card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-light); padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
+        /* Layout Grid splits into 3 columns on desktops and 1 column on mobiles */
+        .grid-panels { display: grid; gap: 30px; grid-template-columns: 1fr; }
+        @media(min-width: 950px) { .grid-panels { grid-template-columns: 350px 1fr 1fr; } }
+        
+        .panel-card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-light); padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); height: max-content; }
         .panel-card h2 { font-size: 1.15rem; font-weight: 700; color: var(--dmw-dark); margin-bottom: 15px; border-bottom: 2px solid var(--dmw-bg); padding-bottom: 8px; }
         
         .input-item { margin-bottom: 15px; }
@@ -45,6 +40,11 @@
         .student-list-item strong { color: #0f172a; font-weight: 600; }
         .delete-icon { color: #df4744; cursor: pointer; font-weight: 700; font-size: 0.88rem; padding: 4px 10px; border: 1px solid #fca5a5; border-radius: 4px; background: #fff; transition: all 0.2s; }
         .delete-icon:hover { background: #fef2f2; }
+        
+        /* Styled layouts for your tracking activity logs timeline card */
+        .log-item { background: #fafbfc; border: 1px solid var(--border-light); padding: 12px; border-radius: 6px; margin-bottom: 10px; font-size: 0.88rem; line-height: 1.4; border-left: 4px solid var(--dmw-blue); }
+        .log-time { font-size: 0.78rem; color: var(--text-muted); display: block; margin-top: 4px; }
+        
         .gate-lock-box { background: var(--card-bg); padding: 40px 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); width: 100%; max-width: 400px; text-align: center; margin: 100px auto; border-top: 5px solid var(--dmw-dark); }
         .gate-lock-box h2 { font-size: 1.45rem; margin-bottom: 6px; font-weight: 700; }
         .gate-lock-box p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 25px; }
@@ -75,6 +75,7 @@
         </div>
         
         <div class="grid-panels">
+            <!-- Column 1: Account Creation Form -->
             <div class="panel-card">
                 <h2>Add New Learner Account</h2>
                 <div class="input-item">
@@ -88,9 +89,16 @@
                 <button class="action-btn btn-add" onclick="addNewStudent()">Save Student Account</button>
             </div>
             
+            <!-- Column 2: Live Active Student Roster List -->
             <div class="panel-card">
                 <h2>Active Student Database Roster</h2>
                 <div id="live-roster-mount">Loading cloud database entries...</div>
+            </div>
+
+            <!-- Column 3: Live Video View Activity Track Feed Logs Grid -->
+            <div class="panel-card">
+                <h2>Live Student Activity Feed Logs</h2>
+                <div id="activity-log-mount" style="max-height: 450px; overflow-y: auto; padding-right: 5px;">Loading activity streams...</div>
             </div>
         </div>
     </main>
@@ -102,9 +110,8 @@
     </footer>
     <script>
         // --- ⚙️ CONNECTED LIVE DATABASE STRINGS LINK LAYOUT ⚙️ ---
-const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
-const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
-
+        const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
 
         // Upgraded Secure Cloud Database Gateway Validation Engine
         async function verifyAdminGate() {
@@ -140,6 +147,11 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
                     document.getElementById('admin-dashboard').style.display = 'block';
                     document.getElementById('gate-error').style.display = 'none';
                     fetchLiveRoster();
+                    fetchActivityLogs();
+                    
+                    // Runs an automated real-time background tracking log refresh every 15 seconds
+                    if (window.logInterval) clearInterval(window.logInterval);
+                    window.logInterval = setInterval(fetchActivityLogs, 15000);
                 } else {
                     document.getElementById('gate-error').innerText = "Incorrect master password!";
                     document.getElementById('gate-error').style.display = 'block';
@@ -150,7 +162,9 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
                 document.getElementById('gate-error').style.display = 'block';
             }
         }
+        
         function lockAdminGate() {
+            if (window.logInterval) clearInterval(window.logInterval);
             document.getElementById('admin-gate-pass').value = '';
             document.getElementById('admin-gate-screen').style.display = 'block';
             document.getElementById('admin-dashboard').style.display = 'none';
@@ -165,7 +179,6 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
                 });
                 const databaseRows = await response.json();
-                
                 if (!databaseRows || databaseRows.length === 0) {
                     rosterContainer.innerHTML = '<p style="color: #64748b; font-size: 0.9rem; padding: 10px 0;">No active student logs found in your database.</p>';
                     return;
@@ -182,28 +195,49 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
             }
         }
 
+        // Pull Activity Log streams array entries from Supabase cloud database
+        async function fetchActivityLogs() {
+            const logContainer = document.getElementById('activity-log-mount');
+            if (!logContainer) return;
+            try {
+                const response = await fetch(SUPABASE_URL + "/rest/v1/activity_logs?order=created_at.desc&limit=30", {
+                    method: 'GET',
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+                const logRows = await response.json();
+                logContainer.innerHTML = '';
+                if (!logRows || logRows.length === 0) {
+                    logContainer.innerHTML = '<p style="color: #64748b; font-size: 0.9rem; padding: 10px 0;">No tracking feeds logged yet.</p>';
+                    return;
+                }
+                logRows.forEach(log => {
+                    const rawTime = new Date(log.created_at);
+                    const localTimeStr = rawTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' ' + rawTime.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                    
+                    const logCard = document.createElement('div');
+                    logCard.className = 'log-item';
+                    logCard.innerHTML = 'Student: <strong style="color:var(--dmw-blue); text-transform:capitalize;">' + log.username + '</strong><br>' + log.action + '<span class="log-time">⏰ ' + localTimeStr + '</span>';
+                    logContainer.appendChild(logCard);
+                });
+            } catch (e) { logContainer.innerText = "Tracking log fetch mismatch error."; }
+        }
+
         // Automated data row save execution module
         async function addNewStudent() {
             const userIn = document.getElementById('new-username').value.trim().toLowerCase();
-            
-            // Fixed: Changed from const to let so the code can overwrite it with a random password string
             let passIn = document.getElementById('new-password').value.trim();
 
-            // 1. If username is empty, stop and alert
             if (!userIn || userIn.trim() === "") { 
               alert("Please complete the username input field first!"); 
               return; 
             }
 
-            // 2. If password field is empty, automatically create a 10-character password
             if (!passIn || passIn.trim() === "") {
               const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
               let randomPass = "";
               for (let i = 0; i < 10; i++) {
                 randomPass += chars.charAt(Math.floor(Math.random() * chars.length));
               }
-              
-              // Set the password variable to our brand new 10-character string
               passIn = randomPass; 
             }
 
@@ -223,7 +257,7 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
                     document.getElementById('new-username').value = '';
                     document.getElementById('new-password').value = '';
                     fetchLiveRoster();
-                } else { alert("Failed to save data. Double check table RLS settings."); }
+                } else { alert("Failed to save data. Double check table settings."); }
             } catch (e) { alert("Network upload error occurred."); }
         }
 

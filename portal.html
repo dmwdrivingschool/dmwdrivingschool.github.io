@@ -14,6 +14,7 @@
             --text-dark: #1e293b;
             --border-light: #e2e8f0;
             --text-muted: #64748b;
+            --dmw-red: #e30613; /* Logo red */
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: var(--dmw-bg); color: var(--text-dark); line-height: 1.5; padding-bottom: 80px; }
@@ -73,12 +74,12 @@
         @media(min-width: 900px) { .content-display-panel { display: block !important; } }
        
         .stage-card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-light); padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 20px; }
-        .stage-card h2 { font-size: 1.3rem; font-weight: 700; color: var(--dmw-dark); border-bottom: 2px solid var(--dmw-bg); padding-bottom: 12px; }
+        .stage-card h2 { font-size: 1.3rem; font-weight: 700; color: var(--dmw-dark); border-bottom: 2px solid var(--dmw-red); padding-bottom: 12px; }
        
         .video-player-wrapper { width: 100%; aspect-ratio: 16/9; background: #0f172a; border-radius: 10px; overflow: hidden; position: relative; }
         .video-player-wrapper video { width: 100%; height: 100%; object-fit: cover; display: block; }
        
-        .metadata-box { background: var(--dmw-bg); padding: 15px 18px; border-radius: 8px; border-left: 5px solid var(--dmw-dark); margin-top: 10px; }
+        .metadata-box { background: var(--dmw-bg); padding: 15px 18px; border-radius: 8px; border-left: 5px solid var(--dmw-red); margin-top: 10px; }
         .metadata-box p { font-size: 0.92rem; color: #334155; line-height: 1.4; }
         .metadata-box strong { color: var(--dmw-dark); }
        
@@ -343,7 +344,7 @@
 
                 </div> <!-- End category-stack -->
 
-                <!-- Right Column: Desktop Player (this was missing) -->
+                <!-- Right Column: Desktop Player -->
                 <div class="content-display-panel">
                     <div class="stage-card">
                         <h2 id="desktop-title">Select a Topic to Start</h2>
@@ -354,7 +355,7 @@
                             </video>
                         </div>
                         <div class="metadata-box">
-                            <p id="desktop-meta">Select a category on the left and click a topic to load the video here.</p>
+                            <p id="desktop-meta">Select a category on the left, then click a topic to load the video lesson and key teaching points here.</p>
                         </div>
                     </div>
                 </div>

@@ -534,9 +534,8 @@
     <!-- Script Engine Routing Core (Upgraded Live Database Synchronization Engine) -->
     <script>
         // --- PRE-CONFIGURED SYSTEM DMW CONNECTION ARCHITECTURE ---
-const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
-const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
-
+        const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
         // --- GLOBAL GITHUB STORAGE PATH CONFIGURATION ---
         const GITHUB_RAW_BASE = "https://" + 
                                 "raw." + 
@@ -550,9 +549,9 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
             showDashboard();
         }
 
-        // Silent Cloud Background Activity Tracker
+        // Silent Cloud Background Activity Tracker (UPGRADED: Reads username from session memory)
         async function logStudentActivity(actionText) {
-            const currentStudent = document.getElementById("username").value.trim().toLowerCase() || "session_user";
+            const currentStudent = sessionStorage.getItem("current_student_username") || "unknown_learner";
             try {
                 await fetch(SUPABASE_URL + "/rest/v1/activity_logs", {
                     method: 'POST',
@@ -583,6 +582,8 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
 
                 if (profileMatches && profileMatches.length > 0) {
                     sessionStorage.setItem("authenticated", "true");
+                    // STORES USERNAME SECURELY IN SESSION VAULT
+                    sessionStorage.setItem("current_student_username", userField);
                     showDashboard();
                     logStudentActivity("Logged Into Portal"); 
                 } else { 
@@ -591,6 +592,7 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
             } catch (error) {
                 if (userField === "dmwstudent" && passField === "drive2026") {
                     sessionStorage.setItem("authenticated", "true");
+                    sessionStorage.setItem("current_student_username", "dmwstudent");
                     showDashboard();
                     logStudentActivity("Logged Into Portal (Master Fallback)");
                 } else {
@@ -610,6 +612,9 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
             
             const firstCard = document.querySelector('.category-card');
             if(firstCard) toggleCategory(firstCard.querySelector('.category-header'));
+            
+            // Starts checking for playing video milestones
+            attachVideoProgressListeners();
         }
 
         function dismissDisclaimer() {
@@ -618,6 +623,7 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
 
         function logout() { 
             sessionStorage.removeItem("authenticated"); 
+            sessionStorage.removeItem("current_student_username");
             window.location.reload(); 
         }
 
@@ -641,11 +647,43 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
             }
         }
 
+        // SENSOR MODULE: Listens to player duration to log 50% and 100% completions
+        function attachVideoProgressListeners() {
+            ['desktop-video', 'mobile-video'].forEach(id => {
+                const player = document.getElementById(id);
+                if (!player) return;
+
+                player.dataset.started = "false";
+                player.dataset.halfway = "false";
+
+                player.addEventListener('play', function() {
+                    if (this.dataset.started === "false" && this.currentTime < 1) {
+                        this.dataset.started = "true";
+                        logStudentActivity("Started Video: " + window.activeTopicTitle);
+                    }
+                });
+
+                player.addEventListener('timeupdate', function() {
+                    if (this.duration) {
+                        const progressRatio = this.currentTime / this.duration;
+                        if (progressRatio >= 0.50 && this.dataset.halfway === "false") {
+                            this.dataset.halfway = "true";
+                            logStudentActivity("Halfway Through Video: " + window.activeTopicTitle);
+                        }
+                    }
+                });
+
+                player.addEventListener('ended', function() {
+                    logStudentActivity("Completed Video: " + window.activeTopicTitle);
+                });
+            });
+        }
+
         function loadVideo(topicTitle, videoFilename, descriptionText, elementClicked) {
             document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
             elementClicked.classList.add('active');
-
-            logStudentActivity("Watched Video: " + topicTitle);
+            
+            window.activeTopicTitle = topicTitle;
 
             const isMobileView = window.innerWidth < 768;
             const videoFullUrl = GITHUB_RAW_BASE + videoFilename;
@@ -663,6 +701,9 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
                 mobilePlayer.style.display = 'block';
                 mobilePlayer.style.margin = '10px 0';
                 
+                mobileVideo.dataset.started = "false";
+                mobileVideo.dataset.halfway = "false";
+                
                 mobileVideo.load();
                 mobileVideo.play().catch(e => console.log("Auto-playback paused."));
             } else {
@@ -677,6 +718,9 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
                 
                 desktopSource.src = videoFullUrl;
                 
+                desktopVideo.dataset.started = "false";
+                desktopVideo.dataset.halfway = "false";
+                
                 desktopVideo.load();
                 desktopVideo.play().catch(e => console.log("Auto-playback paused."));
             }
@@ -684,3 +728,4 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
     </script>
 </body>
 </html>
+   

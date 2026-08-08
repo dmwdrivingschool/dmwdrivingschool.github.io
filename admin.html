@@ -61,7 +61,6 @@
             </div>
         </div>
     </header>
-
     <div id="admin-gate-screen" class="gate-lock-box">
         <h2>Admin Gateway</h2>
         <p>Enter your master security password to open controls</p>
@@ -103,8 +102,8 @@
     </footer>
     <script>
         // --- ⚙️ CONNECTED LIVE DATABASE STRINGS LINK LAYOUT ⚙️ ---
-const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
-const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+        const SUPABASE_URL = "https://supabase.co";
+        const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
 
         // Upgraded Secure Cloud Database Gateway Validation Engine
         async function verifyAdminGate() {
@@ -125,7 +124,6 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
                         'Authorization': 'Bearer ' + SUPABASE_KEY 
                     }
                 });
-
                 const records = await response.json();
                 
                 let accessGranted = false;
@@ -171,7 +169,6 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
                     rosterContainer.innerHTML = '<p style="color: #64748b; font-size: 0.9rem; padding: 10px 0;">No active student logs found in your database.</p>';
                     return;
                 }
-
                 rosterContainer.innerHTML = '';
                 databaseRows.forEach(student => {
                     const rowItem = document.createElement('div');
@@ -187,25 +184,27 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
         // Automated data row save execution module
         async function addNewStudent() {
             const userIn = document.getElementById('new-username').value.trim().toLowerCase();
-            const passIn = document.getElementById('new-password').value.trim();
+            
+            // Fixed: Changed from const to let so the code can overwrite it with a random password string
+            let passIn = document.getElementById('new-password').value.trim();
 
-// 1. If username is empty, stop and alert
-if (!userIn || userIn.trim() === "") { 
-  alert("Please complete the username input field first!"); 
-  return; 
-}
+            // 1. If username is empty, stop and alert
+            if (!userIn || userIn.trim() === "") { 
+              alert("Please complete the username input field first!"); 
+              return; 
+            }
 
-// 2. If password field is empty, automatically create a 10-character password
-if (!passIn || passIn.trim() === "") {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let randomPass = "";
-  for (let i = 0; i < 10; i++) {
-    randomPass += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  
-  // Set the password variable to our brand new 10-character string
-  passIn = randomPass; 
-}
+            // 2. If password field is empty, automatically create a 10-character password
+            if (!passIn || passIn.trim() === "") {
+              const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+              let randomPass = "";
+              for (let i = 0; i < 10; i++) {
+                randomPass += chars.charAt(Math.floor(Math.random() * chars.length));
+              }
+              
+              // Set the password variable to our brand new 10-character string
+              passIn = randomPass; 
+            }
 
             try {
                 const response = await fetch(SUPABASE_URL + "/rest/v1/students", {

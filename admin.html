@@ -189,11 +189,23 @@ const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
             const userIn = document.getElementById('new-username').value.trim().toLowerCase();
             const passIn = document.getElementById('new-password').value.trim();
 
-            if (!userIn) { 
+// 1. If username is empty, stop and alert
+if (!userIn || userIn.trim() === "") { 
   alert("Please complete the username input field first!"); 
   return; 
 }
 
+// 2. If password field is empty, automatically create a 10-character password
+if (!passIn || passIn.trim() === "") {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let randomPass = "";
+  for (let i = 0; i < 10; i++) {
+    randomPass += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  
+  // Set the password variable to our brand new 10-character string
+  passIn = randomPass; 
+}
 
             try {
                 const response = await fetch(SUPABASE_URL + "/rest/v1/students", {

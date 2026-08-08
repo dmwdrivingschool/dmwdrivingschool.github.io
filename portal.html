@@ -59,7 +59,7 @@
             align-items: center;
             padding: 40px 20px;
         }
-                /* --- DMW Clean Login Panel --- */
+        /* --- DMW Clean Login Panel --- */
         .login-box { 
             background: var(--card-bg); 
             padding: 40px 30px; 
@@ -138,10 +138,10 @@
             transition: all 0.25s ease;
         }
         .logout-btn:hover { background: var(--dmw-accent); color: var(--dmw-dark); }
-        /* Flexible Workspace Layout */
-        .workspace-layout { display: grid; gap: 30px; grid-template-columns: 1fr; }
-        @media(min-width: 900px) { .workspace-layout { grid-template-columns: 450px 1fr; align-items: start; } }
 
+        /* Flexible Workspace Layout Grid - Optimized Responsive 768px Breakpoint */
+        .workspace-layout { display: grid; gap: 30px; grid-template-columns: 1fr; }
+        @media(min-width: 768px) { .workspace-layout { grid-template-columns: 420px 1fr; align-items: start; } }
         /* Left Side Menu List Container Stack */
         .category-stack { display: flex; flex-direction: column; gap: 15px; }
         
@@ -273,7 +273,7 @@
 
         /* --- Right Side Standalone Desktop Display Panel --- */
         .content-display-panel { position: sticky; top: 90px; display: none; }
-        @media(min-width: 900px) { .content-display-panel { display: block; } }
+        @media(min-width: 768px) { .content-display-panel { display: block !important; } }
         
         .stage-card {
             background: var(--card-bg);
@@ -373,13 +373,10 @@
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
             
-            <!-- Dual-Column Layout Workspace Grid Framework -->
             <div class="workspace-layout">
-                
-                <!-- Left Control Pane: Collapsible Categories Stack -->
                 <div class="category-stack">
 
-                    <!-- Permanent Warning Notice Element Box -->
+                    <!-- NEW Permanent Warning Notice Element Box -->
                     <div class="permanent-warning-box">
                         <strong>⚠️ Video Guidance Notice:</strong> These training modules provide general references and may vary slightly from the exact custom reference methods or road patterns taught directly by your instructor during live practical lessons.
                     </div>
@@ -392,7 +389,7 @@
                         </div>
                         <div class="topic-drawer">
                             <div class="topic-container-block">
-                                <div class="topic-item" onclick="loadVideo('Approaching Junctions Turning Left', 'approaching-junctions-turning-left.mp4', 'Routine M-S-M applied early. Check interior and left mirror. Apply left signal. Position approximately 1 meter from curb. Maintain focus on braking gracefully.', this)">
+                                <div class="topic-item" onclick="loadVideo('Approaching Junctions Turning Left', 'approaching-junctions-turning-left.mp4', 'Routine M-S-P-S-L applied early. Check interior and left mirror. Apply left signal. Position approximately 1 meter from curb. Maintain focus on braking gracefully.', this)">
                                     <span class="icon">🔸</span> Approaching Junctions Turning Left
                                 </div>
                                 <div class="topic-item" onclick="loadVideo('Emerging From An Open Junction Turning Left', 'emerging-from-an-open-junction-turning-left.mp4', 'Assess priority early at open viewpoints. Look right and left. Maintain progressive forward creep using fine clutch slip matching open visibility.', this)">
@@ -415,7 +412,7 @@
                                 </div>
                                 <div class="topic-item" onclick="loadVideo('Approaching Long Protected Junctions Turning Rights', 'approaching-junctions-turning-right-using-long-protected-turning-box.mp4', 'Navigate long central safety zones carefully. Maintain safe lane entry geometry. Keep clear gaps from oncoming turning vehicles.', this)">
                                     <span class="icon">🔸</span> Approaching Long Protected Junctions Turning Rights
-                                </div>
+                            </div>
                                 <div class="topic-item" onclick="loadVideo('Approaching Protected Junctions Turning Right', 'approaching-junctions-turning-right-using-protected-turn-box.mp4', 'Utilize central reservation protection strips safely. Ensure the rear of your car does not overhang into active flowing lanes behind you.', this)">
                                     <span class="icon">🔸</span> Approaching Protected Junctions Turning Right
                                 </div>
@@ -458,6 +455,7 @@
                             </div>
                         </div>
                     </div>
+
                     <!-- Module 3: Crossroads -->
                     <div class="category-card">
                         <div class="category-header" onclick="toggleCategory(this)">
@@ -538,6 +536,10 @@
                                 <div class="topic-item" onclick="loadVideo('Mini Roundabouts Turning Right 3rd Exit', 'mini-roundabouts-turning-right-3rd-exit.mp4', 'Signal right on approach. Give priority to traffic coming from your right. Pass cleanly around the central markings to make your turn.', this)">
                                     <span class="icon">🔸</span> Mini Roundabouts Turning Right 3rd Exit
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Module 5: Manoeuvres & Exercises -->
                     <div class="category-card">
                         <div class="category-header" onclick="toggleCategory(this)">
@@ -579,9 +581,10 @@
                             </div>
                         </div>
                     </div>
+
                 </div> <!-- End Left Column Category Stack -->
 
-                <!-- Right Pane: Standalone DESKTOP Player Window (Unhides on Desktop Viewports) -->
+                <!-- Right Pane: Standalone DESKTOP Player Window (Unhides cleanly on wide screens) -->
                 <div class="content-display-panel">
                     <div class="stage-card">
                         <h2 id="desktop-title">Select a Topic to Start</h2>
@@ -620,12 +623,11 @@
             <p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
         </div>
     </footer>
-
     <!-- Script Engine Routing Core (Upgraded Live Database Synchronization Engine) -->
     <script>
         // --- PRE-CONFIGURED SYSTEM DMW CONNECTION ARCHITECTURE ---
-        const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
-        const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
 
         // --- GLOBAL GITHUB STORAGE PATH CONFIGURATION ---
         const GITHUB_RAW_BASE = "https://" + 
@@ -737,7 +739,7 @@
 
             logStudentActivity("Watched Video: " + topicTitle);
 
-            const isMobileView = window.innerWidth < 900;
+            const isMobileView = window.innerWidth < 768;
             const videoFullUrl = GITHUB_RAW_BASE + videoFilename;
 
             if (isMobileView) {
@@ -773,4 +775,4 @@
         }
     </script>
 </body>
-</html>        
+</html>

@@ -5,391 +5,107 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DMW Briefing Portal - DMW Driving School</title>
     <style>
-        /* --- DMW Brand Colors & Structural Tokens --- */
-        :root { 
-            --dmw-dark: #1e1e24;       /* Primary dark header tone */
-            --dmw-accent: #ffcc00;     /* Brand yellow accent color */
-            --dmw-blue: #0084ff;       /* Active category contrast color */
-            --dmw-bg: #f5f6f8;         /* Crisp off-white workspace layout */
-            --card-bg: #ffffff; 
-            --text-dark: #1e293b;      /* Deep obsidian main text readability */
-            --text-muted: #64748b;    /* Clean charcoal subtitle tone */
-            --border-light: #e2e8f0;   /* Muted grid separation line */
-        }
-
-        /* --- Global Reset & Base Setup --- */
+        :root { --dmw-dark: #1e1e24; --dmw-accent: #ffcc00; --dmw-blue: #0084ff; --dmw-bg: #f8f9fa; --card-bg: #ffffff; --text-dark: #1e293b; --border-light: #e2e8f0; --text-muted: #64748b; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
-        body { background-color: var(--dmw-bg); color: var(--text-dark); line-height: 1.5; -webkit-font-smoothing: antialiased; }
-
-        /* --- Branded Minimalist Sticky Header --- */
-        .site-header {
-            background-color: var(--dmw-dark);
-            padding: 14px 0;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
-        }
-        .header-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: center; 
-            align-items: center;
-            padding: 0 20px;
-        }
-        .logo-container {
-            display: block;
-            max-width: 210px;       
-            height: auto;
-        }
-        .logo-img {
-            display: block;
-            width: 100%;
-            height: auto;
-            object-fit: contain;
-            user-select: none;
-        }
-
-        /* --- Centered Screen Layout for Secure Gate Window --- */
-        .viewport-wrapper {
-            min-height: calc(100vh - 146px); 
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 40px 20px;
-        }
-        /* --- DMW Clean Login Panel --- */
-        .login-box { 
-            background: var(--card-bg); 
-            padding: 40px 30px; 
-            border-radius: 12px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.06); 
-            width: 100%; 
-            max-width: 400px; 
-            text-align: center; 
-            border-top: 5px solid var(--dmw-dark); 
-        }
-        .login-box h2 { font-size: 1.45rem; margin-bottom: 6px; color: var(--dmw-dark); font-weight: 700; }
+        body { background-color: var(--dmw-bg); color: var(--text-dark); line-height: 1.5; padding-bottom: 80px; }
+        
+        .site-header { background-color: var(--dmw-dark); padding: 14px 0; box-shadow: 0 2px 12px rgba(0,0,0,0.12); text-align: center; position: sticky; top: 0; z-index: 1000; }
+        .logo-container { max-width: 210px; margin: 0 auto; }
+        .logo-img { width: 100%; height: auto; display: block; user-select: none; }
+        
+        .viewport-wrapper { min-height: calc(100vh - 146px); display: flex; justify-content: center; align-items: center; padding: 40px 20px; }
+        
+        .login-box { background: var(--card-bg); padding: 40px 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); width: 100%; max-width: 400px; text-align: center; border-top: 5px solid var(--dmw-dark); }
+        .login-box h2 { font-size: 1.45rem; margin-bottom: 6px; font-weight: 700; }
         .login-box p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 25px; }
         .input-group { margin-bottom: 18px; text-align: left; }
-        .input-group input { 
-            width: 100%; 
-            padding: 12px 16px; 
-            border: 1px solid var(--border-light); 
-            border-radius: 6px; 
-            font-size: 1rem;
-            outline: none;
-            transition: all 0.25s ease;
-        }
-        .input-group input:focus { border-color: var(--dmw-dark); box-shadow: 0 0 0 3px rgba(30,30,36,0.08); }
-        .login-btn { 
-            width: 100%; 
-            padding: 14px; 
-            background: var(--dmw-accent); 
-            border: none; 
-            color: var(--dmw-dark); 
-            font-weight: 700; 
-            font-size: 1rem;
-            border-radius: 6px; 
-            cursor: pointer; 
-            transition: background 0.2s ease;
-        }
-        .login-btn:hover { background: #e6b800; }
+        .input-group input { width: 100%; padding: 12px 16px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 1rem; outline: none; }
+        .input-group input:focus { border-color: var(--dmw-dark); }
+        .login-btn { width: 100%; padding: 14px; background: var(--dmw-accent); border: none; color: var(--dmw-dark); font-weight: 700; font-size: 1rem; border-radius: 6px; cursor: pointer; }
         .error-msg { color: #df4744; font-size: 0.85rem; margin-top: 12px; display: none; font-weight: 600; }
-
-        /* Styling to neatly format the instructor warning notice */
-        .instructor-warning {
-            font-size: 0.85rem;
-            color: #475569; 
-            margin-top: 18px;
-            line-height: 1.4;
-            font-weight: 600; 
-            background: #f8fafc; 
-            padding: 10px 12px;
-            border-radius: 6px;
-            border-left: 3px solid #ffcc00; 
-        }
+        .instructor-warning { font-size: 0.85rem; color: #475569; margin-top: 18px; line-height: 1.4; font-weight: 600; background: #f8fafc; padding: 10px 12px; border-radius: 6px; border-left: 3px solid #ffcc00; }
         
-        /* --- Dashboard Content Panel & Layout Workspace --- */
         #portal-content { display: none; max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
-        
-        .portal-banner {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: var(--dmw-dark);
-            color: #fff;
-            padding: 22px 30px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-        }
+        .portal-banner { display: flex; justify-content: space-between; align-items: center; background: var(--dmw-dark); color: #fff; padding: 22px 30px; border-radius: 10px; margin-bottom: 30px; }
         .portal-banner h1 { font-size: 1.45rem; font-weight: 700; }
-        .logout-btn { 
-            background: transparent; 
-            color: var(--dmw-accent); 
-            border: 2px solid var(--dmw-accent); 
-            padding: 8px 18px; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-weight: 600;
-            font-size: 0.9rem;
-            transition: all 0.25s ease;
-        }
+        .logout-btn { background: transparent; color: var(--dmw-accent); border: 2px solid var(--dmw-accent); padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
         .logout-btn:hover { background: var(--dmw-accent); color: var(--dmw-dark); }
-
-        /* Flexible Workspace Layout Grid - Optimized Responsive Breakpoint */
-        .workspace-layout { display: grid; gap: 30px; grid-template-columns: 1fr; }
-        @media(min-width: 768px) { .workspace-layout { grid-template-columns: 420px 1fr; align-items: start; } }
-        /* Left Side Menu List Container Stack */
-        .category-stack { display: flex; flex-direction: column; gap: 15px; }
         
-        .category-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-light);
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-        }
-        .category-header {
-            background: var(--card-bg);
-            padding: 18px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            user-select: none;
-        }
-        .category-header h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 10px; }
+        .workspace-layout { display: grid; gap: 30px; grid-template-columns: 1fr; }
+        @media(min-width: 900px) { .workspace-layout { grid-template-columns: 380px 1fr; align-items: start; } }
+        
+        .category-stack { display: flex; flex-direction: column; gap: 15px; }
+        .category-card { background: var(--card-bg); border: 1px solid var(--border-light); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .category-header { background: var(--card-bg); padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+        .category-header h2 { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
         .category-header .arrow { font-size: 0.8rem; color: var(--text-muted); transition: transform 0.25s; }
         .category-card.active .category-header h2 { color: var(--dmw-blue); }
         .category-card.active .category-header .arrow { transform: rotate(180deg); color: var(--dmw-blue); }
-
-        /* Inner Topic Item Lists */
+        
         .topic-drawer { display: none; background: #fafbfc; border-top: 1px solid var(--border-light); padding: 8px 0; }
         .topic-container-block { display: flex; flex-direction: column; }
-        
-        .topic-item {
-            padding: 14px 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            color: #334155;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
+        .topic-item { padding: 14px 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; font-size: 0.95rem; color: #334155; font-weight: 500; }
         .topic-item:hover { background: #f1f5f9; color: var(--dmw-blue); }
         .topic-item .icon { font-size: 1.1rem; color: #94a3b8; flex-shrink: 0; }
         .topic-item.active { background: #e0f2fe; color: #0369a1; font-weight: 600; }
         .topic-item.active .icon { color: #0284c7; }
-
-        /* --- Inline Mobile Injected Player Layout --- */
-        .mobile-player-slot {
-            background: #f1f5f9;
-            padding: 15px 20px;
-            border-bottom: 1px solid var(--border-light);
-            display: none;
-        }
-
-        /* --- Disclaimer Popup Modal & Permanent Warning Notice Box Styles --- */
-        .disclaimer-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .disclaimer-box {
-            background: #ffffff;
-            width: 100%;
-            max-width: 500px;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            animation: popupScale 0.3s ease-out;
-            border-top: 5px solid #ffcc00;
-        }
-        .disclaimer-header {
-            background: #1e1e24;
-            color: #ffffff;
-            padding: 18px 25px;
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-        .disclaimer-body {
-            padding: 25px;
-            color: #2b2d42;
-            font-size: 0.98rem;
-            line-height: 1.6;
-        }
-        .disclaimer-footer {
-            padding: 15px 25px 25px 25px;
-            text-align: right;
-        }
-        .btn-disclaimer {
-            background: #1e1e24;
-            color: #ffffff;
-            border: 2px solid #1e1e24;
-            padding: 10px 24px;
-            font-weight: 700;
-            font-size: 0.95rem;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .btn-disclaimer:hover {
-            background: #ffcc00;
-            color: #1e1e24;
-            border-color: #ffcc00;
-        }
-        .permanent-warning-box {
-            background: #fffde6;
-            border: 1px solid #f0e6b8;
-            border-left: 5px solid #ffcc00;
-            border-radius: 10px;
-            padding: 16px;
-            margin-bottom: 20px;
-            font-size: 0.88rem;
-            color: #4a4732;
-            line-height: 1.45;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-        }
-        .permanent-warning-box strong {
-            color: #1e1e24;
-        }
-        @keyframes popupScale {
-            from { transform: scale(0.9); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-
-        /* --- Right Side Standalone Desktop Display Panel --- */
-        .content-display-panel { position: sticky; top: 90px; display: none; }
-        @media(min-width: 768px) { .content-display-panel { display: block !important; } }
         
-        /* Upgraded stage card container featuring a 4px thick prominent crimson line */
-        .stage-card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            border: 1px solid var(--border-light);
-            padding: 30px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        .stage-card h2 { 
-            font-size: 1.3rem; 
-            font-weight: 700; 
-            color: var(--dmw-dark); 
-            border-bottom: 4px solid #df4744; /* Thick prominent red accent divider line */
-            padding-bottom: 12px; 
-        }
-
-        /* Cinematic Fluid 16:9 Player Viewport Frame Box */
-        .video-player-wrapper {
-            width: 100%;
-            aspect-ratio: 16/9;
-            background: #0f172a;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
-            position: relative;
-        }
+        .mobile-player-slot { background: #f1f5f9; padding: 15px 20px; border-bottom: 1px solid var(--border-light); display: none; }
+        
+        .disclaimer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .disclaimer-box { background: #ffffff; width: 100%; max-width: 500px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border-top: 5px solid #ffcc00; }
+        .disclaimer-header { background: #1e1e24; color: #ffffff; padding: 18px 25px; font-size: 1.2rem; font-weight: 700; }
+        .disclaimer-body { padding: 25px; color: #2b2d42; font-size: 0.98rem; line-height: 1.6; }
+        .disclaimer-footer { padding: 15px 25px 25px 25px; text-align: right; }
+        .btn-disclaimer { background: #1e1e24; color: #ffffff; border: 2px solid #1e1e24; padding: 10px 24px; font-weight: 700; font-size: 0.95rem; border-radius: 6px; cursor: pointer; }
+        .btn-disclaimer:hover { background: #ffcc00; color: #1e1e24; border-color: #ffcc00; }
+        
+        .permanent-warning-box { background: #fffde6; border: 1px solid #f0e6b8; border-left: 5px solid #ffcc00; border-radius: 10px; padding: 16px; margin-bottom: 20px; font-size: 0.88rem; color: #4a4732; line-height: 1.45; }
+        
+        .content-display-panel { position: sticky; top: 90px; display: none; }
+        @media(min-width: 900px) { .content-display-panel { display: block !important; } }
+        
+        .stage-card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-light); padding: 30px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 20px; }
+        .stage-card h2 { font-size: 1.3rem; font-weight: 700; color: var(--dmw-dark); border-bottom: 2px solid var(--dmw-bg); padding-bottom: 12px; }
+        
+        .video-player-wrapper { width: 100%; aspect-ratio: 16/9; background: #0f172a; border-radius: 10px; overflow: hidden; position: relative; }
         .video-player-wrapper video { width: 100%; height: 100%; object-fit: cover; display: block; }
         
-        /* High-visibility instructions helper box standing out boldly with clear directions */
-        .metadata-box { 
-            background: #eef2ff; /* Crisp contrast light-indigo banner background */
-            padding: 18px 20px; 
-            border-radius: 8px; 
-            border-left: 5px solid var(--dmw-blue); /* Solid action-blue indicator strip */
-            margin-top: 10px; 
-            box-shadow: 0 2px 8px rgba(0,132,255,0.05);
-        }
-        .metadata-box p { 
-            font-size: 0.95rem; 
-            color: #1e293b; 
-            line-height: 1.5; 
-            font-weight: 500;
-        }
-        .metadata-box strong { 
-            color: var(--dmw-blue); 
-            font-weight: 700;
-        }
-
-        /* --- Footer Framework Styling --- */
-        .site-footer {
-            background-color: var(--dmw-dark);
-            color: #94a3b8;
-            padding: 24px 0;
-            font-size: 13.5px;
-            border-top: 1px solid #272730;
-        }
-        .footer-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0 20px;
-            text-align: center;
-        }
+        .metadata-box { background: var(--dmw-bg); padding: 15px 18px; border-radius: 8px; border-left: 5px solid var(--dmw-dark); margin-top: 10px; }
+        .metadata-box p { font-size: 0.92rem; color: #334155; line-height: 1.4; }
+        .metadata-box strong { color: var(--dmw-dark); }
+        
+        .site-footer { background-color: var(--dmw-dark); color: #94a3b8; padding: 24px 0; font-size: 13.5px; border-top: 1px solid #272730; }
+        .footer-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: center; align-items: center; padding: 0 20px; text-align: center; }
         @media (max-width: 600px) { .portal-banner { flex-direction: column; text-align: center; gap: 15px; } }
     </style>
 </head>
 <body>
-    <!-- Disclaimer Initial Popup Overlay Modal Box -->
     <div id="student-disclaimer-modal" class="disclaimer-overlay" style="display: none;">
         <div class="disclaimer-box">
             <div class="disclaimer-header">📋 Training Disclaimer</div>
             <div class="disclaimer-body">
-                <p>Please note that all information, animations, and guidance given in these videos are to be used as a <strong>general guideline only</strong>.</p>
+                <p>Please note that all information, guidance, and exercises in these videos are to be used as a <strong>general guideline only</strong>.</p>
                 <br>
-                <p>They may not necessarily reflect the exact local methods, reference points, or specific routines taught by your driving instructor during your live in-car lessons.</p>
+                <p>They may not necessarily reflect the exact local road configurations or custom references taught during your practical lessons.</p>
             </div>
-            <div class="disclaimer-footer">
-                <button class="btn-disclaimer" onclick="dismissDisclaimer()">I Understand</button>
-            </div>
+            <div class="disclaimer-footer"><button class="btn-disclaimer" onclick="dismissDisclaimer()">I Understand</button></div>
         </div>
     </div>
 
-    <!-- Header Block displaying image-1.jpg -->
-    <header class="site-header">
-        <div class="header-container">
-            <div class="logo-container">
-                <img src="image-1.jpg" alt="DMW Driving School Logo" class="logo-img">
-            </div>
-        </div>
-    </header>
+    <header class="site-header"><div class="header-container"><div class="logo-container"><img src="image-1.jpg" alt="DMW Logo" class="logo-img"></div></div></header>
 
-    <!-- Secure Layout Area Wrapper -->
     <main class="viewport-wrapper" id="page-wrapper">
-        
-        <!-- Login Screen State Window Layout -->
         <div id="login-screen" class="login-box">
             <h2>DMW Student Portal</h2>
-            <p>Enter your access details to view course media resources</p>
-            <div class="input-group">
-                <input type="text" id="username" placeholder="Username" autocomplete="username">
-            </div>
-            <div class="input-group">
-                <input type="password" id="password" placeholder="Password" autocomplete="current-password">
-            </div>
+            <p>Enter your access details to view course resources</p>
+            <div class="input-group"><input type="text" id="username" placeholder="Username"></div>
+            <div class="input-group"><input type="password" id="password" placeholder="Password"></div>
             <button class="login-btn" onclick="checkLogin()">Secure Login</button>
-            <p class="instructor-warning">Please contact your driving instructor if you do not have your student login details.</p>
-            <div id="error" class="error-msg">Invalid credentials, check details and retry!</div>
+            <p class="instructor-warning">Contact your driving instructor if you do not have your student login details.</p>
+            <div id="error" class="error-msg">Invalid credentials!</div>
         </div>
 
-        <!-- Authenticated System Dashboard View Layer -->
         <div id="portal-content">
             <div class="portal-banner">
                 <h1>Interactive Video Lesson Hub</h1>
@@ -398,10 +114,8 @@
             
             <div class="workspace-layout">
                 <div class="category-stack">
-
-                    <!-- Permanent Warning Notice Element Box -->
                     <div class="permanent-warning-box">
-                        <strong>⚠️ Video Guidance Notice:</strong> These training modules provide general references and may vary slightly from the exact custom reference methods or road patterns taught directly by your instructor during live practical lessons.
+                        <strong>⚠️ Video Guidance Notice:</strong> These training modules provide general references and may vary slightly from your instructor's direct custom practical lesson advice.
                     </div>
 
                     <!-- Module 1: Preparing & Junctions -->

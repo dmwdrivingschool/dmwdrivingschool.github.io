@@ -622,7 +622,6 @@
         // --- PRE-CONFIGURED SYSTEM DMW CONNECTION ARCHITECTURE ---
         const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
         const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
-
         // --- GLOBAL GITHUB STORAGE PATH CONFIGURATION ---
         const GITHUB_RAW_BASE = "https://" + 
                                 "raw." + 
@@ -636,7 +635,24 @@
             showDashboard();
         }
 
-        // Upgraded Real-time Cloud Account Verification Engine
+        // Silent Cloud Background Activity Tracker
+        async function logStudentActivity(actionText) {
+            // Automatically extracts the username typed into the login box to track them
+            const currentStudent = document.getElementById("username").value.trim().toLowerCase() || "session_user";
+            try {
+                await fetch(SUPABASE_URL + "/rest/v1/activity_logs", {
+                    method: 'POST',
+                    headers: { 
+                        'apikey': SUPABASE_KEY, 
+                        'Authorization': 'Bearer ' + SUPABASE_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username: currentStudent, action: actionText })
+                });
+            } catch (e) { console.log("Silent tracking block log."); }
+        }
+
+        // Upgraded Live Verification Engine (With Automated Login Tracker)
         async function checkLogin() {
             const userField = document.getElementById("username").value.trim().toLowerCase();
             const passField = document.getElementById("password").value.trim();
@@ -654,6 +670,7 @@
                 if (profileMatches && profileMatches.length > 0) {
                     sessionStorage.setItem("authenticated", "true");
                     showDashboard();
+                    logStudentActivity("Logged Into Portal"); // Logs successful entry
                 } else { 
                     document.getElementById("error").style.display = "block"; 
                 }
@@ -661,6 +678,7 @@
                 if (userField === "dmwstudent" && passField === "drive2026") {
                     sessionStorage.setItem("authenticated", "true");
                     showDashboard();
+                    logStudentActivity("Logged Into Portal (Master Fallback)");
                 } else {
                     document.getElementById("error").innerText = "Database connection error. Try again!";
                     document.getElementById("error").style.display = "block";
@@ -674,7 +692,6 @@
             document.getElementById("page-wrapper").style.minHeight = "auto";
             document.getElementById("portal-content").style.display = "block"; 
             
-            // LAUNCHES THE SYSTEM DISCLAIMER POPUP MODAL IMMEDIATELY UPON AUTHENTICATION
             document.getElementById("student-disclaimer-modal").style.display = "flex";
             
             const firstCard = document.querySelector('.category-card');
@@ -713,6 +730,9 @@
         function loadVideo(topicTitle, videoFilename, descriptionText, elementClicked) {
             document.querySelectorAll('.topic-item').forEach(item => item.classList.remove('active'));
             elementClicked.classList.add('active');
+
+            // AUTOMATICALLY LOGS EXACTLY WHICH VIDEO THE LEARNER CLICKED TO WATCH
+            logStudentActivity("Watched Video: " + topicTitle);
 
             const isMobileView = window.innerWidth < 900;
             const videoFullUrl = GITHUB_RAW_BASE + videoFilename;

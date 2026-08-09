@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DMW Briefing Portal - DMW Driving School</title>
-    <link rel="icon" type="image/png" href="favicon.png">
+        <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
     <link rel="canonical" href="https://dmwdrivingschool.co.uk">
     <style>
@@ -17,7 +17,7 @@
             --text-dark: #1e293b;
             --border-light: #e2e8f0;
             --text-muted: #64748b;
-            --dmw-red: #e30613;
+            --dmw-red: #e30613; /* Logo red */
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: var(--dmw-bg); color: var(--text-dark); line-height: 1.5; padding-bottom: 80px; }
@@ -80,18 +80,7 @@
         .stage-card h2 { font-size: 1.3rem; font-weight: 700; color: var(--dmw-dark); border-bottom: 2px solid var(--dmw-red); padding-bottom: 12px; }
        
         .video-player-wrapper { width: 100%; aspect-ratio: 16/9; background: #0f172a; border-radius: 10px; overflow: hidden; position: relative; }
-        .video-player-wrapper video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-            /* Extra deterrents */
-            user-select: none;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            pointer-events: auto;
-        }
+        .video-player-wrapper video { width: 100%; height: 100%; object-fit: cover; display: block; }
        
         .metadata-box { background: var(--dmw-bg); padding: 15px 18px; border-radius: 8px; border-left: 5px solid var(--dmw-red); margin-top: 10px; }
         .metadata-box p { font-size: 0.92rem; color: #334155; line-height: 1.4; }
@@ -227,8 +216,8 @@
                                     <span class="icon">🔸</span> Road Position Right Hand Bend
                                 </div>
                                 <div class="topic-item" onclick="loadVideo('Satellite Navigation', 'satellite-navigation.mp4', 'Listen closely to GPS spoken voice prompts early. Focus attention safely on upcoming road signs to confirm lane layouts before moving.<br><br><em>Important update: This video mentions the 4th December 2017 change that introduced sat nav into the independent driving section of the test (originally limited to around 20 minutes).<br><br>As of 24th November 2025, the sat nav section is no longer restricted to 20 minutes and can last for the entire practical driving test. Examiners now have the flexibility to use a combination of sat nav and road signs throughout the test.</em>', this)">
-                                    <span class="icon">🔸</span> Satellite Navigation
-                                </div>
+                                <span class="icon">🔸</span> Satellite Navigation
+                             </div>
                             </div>
                         </div>
                     </div>
@@ -363,7 +352,7 @@
                     <div class="stage-card">
                         <h2 id="desktop-title">Select a Topic to Start</h2>
                         <div class="video-player-wrapper">
-                            <video id="desktop-video" controls controlsList="nodownload noplaybackrate" playsinline preload="metadata" disablePictureInPicture>
+                            <video id="desktop-video" controls controlsList="nodownload" playsinline preload="metadata">
                                 <source id="desktop-source" src="" type="video/mp4">
                                 Your browser does not support the video tag.
                             </video>
@@ -381,7 +370,7 @@
     <!-- Hidden Mobile Player -->
     <div id="reusable-mobile-player" style="display: none;">
         <div class="video-player-wrapper">
-            <video id="mobile-video" controls controlsList="nodownload noplaybackrate" playsinline preload="metadata" disablePictureInPicture>
+            <video id="mobile-video" controls controlsList="nodownload" playsinline preload="metadata">
                 <source id="mobile-source" src="" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
@@ -406,56 +395,6 @@
         // Auto-login if already authenticated
         if (sessionStorage.getItem("authenticated") === "true") {
             window.addEventListener('DOMContentLoaded', showDashboard);
-        }
-
-        // -------------------------------------------------
-        // VIDEO DOWNLOAD DETERRENTS (client-side only)
-        // These stop casual users. They do NOT stop someone
-        // who uses the Network tab or a download tool.
-        // -------------------------------------------------
-        function setupVideoDeterrents() {
-            const videos = [
-                document.getElementById('desktop-video'),
-                document.getElementById('mobile-video')
-            ];
-
-            videos.forEach(video => {
-                if (!video) return;
-
-                // Block right-click / context menu
-                video.addEventListener('contextmenu', function(e) {
-                    e.preventDefault();
-                    return false;
-                });
-
-                // Block drag
-                video.addEventListener('dragstart', function(e) {
-                    e.preventDefault();
-                    return false;
-                });
-            });
-
-            // Block keyboard shortcuts that people commonly use to save
-            document.addEventListener('keydown', function(e) {
-                const isVideoFocused = document.activeElement && 
-                    (document.activeElement.tagName === 'VIDEO' || 
-                     document.activeElement.closest('.video-player-wrapper'));
-
-                // Ctrl/Cmd + S
-                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-                    e.preventDefault();
-                    return false;
-                }
-
-                // Also block when focus is on the video
-                if (isVideoFocused && (e.ctrlKey || e.metaKey)) {
-                    // Extra protection for common save shortcuts
-                    if (['s', 'S'].includes(e.key)) {
-                        e.preventDefault();
-                        return false;
-                    }
-                }
-            });
         }
 
         // Activity tracker
@@ -487,7 +426,7 @@
             }
 
             try {
-                const response = await fetch(`\( {SUPABASE_URL}/rest/v1/students?username=eq. \){userField}&password=eq.${passField}&select=*`, {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/students?username=eq.${userField}&password=eq.${passField}&select=*`, {
                     method: 'GET',
                     headers: {
                         'apikey': SUPABASE_KEY,
@@ -539,7 +478,6 @@
             if (firstCard) toggleCategory(firstCard.querySelector('.category-header'));
 
             attachVideoProgressListeners();
-            setupVideoDeterrents();   // ← run the deterrents
         }
 
         function dismissDisclaimer() {
@@ -652,9 +590,6 @@
                 desktopVideo.play().catch(e => console.log("Auto-playback paused."));
             }
         }
-
-        // Also run deterrents on page load in case of auto-login
-        document.addEventListener('DOMContentLoaded', setupVideoDeterrents);
     </script>
 </body>
 </html>

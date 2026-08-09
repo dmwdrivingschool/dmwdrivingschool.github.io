@@ -132,11 +132,46 @@
             box-sizing: border-box;
         }
 
-        .carousel-heading { color: var(--dmw-deep-navy); margin: 0 0 15px 0; font-size: 1.6rem; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
-       .carousel-container { position: relative; width: 100%; max-width: 650px; margin: 0 auto; overflow: hidden; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.12); background: #fff; border: 1px solid #e1e8ed; aspect-ratio: 4 / 5; }
-        .carousel-slides { display: flex; transition: transform 0.4s ease-in-out; }
-        .slide { min-width: 100%; position: relative; height: 100%; }
-        .slide img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+.carousel-heading { 
+    color: var(--dmw-deep-navy); 
+    margin: 0 0 15px 0; 
+    font-size: 1.6rem; 
+    border-bottom: 2px solid #ddd; 
+    padding-bottom: 5px; 
+}
+
+.carousel-container { 
+    position: relative; 
+    width: 100%; 
+    max-width: 650px; 
+    margin: 0 auto; 
+    overflow: hidden; 
+    border-radius: 12px; 
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12); 
+    background: #fff; 
+    border: 1px solid #e1e8ed; 
+    height: 480px;                    /* fixed height */
+}
+
+.carousel-slides { 
+    display: flex; 
+    transition: transform 0.4s ease-in-out; 
+    height: 100%;
+}
+
+.slide { 
+    min-width: 100%; 
+    height: 100%; 
+    position: relative; 
+}
+
+.slide img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+    object-position: center top; 
+    display: block; 
+}
        
         .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(10, 76, 161, 0.85); color: white; border: none; padding: 14px 18px; font-size: 1.3rem; cursor: pointer; border-radius: 50%; z-index: 10; transition: 0.2s; user-select: none; }
         .carousel-btn:hover { background: var(--dmw-deep-navy); }
@@ -168,101 +203,104 @@
         .sticky-enquiry-widget:hover { background-color: var(--dmw-deep-navy); transform: scale(1.05); }
 
         /* ========== MOBILE ========== */
-        @media (max-width: 750px) {
-            .master-sticky-header { position: relative !important; box-shadow: none !important; }
-            .slide img { width: 100%; height: auto !important; max-height: 350px; object-fit: contain !important; }
-            header { position: relative !important; }
+@media (max-width: 750px) {
+    .master-sticky-header { position: relative !important; box-shadow: none !important; }
+    header { position: relative !important; }
 
-            .top-info-banner { 
-                padding: 10px 15px 4px 15px !important; 
-                font-size: 1.05rem !important; 
-            }
-            .top-info-sub { 
-                font-size: 0.85rem; 
-                padding: 0 15px 10px 15px; 
-            }
+    .top-info-banner {
+        padding: 10px 15px 4px 15px !important;
+        font-size: 1.05rem !important;
+    }
+    .top-info-sub {
+        font-size: 0.85rem;
+        padding: 0 15px 10px 15px;
+    }
 
-            .navbar-shell { 
-                flex-direction: column !important; 
-                gap: 8px !important; 
-                padding: 8px 10px !important; 
-                text-align: center !important; 
-                align-items: center !important; 
-            }
-            .brand-logo img { height: 45px; margin: 0 auto; }
-            .nav-links-list { 
-                gap: 10px 14px; 
-                justify-content: center; 
-                width: 100%; 
-                padding: 0; 
-                margin: 0 auto; 
-                text-align: center; 
-            }
-            .nav-links-list li a { font-size: 0.85rem; height: auto !important; }
+    .navbar-shell {
+        flex-direction: column !important;
+        gap: 8px !important;
+        padding: 8px 10px !important;
+        text-align: center !important;
+        align-items: center !important;
+    }
+    .brand-logo img { height: 45px; margin: 0 auto; }
+    .nav-links-list {
+        gap: 10px 14px;
+        justify-content: center;
+        width: 100%;
+        padding: 0;
+        margin: 0 auto;
+        text-align: center;
+    }
+    .nav-links-list li a { font-size: 0.85rem; height: auto !important; }
 
-            .content-workspace {
-                grid-template-columns: 1fr !important;
-                gap: 25px !important;
-                margin: 20px auto !important;
-                padding: 0 12px !important;
-                max-width: 100% !important;
-            }
+    .content-workspace {
+        grid-template-columns: 1fr !important;
+        gap: 25px !important;
+        margin: 20px auto !important;
+        padding: 0 12px !important;
+        max-width: 100% !important;
+    }
+    .content-workspace h1 {
+        font-size: 1.4rem !important;
+        line-height: 1.25 !important;
+        word-break: break-word;
+    }
+    .content-workspace h2 {
+        font-size: 1.1rem !important;
+        line-height: 1.35 !important;
+        word-break: break-word;
+    }
+    .content-workspace p {
+        font-size: 0.95rem !important;
+        word-break: break-word;
+    }
 
-            .content-workspace h1 {
-                font-size: 1.4rem !important;
-                line-height: 1.25 !important;
-                word-break: break-word;
-            }
-            .content-workspace h2 {
-                font-size: 1.1rem !important;
-                line-height: 1.35 !important;
-                word-break: break-word;
-            }
-            .content-workspace p {
-                font-size: 0.95rem !important;
-                word-break: break-word;
-            }
+    /* Fix the video portal list on mobile */
+    .video-hub-card li {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 4px !important;
+    }
+    .video-hub-card li span[style*="width: 180px"],
+    .video-hub-card li span[style*="width:180px"] {
+        width: auto !important;
+        display: block !important;
+        margin-bottom: 2px;
+    }
 
-            /* Fix the video portal list on mobile - remove empty space */
-            .video-hub-card li {
-                flex-direction: column !important;
-                align-items: flex-start !important;
-                gap: 4px !important;
-            }
-            .video-hub-card li span[style*="width: 180px"],
-            .video-hub-card li span[style*="width:180px"] {
-                width: auto !important;
-                display: block !important;
-                margin-bottom: 2px;
-            }
+    .video-hub-card,
+    .balanced-review-card,
+    .service-areas-sidebar-card {
+        padding: 18px 16px !important;
+    }
 
-            .video-hub-card,
-            .balanced-review-card,
-            .service-areas-sidebar-card {
-                padding: 18px 16px !important;
-            }
+    .video-hub-card p,
+    .video-hub-card li,
+    .balanced-review-card p {
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+    }
 
-            .video-hub-card p,
-            .video-hub-card li,
-            .balanced-review-card p {
-                word-break: break-word !important;
-                overflow-wrap: break-word !important;
-            }
+    /* Keep floating button fully visible */
+    .sticky-enquiry-widget {
+        right: 12px !important;
+        bottom: 14px !important;
+        padding: 8px 13px !important;
+        font-size: 0.8rem !important;
+    }
 
-            /* Keep floating button fully visible */
-            .sticky-enquiry-widget {
-                right: 12px !important;
-                bottom: 14px !important;
-                padding: 8px 13px !important;
-                font-size: 0.8rem !important;
-            }
-            .slide img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover !important;
-            object-position: center top !important;
-            }
-         } 
+    /* Carousel mobile fixes */
+    .carousel-container {
+        height: 380px !important;
+    }
+    .slide img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover !important;
+        object-position: center top !important;
+    }
+}
     </style>
 
     <script async src="https://googletagmanager.com/gtag/js?id=G-8VPCP1ZYEE"></script>

@@ -392,6 +392,23 @@
         const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
         const GITHUB_RAW_BASE = "https://raw.githubusercontent.com/dmwdrivingschool/dmwdrivingschool.github.io/main/";
 
+        
+        // Auto-login from instructor app link
+        (function tryAppAutoLogin() {
+            const params = new URLSearchParams(window.location.search);
+            const u = params.get('u') || params.get('portal_user');
+            const p = params.get('p') || params.get('portal_pass');
+            if (u && p) {
+                window.addEventListener('DOMContentLoaded', () => {
+                    document.getElementById('username').value = u;
+                    document.getElementById('password').value = p;
+                    checkLogin();
+                    // Clean URL
+                    history.replaceState({}, '', window.location.pathname);
+                });
+            }
+        })();
+
         // Auto-login if already authenticated
         if (sessionStorage.getItem("authenticated") === "true") {
             window.addEventListener('DOMContentLoaded', showDashboard);
@@ -442,6 +459,23 @@
                     showDashboard();
                     logStudentActivity("Logged Into Portal");
                 } else {
+                    // Also allow app pupils.portal_username / portal_password
+                    let pupilOk = false;
+                    try {
+                        const pRes = await fetch(`${SUPABASE_URL}/rest/v1/pupils?portal_username=eq.${encodeURIComponent(userField)}&portal_password=eq.${encodeURIComponent(passField)}&select=id,first_name`, {
+                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                        });
+                        const pupils = await pRes.json();
+                        if (pupils && pupils.length > 0) {
+                            pupilOk = true;
+                            sessionStorage.setItem("authenticated", "true");
+                            sessionStorage.setItem("current_student_username", userField);
+                            sessionStorage.setItem("pupil_id", pupils[0].id);
+                            showDashboard();
+                            logStudentActivity("Logged Into Portal (app account)");
+                        }
+                    } catch (e2) {}
+                    if (pupilOk) return;
                     // Fallback master account
                     if (userField === "dmwstudent" && passField === "drive2026") {
                         sessionStorage.setItem("authenticated", "true");

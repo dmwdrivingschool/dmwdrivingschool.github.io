@@ -164,14 +164,30 @@
             <div class="panel-card">
                 <h2>Add New Learner Account</h2>
                 <div class="input-item">
-                    <label>Assigned Username</label>
+                    <label>First name</label>
+                    <input type="text" id="new-first-name" placeholder="e.g. John" autocomplete="off">
+                </div>
+                <div class="input-item">
+                    <label>Last name</label>
+                    <input type="text" id="new-last-name" placeholder="e.g. Smith" autocomplete="off">
+                </div>
+                <div class="input-item">
+                    <label>Phone (optional)</label>
+                    <input type="text" id="new-phone" placeholder="07..." autocomplete="off">
+                </div>
+                <div class="input-item">
+                    <label>Email (optional)</label>
+                    <input type="email" id="new-email" placeholder="email@example.com" autocomplete="off">
+                </div>
+                <div class="input-item">
+                    <label>Portal / app username</label>
                     <input type="text" id="new-username" placeholder="e.g. johnsmith" autocomplete="off">
                 </div>
                 <div class="input-item">
-                    <label>Assigned Password</label>
+                    <label>Password (leave blank to auto-generate)</label>
                     <input type="text" id="new-password" placeholder="e.g. pass123" autocomplete="off">
                 </div>
-                <button class="action-btn btn-add" onclick="addNewStudent()">Save Student Account</button>
+                <button class="action-btn btn-add" onclick="addNewStudent()">Save to Portal + App</button>
             </div>
            
             <div class="panel-card">
@@ -189,6 +205,13 @@
                 </div>
                 <div id="activity-log-mount" style="max-height: 380px; overflow-y: auto; padding-right: 5px;">Loading activity streams...</div>
             </div>
+        
+            <div class="panel-card" style="grid-column: 1 / -1;">
+                <h2>Tax / finance export (from app)</h2>
+                <p style="font-size:0.9rem;color:#64748b;margin-bottom:12px;">Downloads income & expenses from the instructor app database (payments table).</p>
+                <button class="action-btn btn-add" style="background:#1e1e24;max-width:280px;" onclick="exportFinanceCsv()">Download CSV</button>
+            </div>
+
         </div>
     </main>
 
@@ -441,6 +464,10 @@
         async function addNewStudent() {
             const userIn = document.getElementById('new-username').value.trim().toLowerCase();
             let passIn = document.getElementById('new-password').value.trim();
+            const firstName = (document.getElementById('new-first-name') || {}).value?.trim() || userIn;
+            const lastName = (document.getElementById('new-last-name') || {}).value?.trim() || '';
+            const phone = (document.getElementById('new-phone') || {}).value?.trim() || null;
+            const email = (document.getElementById('new-email') || {}).value?.trim().toLowerCase() || null;
             if (!userIn) { alert("Please complete the username input field first!"); return; }
 
             if (!passIn) {
@@ -453,22 +480,86 @@
             }
 
             try {
+                // 1) Portal students table (video portal login)
                 const response = await fetch(SUPABASE_URL + "/rest/v1/students", {
                     method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
                         'Authorization': `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
                     },
                     body: JSON.stringify({ username: userIn, password: passIn })
                 });
-                if (response.ok) {
-                    document.getElementById('new-username').value = '';
-                    document.getElementById('new-password').value = '';
-                    fetchLiveRoster();
+                if (!response.ok && response.status !== 409) {
+                    const t = await response.text();
+                    console.warn('students insert', response.status, t);
                 }
+
+                // 2) App pupils table — same portal username/password for video + link to app
+                const pupilBody = {
+                    first_name: firstName,
+                    last_name: lastName || userIn,
+                    phone: phone,
+                    email: email,
+                    status: 'waiting',
+                    portal_username: userIn,
+                    portal_password: passIn
+                };
+                const pRes = await fetch(SUPABASE_URL + "/rest/v1/pupils", {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify(pupilBody)
+                });
+                if (!pRes.ok) {
+                    console.warn('pupils insert', pRes.status, await pRes.text());
+                }
+
+                alert('Saved.\nPortal username: ' + userIn + '\nPassword: ' + passIn + '\n\nAlso added to the app (Waiting). Create app login via App Invite if they need the full app.');
+                document.getElementById('new-username').value = '';
+                document.getElementById('new-password').value = '';
+                if (document.getElementById('new-first-name')) document.getElementById('new-first-name').value = '';
+                if (document.getElementById('new-last-name')) document.getElementById('new-last-name').value = '';
+                if (document.getElementById('new-phone')) document.getElementById('new-phone').value = '';
+                if (document.getElementById('new-email')) document.getElementById('new-email').value = '';
+                fetchLiveRoster();
             } catch (e) {
                 alert("Network upload error occurred.");
+            }
+        }
+
+        async function exportFinanceCsv() {
+            try {
+                const response = await fetch(SUPABASE_URL + "/rest/v1/payments?select=*,pupil:pupils(first_name,last_name)&order=transaction_date.desc", {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+                });
+                const rows = await response.json();
+                if (!rows || rows.error) { alert('Could not load payments'); return; }
+                const header = ['date','type','amount','method','notes','pupil'];
+                const lines = [header.join(',')];
+                rows.forEach(r => {
+                    const pupil = r.pupil ? ((r.pupil.first_name||'') + ' ' + (r.pupil.last_name||'')).trim() : '';
+                    lines.push([
+                        r.transaction_date || '',
+                        r.type || r.transaction_type || '',
+                        r.amount ?? '',
+                        r.payment_method || '',
+                        (r.notes || '').replace(/,/g, ';'),
+                        pupil
+                    ].join(','));
+                });
+                const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'dmw-finance-' + new Date().toISOString().slice(0,10) + '.csv';
+                a.click();
+            } catch (e) {
+                alert('Export failed: ' + e.message);
             }
         }
 

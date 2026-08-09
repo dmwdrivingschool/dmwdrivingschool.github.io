@@ -4,22 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contact Us | DMW Driving School Gloucester</title>
-
     <link type="image/png" rel="icon" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
-
-    <!-- Contact Page SEO Tags Matrix -->
     <meta name="description" content="Get in touch with DMW Driving School to book your manual driving lessons in Gloucester. Contact Grade A instructor Dale by phone, text, or submit your online intake enquiry today!">
     <meta name="keywords" content="contact dmw driving school, book driving lessons gloucester, driving instructor phone number quedgeley, manual driving school slots kingsway">
-    <link rel="canonical" href="https://dmwdrivingschool.co.uk">
-
+    <link rel="canonical" href="https://dmwdrivingschool.co.uk/contact.html">
     <style>
-        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
-        
-        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; }
+        :root { 
+            --dmw-main-blue: #0A4CA1; 
+            --dmw-deep-navy: #062F63; 
+            --bg-light: #F4F7FA; 
+            --text-dark: #222222; 
+        }
+       
+        html, body { 
+            display: flow-root; 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            background-color: var(--bg-light); 
+            color: var(--text-dark); 
+            line-height: 1.6; 
+        }
         * { box-sizing: border-box; }
 
-        /* Master Sticky Wrapper: Keeps EVERYTHING locked together smoothly on computers */
         .master-sticky-header {
             position: sticky;
             top: 0;
@@ -28,91 +35,158 @@
             background-color: #111111;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        
-        /* High-Visibility Pulse Booking Strip Banner (Standardized Desktop View) */
-        .top-info-banner { 
-            background-color: #111111 !important; 
-            color: #ffffff !important; 
-            text-align: center !important; 
-            padding: 14px 20px !important; 
-            font-size: 1.25rem !important; 
+       
+        .top-info-banner {
+            background-color: #111111 !important;
+            color: #ffffff !important;
+            text-align: center !important;
+            padding: 14px 20px !important;
+            font-size: 1.25rem !important;
             font-family: Arial, Helvetica, sans-serif !important;
-            font-weight: 900 !important; 
+            font-weight: 900 !important;
             letter-spacing: 1px !important;
             line-height: 1.2 !important;
-            animation: bookingPulse 1.5s infinite ease-in-out; 
+            animation: bookingPulse 1.5s infinite ease-in-out;
             margin: 0;
             border-bottom: 1px solid #222;
             width: 100%;
         }
 
-        /* Smooth CSS Animation Engine */
         @keyframes bookingPulse {
             0% { color: #ffffff; text-shadow: none; }
-            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 
+            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; }
             100% { color: #ffffff; text-shadow: none; }
         }
 
-        /* Fixed Navigation Header Bar Area (Desktop View) */
-        header { background-color: #111111 !important; margin: 0 !important; width: 100% !important; display: block; position: relative; z-index: 10010; }
-        .navbar-shell { max-width: 1140px; margin: 0 auto !important; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; flex-wrap: wrap; gap: 15px; box-sizing: border-box; }
+        header { 
+            background-color: #111111 !important; 
+            margin: 0 !important; 
+            width: 100% !important; 
+            display: block; 
+            position: relative; 
+            z-index: 10010; 
+        }
+
+        .navbar-shell { 
+            max-width: 1140px; 
+            margin: 0 auto !important; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 12px 20px; 
+            flex-wrap: wrap; 
+            gap: 15px; 
+            box-sizing: border-box; 
+        }
+
         .brand-logo img { height: 60px; width: auto; display: block; }
 
-        .nav-links-list { display: flex; flex-wrap: wrap; justify-content: center; list-style: none; gap: 16px 24px; align-items: center; margin: 0 auto; padding: 0; }
-        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; font-family: Arial, Helvetica, sans-serif !important; transition: color 0.2s ease; display: inline-flex; text-align: center; justify-content: center; align-items: center; height: 30px; box-sizing: border-box; }
-        .nav-links-list li a:hover { color: #3498db; }
+        .nav-links-list { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            list-style: none; 
+            gap: 16px 24px; 
+            align-items: center; 
+            margin: 0 auto; 
+            padding: 0; 
+        }
 
-        /* Highlights the active page link cleanly without changing layout dimensions */
+        .nav-links-list li a { 
+            text-decoration: none; 
+            color: #f3f4f6; 
+            font-weight: 600; 
+            font-size: 0.95rem; 
+            font-family: Arial, Helvetica, sans-serif !important; 
+            transition: color 0.2s ease; 
+            display: inline-flex; 
+            text-align: center; 
+            justify-content: center; 
+            align-items: center; 
+            height: 30px; 
+            box-sizing: border-box; 
+        }
+
+        .nav-links-list li a:hover { color: #3498db; }
         .active-page { color: #3498db !important; font-weight: bold; border-bottom: 2px solid #3498db; }
 
-        /* Compact Floating Booking Widget (Pinned Bottom-Right Corner) */
-        .sticky-enquiry-widget {
+        /* Floating WhatsApp button with official logo */
+        .floating-whatsapp {
             position: fixed;
-            bottom: 20px;
-            right: 20px; 
-            background-color: var(--dmw-main-blue);
-            color: #ffffff !important;
-            padding: 8px 14px; 
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 0.85rem; 
-            box-shadow: 0 4px 12px rgba(10, 76, 161, 0.35);
-            z-index: 99999; 
-            display: inline-flex;
+            bottom: 24px;
+            right: 24px;
+            background-color: #25D366;
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            display: flex;
             align-items: center;
-            gap: 6px;
-            transition: transform 0.2s ease, background-color 0.2s ease;
-            font-family: 'Segoe UI', Arial, sans-serif;
+            justify-content: center;
+            text-decoration: none;
+            box-shadow: 0 6px 18px rgba(37, 211, 102, 0.45);
+            z-index: 99999;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        .sticky-enquiry-widget:hover { background-color: var(--dmw-deep-navy); transform: scale(1.05); }
+        .floating-whatsapp:hover {
+            transform: scale(1.08);
+            box-shadow: 0 8px 22px rgba(37, 211, 102, 0.55);
+        }
+        .floating-whatsapp svg {
+            width: 32px;
+            height: 32px;
+            fill: white;
+        }
 
-        /* 📱 MOBILE ONLY CONSTRAINTS */
-        @media (max-width: 768px) { 
-            .master-sticky-header { position: relative !important; box-shadow: none !important; } 
-            header { position: relative !important; } 
-            
-            .top-info-banner { padding: 10px 15px !important; font-size: 1.1rem !important; font-family: Arial, Helvetica, sans-serif !important; }
-            .navbar-shell { flex-direction: column !important; gap: 8px !important; padding: 8px 10px !important; text-align: center !important; align-items: center !important; } 
-            .brand-logo img { height: 45px; margin: 0 auto; } 
-            .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; } 
-            .nav-links-list li a { font-size: 0.88rem; height: auto !important; } 
-        }
-                /* Smooth Breathing Pulse for the Main Enquire Text */
         .pulse-booking-text {
             animation: textGlowPulse 2.0s infinite ease-in-out !important;
         }
-
         @keyframes textGlowPulse {
             0% { color: #ffffff; text-shadow: none; }
             50% { color: #f1c40f; text-shadow: 0 0 8px rgba(241, 196, 15, 0.6); }
             100% { color: #ffffff; text-shadow: none; }
         }
 
-   </style>
+        /* Mobile */
+        @media (max-width: 768px) {
+            .master-sticky-header { position: relative !important; box-shadow: none !important; }
+            header { position: relative !important; }
+           
+            .top-info-banner { 
+                padding: 10px 15px !important; 
+                font-size: 1.05rem !important; 
+            }
+            .navbar-shell { 
+                flex-direction: column !important; 
+                gap: 8px !important; 
+                padding: 8px 10px !important; 
+                text-align: center !important; 
+                align-items: center !important; 
+            }
+            .brand-logo img { height: 45px; margin: 0 auto; }
+            .nav-links-list { 
+                gap: 12px 16px; 
+                justify-content: center; 
+                width: 100%; 
+                padding: 0; 
+                margin: 0 auto; 
+                text-align: center; 
+            }
+            .nav-links-list li a { font-size: 0.88rem; height: auto !important; }
 
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-        <script async src="https://googletagmanager.com/gtag/js?id=G-8VPCP1ZYEE"></script>
+            .floating-whatsapp {
+                bottom: 18px;
+                right: 18px;
+                width: 54px;
+                height: 54px;
+            }
+            .floating-whatsapp svg {
+                width: 28px;
+                height: 28px;
+            }
+        }
+    </style>
+
+    <script async src="https://googletagmanager.com/gtag/js?id=G-8VPCP1ZYEE"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
@@ -122,12 +196,13 @@
 </head>
 <body>
 
-    <!-- Unified Master Sticky Header Wrapper Box Container -->
     <div class="master-sticky-header">
         <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 855096 ✨</div>
         <header>
             <div class="navbar-shell">
-                <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
+                <div class="brand-logo">
+                    <a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a>
+                </div>
                 <nav>
                     <ul class="nav-links-list">
                         <li><a href="index.html">Home</a></li>
@@ -142,90 +217,114 @@
         </header>
     </div>
 
-    <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; color: #333;">
-  
-  <!-- Blended Top Panel: Clean Secondary Styling -->
-  <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; text-align: center;">
-    
-    <!-- Seamless Blended Header Bar -->
-    <div style="background-color: #f8f9fa; padding: 18px 20px; text-align: left; border-bottom: 1px solid #e2e8f0;">
-      <h2 style="margin: 0; color: #2c3e50; font-size: 1.4em; letter-spacing: 0.5px; display: flex; align-items: center; gap: 10px;">📬 Get in Touch</h2>
-      <p style="margin: 4px 0 0 0; color: #7f8c8d; font-size: 0.9em;">DMW Driving School Enquiry</p>
+    <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 40px auto 20px auto; display: flex; flex-wrap: wrap; gap: 20px; color: #333; padding: 0 16px;">
+
+        <!-- Main Get in Touch Card -->
+        <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; text-align: center;">
+           
+            <div style="background-color: #f8f9fa; padding: 18px 20px; text-align: left; border-bottom: 1px solid #e2e8f0;">
+                <h2 style="margin: 0; color: #2c3e50; font-size: 1.4em; letter-spacing: 0.5px; display: flex; align-items: center; gap: 10px;">📬 Get in Touch</h2>
+                <p style="margin: 4px 0 0 0; color: #7f8c8d; font-size: 0.9em;">DMW Driving School Enquiry</p>
+            </div>
+
+            <div style="padding: 24px 20px 20px 20px; box-sizing: border-box;">
+                <p style="line-height: 1.6; margin: 0 0 24px 0; text-align: left; color: #4a5568; font-size: 0.98em;">
+                    Want to book your manual driving lessons or check our current availability? The fastest way to get into my diary is to click the <strong>Check Availability</strong> button below and securely submit your training request.
+                </p>
+             
+                <a href="https://www.totaldrive.app/a/enquiry_form.php?15941577856366" 
+                   style="display: inline-block; background-color: #2ecc71; color: white; font-size: 1.1em; font-weight: bold; text-decoration: none; padding: 14px 42px; border-radius: 6px; box-shadow: 0 3px 6px rgba(46, 204, 113, 0.3); margin-bottom: 24px; border: none; letter-spacing: 0.5px;">
+                    🚗 <span class="pulse-booking-text">Check Availability</span>
+                </a>
+
+                <div style="background-color: #f8f9fa; border-left: 4px solid #2ecc71; padding: 16px; border-radius: 0 8px 8px 0; text-align: left; box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);">
+                    <p style="margin: 0 0 10px 0; font-weight: bold; color: #2c3e50; font-size: 0.95em;">📋 How applications are handled:</p>
+                    <ul style="margin: 0; padding-left: 20px; color: #555; line-height: 1.5; font-size: 0.92em;">
+                        <li style="margin-bottom: 8px;">Please use the button above to fill in my enquiry form. I personally check all applications and will respond to you via email within <strong>72 hours</strong> to confirm your slot.</li>
+                        <li>If my schedule is completely full for your chosen times, don’t worry — I’ll place you on my priority waiting list and email you with an estimated start date as soon as a space becomes available.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Opening Hours Card -->
+        <div style="flex: 1; min-width: 280px; border: 1px solid #ddd; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box;">
+            <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">🕒 Opening Hours</h3>
+            
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.95em; color: #333;">
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; font-weight: bold;">Mon - Thu</td>
+                    <td style="text-align: right; color: #7f8c8d;">9:00 AM - 6:00 PM</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; font-weight: bold;">Friday</td>
+                    <td style="text-align: right; color: #7f8c8d;">9:00 AM - 4:00 PM</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px 0; font-weight: bold;">Saturday</td>
+                    <td style="text-align: right; color: #7f8c8d;">9:30 AM - 4:00 PM</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; font-weight: bold; color: #e74c3c;">Sunday</td>
+                    <td style="text-align: right; color: #e74c3c; font-weight: bold;">Closed</td>
+                </tr>
+            </table>
+
+            <div style="margin-top: 18px; background-color: #fffaf0; border-left: 4px solid #dd6b20; padding: 12px; border-radius: 0 6px 6px 0; font-size: 0.88em; color: #7b341e; line-height: 1.45;">
+                <strong>Driving lessons:</strong> Monday to Friday, 9:00 AM – 3:00 PM.<br>
+                Admin responses may take longer while I’m out on the road with pupils.
+            </div>
+        </div>
+       
+        <!-- Direct Contacts Card -->
+        <div style="flex: 1; min-width: 280px; border: 1px solid #ddd; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box;">
+            
+            <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #2ecc71; padding-bottom: 8px;">📞 Direct Contacts</h3>
+           
+            <p style="margin: 14px 0 6px 0; font-size: 0.85em; color: #7f8c8d; font-weight: bold;">Call or Text:</p>
+            
+            <a href="tel:07432855096" 
+               style="display: flex; align-items: center; justify-content: center; gap: 8px; background-color: #e8f7f4; color: #0d9488; text-decoration: none; font-weight: 700; font-size: 1.15em; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #99f6e4;">
+                📱 07432 855096
+            </a>
+
+            <p style="margin: 0 0 6px 0; font-size: 0.85em; color: #7f8c8d; font-weight: bold;">WhatsApp Message:</p>
+            <a href="https://wa.me/+447432855096?text=Hello,%20I'd%20like%20to%20enquire%20about%20driving%20lessons." 
+               target="_blank" 
+               style="display: inline-flex; align-items: center; gap: 6px; background-color: #25D366; color: white; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.95em; margin-bottom: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.08);">
+                💬 Chat on WhatsApp
+            </a>
+           
+            <p style="margin: 0 0 6px 0; font-size: 0.85em; color: #7f8c8d; font-weight: bold;">Admin Email:</p>
+            <a href="mailto:admin@dmwdrivingschool.co.uk" 
+               style="color: #0d9488; text-decoration: underline; font-weight: 600; font-size: 0.95em; display: inline-block; margin-bottom: 18px; white-space: nowrap;">
+                ✉️ admin@dmwdrivingschool.co.uk
+            </a>
+           
+            <p style="margin: 0 0 6px 0; font-size: 0.85em; color: #7f8c8d; font-weight: bold;">Connect on Socials:</p>
+            <a href="https://facebook.com/dmwdrivingschool" 
+               target="_blank" 
+               style="display: inline-flex; align-items: center; background-color: #3b5998; color: white; padding: 9px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+                👍 Facebook Page
+            </a>
+        </div>
+
     </div>
 
-    <!-- Inner Content Area -->
-    <div style="padding: 24px 20px 20px 20px; box-sizing: border-box;">
-      <p style="line-height: 1.6; margin: 0 0 24px 0; text-align: left; color: #4a5568; font-size: 0.98em;">
-        Want to book your manual driving lessons or check our current availability? The absolute fastest way to get into my diary is to click the <strong>Enquire Now</strong> button below to securely submit your training request into our online booking calendar.
-      </p>
-      
-            <!-- Functional Native-Style Enquire Now Button -->
-      <a href="https://www.totaldrive.app/a/enquiry_form.php?15941577856366" style="display: inline-block; background-color: #2ecc71; color: white; font-size: 1.1em; font-weight: bold; text-decoration: none; padding: 14px 50px; border-radius: 6px; box-shadow: 0 3px 6px rgba(46, 204, 113, 0.3); margin-bottom: 24px; border: none; letter-spacing: 0.5px;">🚗 <span class="pulse-booking-text">Enquire Now</span></a>
-
-      <!-- Process Tracker Box -->
-      <div style="background-color: #f8f9fa; border-left: 4px solid #2ecc71; padding: 16px; border-radius: 0 8px 8px 0; text-align: left; box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);">
-        <p style="margin: 0 0 10px 0; font-weight: bold; color: #2c3e50; font-size: 0.95em;">📋 How applications are handled:</p>
-        <ul style="margin: 0; padding-left: 20px; color: #555; line-height: 1.5; font-size: 0.92em;">
-          <li style="margin-bottom: 8px;">Please use the Enquire button to fill in my Enquiry form. I personally check all calendar applications and will respond to you via email within <strong>72 hours</strong> to confirm your slot.</li>
-          <li>If my manual training schedule is completely full for your chosen times, don't worry! I will automatically place you on my priority waiting list and email you with an estimated start date as soon as a slot opens up.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
-  <!-- Left Box: Opening Hours -->
-  <div style="flex: 1; min-width: 280px; border: 1px solid #ddd; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box;">
-    <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">🕒 Opening Hours</h3>
-    <table style="width: 100%; border-collapse: collapse; font-size: 0.95em; color: #333;">
-      <tr style="border-bottom: 1px solid #eee;"><td style="padding: 10px 0; font-weight: bold;">Mon - Thu</td><td style="text-align: right; color: #7f8c8d;">9:00 AM - 6:00 PM</td></tr>
-      <tr style="border-bottom: 1px solid #eee;"><td style="padding: 10px 0; font-weight: bold;">Friday</td><td style="text-align: right; color: #7f8c8d;">9:00 AM - 4:00 PM</td></tr>
-      <tr style="border-bottom: 1px solid #eee;"><td style="padding: 10px 0; font-weight: bold;">Saturday</td><td style="text-align: right; color: #7f8c8d;">9:30 AM - 4:00 PM</td></tr>
-      <tr><td style="padding: 10px 0; font-weight: bold; color: #e74c3c;">Sunday</td><td style="text-align: right; color: #e74c3c; font-weight: bold;">Closed</td></tr>
-    </table>
-  </div>
-    
-  <!-- Right Box: Contact Details -->
-  <div style="flex: 1; min-width: 280px; border: 1px solid #ddd; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
-  <div style="flex: 1; min-width: 280px; border: 1px solid #ddd; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
-    <div>
-      <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #2ecc71; padding-bottom: 8px;">📞 Direct Contacts</h3>
-      
-      <p style="margin: 12px 0 4px 0; font-size: 0.85em; color: #7f8c8d; font-weight: bold;">Call or Standard Text:</p>
-      <a href="tel:07432855096" style="color: #16a085; text-decoration: underline; font-weight: bold; font-size: 1.1em; display: block; margin-bottom: 12px;">📱 07432 855096</a>
-
-      <p style="margin: 0 0 4px 0; font-size: 0.85em; color: #7f8c8d; font-weight: bold;">WhatsApp Message:</p>
-      <a href="https://wa.me/+447432855096?text=Hello,%20I'd%20like%20to%20enquire%20about%20driving%20lessons." target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background-color: #25D366; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.95em; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">💬 Chat on WhatsApp</a>
-      
-      <p style="margin: 0 0 4px 0; font-size: 0.85em; color: #7f8c8d; font-weight: bold;">Admin Email:</p>
-      <a href="mailto:admin@dmwdrivingschool.co.uk" style="color: #16a085; text-decoration: underline; font-weight: bold; font-size: 0.95em; display: block; word-break: break-all; margin-bottom: 18px;">✉️ admin@dmwdrivingschool.co.uk</a>
-      
-      <p style="margin: 0 0 4px 0; font-size: 0.85em; color: #7f8c8d; font-weight: bold;">Connect on Socials:</p>
-      <a href="https://facebook.com/dmwdrivingschool" target="_blank" style="display: inline-flex; align-items: center; background-color: #3b5998; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 0.85em; margin-top: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">👍 Facebook Page</a>
-    </div>
-
-  </div>
-       <div style="margin-top: 24px; font-size: 0.8em; color: #95a5a6; font-style: italic; line-height: 1.4;">
-      *Note: Driving lessons operate Monday to Friday, 9:00 AM - 3:00 PM. Admin responses may take longer while out on training drives with pupils.
-    </div>
-  </div>
-        </div> <!-- Safely closes the narrow page content framework box container -->
-
-    <!-- Premium Full-Width Center Footer Section Bar Layout -->
-    <footer style="
-        background: #111827; 
-        color: #9ca3af; 
-        text-align: center; 
-        padding: 30px 20px; 
-        margin-top: 80px; 
-        width: 100%;
-        box-sizing: border-box;
-        font-size: 0.9rem;
-        letter-spacing: 0.3px;
-        clear: both;
-    ">
-        <p style="margin: 0; padding: 0;">&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester </p>
+    <footer style="background: #111827; color: #9ca3af; text-align: center; padding: 30px 20px; margin-top: 60px; width: 100%; box-sizing: border-box; font-size: 0.9rem;">
+        <p style="margin: 0;">&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
     </footer>
+
+    <!-- Floating WhatsApp button with official logo -->
+    <a href="https://wa.me/+447432855096?text=Hello,%20I'd%20like%20to%20enquire%20about%20driving%20lessons." 
+       class="floating-whatsapp" 
+       target="_blank" 
+       title="Chat on WhatsApp"
+       aria-label="Chat on WhatsApp">
+        <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16.004 0h-.008C7.174 0 0 7.176 0 16.004c0 2.824.736 5.552 2.14 7.972L.072 31.14l7.332-1.92A15.92 15.92 0 0 0 16.004 32C24.828 32 32 24.824 32 15.996 32 7.176 24.828 0 16.004 0zm9.272 22.572c-.392 1.104-1.928 2.024-3.16 2.288-.84.176-1.936.316-5.632-1.208-4.728-1.952-7.768-6.728-8.008-7.04-.232-.312-1.896-2.528-1.896-4.82s1.2-3.416 1.624-3.888c.392-.44.864-.552 1.152-.552.28 0 .568.004.816.016.264.012.616-.1.964.736.36.864 1.224 2.984 1.332 3.2.108.216.18.472.036.76-.14.288-.212.468-.416.72-.208.252-.436.56-.624.752-.208.216-.424.452-.184.884.24.432 1.064 1.752 2.284 2.836 1.568 1.396 2.892 1.828 3.304 2.036.412.208.652.176.892-.104.252-.288 1.064-1.24 1.348-1.664.284-.424.568-.352.96-.208.396.14 2.5 1.18 2.928 1.396.428.216.712.324.816.504.108.18.108 1.04-.284 2.144z"/>
+        </svg>
     </a>
+
 </body>
 </html>
-

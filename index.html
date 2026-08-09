@@ -206,18 +206,41 @@
         }
         .sticky-enquiry-widget:hover { background-color: var(--dmw-deep-navy); transform: scale(1.05); }
 
-    @media (max-width: 750px) {
-        .master-sticky-header { position: relative !important; box-shadow: none !important; }
-        .slide img { width: 100%; height: auto !important; max-height: 350px; object-fit: contain !important; }
-        header { position: relative !important; }
-        .top-info-banner { padding: 10px 15px 4px 15px !important; font-size: 1.1rem !important; }
-        .top-info-sub { font-size: 0.85rem; padding: 0 15px 10px 15px; }
-        .navbar-shell { flex-direction: column !important; gap: 8px !important; padding: 8px 10px !important; text-align: center !important; align-items: center !important; }
-        .brand-logo img { height: 45px; margin: 0 auto; }
-        .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; }
-        .nav-links-list li a { font-size: 0.88rem; height: auto !important; }
-        .content-workspace { grid-template-columns: 1fr; gap: 30px; margin: 20px auto; }
+ @media (max-width: 750px) {
+    .master-sticky-header { position: relative !important; box-shadow: none !important; }
+    .slide img { width: 100%; height: auto !important; max-height: 350px; object-fit: contain !important; }
+    header { position: relative !important; }
+    .top-info-banner { padding: 10px 15px 4px 15px !important; font-size: 1.1rem !important; }
+    .top-info-sub { font-size: 0.85rem; padding: 0 15px 10px 15px; }
+    .navbar-shell { flex-direction: column !important; gap: 8px !important; padding: 8px 10px !important; text-align: center !important; align-items: center !important; }
+    .brand-logo img { height: 45px; margin: 0 auto; }
+    .nav-links-list { gap: 12px 16px; justify-content: center; width: 100%; padding: 0; margin: 0 auto; text-align: center; }
+    .nav-links-list li a { font-size: 0.88rem; height: auto !important; }
+    .content-workspace { grid-template-columns: 1fr; gap: 30px; margin: 20px auto; }
+
+    /* ← mobile size fix */
+    .content-workspace h1 {
+        font-size: 1.55rem !important;
+        line-height: 1.25 !important;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
+
+    .content-workspace h2 {
+        font-size: 1.15rem !important;
+        line-height: 1.35 !important;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .content-workspace p {
+        font-size: 0.98rem !important;
+    }
+
+    .content-workspace {
+        padding: 0 16px !important;
+    }
+}
 </style>
     <script async src="https://googletagmanager.com/gtag/js?id=G-8VPCP1ZYEE"></script>
     <script>

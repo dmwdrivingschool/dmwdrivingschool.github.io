@@ -141,7 +141,13 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
           <button data-status="passed">Passed</button>
           <button data-status="inactive">Inactive</button>
         </div>
-        <input id="pupil-search" placeholder="Search name / phone / email" style="width:100%;padding:.65rem .75rem;border:1px solid var(--line);border-radius:8px;margin-bottom:.75rem">
+        <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:.75rem">
+          <input id="pupil-search" placeholder="Search name / phone / email" style="flex:1;min-width:180px;padding:.65rem .75rem;border:1px solid var(--line);border-radius:8px">
+          <button type="button" class="btn-outline" onclick="document.getElementById('pupil-import-file').click()">Import pupils CSV</button>
+          <button type="button" class="btn-outline" onclick="downloadPupilTemplate()">CSV template</button>
+          <input type="file" id="pupil-import-file" accept=".csv,text/csv" class="hidden" onchange="importPupilsCsv(event)">
+        </div>
+        <p class="muted" style="margin-bottom:.75rem">CSV columns: first_name, last_name, phone, email, address_line1, address_line2, city, postcode, status (active/waiting/passed/inactive)</p>
         <div id="pupil-list">Loading…</div>
       </div>
     </section>
@@ -853,6 +859,77 @@ async function delRes(id){if(!confirm("Delete?"))return; await sb.from("resource
 function openModal(html){document.getElementById("modal-box").innerHTML=html; document.getElementById("modal").classList.remove("hidden")}
 function closeModal(){document.getElementById("modal").classList.add("hidden")}
 function fmt(iso){if(!iso)return"–";try{return new Date(iso).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}catch{return iso}}
+
+async function importPupilsCsv(ev){
+  const file=ev.target.files[0]; if(!file)return;
+  const text=await file.text();
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2){alert("Empty CSV"); ev.target.value=""; return}
+  // parse header
+  const split=(line)=>{
+    const out=[]; let cur="", q=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){q=!q;continue}
+      if(c===","&&!q){out.push(cur.trim());cur="";continue}
+      cur+=c;
+    }
+    out.push(cur.trim()); return out;
+  };
+  const header=split(lines[0]).map(h=>h.toLowerCase().replace(/\s+/g,"_").replace(/[^a-z0-9_]/g,""));
+  const idx=(...names)=>{
+    for(const n of names){const i=header.findIndex(h=>h===n||h.includes(n)); if(i>=0)return i}
+    return -1;
+  };
+  const iFn=idx("first_name","firstname","first","forename");
+  const iLn=idx("last_name","lastname","last","surname");
+  const iPhone=idx("phone","mobile","tel","telephone");
+  const iEmail=idx("email","e_mail");
+  const iA1=idx("address_line1","address1","address","street");
+  const iA2=idx("address_line2","address2");
+  const iCity=idx("city","town");
+  const iPc=idx("postcode","post_code","zip");
+  const iStatus=idx("status");
+  if(iFn<0&&iLn<0){alert("Need first_name / last_name columns"); ev.target.value=""; return}
+  let ok=0, fail=0, errors=[];
+  for(let r=1;r<lines.length;r++){
+    const cols=split(lines[r]);
+    if(!cols.some(c=>c)) continue;
+    const first=(iFn>=0?cols[iFn]:""||"").trim();
+    const last=(iLn>=0?cols[iLn]:""||"").trim();
+    if(!first&&!last) continue;
+    let status=(iStatus>=0?cols[iStatus]:"active"||"active").trim().toLowerCase();
+    if(!["active","waiting","passed","inactive","enquiry"].includes(status)) status="active";
+    const payload={
+      first_name: first||last,
+      last_name: last||first,
+      phone: iPhone>=0&&cols[iPhone]?cols[iPhone].trim():null,
+      email: iEmail>=0&&cols[iEmail]?cols[iEmail].trim().toLowerCase():null,
+      address_line1: iA1>=0&&cols[iA1]?cols[iA1].trim():null,
+      address_line2: iA2>=0&&cols[iA2]?cols[iA2].trim():null,
+      city: iCity>=0&&cols[iCity]?cols[iCity].trim():null,
+      postcode: iPc>=0&&cols[iPc]?cols[iPc].trim():null,
+      status
+    };
+    const {error}=await sb.from("pupils").insert(payload);
+    if(error){fail++; if(errors.length<5) errors.push(error.message)}
+    else ok++;
+  }
+  ev.target.value="";
+  await loadPupils(); renderPupils(); loadDash();
+  alert("Pupils import: "+ok+" saved, "+fail+" failed"+(errors.length?"\\n"+errors.join("\\n"):""));
+}
+function downloadPupilTemplate(){
+  const lines=[
+    "first_name,last_name,phone,email,address_line1,address_line2,city,postcode,status",
+    "Jane,Smith,07123456789,jane@example.com,1 High Street,,Gloucester,GL1 1AA,active"
+  ];
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([lines.join("\\n")],{type:"text/csv"}));
+  a.download="dmw-pupils-import-template.csv";
+  a.click();
+}
+
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
 </script>
 </body>

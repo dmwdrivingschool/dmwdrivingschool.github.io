@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book Driving Lessons | DMW Driving School</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="canonical" href="https://dmwdrivingschool.co.uk/enquiry">
+  <style>
+    :root { --navy: #0A4CA1; --deep: #062F63; --bg: #F4F7FA; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: var(--bg); color: #1e293b; min-height: 100vh; }
+    header { background: #111; padding: 14px; text-align: center; }
+    header img { height: 48px; }
+    .box {
+      max-width: 480px; margin: 32px auto; background: #fff; border-radius: 12px;
+      padding: 28px 22px; box-shadow: 0 8px 24px rgba(0,0,0,.06);
+    }
+    h1 { font-size: 1.35rem; color: var(--deep); margin-bottom: 6px; }
+    .sub { color: #64748b; font-size: 0.9rem; margin-bottom: 22px; }
+    label { display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px; }
+    input, select, textarea {
+      width: 100%; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 8px;
+      font-size: 1rem; margin-bottom: 14px;
+    }
+    button {
+      width: 100%; padding: 14px; background: var(--navy); color: #fff; border: none;
+      border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; }
+    .ok { display: none; text-align: center; padding: 20px 0; }
+    .ok h2 { color: var(--deep); margin-bottom: 10px; }
+    .ok a { color: var(--navy); font-weight: 600; }
+    footer { text-align: center; padding: 24px; font-size: 0.8rem; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="https://dmwdrivingschool.co.uk"><img src="image-1.jpg" alt="DMW Driving School"></a>
+  </header>
+  <div class="box" id="form-box">
+    <h1>Enquiry</h1>
+    <p class="sub">Tell us a bit about you and we’ll be in touch as soon as we can.</p>
+    <form id="f" onsubmit="return send(event)">
+      <label>First name *</label>
+      <input id="fn" required>
+      <label>Last name *</label>
+      <input id="ln" required>
+      <label>Phone *</label>
+      <input id="phone" type="tel" required>
+      <label>Email</label>
+      <input id="email" type="email">
+      <label>Preferred gearbox</label>
+      <select id="gear">
+        <option value="manual">Manual</option>
+        <option value="automatic">Automatic</option>
+      </select>
+      <label>Message / availability notes</label>
+      <textarea id="notes" rows="3" placeholder="e.g. evenings after 5pm, weekends…"></textarea>
+      <button type="submit" id="btn">Send enquiry</button>
+    </form>
+  </div>
+  <div class="box ok" id="done">
+    <h2>Thank you</h2>
+    <p>Your enquiry has been sent. We’ll contact you soon.</p>
+    <p style="margin-top:16px">Optional: install the DMW pupil app when you’re accepted — your instructor will send a login link.</p>
+    <p style="margin-top:20px"><a href="https://dmwdrivingschool.co.uk">Back to website</a></p>
+  </div>
+  <footer>© DMW Driving School · Gloucester · Grade A instructor</footer>
+  <script>
+    const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+    async function send(e) {
+      e.preventDefault();
+      const btn = document.getElementById("btn");
+      btn.disabled = true;
+      const body = {
+        first_name: document.getElementById("fn").value.trim(),
+        last_name: document.getElementById("ln").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        email: document.getElementById("email").value.trim().toLowerCase() || null,
+        preferred_gearbox: document.getElementById("gear").value,
+        status: "enquiry",
+        notes: document.getElementById("notes").value.trim() || null
+      };
+      try {
+        const res = await fetch(SUPABASE_URL + "/rest/v1/pupils", {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: "Bearer " + SUPABASE_KEY,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal"
+          },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error(await res.text());
+        document.getElementById("form-box").style.display = "none";
+        document.getElementById("done").style.display = "block";
+      } catch (err) {
+        alert("Could not send — please call or message us, or try again later.");
+        btn.disabled = false;
+      }
+      return false;
+    }
+  </script>
+</body>
+</html>

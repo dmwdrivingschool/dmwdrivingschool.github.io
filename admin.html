@@ -11,13 +11,13 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 #gate{max-width:400px;margin:10vh auto;background:var(--card);border-radius:16px;padding:2rem 1.5rem;box-shadow:0 12px 40px rgba(6,47,99,.12)}
-#gate h1{font-size:1.25rem;color:var(--deep);margin-bottom:.25rem;text-align:center}
+#gate h1{font-size:1.25rem;color:var(--deep);text-align:center;margin-bottom:.25rem}
 #gate .sub{color:var(--muted);font-size:.88rem;margin-bottom:1.25rem;text-align:center}
 #gate input{width:100%;padding:.75rem 1rem;border:1px solid var(--line);border-radius:10px;font-size:1rem;margin-bottom:.65rem}
 .btn{border:none;border-radius:10px;font-weight:700;cursor:pointer;padding:.7rem 1rem;font-size:.9rem}
-.btn-navy{background:var(--navy);color:#fff;width:100%}
+.btn-navy{background:var(--navy);color:#fff}.btn-navy.full{width:100%}
 .btn-gold{background:var(--gold);color:var(--deep)}
-.btn-sm{padding:.4rem .7rem;font-size:.8rem;width:auto}
+.btn-sm{padding:.4rem .7rem;font-size:.8rem}
 .btn-outline{background:#fff;border:1px solid var(--line);color:var(--text);padding:.4rem .7rem;font-size:.8rem;border-radius:8px;cursor:pointer}
 .btn-danger{background:#fee2e2;color:#991b1b;border:none;padding:.35rem .65rem;font-size:.78rem;border-radius:8px;cursor:pointer}
 .err{color:var(--bad);font-size:.85rem;font-weight:600;display:none;margin-top:.5rem;text-align:center}
@@ -25,72 +25,73 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(
 .top{background:var(--deep);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.25rem;gap:1rem;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:.75rem;font-weight:700}
 .brand img{height:36px}
-.nav{display:flex;flex-wrap:wrap;gap:.25rem;background:var(--deep);padding:0 1rem .65rem}
+.nav{display:flex;flex-wrap:wrap;gap:.25rem;background:var(--deep);padding:0 1rem .65rem;align-items:center}
 .nav button{background:transparent;border:none;color:#a8c0d8;padding:.5rem .8rem;border-radius:8px;font-weight:600;font-size:.85rem;cursor:pointer}
 .nav button.on{background:rgba(255,255,255,.12);color:#fff}
+.nav-right{margin-left:auto}
 .main{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 5rem}
 .stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;margin-bottom:1.25rem}
 @media(min-width:720px){.stat-row{grid-template-columns:repeat(4,1fr)}}
 .stat{background:var(--card);border-radius:14px;padding:1.1rem 1rem;border:1px solid var(--line);cursor:pointer;text-align:left;width:100%}
-.stat:hover{box-shadow:0 4px 14px rgba(6,47,99,.1)}
-.stat strong{display:block;font-size:1.7rem;color:var(--deep)}
-.stat span{font-size:.8rem;color:var(--muted)}
+.stat strong{display:block;font-size:1.7rem;color:var(--deep)}.stat span{font-size:.8rem;color:var(--muted)}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.15rem 1.1rem;margin-bottom:1rem}
 .panel h2{font-size:1rem;color:var(--deep);margin-bottom:.85rem;padding-bottom:.5rem;border-bottom:1px solid var(--line)}
 .metric-row{display:grid;grid-template-columns:1fr 1fr;gap:.65rem}
 @media(min-width:700px){.metric-row{grid-template-columns:repeat(4,1fr)}}
 .metric{border:1px solid var(--line);border-radius:12px;padding:.85rem;background:#f8fafc}
-.metric .v{font-size:1.15rem;font-weight:800}
-.metric .v.good{color:var(--ok)}.metric .v.bad{color:var(--bad)}
+.metric .v{font-size:1.15rem;font-weight:800}.metric .v.good{color:var(--ok)}.metric .v.bad{color:var(--bad)}
 .metric .l{font-size:.75rem;color:var(--muted);margin-top:.2rem}
-.bar{height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:.45rem}
-.bar>i{display:block;height:100%;background:var(--navy)}
+.bar{height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:.45rem}.bar>i{display:block;height:100%;background:var(--navy)}
 table{width:100%;border-collapse:collapse;font-size:.88rem}
 th,td{text-align:left;padding:.55rem .4rem;border-bottom:1px solid var(--line)}
 th{color:var(--muted);font-size:.72rem;text-transform:uppercase}
-.field{margin-bottom:.75rem}
-.field label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.25rem}
+.field{margin-bottom:.75rem}.field label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.25rem}
 .field input,.field select,.field textarea{width:100%;padding:.65rem .75rem;border:1px solid var(--line);border-radius:8px;font-size:.95rem}
-.two{display:grid;gap:.75rem}
-@media(min-width:700px){.two{grid-template-columns:1fr 1fr}}
+.two{display:grid;gap:.75rem}@media(min-width:700px){.two{grid-template-columns:1fr 1fr}}
 .chip{display:inline-block;padding:.15rem .5rem;border-radius:99px;font-size:.72rem;font-weight:700}
 .chip-ok{background:#d1fae5;color:#065f46}.chip-bad{background:#fee2e2;color:#991b1b}
 .chip-wait{background:#fef3c7;color:#92400e}.chip-info{background:#e0f2fe;color:#075985}
-.list-row{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.65rem 0;border-bottom:1px solid var(--line);font-size:.9rem}
-.muted{color:var(--muted);font-size:.82rem}
-.actions{display:flex;flex-wrap:wrap;gap:.35rem}
+.list-row{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;padding:.75rem 0;border-bottom:1px solid var(--line);font-size:.9rem}
+.muted{color:var(--muted);font-size:.82rem}.actions{display:flex;flex-wrap:wrap;gap:.35rem}
 .tabs-sub{display:flex;gap:.35rem;margin-bottom:.85rem;flex-wrap:wrap}
 .tabs-sub button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:.35rem .85rem;font-size:.82rem;font-weight:600;cursor:pointer}
 .tabs-sub button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
 .hidden{display:none!important}
-footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0b8;text-align:center;padding:.55rem;font-size:.75rem}
-.diary-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap}
-.diary-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:.75rem}
-.diary-day{background:#f8fafc;border:1px solid var(--line);border-radius:8px;min-height:120px;padding:4px}
-.diary-day h4{font-size:.7rem;color:var(--muted);margin-bottom:4px;text-align:center}
-.lesson-chip{font-size:.65rem;background:var(--navy);color:#fff;border-radius:4px;padding:2px 4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.lesson-chip.away{background:#64748b}.lesson-chip.gap{background:#94a3b8}.lesson-chip.cancelled{background:#dc2626}
-.filters{display:flex;flex-wrap:wrap;gap:.5rem;align-items:end;margin-bottom:.85rem}
-.filters .field{margin:0;min-width:120px}
+footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0b8;text-align:center;padding:.55rem;font-size:.75rem;z-index:10}
+.filters{display:flex;flex-wrap:wrap;gap:.5rem;align-items:end;margin-bottom:.85rem}.filters .field{margin:0;min-width:120px}
 .banner{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:.65rem .85rem;border-radius:10px;font-size:.85rem;margin-bottom:1rem;display:none}
+/* diary app-like */
+.d-head{display:flex;align-items:center;justify-content:space-between;background:var(--deep);color:#fff;padding:.75rem 1rem;border-radius:12px 12px 0 0}
+.d-grid{display:grid;grid-template-columns:48px repeat(7,1fr);border:1px solid var(--line);border-top:0;background:#fff;border-radius:0 0 12px 12px;overflow:auto;max-height:70vh}
+.d-corner,.d-dayh{position:sticky;top:0;background:#f8fafc;z-index:2;border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:.4rem 2px;text-align:center;font-size:.7rem;font-weight:700}
+.d-time{border-bottom:1px solid #f1f5f9;border-right:1px solid var(--line);font-size:.65rem;color:var(--muted);padding:2px 4px;height:28px}
+.d-cell{border-bottom:1px solid #f1f5f9;border-right:1px solid var(--line);position:relative;height:28px}
+.d-block{position:absolute;left:2px;right:2px;border-radius:4px;font-size:.6rem;color:#fff;padding:2px 3px;overflow:hidden;z-index:1;line-height:1.2}
+.d-block.cancelled{background:#dc2626!important;text-decoration:line-through}
+.d-block.away{background:#64748b!important}.d-block.gap{background:#94a3b8!important}
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.modal-box{background:#fff;border-radius:16px 16px 0 0;padding:1.25rem;width:100%;max-width:520px;max-height:90vh;overflow:auto}
+@media(min-width:600px){.modal{align-items:center}.modal-box{border-radius:16px}}
+.settings-list button{display:block;width:100%;text-align:left;padding:.9rem 1rem;border:none;border-bottom:1px solid var(--line);background:#fff;font-size:.95rem;font-weight:600;cursor:pointer}
+.settings-list button:hover{background:#f8fafc}
 </style>
 </head>
 <body>
 <div id="gate">
   <h1>DMW Control Centre</h1>
-  <p class="sub">Sign in with the same instructor account you use in the app</p>
-  <input type="email" id="gate-email" placeholder="Instructor email" autocomplete="username">
+  <p class="sub">Sign in with your instructor app account</p>
+  <input type="email" id="gate-email" placeholder="Email" autocomplete="username">
   <input type="password" id="gate-pass" placeholder="Password" autocomplete="current-password">
-  <button class="btn btn-navy" onclick="unlock()">Sign in</button>
+  <button class="btn btn-navy full" onclick="unlock()">Sign in</button>
   <div class="err" id="gate-err"></div>
-  <p class="muted" style="margin-top:1rem;text-align:center">Not the old master password — use your app login (e.g. admin@dmwdrivingschool.co.uk)</p>
 </div>
 
 <div id="app">
   <div class="top">
     <div class="brand"><img src="image-1.jpg" alt="DMW" onerror="this.remove()"><span>DMW Control Centre</span></div>
     <div style="display:flex;gap:.5rem;align-items:center">
-      <span class="muted" id="who" style="color:#94a3b8;font-size:.8rem"></span>
+      <span id="who" style="color:#94a3b8;font-size:.8rem"></span>
       <button class="btn btn-gold btn-sm" onclick="lock()">Sign out</button>
     </div>
   </div>
@@ -103,9 +104,11 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
     <button data-tab="finance">Finances</button>
     <button data-tab="gaps">Gaps</button>
     <button data-tab="portal">Portal</button>
+    <button class="nav-right" data-tab="settings">Settings</button>
   </nav>
   <div class="main">
     <div class="banner" id="data-banner"></div>
+
     <section id="tab-dash">
       <div class="stat-row">
         <button type="button" class="stat" onclick="goTab('pupils','active')"><strong id="n-active">–</strong><span>Active pupils</span></button>
@@ -133,8 +136,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
       <div class="panel">
         <h2>Pupils</h2>
         <div class="tabs-sub" id="pupil-filters">
-          <button class="on" data-status="all">All</button>
-          <button data-status="active">Active</button>
+          <button class="on" data-status="active">Active</button>
           <button data-status="waiting">Waiting</button>
           <button data-status="passed">Passed</button>
           <button data-status="inactive">Inactive</button>
@@ -147,15 +149,13 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
     <section id="tab-enquiries" class="hidden"><div class="panel"><h2>Website enquiries</h2><div id="enquiry-list">Loading…</div></div></section>
 
     <section id="tab-diary" class="hidden">
-      <div class="panel">
-        <h2>Diary (week)</h2>
-        <div class="diary-head">
-          <button class="btn-outline" onclick="shiftWeek(-1)">‹ Prev</button>
+      <div class="panel" style="padding:0;overflow:hidden">
+        <div class="d-head">
+          <button class="btn-outline" style="color:#fff;border-color:#fff;background:transparent" onclick="shiftWeek(-1)">‹</button>
           <strong id="week-label"></strong>
-          <button class="btn-outline" onclick="shiftWeek(1)">Next ›</button>
+          <button class="btn-outline" style="color:#fff;border-color:#fff;background:transparent" onclick="shiftWeek(1)">›</button>
         </div>
-        <div class="diary-days" id="diary-grid"></div>
-        <p class="muted" style="margin-top:.75rem">Edit lessons in the instructor app.</p>
+        <div id="diary-wrap"></div>
       </div>
     </section>
 
@@ -188,6 +188,8 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
           <div class="field" id="fin-to-wrap" style="display:none"><label>To</label><input type="date" id="fin-to"></div>
           <button class="btn btn-navy btn-sm" onclick="applyFinance()">Apply</button>
           <button class="btn-outline" onclick="exportFinance()">Export CSV</button>
+          <button class="btn-outline" onclick="document.getElementById('import-file').click()">Import CSV</button>
+          <input type="file" id="import-file" accept=".csv,text/csv" class="hidden" onchange="importCsv(event)">
         </div>
         <div class="tabs-sub">
           <button class="on" onclick="showFin('summary',this)">Summary</button>
@@ -201,9 +203,11 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
         <div id="fin-add" class="hidden">
           <div class="two">
             <div class="field"><label>Type</label>
-              <select id="pay-type"><option value="income">Income</option><option value="expense">Expense</option></select>
+              <select id="pay-type" onchange="fillCats()"><option value="income">Income</option><option value="expense">Expense</option></select>
             </div>
-            <div class="field"><label>Category / label</label><input id="pay-cat" placeholder="e.g. Student Lesson / Fuel"></div>
+            <div class="field"><label>Category / label</label>
+              <select id="pay-cat"></select>
+            </div>
             <div class="field"><label>Amount (£)</label><input id="pay-amt" type="number" step="0.01"></div>
             <div class="field"><label>Date</label><input id="pay-date" type="date"></div>
             <div class="field"><label>Method</label>
@@ -211,12 +215,19 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
             </div>
             <div class="field"><label>Notes</label><input id="pay-notes"></div>
           </div>
-          <button class="btn btn-navy btn-sm" style="margin-top:.5rem" onclick="addPayment()">Save entry</button>
+          <input type="hidden" id="pay-edit-id">
+          <button class="btn btn-navy btn-sm" style="margin-top:.5rem" onclick="savePayment()">Save entry</button>
         </div>
       </div>
     </section>
 
-    <section id="tab-gaps" class="hidden"><div class="panel"><h2>Upcoming gaps</h2><div id="gap-list">Loading…</div></div></section>
+    <section id="tab-gaps" class="hidden">
+      <div class="panel">
+        <h2>Gaps</h2>
+        <button class="btn btn-navy btn-sm" style="margin-bottom:.75rem" onclick="openGapForm()">+ Add gap</button>
+        <div id="gap-list">Loading…</div>
+      </div>
+    </section>
 
     <section id="tab-portal" class="hidden">
       <div class="two">
@@ -234,23 +245,42 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
       </div>
       <div class="panel"><h2>Recent portal activity</h2><div id="activity">Loading…</div></div>
     </section>
+
+    <section id="tab-settings" class="hidden">
+      <div class="panel">
+        <h2>Settings</h2>
+        <div class="settings-list" id="settings-menu">
+          <button type="button" onclick="openSettings('reminders')">Reminders</button>
+          <button type="button" onclick="openSettings('diary')">Diary options</button>
+          <button type="button" onclick="openSettings('resources')">Resources</button>
+          <button type="button" onclick="openSettings('reflect')">Reflective logs</button>
+          <button type="button" onclick="openSettings('branding')">Branding</button>
+          <button type="button" onclick="openSettings('terms')">School terms</button>
+        </div>
+        <div id="settings-panel" class="hidden" style="margin-top:1rem"></div>
+      </div>
+    </section>
   </div>
 </div>
-<footer>DMW Driving School · Gloucester · Secure Control Centre</footer>
+
+<div id="modal" class="modal hidden" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<footer>DMW Driving School · Secure Control Centre</footer>
 
 <script>
-const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
-const SUPABASE_ANON = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const SUPABASE_URL="https://cxcqmyxbpjueezapknim.supabase.co";
+const SUPABASE_ANON="sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
 
-let pupilsCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="all";
+const INCOME_CATS=["Student Lesson","Pupil Test Fee","Bank Interest","Other"];
+const EXPENSE_CATS=["Fuel","Insurance","Car Finance","Franchise / Car Rental","Subscriptions","Motor Expenses","Office Expenses","Telephone & Internet","Advertising","Bank Charges","Miscellaneous"];
+
+let pupilsCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="active";
 
 function startOfWeek(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x}
-function taxYearBounds(offset){
-  const now=new Date(); let y=now.getFullYear();
-  if(now<new Date(y,3,6)) y--;
-  y+=offset; return {from:y+"-04-06", to:(y+1)+"-04-05"};
-}
+function taxYearBounds(offset){const now=new Date();let y=now.getFullYear();if(now<new Date(y,3,6))y--;y+=offset;return{from:y+"-04-06",to:(y+1)+"-04-05"}}
 
 document.getElementById("main-nav").addEventListener("click",e=>{
   const b=e.target.closest("button[data-tab]"); if(!b)return; goTab(b.dataset.tab);
@@ -274,64 +304,44 @@ function goTab(tab, pupilFilter){
     renderPupils();
   }
   if(tab==="diary") renderDiary();
-  if(tab==="finance") applyFinance();
+  if(tab==="finance"){fillCats(); applyFinance()}
   if(tab==="tests") showTests("future");
+  if(tab==="settings"){document.getElementById("settings-menu").classList.remove("hidden");document.getElementById("settings-panel").classList.add("hidden")}
 }
 
 async function unlock(){
   const email=document.getElementById("gate-email").value.trim();
   const password=document.getElementById("gate-pass").value;
-  const err=document.getElementById("gate-err");
-  err.style.display="none";
+  const err=document.getElementById("gate-err"); err.style.display="none";
   if(!email||!password){err.textContent="Enter email and password";err.style.display="block";return}
   const {data,error}=await sb.auth.signInWithPassword({email,password});
   if(error){err.textContent=error.message;err.style.display="block";return}
-  // Optional: require instructor role
-  const uid=data.user.id;
-  const {data:prof}=await sb.from("profiles").select("role,full_name,email").eq("id",uid).maybeSingle();
-  if(prof && prof.role && prof.role!=="instructor" && prof.role!=="admin"){
-    await sb.auth.signOut();
-    err.textContent="This account is not an instructor login";
-    err.style.display="block";
-    return;
+  const {data:prof}=await sb.from("profiles").select("role,full_name,email").eq("id",data.user.id).maybeSingle();
+  if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="admin"){
+    await sb.auth.signOut(); err.textContent="Not an instructor account"; err.style.display="block"; return;
   }
-  enterApp(data.user, prof);
+  enterApp(data.user,prof);
 }
-
-async function enterApp(user, prof){
+async function enterApp(user,prof){
   document.getElementById("gate").style.display="none";
   document.getElementById("app").style.display="block";
   document.getElementById("who").textContent=prof?.full_name||user.email||"";
-  await refresh();
-  setInterval(refresh, 30000);
+  await refresh(); setInterval(refresh,30000);
 }
-
-async function lock(){
-  await sb.auth.signOut();
-  document.getElementById("app").style.display="none";
-  document.getElementById("gate").style.display="block";
-  document.getElementById("gate-pass").value="";
-}
-
-// Restore session on load
+async function lock(){await sb.auth.signOut(); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
 sb.auth.getSession().then(({data})=>{
   if(data.session){
-    sb.from("profiles").select("role,full_name,email").eq("id",data.session.user.id).maybeSingle()
-      .then(({data:prof})=>{
-        if(prof && prof.role && prof.role!=="instructor" && prof.role!=="admin") return;
-        enterApp(data.session.user, prof);
-      });
+    sb.from("profiles").select("role,full_name,email").eq("id",data.session.user.id).maybeSingle().then(({data:prof})=>{
+      if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="admin")return;
+      enterApp(data.session.user,prof);
+    });
   }
 });
 
-function showBanner(msg){
-  const b=document.getElementById("data-banner");
-  if(!msg){b.style.display="none";return}
-  b.textContent=msg; b.style.display="block";
-}
+function showBanner(msg){const b=document.getElementById("data-banner"); if(!msg){b.style.display="none";return} b.textContent=msg;b.style.display="block"}
 
 async function refresh(){
-  await Promise.all([loadPupils(), loadPayments(), loadTests()]);
+  await Promise.all([loadPupils(),loadPayments(),loadTests()]);
   loadDash(); loadEnquiries(); loadGaps(); loadRoster(); loadActivity();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   if(!document.getElementById("tab-pupils").classList.contains("hidden")) renderPupils();
@@ -340,27 +350,17 @@ async function refresh(){
 
 async function loadPupils(){
   const {data,error}=await sb.from("pupils").select("*").order("last_name",{ascending:true});
-  if(error){console.error(error); showBanner("Pupils: "+error.message+" — run SQL_secure_admin.sql if needed"); pupilsCache=[]; return}
-  pupilsCache=data||[];
-  showBanner("");
+  if(error){showBanner("Pupils: "+error.message); pupilsCache=[]; return}
+  pupilsCache=data||[]; showBanner("");
 }
 async function loadPayments(){
   let {data,error}=await sb.from("transactions").select("*, pupil:pupils(first_name,last_name)").order("transaction_date",{ascending:false}).limit(500);
-  if(error){
-    // try without join / different order column
-    const r2=await sb.from("transactions").select("*").limit(500);
-    if(r2.error){console.error(r2.error); txCache=[]; showBanner((document.getElementById("data-banner").textContent||"")+" Payments: "+r2.error.message); return}
-    data=r2.data;
-  }
-  txCache=data||[];
+  if(error){const r2=await sb.from("transactions").select("*").limit(500); data=r2.data; error=r2.error}
+  if(error){txCache=[]; return} txCache=data||[];
 }
 async function loadTests(){
   let {data,error}=await sb.from("practical_tests").select("*, pupil:pupils(first_name,last_name)").order("test_date",{ascending:false});
-  if(error){
-    const r2=await sb.from("practical_tests").select("*");
-    data=r2.data; error=r2.error;
-  }
-  if(error){testsCache=[]; return}
+  if(error){const r2=await sb.from("practical_tests").select("*"); data=r2.data}
   testsCache=data||[];
 }
 
@@ -372,24 +372,20 @@ function loadDash(){
   document.getElementById("n-enquiry").textContent=pupils.filter(p=>p.status==="enquiry").length;
   const now=new Date().toISOString();
   document.getElementById("n-tests").textContent=testsCache.filter(t=>(t.test_date||"")>=now).length;
-
   const done=testsCache.filter(t=>t.result==="pass"||t.result==="fail");
   const passes=done.filter(t=>t.result==="pass").length;
   const passRate=done.length?Math.round(passes/done.length*100):null;
   const el=document.getElementById("m-pass");
-  el.textContent=passRate==null?"–":passRate+"%";
-  el.className="v "+(passRate==null?"":passRate>=55?"good":"bad");
+  el.textContent=passRate==null?"–":passRate+"%"; el.className="v "+(passRate==null?"":passRate>=55?"good":"bad");
   const withF=testsCache.filter(t=>t.driving_faults!=null);
   document.getElementById("m-faults").textContent=withF.length?(withF.reduce((s,t)=>s+Number(t.driving_faults||0),0)/withF.length).toFixed(2):"–";
   document.getElementById("m-serious").textContent=withF.length?(withF.reduce((s,t)=>s+Number(t.serious_faults||0),0)/withF.length).toFixed(2):"–";
-
   (async()=>{
     const since=new Date(Date.now()-14*864e5).toISOString();
     const {data:lessons}=await sb.from("lessons").select("id,status,pupil_id,lesson_type,start_time").gte("start_time",since);
     const real=(lessons||[]).filter(l=>l.lesson_type!=="gap"&&l.lesson_type!=="student_away");
     const cancelled=real.filter(l=>l.status==="cancelled").length;
-    const pct=real.length?Math.round(cancelled/real.length*100):0;
-    document.getElementById("m-cancel").textContent=pct+"%";
+    document.getElementById("m-cancel").textContent=(real.length?Math.round(cancelled/real.length*100):0)+"%";
     const {data:future}=await sb.from("lessons").select("pupil_id").gte("start_time",now).neq("status","cancelled");
     const withL=new Set((future||[]).map(l=>l.pupil_id).filter(Boolean));
     const p=active.length?Math.round(withL.size/active.length*100):0;
@@ -398,19 +394,83 @@ function loadDash(){
   })();
 }
 
+function addrLine(p){
+  return p.address_line1||p.address||[p.address_line1,p.postcode].filter(Boolean).join(", ")||"";
+}
+
 function renderPupils(){
   const q=(document.getElementById("pupil-search").value||"").toLowerCase();
   let list=pupilsCache.filter(p=>p.status!=="enquiry");
-  if(pupilStatusFilter!=="all") list=list.filter(p=>p.status===pupilStatusFilter);
+  list=list.filter(p=>p.status===pupilStatusFilter);
   if(q) list=list.filter(p=>`${p.first_name} ${p.last_name} ${p.phone||""} ${p.email||""}`.toLowerCase().includes(q));
   const el=document.getElementById("pupil-list");
-  if(!list.length){el.innerHTML='<p class="muted">No pupils match (total loaded: '+pupilsCache.length+')</p>';return}
+  if(!list.length){el.innerHTML='<p class="muted">No pupils</p>';return}
   el.innerHTML=list.map(p=>`<div class="list-row">
-    <div><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
-    <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div></div>
-    <span class="chip ${p.status==="active"?"chip-ok":p.status==="waiting"?"chip-wait":"chip-info"}">${esc(p.status)}</span>
+    <div style="flex:1;min-width:0">
+      <strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
+      <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div>
+      <div class="muted">${esc(addrLine(p)||"No address")}</div>
+    </div>
+    <div class="actions">
+      <span class="chip ${p.status==="active"?"chip-ok":p.status==="waiting"?"chip-wait":"chip-info"}">${esc(p.status)}</span>
+      <button class="btn-outline" onclick='showPupil(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Details</button>
+      <button class="btn-outline" onclick='editPupil(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Edit</button>
+      ${p.email?`<button class="btn-outline" onclick="copyEmail('${esc(p.email)}')">Email</button>`:""}
+    </div>
   </div>`).join("");
 }
+
+function copyEmail(email){
+  navigator.clipboard.writeText(email).then(()=>alert("Copied: "+email)).catch(()=>prompt("Copy email:",email));
+}
+
+function showPupil(p){
+  openModal(`<h2 style="margin-bottom:1rem">${esc(p.first_name)} ${esc(p.last_name)}</h2>
+    <div class="summary-lines">
+      ${row("Status",p.status)}${row("Phone",p.phone)}${row("Email",p.email)}
+      ${row("Address",[p.address_line1,p.address_line2,p.city,p.postcode].filter(Boolean).join(", ")||p.address)}
+      ${row("Licence",p.licence_number)}${row("DOB",p.date_of_birth||p.dob)}
+      ${row("Gearbox",p.preferred_gearbox)}${row("Credit hours",p.credit_hours)}
+      ${row("Notes",p.notes)}
+    </div>
+    <div class="actions" style="margin-top:1rem">
+      <button class="btn btn-navy btn-sm" onclick='closeModal();editPupil(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Edit</button>
+      <button class="btn-outline" onclick="closeModal()">Close</button>
+    </div>`);
+}
+function row(k,v){return `<div style="padding:.4rem 0;border-bottom:1px solid #f1f5f9;font-size:.9rem"><strong style="color:#64748b;display:inline-block;min-width:110px">${k}</strong> ${esc(v||"—")}</div>`}
+
+function editPupil(p){
+  openModal(`<h2 style="margin-bottom:1rem">Edit pupil</h2>
+    <div class="two">
+      <div class="field"><label>First name</label><input id="ep-fn" value="${esc(p.first_name||"")}"></div>
+      <div class="field"><label>Last name</label><input id="ep-ln" value="${esc(p.last_name||"")}"></div>
+      <div class="field"><label>Phone</label><input id="ep-phone" value="${esc(p.phone||"")}"></div>
+      <div class="field"><label>Email</label><input id="ep-email" value="${esc(p.email||"")}"></div>
+      <div class="field"><label>Address line 1</label><input id="ep-a1" value="${esc(p.address_line1||"")}"></div>
+      <div class="field"><label>Address line 2</label><input id="ep-a2" value="${esc(p.address_line2||"")}"></div>
+      <div class="field"><label>City</label><input id="ep-city" value="${esc(p.city||"")}"></div>
+      <div class="field"><label>Postcode</label><input id="ep-pc" value="${esc(p.postcode||"")}"></div>
+      <div class="field"><label>Status</label>
+        <select id="ep-status">
+          ${["active","waiting","passed","inactive","enquiry"].map(s=>`<option ${p.status===s?"selected":""}>${s}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field"><label>Licence number</label><input id="ep-lic" value="${esc(p.licence_number||"")}"></div>
+    </div>
+    <button class="btn btn-navy" style="margin-top:.5rem" onclick="savePupil('${p.id}')">Save</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>`);
+}
+async function savePupil(id){
+  const payload={
+    first_name:val("ep-fn"), last_name:val("ep-ln"), phone:val("ep-phone")||null, email:val("ep-email")||null,
+    address_line1:val("ep-a1")||null, address_line2:val("ep-a2")||null, city:val("ep-city")||null, postcode:val("ep-pc")||null,
+    status:val("ep-status"), licence_number:val("ep-lic")||null
+  };
+  const {error}=await sb.from("pupils").update(payload).eq("id",id);
+  if(error) alert(error.message); else {closeModal(); await loadPupils(); renderPupils(); loadDash()}
+}
+function val(id){return document.getElementById(id).value.trim()}
 
 function loadEnquiries(){
   const el=document.getElementById("enquiry-list");
@@ -426,47 +486,50 @@ function loadEnquiries(){
       <button class="btn-danger" onclick="removePupil('${p.id}')">Remove</button>
     </div></div>`).join("");
 }
+async function setStatus(id,status){const {error}=await sb.from("pupils").update({status}).eq("id",id); if(error)alert(error.message); else refresh()}
+async function removePupil(id){if(!confirm("Remove?"))return; const {error}=await sb.from("pupils").delete().eq("id",id); if(error)alert(error.message); else refresh()}
 
-async function setStatus(id,status){
-  const {error}=await sb.from("pupils").update({status}).eq("id",id);
-  if(error) alert(error.message); else refresh();
-}
-async function removePupil(id){
-  if(!confirm("Remove?"))return;
-  const {error}=await sb.from("pupils").delete().eq("id",id);
-  if(error) alert(error.message); else refresh();
-}
-
-function shiftWeek(n){weekStart=new Date(weekStart);weekStart.setDate(weekStart.getDate()+n*7);renderDiary()}
+function shiftWeek(n){weekStart=new Date(weekStart); weekStart.setDate(weekStart.getDate()+n*7); renderDiary()}
 async function renderDiary(){
   const end=new Date(weekStart); end.setDate(end.getDate()+7);
   document.getElementById("week-label").textContent=
     weekStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+
     new Date(end-1).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
-  const {data:lessons}=await sb.from("lessons")
-    .select("*, pupil:pupils(first_name,last_name)")
-    .gte("start_time",weekStart.toISOString())
-    .lt("start_time",end.toISOString())
-    .order("start_time");
+  const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)")
+    .gte("start_time",weekStart.toISOString()).lt("start_time",end.toISOString()).order("start_time");
   const list=lessons||[];
-  const grid=document.getElementById("diary-grid"); grid.innerHTML="";
+  const hours=[]; for(let h=7;h<=21;h++) hours.push(h);
+  let html='<div class="d-grid"><div class="d-corner"></div>';
   for(let i=0;i<7;i++){
     const day=new Date(weekStart); day.setDate(day.getDate()+i);
-    const dayStr=day.toDateString();
-    const cell=document.createElement("div"); cell.className="diary-day";
-    cell.innerHTML="<h4>"+day.toLocaleDateString("en-GB",{weekday:"short",day:"numeric"})+"</h4>";
-    list.filter(l=>new Date(l.start_time).toDateString()===dayStr).forEach(l=>{
-      const name=l.pupil?l.pupil.first_name+" "+(l.pupil.last_name||"").charAt(0):(l.title||l.lesson_type||"");
-      const t=new Date(l.start_time).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
-      let cls="";
-      if(l.status==="cancelled") cls="cancelled";
-      else if(l.lesson_type==="gap") cls="gap";
-      else if(l.title==="Away"||l.lesson_type==="student_away") cls="away";
-      const d=document.createElement("div"); d.className="lesson-chip "+cls;
-      d.textContent=t+" "+name+(l.status==="cancelled"?" (X)":""); cell.appendChild(d);
-    });
-    grid.appendChild(cell);
+    html+=`<div class="d-dayh">${day.toLocaleDateString("en-GB",{weekday:"short"})}<br>${day.getDate()}</div>`;
   }
+  hours.forEach(h=>{
+    html+=`<div class="d-time">${String(h).padStart(2,"0")}:00</div>`;
+    for(let i=0;i<7;i++){
+      const day=new Date(weekStart); day.setDate(day.getDate()+i);
+      const dayStr=day.toDateString();
+      const cellLessons=list.filter(l=>{
+        const s=new Date(l.start_time);
+        return s.toDateString()===dayStr && s.getHours()===h;
+      });
+      html+=`<div class="d-cell">`;
+      cellLessons.forEach(l=>{
+        const s=new Date(l.start_time), e=new Date(l.end_time);
+        const mins=Math.max(30,(e-s)/60000);
+        const name=l.pupil?l.pupil.first_name:(l.title||l.lesson_type||"");
+        let cls="";
+        if(l.status==="cancelled") cls="cancelled";
+        else if(l.lesson_type==="gap") cls="gap";
+        else if(l.title==="Away"||l.lesson_type==="student_away") cls="away";
+        const bg=cls?"": "background:#0A4CA1";
+        html+=`<div class="d-block ${cls}" style="height:${Math.min(mins/60*28,80)}px;${bg}">${s.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})} ${esc(name)}</div>`;
+      });
+      html+=`</div>`;
+    }
+  });
+  html+="</div>";
+  document.getElementById("diary-wrap").innerHTML=html;
 }
 
 function showTests(mode,btn){
@@ -490,52 +553,43 @@ function onPeriodChange(){
   document.getElementById("fin-to-wrap").style.display=c?"block":"none";
 }
 function getFinRange(){
-  const p=document.getElementById("fin-period").value;
-  const now=new Date();
+  const p=document.getElementById("fin-period").value; const now=new Date();
   if(p==="all") return {from:null,to:null};
   if(p==="this_tax") return taxYearBounds(0);
   if(p==="last_tax") return taxYearBounds(-1);
-  if(p==="this_month"){
-    return {from:now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01", to:now.toISOString().slice(0,10)};
-  }
-  if(p==="last_month"){
-    const d=new Date(now.getFullYear(),now.getMonth()-1,1);
-    const e=new Date(now.getFullYear(),now.getMonth(),0);
-    return {from:d.toISOString().slice(0,10),to:e.toISOString().slice(0,10)};
-  }
+  if(p==="this_month") return {from:now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01",to:now.toISOString().slice(0,10)};
+  if(p==="last_month"){const d=new Date(now.getFullYear(),now.getMonth()-1,1);const e=new Date(now.getFullYear(),now.getMonth(),0);return{from:d.toISOString().slice(0,10),to:e.toISOString().slice(0,10)}}
   return {from:document.getElementById("fin-from").value||null,to:document.getElementById("fin-to").value||null};
 }
 function filteredPayments(){
   const {from,to}=getFinRange();
   return (txCache||[]).filter(r=>{
     const d=r.transaction_date||(r.created_at||"").slice(0,10)||"";
-    if(from&&d&&d<from) return false;
-    if(to&&d&&d>to) return false;
-    return true;
+    if(from&&d&&d<from)return false; if(to&&d&&d>to)return false; return true;
   });
 }
-function isExpense(r){
-  const t=(r.type||r.transaction_type||r.category||"").toLowerCase();
-  return t.includes("expense")||t.includes("cost");
+function isExpense(r){const t=(r.type||r.category||"").toLowerCase(); return t.includes("expense")||t.includes("cost")}
+function fillCats(){
+  const type=document.getElementById("pay-type").value;
+  const cats=type==="expense"?EXPENSE_CATS:INCOME_CATS;
+  // also include any existing categories from data
+  const extra=[...new Set((txCache||[]).map(r=>r.category||r.type).filter(Boolean))];
+  const all=[...new Set([...cats,...extra])];
+  document.getElementById("pay-cat").innerHTML=all.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
 }
 function applyFinance(){
   const on=document.querySelector("#tab-finance .tabs-sub button.on");
-  const mode=on&&on.textContent.toLowerCase().includes("income")?"income":
-    on&&on.textContent.toLowerCase().includes("expense")?"expense":
-    on&&on.textContent.toLowerCase().includes("add")?"add":"summary";
+  const mode=on&&/income/i.test(on.textContent)?"income":on&&/expense/i.test(on.textContent)?"expense":on&&/add/i.test(on.textContent)?"add":"summary";
   showFin(mode);
 }
 function showFin(mode,btn){
   if(btn){btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));btn.classList.add("on")}
   ["summary","income","expense","add"].forEach(m=>document.getElementById("fin-"+m).classList.toggle("hidden",m!==mode));
   const rows=filteredPayments();
-  const inc=rows.filter(r=>!isExpense(r));
-  const exp=rows.filter(isExpense);
-  const sumInc=inc.reduce((s,r)=>s+Number(r.amount||0),0);
-  const sumExp=exp.reduce((s,r)=>s+Number(r.amount||0),0);
+  const inc=rows.filter(r=>!isExpense(r)); const exp=rows.filter(isExpense);
+  const sumInc=inc.reduce((s,r)=>s+Number(r.amount||0),0); const sumExp=exp.reduce((s,r)=>s+Number(r.amount||0),0);
   const {from,to}=getFinRange();
-  document.getElementById("fin-summary").innerHTML=`
-    <p class="muted" style="margin-bottom:.75rem">${from||"all"} → ${to||"all"} · ${rows.length} entries (loaded ${txCache.length})</p>
+  document.getElementById("fin-summary").innerHTML=`<p class="muted" style="margin-bottom:.75rem">${from||"all"} → ${to||"all"} · ${rows.length} entries</p>
     <div class="metric-row">
       <div class="metric"><div class="v good">£${sumInc.toFixed(2)}</div><div class="l">Income</div></div>
       <div class="metric"><div class="v bad">£${sumExp.toFixed(2)}</div><div class="l">Expenses</div></div>
@@ -544,52 +598,99 @@ function showFin(mode,btn){
   document.getElementById("fin-income").innerHTML=tablePay(inc);
   document.getElementById("fin-expense").innerHTML=tablePay(exp);
   if(!document.getElementById("pay-date").value) document.getElementById("pay-date").value=new Date().toISOString().slice(0,10);
+  fillCats();
 }
 function tablePay(rows){
-  if(!rows.length) return '<p class="muted">No rows in this period</p>';
+  if(!rows.length) return '<p class="muted">No rows</p>';
   return "<table><thead><tr><th>Date</th><th>Detail</th><th>Amount</th><th>Method</th><th></th></tr></thead><tbody>"+
     rows.map(r=>{
       const pupil=r.pupil?`${r.pupil.first_name} ${r.pupil.last_name}`:"";
       const detail=pupil||r.category||r.type||r.notes||"";
       return `<tr><td>${esc(r.transaction_date||"")}</td><td>${esc(detail)}</td>
         <td>£${Number(r.amount||0).toFixed(2)}</td><td>${esc(r.payment_method||"–")}</td>
-        <td><button class="btn-danger" onclick="delPay('${r.id}')">Del</button></td></tr>`;
+        <td class="actions">
+          <button class="btn-outline" onclick='startEditPay(${JSON.stringify(r).replace(/'/g,"&#39;")})'>Edit</button>
+          <button class="btn-danger" onclick="delPay('${r.id}')">Del</button>
+        </td></tr>`;
     }).join("")+"</tbody></table>";
 }
-async function delPay(id){
-  if(!confirm("Delete?"))return;
-  const {error}=await sb.from("transactions").delete().eq("id",id);
-  if(error) alert(error.message); else { await loadPayments(); applyFinance(); }
+function startEditPay(r){
+  document.querySelectorAll("#tab-finance .tabs-sub button").forEach(b=>b.classList.remove("on"));
+  const addBtn=[...document.querySelectorAll("#tab-finance .tabs-sub button")].find(b=>/add/i.test(b.textContent));
+  if(addBtn) addBtn.classList.add("on");
+  showFin("add");
+  document.getElementById("pay-edit-id").value=r.id;
+  document.getElementById("pay-type").value=isExpense(r)?"expense":"income";
+  fillCats();
+  document.getElementById("pay-cat").value=r.category||r.type||"";
+  document.getElementById("pay-amt").value=r.amount||"";
+  document.getElementById("pay-date").value=(r.transaction_date||"").slice(0,10);
+  document.getElementById("pay-method").value=r.payment_method||"Bank Transfer";
+  document.getElementById("pay-notes").value=r.notes||"";
 }
-async function addPayment(){
+async function savePayment(){
+  const id=document.getElementById("pay-edit-id").value;
   const type=document.getElementById("pay-type").value;
-  const cat=document.getElementById("pay-cat").value.trim()||type;
+  const cat=document.getElementById("pay-cat").value;
   const amount=Number(document.getElementById("pay-amt").value);
   const date=document.getElementById("pay-date").value;
   const method=document.getElementById("pay-method").value;
   const notes=document.getElementById("pay-notes").value.trim()||null;
   if(!amount||!date) return alert("Amount and date required");
-  let {error}=await sb.from("transactions").insert({type, category:cat, amount, transaction_date:date, payment_method:method, notes});
+  const payload={type, category:cat, amount, transaction_date:date, payment_method:method, notes};
+  let error;
+  if(id) ({error}=await sb.from("transactions").update(payload).eq("id",id));
+  else ({error}=await sb.from("transactions").insert(payload));
   if(error){
-    ({error}=await sb.from("transactions").insert({type, amount, transaction_date:date, payment_method:method, notes: [cat,notes].filter(Boolean).join(" · ")}));
+    const p2={type, amount, transaction_date:date, payment_method:method, notes:[cat,notes].filter(Boolean).join(" · ")};
+    if(id) ({error}=await sb.from("transactions").update(p2).eq("id",id));
+    else ({error}=await sb.from("transactions").insert(p2));
   }
   if(error) return alert(error.message);
+  document.getElementById("pay-edit-id").value="";
   document.getElementById("pay-amt").value="";
-  await loadPayments(); applyFinance();
-  alert("Saved");
+  document.getElementById("pay-notes").value="";
+  await loadPayments(); applyFinance(); alert("Saved");
 }
+async function delPay(id){if(!confirm("Delete?"))return; const {error}=await sb.from("transactions").delete().eq("id",id); if(error)alert(error.message); else{await loadPayments(); applyFinance()}}
 function exportFinance(){
-  const rows=filteredPayments();
-  const {from,to}=getFinRange();
-  const lines=["date,type,amount,method,notes,pupil"];
+  const rows=filteredPayments(); const {from,to}=getFinRange();
+  const lines=["date,type,category,amount,method,notes,pupil"];
   rows.forEach(r=>{
     const pupil=r.pupil?`${r.pupil.first_name||""} ${r.pupil.last_name||""}`.trim():"";
-    lines.push([r.transaction_date||"",r.type||r.category||"",r.amount??"",r.payment_method||"",(r.notes||"").replace(/,/g,";"),pupil].join(","));
+    lines.push([r.transaction_date||"",r.type||"",r.category||"",r.amount??"",r.payment_method||"",(r.notes||"").replace(/,/g,";"),pupil].join(","));
   });
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));
-  a.download=`dmw-finance_${from||"all"}_${to||"all"}.csv`;
-  a.click();
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));
+  a.download=`dmw-finance_${from||"all"}_${to||"all"}.csv`; a.click();
+}
+async function importCsv(ev){
+  const file=ev.target.files[0]; if(!file)return;
+  const text=await file.text();
+  const lines=text.split(/\r?\n/).filter(Boolean);
+  if(lines.length<2) return alert("Empty CSV");
+  const header=lines[0].toLowerCase().split(",").map(h=>h.trim());
+  let ok=0, fail=0;
+  for(let i=1;i<lines.length;i++){
+    const cols=lines[i].split(",").map(c=>c.trim());
+    const get=name=>{const idx=header.findIndex(h=>h.includes(name)); return idx>=0?cols[idx]:""};
+    const amount=Number(get("amount").replace(/[£,]/g,""));
+    if(!amount) continue;
+    const typeRaw=(get("type")||get("income")||"expense").toLowerCase();
+    const type=typeRaw.includes("income")||typeRaw.includes("lesson")?"income":"expense";
+    const payload={
+      type,
+      category: get("category")||get("type")||type,
+      amount,
+      transaction_date: (get("date")||get("transaction")||new Date().toISOString().slice(0,10)).slice(0,10),
+      payment_method: get("method")||"Other",
+      notes: get("notes")||get("name")||null
+    };
+    const {error}=await sb.from("transactions").insert(payload);
+    if(error) fail++; else ok++;
+  }
+  ev.target.value="";
+  await loadPayments(); applyFinance();
+  alert(`Import done: ${ok} saved, ${fail} failed`);
 }
 
 async function loadGaps(){
@@ -597,9 +698,32 @@ async function loadGaps(){
   const now=new Date().toISOString();
   const {data}=await sb.from("lessons").select("*").eq("lesson_type","gap").gte("start_time",now).order("start_time").limit(40);
   if(!data||!data.length){el.innerHTML='<p class="muted">No upcoming gaps</p>';return}
-  el.innerHTML="<table><thead><tr><th>When</th><th>Notes</th></tr></thead><tbody>"+
-    data.map(g=>`<tr><td>${fmt(g.start_time)}</td><td>${esc(g.notes||g.title||"–")}</td></tr>`).join("")+"</tbody></table>";
+  el.innerHTML="<table><thead><tr><th>When</th><th>Notes</th><th></th></tr></thead><tbody>"+
+    data.map(g=>`<tr><td>${fmt(g.start_time)}</td><td>${esc(g.notes||"–")}</td>
+      <td><button class="btn-danger" onclick="delGap('${g.id}')">Del</button></td></tr>`).join("")+"</tbody></table>";
 }
+function openGapForm(){
+  const today=new Date().toISOString().slice(0,10);
+  openModal(`<h2 style="margin-bottom:1rem">Add gap</h2>
+    <div class="field"><label>Date</label><input type="date" id="gap-date" value="${today}"></div>
+    <div class="field"><label>Start time</label><input type="time" id="gap-time" value="10:00"></div>
+    <div class="field"><label>Duration (minutes)</label><input type="number" id="gap-mins" value="60"></div>
+    <div class="field"><label>Notes</label><input id="gap-notes"></div>
+    <button class="btn btn-navy" onclick="saveGap()">Save gap</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>`);
+}
+async function saveGap(){
+  const date=val("gap-date"), time=val("gap-time"), mins=Number(val("gap-mins")||60);
+  const [y,m,d]=date.split("-").map(Number); const [hh,mm]=time.split(":").map(Number);
+  const start=new Date(y,m-1,d,hh,mm); const end=new Date(start.getTime()+mins*60000);
+  const {error}=await sb.from("lessons").insert({
+    lesson_type:"gap", title:"Gap", start_time:start.toISOString(), end_time:end.toISOString(),
+    status:"booked", payment_status:"unpaid", notes:val("gap-notes")||null, pupil_id:null
+  });
+  if(error) alert(error.message); else {closeModal(); loadGaps()}
+}
+async function delGap(id){if(!confirm("Delete gap?"))return; await sb.from("lessons").delete().eq("id",id); loadGaps()}
+
 async function loadRoster(){
   const el=document.getElementById("roster");
   const {data,error}=await sb.from("students").select("*");
@@ -630,11 +754,104 @@ async function addLearner(){
   ["fn","ln","phone","email","user","pass"].forEach(id=>document.getElementById(id).value="");
   refresh();
 }
-async function delStudent(u){
-  if(!confirm("Delete "+u+"?"))return;
-  await sb.from("students").delete().eq("username",u);
-  loadRoster();
+async function delStudent(u){if(!confirm("Delete "+u+"?"))return; await sb.from("students").delete().eq("username",u); loadRoster()}
+
+/* Settings */
+async function openSettings(which){
+  document.getElementById("settings-menu").classList.add("hidden");
+  const panel=document.getElementById("settings-panel");
+  panel.classList.remove("hidden");
+  if(which==="reminders"){
+    const raw=JSON.parse(localStorage.getItem("dmw_admin_reminders")||'{"enabled":false,"hours":48,"message":"Looking forward to seeing you."}');
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Lesson reminders</h3>
+      <p class="muted">These settings are used by the instructor app reminder helper (in-app). Full push needs extra setup later.</p>
+      <div class="field"><label>Status</label>
+        <select id="rem-on"><option value="1" ${raw.enabled?"selected":""}>Enabled</option><option value="0" ${!raw.enabled?"selected":""}>Disabled</option></select>
+      </div>
+      <div class="field"><label>Send before lesson</label>
+        <select id="rem-hrs">
+          <option value="24" ${raw.hours==24?"selected":""}>24 hours</option>
+          <option value="48" ${raw.hours==48?"selected":""}>48 hours</option>
+          <option value="12" ${raw.hours==12?"selected":""}>12 hours</option>
+        </select>
+      </div>
+      <div class="field"><label>Message</label><input id="rem-msg" value="${esc(raw.message||"")}"></div>
+      <button class="btn btn-navy btn-sm" onclick="saveReminders()">Save</button>`;
+  } else if(which==="diary"){
+    const view=localStorage.getItem("dmw_diary_view")||"week";
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Diary options</h3>
+      <div class="field"><label>Default view (app)</label>
+        <select id="dv"><option value="day" ${view==="day"?"selected":""}>Day</option>
+        <option value="week" ${view==="week"?"selected":""}>Week</option>
+        <option value="month" ${view==="month"?"selected":""}>Month</option></select>
+      </div>
+      <button class="btn btn-navy btn-sm" onclick="localStorage.setItem('dmw_diary_view',document.getElementById('dv').value);alert('Saved (applies on this browser)')">Save</button>`;
+  } else if(which==="resources"){
+    const {data}=await sb.from("resources").select("*").order("sort_order");
+    const rows=data||[];
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Resources</h3>
+      <div id="res-list">${rows.map(r=>`<div class="list-row"><div><strong>${esc(r.title)}</strong><div class="muted">${esc(r.url)}</div></div>
+        <button class="btn-danger" onclick="delRes('${r.id}')">Del</button></div>`).join("")||'<p class="muted">None yet</p>'}</div>
+      <div class="field" style="margin-top:1rem"><label>Title</label><input id="res-t"></div>
+      <div class="field"><label>URL</label><input id="res-u" placeholder="https://"></div>
+      <button class="btn btn-navy btn-sm" onclick="addRes()">Add</button>`;
+  } else if(which==="reflect"){
+    const labels=Object.assign({
+      session_goal:"Session goal", achieved:"What I feel I have achieved today",
+      developed:"What I feel I have developed today", improving:"What I wish to keep improving at",
+      how_develop:"How I will develop that", aim_next:"Aim for next session"
+    }, JSON.parse(localStorage.getItem("dmw_reflect_labels")||"{}"));
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Reflective log questions</h3>
+      ${Object.entries(labels).map(([k,v])=>`<div class="field"><label>${esc(k)}</label><input data-rk="${k}" value="${esc(v)}"></div>`).join("")}
+      <button class="btn btn-navy btn-sm" onclick="saveReflect()">Save</button>`;
+  } else if(which==="branding"){
+    const theme=JSON.parse(localStorage.getItem("dmw_app_theme")||'{"primary":"#0A4CA1","schoolName":"DMW Driving School"}');
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Branding</h3>
+      <div class="field"><label>School name</label><input id="br-name" value="${esc(theme.schoolName||"DMW Driving School")}"></div>
+      <div class="field"><label>Primary colour</label><input id="br-col" type="color" value="${theme.primary||"#0A4CA1"}"></div>
+      <button class="btn btn-navy btn-sm" onclick="saveBrand()">Save</button>
+      <p class="muted" style="margin-top:.75rem">Stored for this browser; logo stays on your website/app assets.</p>`;
+  } else if(which==="terms"){
+    const terms=JSON.parse(localStorage.getItem("dmw_terms")||'{"url":"https://www.dmwdrivingschool.co.uk/terms"}');
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">School terms</h3>
+      <p class="muted">Pupils must accept terms in the app. Agreement is timestamped on their profile.</p>
+      <div class="field"><label>Terms URL</label><input id="terms-url" value="${esc(terms.url||"")}"></div>
+      <button class="btn btn-navy btn-sm" onclick="localStorage.setItem('dmw_terms',JSON.stringify({url:document.getElementById('terms-url').value.trim()}));alert('Saved')">Save</button>`;
+  }
 }
+function saveReminders(){
+  localStorage.setItem("dmw_admin_reminders", JSON.stringify({
+    enabled: document.getElementById("rem-on").value==="1",
+    hours: Number(document.getElementById("rem-hrs").value),
+    message: document.getElementById("rem-msg").value
+  }));
+  alert("Saved");
+}
+function saveReflect(){
+  const o={}; document.querySelectorAll("#settings-panel [data-rk]").forEach(el=>{o[el.dataset.rk]=el.value});
+  localStorage.setItem("dmw_reflect_labels", JSON.stringify(o)); alert("Saved");
+}
+function saveBrand(){
+  localStorage.setItem("dmw_app_theme", JSON.stringify({
+    schoolName: document.getElementById("br-name").value,
+    primary: document.getElementById("br-col").value
+  })); alert("Saved");
+}
+async function addRes(){
+  const title=val("res-t"), url=val("res-u"); if(!title||!url) return alert("Title and URL required");
+  const {error}=await sb.from("resources").insert({title,url,sort_order:99});
+  if(error) alert(error.message); else openSettings("resources");
+}
+async function delRes(id){if(!confirm("Delete?"))return; await sb.from("resources").delete().eq("id",id); openSettings("resources")}
+
+function openModal(html){document.getElementById("modal-box").innerHTML=html; document.getElementById("modal").classList.remove("hidden")}
+function closeModal(){document.getElementById("modal").classList.add("hidden")}
 function fmt(iso){if(!iso)return"–";try{return new Date(iso).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}catch{return iso}}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
 </script>

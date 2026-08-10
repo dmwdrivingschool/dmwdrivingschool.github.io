@@ -3,86 +3,258 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Book Driving Lessons | DMW Driving School</title>
+  <title>Enquiry | DMW Driving School</title>
   <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="canonical" href="https://dmwdrivingschool.co.uk/enquiry">
   <style>
-    :root { --navy: #0A4CA1; --deep: #062F63; --bg: #F4F7FA; }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { background: var(--bg); color: #1e293b; min-height: 100vh; }
+    :root { --navy: #0A4CA1; --deep: #062F63; --bg: #eef2f6; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: #1e293b; min-height: 100vh; }
     header { background: #111; padding: 14px; text-align: center; }
     header img { height: 48px; }
-    .box {
-      max-width: 480px; margin: 32px auto; background: #fff; border-radius: 12px;
-      padding: 28px 22px; box-shadow: 0 8px 24px rgba(0,0,0,.06);
+    .wrap { max-width: 480px; margin: 24px auto; padding: 0 14px 48px; }
+    .card {
+      background: #fff; border-radius: 16px; padding: 24px 20px;
+      box-shadow: 0 8px 28px rgba(0,0,0,.06);
     }
-    h1 { font-size: 1.35rem; color: var(--deep); margin-bottom: 6px; }
-    .sub { color: #64748b; font-size: 0.9rem; margin-bottom: 22px; }
-    label { display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px; }
-    input, select, textarea {
-      width: 100%; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 8px;
-      font-size: 1rem; margin-bottom: 14px;
+    h1 { font-size: 1.35rem; color: var(--deep); margin-bottom: 4px; }
+    .sub { color: #64748b; font-size: .9rem; margin-bottom: 18px; }
+    .steps { display: flex; gap: 6px; margin-bottom: 18px; }
+    .steps i {
+      flex: 1; height: 4px; border-radius: 99px; background: #e2e8f0;
     }
-    button {
-      width: 100%; padding: 14px; background: var(--navy); color: #fff; border: none;
-      border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer;
+    .steps i.on { background: var(--navy); }
+    label { display: block; font-size: .78rem; font-weight: 600; color: #64748b; margin-bottom: 4px; }
+    input, textarea {
+      width: 100%; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 10px;
+      font-size: 1rem; margin-bottom: 12px;
     }
-    button:disabled { opacity: 0.5; }
-    .ok { display: none; text-align: center; padding: 20px 0; }
+    .warn {
+      background: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid #ea580c;
+      border-radius: 10px; padding: 12px; font-size: .88rem; color: #9a3412; margin-bottom: 14px;
+    }
+    .day { margin-bottom: 16px; }
+    .day h3 { font-size: .95rem; font-weight: 700; margin-bottom: 8px; color: var(--deep); }
+    .slots { display: flex; flex-wrap: wrap; gap: 6px; }
+    .slot {
+      border: none; padding: 8px 10px; border-radius: 8px; font-size: .82rem; font-weight: 600;
+      background: #f1f5f9; color: #94a3b8; cursor: pointer;
+    }
+    .slot.on { background: #0A4CA1; color: #fff; }
+    .row { display: flex; gap: 10px; margin-top: 8px; }
+    .btn {
+      flex: 1; padding: 14px; border: none; border-radius: 10px; font-weight: 700;
+      font-size: 1rem; cursor: pointer;
+    }
+    .btn-primary { background: var(--navy); color: #fff; }
+    .btn-ghost { background: #f1f5f9; color: #334155; }
+    .btn:disabled { opacity: .5; }
+    .summary-line { font-size: .9rem; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+    .summary-line strong { color: #64748b; font-weight: 600; display: inline-block; min-width: 90px; }
+    .ok { text-align: center; padding: 12px 0; }
     .ok h2 { color: var(--deep); margin-bottom: 10px; }
-    .ok a { color: var(--navy); font-weight: 600; }
-    footer { text-align: center; padding: 24px; font-size: 0.8rem; color: #94a3b8; }
+    .ok p { color: #475569; font-size: .95rem; line-height: 1.5; margin-bottom: 10px; }
+    .ok a {
+      display: inline-block; margin-top: 8px; padding: 12px 18px; background: var(--navy);
+      color: #fff; text-decoration: none; border-radius: 10px; font-weight: 700;
+    }
+    .err { color: #b91c1c; font-size: .85rem; margin-bottom: 10px; display: none; }
+    footer { text-align: center; padding: 16px; font-size: .78rem; color: #94a3b8; }
+    .page { display: none; }
+    .page.on { display: block; }
   </style>
 </head>
 <body>
   <header>
     <a href="https://dmwdrivingschool.co.uk"><img src="image-1.jpg" alt="DMW Driving School"></a>
   </header>
-  <div class="box" id="form-box">
-    <h1>Enquiry</h1>
-    <p class="sub">Tell us a bit about you and we’ll be in touch as soon as we can.</p>
-    <form id="f" onsubmit="return send(event)">
-      <label>First name *</label>
-      <input id="fn" required>
-      <label>Last name *</label>
-      <input id="ln" required>
-      <label>Phone *</label>
-      <input id="phone" type="tel" required>
-      <label>Email</label>
-      <input id="email" type="email">
-      <label>Preferred gearbox</label>
-      <select id="gear">
-        <option value="manual">Manual</option>
-        <option value="automatic">Automatic</option>
-      </select>
-      <label>Message / availability notes</label>
-      <textarea id="notes" rows="3" placeholder="e.g. evenings after 5pm, weekends…"></textarea>
-      <button type="submit" id="btn">Send enquiry</button>
-    </form>
+
+  <div class="wrap">
+    <div class="card" id="form-card">
+      <h1>Enquiry</h1>
+      <p class="sub">Takes about a minute — three short steps.</p>
+      <div class="steps">
+        <i class="on" id="s1"></i><i id="s2"></i><i id="s3"></i>
+      </div>
+      <div class="err" id="err"></div>
+
+      <!-- PAGE 1 -->
+      <div class="page on" id="p1">
+        <div class="warn">
+          <strong>Manual only.</strong> I only teach in a manual car. Automatic lessons are not available.
+        </div>
+        <label>First name *</label>
+        <input id="fn" required autocomplete="given-name">
+        <label>Last name *</label>
+        <input id="ln" required autocomplete="family-name">
+        <label>Address line 1 *</label>
+        <input id="a1" required autocomplete="address-line1">
+        <label>Address line 2</label>
+        <input id="a2" autocomplete="address-line2">
+        <label>City / town</label>
+        <input id="city" autocomplete="address-level2">
+        <label>Postcode *</label>
+        <input id="pc" required autocomplete="postal-code">
+        <label>Phone *</label>
+        <input id="phone" type="tel" required autocomplete="tel">
+        <label>Email</label>
+        <input id="email" type="email" autocomplete="email">
+        <div class="row">
+          <button type="button" class="btn btn-primary" onclick="go(2)">Next — availability</button>
+        </div>
+      </div>
+
+      <!-- PAGE 2 -->
+      <div class="page" id="p2">
+        <p class="sub">Tap the times you could usually do lessons (9am–8pm, 30‑minute slots).</p>
+        <div id="avail"></div>
+        <div class="row">
+          <button type="button" class="btn btn-ghost" onclick="go(1)">Back</button>
+          <button type="button" class="btn btn-primary" onclick="go(3)">Next — summary</button>
+        </div>
+      </div>
+
+      <!-- PAGE 3 -->
+      <div class="page" id="p3">
+        <div id="summary"></div>
+        <label style="margin-top:12px">Anything else we should know?</label>
+        <textarea id="notes" rows="3" placeholder="e.g. theory already passed, preferred start date…"></textarea>
+        <div class="row">
+          <button type="button" class="btn btn-ghost" onclick="go(2)">Back</button>
+          <button type="button" class="btn btn-primary" id="send-btn" onclick="send()">Send enquiry</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card ok" id="done" style="display:none">
+      <h2>Thank you</h2>
+      <p>Your enquiry has been sent. I’ll be in touch as soon as I can.</p>
+      <p>You’re welcome to install the DMW pupil app now. While you’re on the waiting list you’ll see a short status message there; full access opens when I accept you.</p>
+      <p class="sub">Use the same email/phone you put on this form when your instructor sends a login invite.</p>
+      <a id="app-link" href="https://dmwdrivingschool.co.uk">Back to website</a>
+    </div>
   </div>
-  <div class="box ok" id="done">
-    <h2>Thank you</h2>
-    <p>Your enquiry has been sent. We’ll contact you soon.</p>
-    <p style="margin-top:16px">Optional: install the DMW pupil app when you’re accepted — your instructor will send a login link.</p>
-    <p style="margin-top:20px"><a href="https://dmwdrivingschool.co.uk">Back to website</a></p>
-  </div>
+
   <footer>© DMW Driving School · Gloucester · Grade A instructor</footer>
+
   <script>
     const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
     const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
-    async function send(e) {
-      e.preventDefault();
-      const btn = document.getElementById("btn");
+    const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+    const availability = {};
+    DAYS.forEach(d => availability[d] = []);
+
+    function slots() {
+      const out = [];
+      for (let m = 9 * 60; m < 20 * 60; m += 30) {
+        out.push(String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"));
+      }
+      return out;
+    }
+
+    (function buildAvail() {
+      const root = document.getElementById("avail");
+      const list = slots();
+      DAYS.forEach(day => {
+        const div = document.createElement("div");
+        div.className = "day";
+        div.innerHTML = "<h3>" + day + "</h3>";
+        const row = document.createElement("div");
+        row.className = "slots";
+        list.forEach(t => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "slot";
+          b.textContent = t;
+          b.onclick = () => {
+            const arr = availability[day];
+            const i = arr.indexOf(t);
+            if (i >= 0) arr.splice(i, 1);
+            else arr.push(t);
+            arr.sort();
+            b.classList.toggle("on");
+          };
+          row.appendChild(b);
+        });
+        div.appendChild(row);
+        root.appendChild(div);
+      });
+    })();
+
+    function go(n) {
+      document.getElementById("err").style.display = "none";
+      if (n === 2 && !validate1()) return;
+      if (n === 3) {
+        if (!validate1()) return;
+        renderSummary();
+      }
+      document.querySelectorAll(".page").forEach(p => p.classList.remove("on"));
+      document.getElementById("p" + n).classList.add("on");
+      document.getElementById("s1").classList.toggle("on", n >= 1);
+      document.getElementById("s2").classList.toggle("on", n >= 2);
+      document.getElementById("s3").classList.toggle("on", n >= 3);
+      window.scrollTo(0, 0);
+    }
+
+    function validate1() {
+      const need = ["fn","ln","a1","pc","phone"];
+      for (const id of need) {
+        if (!document.getElementById(id).value.trim()) {
+          showErr("Please complete the required fields on step 1.");
+          go(1);
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function showErr(msg) {
+      const e = document.getElementById("err");
+      e.textContent = msg;
+      e.style.display = "block";
+    }
+
+    function renderSummary() {
+      const availText = DAYS.filter(d => availability[d].length)
+        .map(d => d + ": " + availability[d].join(", "))
+        .join(" · ") || "None selected";
+      document.getElementById("summary").innerHTML = [
+        ["Name", val("fn") + " " + val("ln")],
+        ["Address", [val("a1"), val("a2"), val("city"), val("pc")].filter(Boolean).join(", ")],
+        ["Phone", val("phone")],
+        ["Email", val("email") || "—"],
+        ["Availability", availText],
+      ].map(([k, v]) => '<div class="summary-line"><strong>' + k + '</strong> ' + escapeHtml(v) + '</div>').join("");
+    }
+
+    function val(id) { return document.getElementById(id).value.trim(); }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+    }
+
+    async function send() {
+      if (!validate1()) return;
+      const btn = document.getElementById("send-btn");
       btn.disabled = true;
+      const notesExtra = val("notes");
+      const availText = DAYS.filter(d => availability[d].length)
+        .map(d => d + ": " + availability[d].join(", "))
+        .join("\n");
+
       const body = {
-        first_name: document.getElementById("fn").value.trim(),
-        last_name: document.getElementById("ln").value.trim(),
-        phone: document.getElementById("phone").value.trim(),
-        email: document.getElementById("email").value.trim().toLowerCase() || null,
-        preferred_gearbox: document.getElementById("gear").value,
+        first_name: val("fn"),
+        last_name: val("ln"),
+        phone: val("phone"),
+        email: val("email") || null,
+        address_line1: val("a1"),
+        address_line2: val("a2") || null,
+        city: val("city") || null,
+        postcode: val("pc"),
         status: "enquiry",
-        notes: document.getElementById("notes").value.trim() || null
+        preferred_gearbox: "manual",
+        availability: availability,
+        notes: [notesExtra, availText ? "Availability:\n" + availText : ""].filter(Boolean).join("\n\n") || null
       };
+
       try {
         const res = await fetch(SUPABASE_URL + "/rest/v1/pupils", {
           method: "POST",
@@ -94,14 +266,45 @@
           },
           body: JSON.stringify(body)
         });
-        if (!res.ok) throw new Error(await res.text());
-        document.getElementById("form-box").style.display = "none";
+        if (!res.ok) {
+          const t = await res.text();
+          console.error(t);
+          // Retry with minimal columns if schema is strict
+          const minimal = {
+            first_name: body.first_name,
+            last_name: body.last_name,
+            phone: body.phone,
+            email: body.email,
+            status: "enquiry",
+            notes: [
+              body.address_line1,
+              body.address_line2,
+              body.city,
+              body.postcode,
+              notesExtra,
+              availText ? "Availability:\n" + availText : ""
+            ].filter(Boolean).join("\n")
+          };
+          const res2 = await fetch(SUPABASE_URL + "/rest/v1/pupils", {
+            method: "POST",
+            headers: {
+              apikey: SUPABASE_KEY,
+              Authorization: "Bearer " + SUPABASE_KEY,
+              "Content-Type": "application/json",
+              Prefer: "return=minimal"
+            },
+            body: JSON.stringify(minimal)
+          });
+          if (!res2.ok) throw new Error(await res2.text());
+        }
+        document.getElementById("form-card").style.display = "none";
         document.getElementById("done").style.display = "block";
-      } catch (err) {
-        alert("Could not send — please call or message us, or try again later.");
+        window.scrollTo(0, 0);
+      } catch (e) {
+        console.error(e);
+        showErr("Could not send right now. Please try again or contact the school directly.");
         btn.disabled = false;
       }
-      return false;
     }
   </script>
 </body>

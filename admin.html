@@ -1,669 +1,629 @@
 <!DOCTYPE html>
 <html lang="en-GB">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DMW Control Centre</title>
-  <link rel="icon" type="image/png" href="favicon.png">
-  <style>
-    :root {
-      --navy: #0A4CA1;
-      --deep: #062F63;
-      --gold: #E8B931;
-      --bg: #eef2f6;
-      --card: #ffffff;
-      --text: #1a2332;
-      --muted: #5c6b7a;
-      --line: #d8e0e8;
-      --ok: #0d9f6e;
-      --bad: #c43c3c;
-      --warn: #c47a12;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      background: var(--bg); color: var(--text); min-height: 100vh;
-    }
-
-    /* Gate */
-    #gate {
-      max-width: 380px; margin: 12vh auto; background: var(--card);
-      border-radius: 16px; padding: 2rem 1.5rem; text-align: center;
-      box-shadow: 0 12px 40px rgba(6,47,99,.12);
-    }
-    #gate h1 { font-size: 1.25rem; color: var(--deep); margin-bottom: .35rem; }
-    #gate p { color: var(--muted); font-size: .9rem; margin-bottom: 1.25rem; }
-    #gate input {
-      width: 100%; padding: .75rem 1rem; border: 1px solid var(--line);
-      border-radius: 10px; font-size: 1rem; margin-bottom: .75rem;
-    }
-    .btn {
-      border: none; border-radius: 10px; font-weight: 700; cursor: pointer;
-      padding: .75rem 1rem; font-size: .95rem;
-    }
-    .btn-navy { background: var(--navy); color: #fff; width: 100%; }
-    .btn-gold { background: var(--gold); color: var(--deep); }
-    .btn-sm { padding: .4rem .75rem; font-size: .8rem; width: auto; }
-    .btn-outline {
-      background: #fff; border: 1px solid var(--line); color: var(--text);
-      padding: .4rem .75rem; font-size: .8rem; border-radius: 8px; cursor: pointer;
-    }
-    .err { color: var(--bad); font-size: .85rem; font-weight: 600; display: none; margin-top: .5rem; }
-
-    /* Shell */
-    #app { display: none; }
-    .top {
-      background: var(--deep); color: #fff;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: .85rem 1.25rem; gap: 1rem; flex-wrap: wrap;
-    }
-    .brand { display: flex; align-items: center; gap: .75rem; font-weight: 700; }
-    .brand img { height: 36px; width: auto; }
-    .nav {
-      display: flex; flex-wrap: wrap; gap: .25rem;
-      background: var(--deep); padding: 0 1rem .65rem;
-    }
-    .nav button {
-      background: transparent; border: none; color: #a8c0d8;
-      padding: .5rem .85rem; border-radius: 8px; font-weight: 600;
-      font-size: .88rem; cursor: pointer;
-    }
-    .nav button.on { background: rgba(255,255,255,.12); color: #fff; }
-
-    .main { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
-
-    /* Cards */
-    .stat-row {
-      display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem;
-      margin-bottom: 1.25rem;
-    }
-    @media (min-width: 720px) {
-      .stat-row { grid-template-columns: repeat(4, 1fr); }
-    }
-    .stat {
-      background: var(--card); border-radius: 14px; padding: 1.1rem 1rem;
-      border: 1px solid var(--line);
-    }
-    .stat strong { display: block; font-size: 1.7rem; color: var(--deep); line-height: 1.1; }
-    .stat span { font-size: .8rem; color: var(--muted); }
-
-    .panel {
-      background: var(--card); border: 1px solid var(--line);
-      border-radius: 14px; padding: 1.15rem 1.1rem; margin-bottom: 1rem;
-    }
-    .panel h2 {
-      font-size: 1rem; color: var(--deep); margin-bottom: .85rem;
-      padding-bottom: .5rem; border-bottom: 1px solid var(--line);
-    }
-    .panel h3 { font-size: .9rem; color: var(--muted); margin: 1rem 0 .5rem; text-transform: uppercase; letter-spacing: .03em; }
-
-    .metric-row {
-      display: grid; grid-template-columns: 1fr 1fr; gap: .65rem;
-    }
-    @media (min-width: 700px) { .metric-row { grid-template-columns: repeat(4, 1fr); } }
-    .metric {
-      border: 1px solid var(--line); border-radius: 12px; padding: .85rem;
-      background: #f8fafc;
-    }
-    .metric .v { font-size: 1.15rem; font-weight: 800; }
-    .metric .v.good { color: var(--ok); }
-    .metric .v.bad { color: var(--bad); }
-    .metric .l { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
-
-    .bar {
-      height: 8px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin-top: .45rem;
-    }
-    .bar > i { display: block; height: 100%; background: var(--navy); border-radius: 99px; }
-
-    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
-    th, td { text-align: left; padding: .55rem .4rem; border-bottom: 1px solid var(--line); }
-    th { color: var(--muted); font-size: .75rem; text-transform: uppercase; }
-
-    .field { margin-bottom: .75rem; }
-    .field label { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: .25rem; }
-    .field input, .field select, .field textarea {
-      width: 100%; padding: .65rem .75rem; border: 1px solid var(--line);
-      border-radius: 8px; font-size: .95rem;
-    }
-    .two { display: grid; gap: .75rem; }
-    @media (min-width: 700px) { .two { grid-template-columns: 1fr 1fr; } }
-
-    .chip {
-      display: inline-block; padding: .15rem .5rem; border-radius: 99px;
-      font-size: .72rem; font-weight: 700;
-    }
-    .chip-ok { background: #d1fae5; color: #065f46; }
-    .chip-bad { background: #fee2e2; color: #991b1b; }
-    .chip-wait { background: #fef3c7; color: #92400e; }
-    .chip-info { background: #e0f2fe; color: #075985; }
-
-    .list-row {
-      display: flex; justify-content: space-between; align-items: center;
-      gap: .75rem; padding: .65rem 0; border-bottom: 1px solid var(--line);
-      font-size: .9rem;
-    }
-    .muted { color: var(--muted); font-size: .82rem; }
-    .actions { display: flex; flex-wrap: wrap; gap: .35rem; }
-
-    .tabs-sub { display: flex; gap: .35rem; margin-bottom: .85rem; flex-wrap: wrap; }
-    .tabs-sub button {
-      border: 1px solid var(--line); background: #fff; border-radius: 99px;
-      padding: .35rem .85rem; font-size: .82rem; font-weight: 600; cursor: pointer;
-    }
-    .tabs-sub button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
-
-    footer {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: var(--deep); color: #8aa0b8; text-align: center;
-      padding: .55rem; font-size: .75rem;
-    }
-    .hidden { display: none !important; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DMW Control Centre</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+:root{--navy:#0A4CA1;--deep:#062F63;--gold:#E8B931;--bg:#eef2f6;--card:#fff;--text:#1a2332;--muted:#5c6b7a;--line:#d8e0e8;--ok:#0d9f6e;--bad:#c43c3c}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+#gate{max-width:380px;margin:12vh auto;background:var(--card);border-radius:16px;padding:2rem 1.5rem;text-align:center;box-shadow:0 12px 40px rgba(6,47,99,.12)}
+#gate h1{font-size:1.25rem;color:var(--deep);margin-bottom:.35rem}
+#gate p{color:var(--muted);font-size:.9rem;margin-bottom:1.25rem}
+#gate input{width:100%;padding:.75rem 1rem;border:1px solid var(--line);border-radius:10px;font-size:1rem;margin-bottom:.75rem}
+.btn{border:none;border-radius:10px;font-weight:700;cursor:pointer;padding:.7rem 1rem;font-size:.9rem}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-gold{background:var(--gold);color:var(--deep)}
+.btn-sm{padding:.4rem .7rem;font-size:.8rem}
+.btn-outline{background:#fff;border:1px solid var(--line);color:var(--text);padding:.4rem .7rem;font-size:.8rem;border-radius:8px;cursor:pointer}
+.btn-danger{background:#fee2e2;color:#991b1b;border:none;padding:.4rem .7rem;font-size:.8rem;border-radius:8px;cursor:pointer}
+.err{color:var(--bad);font-size:.85rem;font-weight:600;display:none;margin-top:.5rem}
+#app{display:none}
+.top{background:var(--deep);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.25rem;gap:1rem;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:.75rem;font-weight:700}
+.brand img{height:36px;width:auto}
+.nav{display:flex;flex-wrap:wrap;gap:.25rem;background:var(--deep);padding:0 1rem .65rem}
+.nav button{background:transparent;border:none;color:#a8c0d8;padding:.5rem .8rem;border-radius:8px;font-weight:600;font-size:.85rem;cursor:pointer}
+.nav button.on{background:rgba(255,255,255,.12);color:#fff}
+.main{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 5rem}
+.stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;margin-bottom:1.25rem}
+@media(min-width:720px){.stat-row{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--card);border-radius:14px;padding:1.1rem 1rem;border:1px solid var(--line);cursor:pointer;text-align:left;width:100%;transition:box-shadow .15s}
+.stat:hover{box-shadow:0 4px 14px rgba(6,47,99,.1)}
+.stat strong{display:block;font-size:1.7rem;color:var(--deep);line-height:1.1}
+.stat span{font-size:.8rem;color:var(--muted)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.15rem 1.1rem;margin-bottom:1rem}
+.panel h2{font-size:1rem;color:var(--deep);margin-bottom:.85rem;padding-bottom:.5rem;border-bottom:1px solid var(--line)}
+.metric-row{display:grid;grid-template-columns:1fr 1fr;gap:.65rem}
+@media(min-width:700px){.metric-row{grid-template-columns:repeat(4,1fr)}}
+.metric{border:1px solid var(--line);border-radius:12px;padding:.85rem;background:#f8fafc}
+.metric .v{font-size:1.15rem;font-weight:800}
+.metric .v.good{color:var(--ok)}.metric .v.bad{color:var(--bad)}
+.metric .l{font-size:.75rem;color:var(--muted);margin-top:.2rem}
+.bar{height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:.45rem}
+.bar>i{display:block;height:100%;background:var(--navy);border-radius:99px}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{text-align:left;padding:.55rem .4rem;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-size:.72rem;text-transform:uppercase}
+.field{margin-bottom:.75rem}
+.field label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.25rem}
+.field input,.field select,.field textarea{width:100%;padding:.65rem .75rem;border:1px solid var(--line);border-radius:8px;font-size:.95rem}
+.two{display:grid;gap:.75rem}
+@media(min-width:700px){.two{grid-template-columns:1fr 1fr}}
+.chip{display:inline-block;padding:.15rem .5rem;border-radius:99px;font-size:.72rem;font-weight:700}
+.chip-ok{background:#d1fae5;color:#065f46}.chip-bad{background:#fee2e2;color:#991b1b}
+.chip-wait{background:#fef3c7;color:#92400e}.chip-info{background:#e0f2fe;color:#075985}
+.list-row{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.65rem 0;border-bottom:1px solid var(--line);font-size:.9rem}
+.muted{color:var(--muted);font-size:.82rem}
+.actions{display:flex;flex-wrap:wrap;gap:.35rem}
+.tabs-sub{display:flex;gap:.35rem;margin-bottom:.85rem;flex-wrap:wrap}
+.tabs-sub button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:.35rem .85rem;font-size:.82rem;font-weight:600;cursor:pointer}
+.tabs-sub button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.hidden{display:none!important}
+footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0b8;text-align:center;padding:.55rem;font-size:.75rem}
+.diary-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap}
+.diary-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:.75rem}
+.diary-day{background:#f8fafc;border:1px solid var(--line);border-radius:8px;min-height:120px;padding:4px}
+.diary-day h4{font-size:.7rem;color:var(--muted);margin-bottom:4px;text-align:center}
+.lesson-chip{font-size:.65rem;background:var(--navy);color:#fff;border-radius:4px;padding:2px 4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.lesson-chip.away{background:#64748b}
+.lesson-chip.gap{background:#94a3b8}
+.filters{display:flex;flex-wrap:wrap;gap:.5rem;align-items:end;margin-bottom:.85rem}
+.filters .field{margin:0;min-width:120px}
+</style>
 </head>
 <body>
-  <div id="gate">
-    <h1>DMW Control Centre</h1>
-    <p>Instructor access only</p>
-    <input type="password" id="gate-pass" placeholder="Master password" autocomplete="current-password">
-    <button class="btn btn-navy" onclick="unlock()">Open</button>
-    <div class="err" id="gate-err">Incorrect password</div>
+<div id="gate">
+  <h1>DMW Control Centre</h1>
+  <p>Instructor access only</p>
+  <input type="password" id="gate-pass" placeholder="Master password" autocomplete="current-password">
+  <button class="btn btn-navy" style="width:100%" onclick="unlock()">Open</button>
+  <div class="err" id="gate-err">Incorrect password</div>
+</div>
+<div id="app">
+  <div class="top">
+    <div class="brand"><img src="image-1.jpg" alt="DMW" onerror="this.remove()"><span>DMW Control Centre</span></div>
+    <button class="btn btn-gold btn-sm" onclick="lock()">Lock</button>
   </div>
-
-  <div id="app">
-    <div class="top">
-      <div class="brand">
-        <img src="image-1.jpg" alt="DMW" onerror="this.remove()">
-        <span>DMW Control Centre</span>
+  <nav class="nav" id="main-nav">
+    <button class="on" data-tab="dash">Dashboard</button>
+    <button data-tab="pupils">Pupils</button>
+    <button data-tab="enquiries">Enquiries</button>
+    <button data-tab="diary">Diary</button>
+    <button data-tab="tests">Tests</button>
+    <button data-tab="finance">Finances</button>
+    <button data-tab="gaps">Gaps</button>
+    <button data-tab="portal">Portal</button>
+  </nav>
+  <div class="main">
+    <section id="tab-dash">
+      <div class="stat-row">
+        <button type="button" class="stat" onclick="goTab('pupils','active')"><strong id="n-active">–</strong><span>Active pupils</span></button>
+        <button type="button" class="stat" onclick="goTab('pupils','waiting')"><strong id="n-waiting">–</strong><span>Waiting list</span></button>
+        <button type="button" class="stat" onclick="goTab('enquiries')"><strong id="n-enquiry">–</strong><span>Open enquiries</span></button>
+        <button type="button" class="stat" onclick="goTab('tests')"><strong id="n-tests">–</strong><span>Upcoming tests</span></button>
       </div>
-      <button class="btn btn-gold btn-sm" onclick="lock()">Lock</button>
-    </div>
-    <nav class="nav" id="main-nav">
-      <button class="on" data-tab="dash">Dashboard</button>
-      <button data-tab="enquiries">Enquiries</button>
-      <button data-tab="tests">Tests</button>
-      <button data-tab="finance">Finances</button>
-      <button data-tab="gaps">Gaps</button>
-      <button data-tab="portal">Portal</button>
-    </nav>
-
-    <div class="main">
-      <!-- DASHBOARD -->
-      <section id="tab-dash">
-        <div class="stat-row">
-          <div class="stat"><strong id="n-active">–</strong><span>Active pupils</span></div>
-          <div class="stat"><strong id="n-waiting">–</strong><span>Waiting list</span></div>
-          <div class="stat"><strong id="n-enquiry">–</strong><span>Open enquiries</span></div>
-          <div class="stat"><strong id="n-tests">–</strong><span>Upcoming tests</span></div>
-        </div>
-
-        <div class="panel">
-          <h2>School snapshot</h2>
-          <div class="metric-row" id="metrics">
-            <div class="metric"><div class="v" id="m-pass">–</div><div class="l">Pass rate (all tests)</div></div>
-            <div class="metric"><div class="v" id="m-faults">–</div><div class="l">Avg driving faults</div></div>
-            <div class="metric"><div class="v" id="m-serious">–</div><div class="l">Avg serious faults</div></div>
-            <div class="metric"><div class="v" id="m-cancel">–</div><div class="l">Cancelled (last 14 days)</div></div>
-          </div>
-          <div style="margin-top:1rem">
-            <div class="muted">Pupils with a future lesson booked</div>
-            <div class="bar"><i id="bar-booked" style="width:0%"></i></div>
-            <div class="muted" id="booked-label" style="margin-top:.35rem"></div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <h2>Shortcuts</h2>
-          <div class="actions">
-            <a class="btn-outline" href="enquiry.html" target="_blank">Public enquiry form</a>
-            <a class="btn-outline" href="portal.html" target="_blank">Video portal</a>
-            <button class="btn-outline" onclick="exportFinance()">Download finance CSV</button>
-          </div>
-          <p class="muted" style="margin-top:.75rem">
-            Diary, messages, progress and reflective logs live in your instructor app (Vercel / local).
-          </p>
-        </div>
-      </section>
-
-      <!-- ENQUIRIES -->
-      <section id="tab-enquiries" class="hidden">
-        <div class="panel">
-          <h2>Website enquiries</h2>
-          <p class="muted" style="margin-bottom:.75rem">From dmwdrivingschool.co.uk/enquiry — accept moves them to waiting.</p>
-          <div id="enquiry-list">Loading…</div>
-        </div>
-      </section>
-
-      <!-- TESTS -->
-      <section id="tab-tests" class="hidden">
-        <div class="panel">
-          <h2>Practical tests</h2>
-          <div class="tabs-sub">
-            <button class="on" onclick="showTests('future', this)">Upcoming</button>
-            <button onclick="showTests('past', this)">Past</button>
-          </div>
-          <div id="test-list">Loading…</div>
-        </div>
-      </section>
-
-      <!-- FINANCE -->
-      <section id="tab-finance" class="hidden">
-        <div class="panel">
-          <h2>Finances</h2>
-          <div class="tabs-sub">
-            <button class="on" onclick="showFin('summary', this)">Summary</button>
-            <button onclick="showFin('income', this)">Income</button>
-            <button onclick="showFin('expense', this)">Expenses</button>
-          </div>
-          <div id="fin-summary"></div>
-          <div id="fin-income" class="hidden"></div>
-          <div id="fin-expense" class="hidden"></div>
-          <button class="btn btn-navy btn-sm" style="margin-top:1rem;width:auto" onclick="exportFinance()">Export CSV</button>
-        </div>
-      </section>
-
-      <!-- GAPS -->
-      <section id="tab-gaps" class="hidden">
-        <div class="panel">
-          <h2>Open gaps on the diary</h2>
-          <p class="muted" style="margin-bottom:.75rem">Slots marked as available for pupils to request.</p>
-          <div id="gap-list">Loading…</div>
-        </div>
-      </section>
-
-      <!-- PORTAL -->
-      <section id="tab-portal" class="hidden">
-        <div class="two">
-          <div class="panel">
-            <h2>Add portal + app learner</h2>
-            <div class="field"><label>First name</label><input id="fn"></div>
-            <div class="field"><label>Last name</label><input id="ln"></div>
-            <div class="field"><label>Phone</label><input id="phone"></div>
-            <div class="field"><label>Email</label><input id="email" type="email"></div>
-            <div class="field"><label>Username</label><input id="user" placeholder="e.g. johnsmith"></div>
-            <div class="field"><label>Password (blank = auto)</label><input id="pass"></div>
-            <button class="btn btn-navy" onclick="addLearner()">Save</button>
-          </div>
-          <div class="panel">
-            <h2>Portal logins</h2>
-            <div id="roster">Loading…</div>
-          </div>
-        </div>
-        <div class="panel">
-          <h2>Recent portal activity</h2>
-          <div id="activity">Loading…</div>
-        </div>
-      </section>
-    </div>
-  </div>
-
-  <footer>DMW Driving School · Gloucester · Control Centre</footer>
-
-  <script>
-    const URL = "https://cxcqmyxbpjueezapknim.supabase.co";
-    const KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
-    const H = { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json" };
-
-    let paymentsCache = [];
-    let testsCache = [];
-
-    document.getElementById("main-nav").addEventListener("click", (e) => {
-      const b = e.target.closest("button[data-tab]");
-      if (!b) return;
-      document.querySelectorAll("#main-nav button").forEach(x => x.classList.remove("on"));
-      b.classList.add("on");
-      document.querySelectorAll(".main > section").forEach(s => s.classList.add("hidden"));
-      document.getElementById("tab-" + b.dataset.tab).classList.remove("hidden");
-    });
-
-    async function unlock() {
-      const pass = document.getElementById("gate-pass").value.trim();
-      if (!pass) return;
-      try {
-        const rows = await (await fetch(URL + "/rest/v1/credentials?select=*", { headers: H })).json();
-        const admin = (rows || []).find(r => r.role === "admin");
-        if (admin && admin.password === pass) {
-          document.getElementById("gate").style.display = "none";
-          document.getElementById("app").style.display = "block";
-          refresh();
-          setInterval(refresh, 30000);
-        } else {
-          document.getElementById("gate-err").style.display = "block";
-        }
-      } catch {
-        document.getElementById("gate-err").textContent = "Connection error";
-        document.getElementById("gate-err").style.display = "block";
-      }
-    }
-    function lock() {
-      document.getElementById("app").style.display = "none";
-      document.getElementById("gate").style.display = "block";
-    }
-
-    async function refresh() {
-      loadDash();
-      loadEnquiries();
-      loadTests();
-      loadFinance();
-      loadGaps();
-      loadRoster();
-      loadActivity();
-    }
-
-    async function loadDash() {
-      try {
-        const pupils = await (await fetch(URL + "/rest/v1/pupils?select=id,status", { headers: H })).json() || [];
-        const active = pupils.filter(p => p.status === "active");
-        document.getElementById("n-active").textContent = active.length;
-        document.getElementById("n-waiting").textContent = pupils.filter(p => p.status === "waiting").length;
-        document.getElementById("n-enquiry").textContent = pupils.filter(p => p.status === "enquiry").length;
-
-        const now = new Date().toISOString();
-        const tests = await (await fetch(URL + "/rest/v1/practical_tests?select=*&order=test_date.desc", { headers: H })).json() || [];
-        testsCache = Array.isArray(tests) ? tests : [];
-        document.getElementById("n-tests").textContent = testsCache.filter(t => t.test_date >= now).length;
-
-        const done = testsCache.filter(t => t.result === "pass" || t.result === "fail");
-        const passes = done.filter(t => t.result === "pass").length;
-        const passRate = done.length ? Math.round((passes / done.length) * 100) : null;
-        const elPass = document.getElementById("m-pass");
-        elPass.textContent = passRate == null ? "–" : passRate + "%";
-        elPass.className = "v " + (passRate == null ? "" : passRate >= 55 ? "good" : "bad");
-
-        const withFaults = testsCache.filter(t => t.driving_faults != null);
-        const avgF = withFaults.length
-          ? (withFaults.reduce((s, t) => s + Number(t.driving_faults || 0), 0) / withFaults.length).toFixed(2)
-          : "–";
-        const avgS = withFaults.length
-          ? (withFaults.reduce((s, t) => s + Number(t.serious_faults || 0), 0) / withFaults.length).toFixed(2)
-          : "–";
-        document.getElementById("m-faults").textContent = avgF;
-        document.getElementById("m-faults").className = "v " + (avgF !== "–" && Number(avgF) < 6 ? "good" : avgF !== "–" ? "bad" : "");
-        document.getElementById("m-serious").textContent = avgS;
-        document.getElementById("m-serious").className = "v " + (avgS !== "–" && Number(avgS) < 0.55 ? "good" : avgS !== "–" ? "bad" : "");
-
-        const since = new Date(Date.now() - 14 * 864e5).toISOString();
-        const lessons = await (await fetch(
-          URL + "/rest/v1/lessons?select=id,status,pupil_id,start_time,lesson_type&start_time=gte." + since,
-          { headers: H }
-        )).json() || [];
-        const real = (lessons || []).filter(l => l.lesson_type !== "gap" && l.lesson_type !== "student_away");
-        const cancelled = real.filter(l => l.status === "cancelled").length;
-        const cancelPct = real.length ? Math.round((cancelled / real.length) * 100) : 0;
-        document.getElementById("m-cancel").textContent = cancelPct + "%";
-        document.getElementById("m-cancel").className = "v " + (cancelPct > 25 ? "bad" : "good");
-
-        const future = await (await fetch(
-          URL + "/rest/v1/lessons?select=pupil_id&start_time=gte." + now + "&status=neq.cancelled&lesson_type=neq.gap&lesson_type=neq.student_away",
-          { headers: H }
-        )).json() || [];
-        const withLesson = new Set((future || []).map(l => l.pupil_id).filter(Boolean));
-        const pct = active.length ? Math.round((withLesson.size / active.length) * 100) : 0;
-        document.getElementById("bar-booked").style.width = pct + "%";
-        document.getElementById("booked-label").textContent = withLesson.size + " of " + active.length + " active pupils (" + pct + "%)";
-      } catch (e) {
-        console.warn(e);
-      }
-    }
-
-    async function loadEnquiries() {
-      const el = document.getElementById("enquiry-list");
-      try {
-        const rows = await (await fetch(
-          URL + "/rest/v1/pupils?status=eq.enquiry&select=*&order=created_at.desc&limit=30",
-          { headers: H }
-        )).json() || [];
-        if (!rows.length) {
-          el.innerHTML = '<p class="muted">No open enquiries</p>';
-          return;
-        }
-        el.innerHTML = rows.map(p => `
-          <div class="list-row">
-            <div>
-              <strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
-              <div class="muted">${esc(p.phone || "")} · ${esc(p.email || "")}</div>
-              <div class="muted">${esc(p.notes || "")}</div>
-            </div>
-            <div class="actions">
-              <button class="btn btn-navy btn-sm" onclick="setStatus('${p.id}','waiting')">Accept</button>
-              <button class="btn-outline" onclick="setStatus('${p.id}','inactive')">Decline</button>
-              <button class="btn-outline" onclick="removePupil('${p.id}')">Remove</button>
-            </div>
-          </div>`).join("");
-      } catch {
-        el.innerHTML = '<p class="muted">Could not load enquiries</p>';
-      }
-    }
-
-    async function setStatus(id, status) {
-      await fetch(URL + "/rest/v1/pupils?id=eq." + id, {
-        method: "PATCH", headers: { ...H, Prefer: "return=minimal" },
-        body: JSON.stringify({ status })
-      });
-      refresh();
-    }
-    async function removePupil(id) {
-      if (!confirm("Remove this record?")) return;
-      await fetch(URL + "/rest/v1/pupils?id=eq." + id, { method: "DELETE", headers: H });
-      refresh();
-    }
-
-    async function loadTests() {
-      const rows = testsCache.length ? testsCache : await (await fetch(URL + "/rest/v1/practical_tests?select=*,pupil:pupils(first_name,last_name)&order=test_date.desc", { headers: H })).json() || [];
-      if (!testsCache.length) testsCache = Array.isArray(rows) ? rows : [];
-      showTests("future");
-    }
-
-    function showTests(mode, btn) {
-      if (btn) {
-        btn.parentElement.querySelectorAll("button").forEach(b => b.classList.remove("on"));
-        btn.classList.add("on");
-      }
-      const now = new Date().toISOString();
-      const list = (testsCache || []).filter(t => mode === "future" ? t.test_date >= now : t.test_date < now);
-      const el = document.getElementById("test-list");
-      if (!list.length) {
-        el.innerHTML = '<p class="muted">None</p>';
-        return;
-      }
-      el.innerHTML = `<table><thead><tr><th>Pupil</th><th>Date</th><th>Result</th><th>Centre</th></tr></thead><tbody>` +
-        list.map(t => {
-          const name = t.pupil ? `${t.pupil.first_name} ${t.pupil.last_name}` : "–";
-          const res = t.result || "tbc";
-          const chip = res === "pass" ? "chip-ok" : res === "fail" ? "chip-bad" : "chip-wait";
-          return `<tr>
-            <td>${esc(name)}</td>
-            <td>${fmt(t.test_date)}</td>
-            <td><span class="chip ${chip}">${esc(res)}</span></td>
-            <td>${esc(t.centre || "–")}</td>
-          </tr>`;
-        }).join("") + "</tbody></table>";
-    }
-
-    async function loadFinance() {
-      try {
-        paymentsCache = await (await fetch(
-          URL + "/rest/v1/payments?select=*,pupil:pupils(first_name,last_name)&order=transaction_date.desc&limit=200",
-          { headers: H }
-        )).json() || [];
-      } catch { paymentsCache = []; }
-      showFin("summary");
-    }
-
-    function showFin(mode, btn) {
-      if (btn) {
-        btn.parentElement.querySelectorAll("button").forEach(b => b.classList.remove("on"));
-        btn.classList.add("on");
-      }
-      document.getElementById("fin-summary").classList.toggle("hidden", mode !== "summary");
-      document.getElementById("fin-income").classList.toggle("hidden", mode !== "income");
-      document.getElementById("fin-expense").classList.toggle("hidden", mode !== "expense");
-
-      const rows = Array.isArray(paymentsCache) ? paymentsCache : [];
-      const income = rows.filter(r => (r.type || "").toLowerCase().includes("income") || (r.type || "").toLowerCase() === "lesson" || Number(r.amount) > 0 && !(r.type || "").toLowerCase().includes("expense"));
-      // Prefer explicit type
-      const inc = rows.filter(r => {
-        const t = (r.type || r.transaction_type || "").toLowerCase();
-        return t.includes("income") || t.includes("lesson") || t === "payment";
-      });
-      const exp = rows.filter(r => {
-        const t = (r.type || r.transaction_type || "").toLowerCase();
-        return t.includes("expense") || t.includes("cost");
-      });
-      // Fallback: if no types match, split by amount sign isn't available — show all in income
-      const incomeRows = exp.length || inc.length ? inc : rows;
-      const expenseRows = exp;
-
-      const sumInc = incomeRows.reduce((s, r) => s + Number(r.amount || 0), 0);
-      const sumExp = expenseRows.reduce((s, r) => s + Number(r.amount || 0), 0);
-
-      document.getElementById("fin-summary").innerHTML = `
+      <div class="panel">
+        <h2>School snapshot</h2>
         <div class="metric-row">
-          <div class="metric"><div class="v good">£${sumInc.toFixed(2)}</div><div class="l">Income (listed)</div></div>
-          <div class="metric"><div class="v bad">£${sumExp.toFixed(2)}</div><div class="l">Expenses (listed)</div></div>
-          <div class="metric"><div class="v">£${(sumInc - sumExp).toFixed(2)}</div><div class="l">Difference</div></div>
+          <div class="metric"><div class="v" id="m-pass">–</div><div class="l">Pass rate</div></div>
+          <div class="metric"><div class="v" id="m-faults">–</div><div class="l">Avg driving faults</div></div>
+          <div class="metric"><div class="v" id="m-serious">–</div><div class="l">Avg serious faults</div></div>
+          <div class="metric"><div class="v" id="m-cancel">–</div><div class="l">Cancelled (14 days)</div></div>
         </div>
-        <p class="muted" style="margin-top:.75rem">Figures from the app payments table. Use the instructor app Money tab to add or edit.</p>`;
+        <div style="margin-top:1rem">
+          <div class="muted">Active pupils with a future lesson</div>
+          <div class="bar"><i id="bar-booked" style="width:0%"></i></div>
+          <div class="muted" id="booked-label" style="margin-top:.35rem"></div>
+        </div>
+      </div>
+    </section>
 
-      document.getElementById("fin-income").innerHTML = tablePay(incomeRows);
-      document.getElementById("fin-expense").innerHTML = tablePay(expenseRows.length ? expenseRows : []);
-    }
+    <section id="tab-pupils" class="hidden">
+      <div class="panel">
+        <h2>Pupils</h2>
+        <div class="tabs-sub" id="pupil-filters">
+          <button class="on" data-status="all">All</button>
+          <button data-status="active">Active</button>
+          <button data-status="waiting">Waiting</button>
+          <button data-status="passed">Passed</button>
+          <button data-status="inactive">Inactive</button>
+        </div>
+        <input id="pupil-search" placeholder="Search name / phone / email" style="width:100%;padding:.65rem .75rem;border:1px solid var(--line);border-radius:8px;margin-bottom:.75rem">
+        <div id="pupil-list">Loading…</div>
+      </div>
+    </section>
 
-    function tablePay(rows) {
-      if (!rows.length) return '<p class="muted">No rows</p>';
-      return `<table><thead><tr><th>Date</th><th>Detail</th><th>Amount</th><th>Method</th></tr></thead><tbody>` +
-        rows.map(r => {
-          const pupil = r.pupil ? `${r.pupil.first_name} ${r.pupil.last_name}` : "";
-          return `<tr>
-            <td>${esc(r.transaction_date || "")}</td>
-            <td>${esc(pupil || r.type || r.notes || "")}</td>
-            <td>£${Number(r.amount || 0).toFixed(2)}</td>
-            <td>${esc(r.payment_method || "–")}</td>
-          </tr>`;
-        }).join("") + "</tbody></table>";
-    }
+    <section id="tab-enquiries" class="hidden">
+      <div class="panel">
+        <h2>Website enquiries</h2>
+        <div id="enquiry-list">Loading…</div>
+      </div>
+    </section>
 
-    async function loadGaps() {
-      const el = document.getElementById("gap-list");
-      try {
-        const now = new Date().toISOString();
-        const rows = await (await fetch(
-          URL + "/rest/v1/lessons?lesson_type=eq.gap&start_time=gte." + now + "&order=start_time.asc&limit=40",
-          { headers: H }
-        )).json() || [];
-        if (!rows.length) {
-          el.innerHTML = '<p class="muted">No upcoming gaps</p>';
-          return;
-        }
-        el.innerHTML = `<table><thead><tr><th>When</th><th>Notes</th></tr></thead><tbody>` +
-          rows.map(g => `<tr><td>${fmt(g.start_time)}</td><td>${esc(g.notes || g.title || "–")}</td></tr>`).join("") +
-          "</tbody></table>";
-      } catch {
-        el.innerHTML = '<p class="muted">Could not load gaps</p>';
-      }
-    }
+    <section id="tab-diary" class="hidden">
+      <div class="panel">
+        <h2>Diary (week view)</h2>
+        <div class="diary-head">
+          <button class="btn-outline" onclick="shiftWeek(-1)">‹ Prev</button>
+          <strong id="week-label"></strong>
+          <button class="btn-outline" onclick="shiftWeek(1)">Next ›</button>
+        </div>
+        <div class="diary-days" id="diary-grid"></div>
+        <p class="muted" style="margin-top:.75rem">Full edit/cancel is in the instructor app. This is a web overview.</p>
+      </div>
+    </section>
 
-    async function loadRoster() {
-      const el = document.getElementById("roster");
-      try {
-        const rows = await (await fetch(URL + "/rest/v1/students?select=*", { headers: H })).json() || [];
-        if (!rows.length) {
-          el.innerHTML = '<p class="muted">No portal accounts</p>';
-          return;
-        }
-        el.innerHTML = rows.map(s => `
-          <div class="list-row">
-            <div><strong>${esc(s.username)}</strong><div class="muted">${esc(s.password || "")}</div></div>
-            <button class="btn-outline" onclick="delStudent('${esc(s.username)}')">Delete</button>
-          </div>`).join("");
-      } catch {
-        el.innerHTML = '<p class="muted">Error</p>';
-      }
-    }
+    <section id="tab-tests" class="hidden">
+      <div class="panel">
+        <h2>Practical tests</h2>
+        <div class="tabs-sub">
+          <button class="on" onclick="showTests('future',this)">Upcoming</button>
+          <button onclick="showTests('past',this)">Past</button>
+        </div>
+        <div id="test-list">Loading…</div>
+      </div>
+    </section>
 
-    async function loadActivity() {
-      const el = document.getElementById("activity");
-      try {
-        const rows = await (await fetch(URL + "/rest/v1/activity_logs?order=created_at.desc&limit=15", { headers: H })).json() || [];
-        if (!rows.length) {
-          el.innerHTML = '<p class="muted">No activity</p>';
-          return;
-        }
-        el.innerHTML = rows.map(l => `
-          <div class="list-row">
-            <div><strong>${esc(l.username)}</strong> — ${esc(l.action)}
-            <div class="muted">${l.created_at ? new Date(l.created_at).toLocaleString("en-GB") : ""}</div></div>
-          </div>`).join("");
-      } catch {
-        el.innerHTML = '<p class="muted">No activity log</p>';
-      }
-    }
+    <section id="tab-finance" class="hidden">
+      <div class="panel">
+        <h2>Finances</h2>
+        <div class="filters">
+          <div class="field"><label>Period</label>
+            <select id="fin-period" onchange="onPeriodChange()">
+              <option value="this_tax">This tax year</option>
+              <option value="last_tax">Last tax year</option>
+              <option value="this_month">This month</option>
+              <option value="last_month">Last month</option>
+              <option value="custom">Custom dates</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+          <div class="field" id="fin-from-wrap" style="display:none"><label>From</label><input type="date" id="fin-from"></div>
+          <div class="field" id="fin-to-wrap" style="display:none"><label>To</label><input type="date" id="fin-to"></div>
+          <button class="btn btn-navy btn-sm" onclick="applyFinance()">Apply</button>
+          <button class="btn-outline" onclick="exportFinance()">Export CSV</button>
+        </div>
+        <div class="tabs-sub">
+          <button class="on" onclick="showFin('summary',this)">Summary</button>
+          <button onclick="showFin('income',this)">Income</button>
+          <button onclick="showFin('expense',this)">Expenses</button>
+          <button onclick="showFin('add',this)">Add entry</button>
+        </div>
+        <div id="fin-summary"></div>
+        <div id="fin-income" class="hidden"></div>
+        <div id="fin-expense" class="hidden"></div>
+        <div id="fin-add" class="hidden">
+          <div class="two">
+            <div class="field"><label>Type</label>
+              <select id="pay-type"><option value="income">Income</option><option value="expense">Expense</option></select>
+            </div>
+            <div class="field"><label>Category</label>
+              <input id="pay-cat" placeholder="e.g. Student Lesson / Fuel">
+            </div>
+            <div class="field"><label>Amount (£)</label><input id="pay-amt" type="number" step="0.01"></div>
+            <div class="field"><label>Date</label><input id="pay-date" type="date"></div>
+            <div class="field"><label>Method</label>
+              <select id="pay-method"><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Direct Debit</option><option>Other</option></select>
+            </div>
+            <div class="field"><label>Notes</label><input id="pay-notes"></div>
+          </div>
+          <button class="btn btn-navy" style="margin-top:.5rem;width:auto" onclick="addPayment()">Save entry</button>
+        </div>
+      </div>
+    </section>
 
-    async function addLearner() {
-      const user = document.getElementById("user").value.trim().toLowerCase();
-      let pass = document.getElementById("pass").value.trim();
-      const first = document.getElementById("fn").value.trim() || user;
-      const last = document.getElementById("ln").value.trim() || "";
-      const phone = document.getElementById("phone").value.trim() || null;
-      const email = document.getElementById("email").value.trim().toLowerCase() || null;
-      if (!user) return alert("Username required");
-      if (!pass) {
-        const c = "abcdefghijkmnpqrstuvwxyz23456789";
-        pass = Array.from({ length: 10 }, () => c[Math.floor(Math.random() * c.length)]).join("");
-      }
-      await fetch(URL + "/rest/v1/students", {
-        method: "POST", headers: { ...H, Prefer: "return=minimal" },
-        body: JSON.stringify({ username: user, password: pass })
-      });
-      await fetch(URL + "/rest/v1/pupils", {
-        method: "POST", headers: { ...H, Prefer: "return=minimal" },
-        body: JSON.stringify({
-          first_name: first, last_name: last || user, phone, email,
-          status: "waiting", portal_username: user, portal_password: pass
-        })
-      });
-      alert("Saved\\nUsername: " + user + "\\nPassword: " + pass);
-      ["fn","ln","phone","email","user","pass"].forEach(id => document.getElementById(id).value = "");
+    <section id="tab-gaps" class="hidden">
+      <div class="panel"><h2>Upcoming gaps</h2><div id="gap-list">Loading…</div></div>
+    </section>
+
+    <section id="tab-portal" class="hidden">
+      <div class="two">
+        <div class="panel">
+          <h2>Add portal + app learner</h2>
+          <div class="field"><label>First name</label><input id="fn"></div>
+          <div class="field"><label>Last name</label><input id="ln"></div>
+          <div class="field"><label>Phone</label><input id="phone"></div>
+          <div class="field"><label>Email</label><input id="email" type="email"></div>
+          <div class="field"><label>Username</label><input id="user"></div>
+          <div class="field"><label>Password (blank = auto)</label><input id="pass"></div>
+          <button class="btn btn-navy" onclick="addLearner()">Save</button>
+        </div>
+        <div class="panel"><h2>Portal logins</h2><div id="roster">Loading…</div></div>
+      </div>
+      <div class="panel"><h2>Recent portal activity</h2><div id="activity">Loading…</div></div>
+    </section>
+  </div>
+</div>
+<footer>DMW Driving School · Gloucester · Control Centre</footer>
+<script>
+const BASE="https://cxcqmyxbpjueezapknim.supabase.co";
+const KEY="sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+const H={apikey:KEY,Authorization:"Bearer "+KEY,"Content-Type":"application/json"};
+
+let pupilsCache=[], paymentsCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="all";
+
+function startOfWeek(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x}
+function taxYearBounds(offset){
+  const now=new Date();
+  let y=now.getFullYear();
+  const startThis=new Date(y,3,6);
+  if(now<startThis) y--;
+  y+=offset;
+  return {from: y+"-04-06", to:(y+1)+"-04-05"};
+}
+
+document.getElementById("main-nav").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-tab]"); if(!b)return;
+  goTab(b.dataset.tab);
+});
+
+function goTab(tab, pupilFilter){
+  document.querySelectorAll("#main-nav button").forEach(x=>x.classList.toggle("on",x.dataset.tab===tab));
+  document.querySelectorAll(".main > section").forEach(s=>s.classList.add("hidden"));
+  document.getElementById("tab-"+tab).classList.remove("hidden");
+  if(tab==="pupils"){
+    if(pupilFilter){pupilStatusFilter=pupilFilter; syncPupilFilterBtns()}
+    renderPupils();
+  }
+  if(tab==="diary") renderDiary();
+  if(tab==="finance") applyFinance();
+  if(tab==="tests") showTests("future");
+}
+
+function syncPupilFilterBtns(){
+  document.querySelectorAll("#pupil-filters button").forEach(b=>b.classList.toggle("on",b.dataset.status===pupilStatusFilter));
+}
+
+document.getElementById("pupil-filters").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-status]"); if(!b)return;
+  pupilStatusFilter=b.dataset.status; syncPupilFilterBtns(); renderPupils();
+});
+document.getElementById("pupil-search").addEventListener("input",renderPupils);
+
+async function unlock(){
+  const pass=document.getElementById("gate-pass").value.trim(); if(!pass)return;
+  try{
+    const rows=await (await fetch(BASE+"/rest/v1/credentials?select=*",{headers:H})).json();
+    const admin=(rows||[]).find(r=>r.role==="admin");
+    if(admin&&admin.password===pass){
+      document.getElementById("gate").style.display="none";
+      document.getElementById("app").style.display="block";
       refresh();
-    }
+      setInterval(refresh,30000);
+    }else{document.getElementById("gate-err").style.display="block"}
+  }catch{document.getElementById("gate-err").textContent="Connection error";document.getElementById("gate-err").style.display="block"}
+}
+function lock(){document.getElementById("app").style.display="none";document.getElementById("gate").style.display="block"}
 
-    async function delStudent(username) {
-      if (!confirm("Delete " + username + "?")) return;
-      await fetch(URL + "/rest/v1/students?username=eq." + encodeURIComponent(username), {
-        method: "DELETE", headers: H
-      });
-      refresh();
-    }
+async function refresh(){
+  await Promise.all([loadPupils(),loadPayments(),loadTests()]);
+  loadDash(); loadEnquiries(); loadGaps(); loadRoster(); loadActivity();
+  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+  if(!document.getElementById("tab-pupils").classList.contains("hidden")) renderPupils();
+  if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
+}
 
-    async function exportFinance() {
-      const rows = Array.isArray(paymentsCache) && paymentsCache.length
-        ? paymentsCache
-        : await (await fetch(URL + "/rest/v1/payments?select=*,pupil:pupils(first_name,last_name)", { headers: H })).json() || [];
-      const lines = ["date,type,amount,method,notes,pupil"];
-      rows.forEach(r => {
-        const pupil = r.pupil ? `${r.pupil.first_name || ""} ${r.pupil.last_name || ""}`.trim() : "";
-        lines.push([r.transaction_date || "", r.type || "", r.amount ?? "", r.payment_method || "",
-          (r.notes || "").replace(/,/g, ";"), pupil].join(","));
-      });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([lines.join("\\n")], { type: "text/csv" }));
-      a.download = "dmw-finance-" + new Date().toISOString().slice(0, 10) + ".csv";
-      a.click();
-    }
+async function loadPupils(){
+  try{
+    const r=await fetch(BASE+"/rest/v1/pupils?select=*&order=last_name.asc",{headers:H});
+    pupilsCache=await r.json();
+    if(!Array.isArray(pupilsCache)){console.error(pupilsCache);pupilsCache=[]}
+  }catch(e){console.error(e);pupilsCache=[]}
+}
+async function loadPayments(){
+  try{
+    const r=await fetch(BASE+"/rest/v1/payments?select=*,pupil:pupils(first_name,last_name)&order=transaction_date.desc&limit=500",{headers:H});
+    paymentsCache=await r.json();
+    if(!Array.isArray(paymentsCache)) paymentsCache=[];
+  }catch(e){paymentsCache=[]}
+}
+async function loadTests(){
+  try{
+    const r=await fetch(BASE+"/rest/v1/practical_tests?select=*,pupil:pupils(first_name,last_name)&order=test_date.desc",{headers:H});
+    testsCache=await r.json();
+    if(!Array.isArray(testsCache)) testsCache=[];
+  }catch(e){testsCache=[]}
+}
 
-    function fmt(iso) {
-      if (!iso) return "–";
-      try {
-        return new Date(iso).toLocaleString("en-GB", {
-          weekday: "short", day: "numeric", month: "short", year: "numeric",
-          hour: "2-digit", minute: "2-digit"
-        });
-      } catch { return iso; }
-    }
-    function esc(s) {
-      return String(s ?? "").replace(/[&<>"']/g, c => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-      })[c]);
-    }
-  </script>
+function loadDash(){
+  const pupils=pupilsCache||[];
+  const active=pupils.filter(p=>p.status==="active");
+  document.getElementById("n-active").textContent=active.length;
+  document.getElementById("n-waiting").textContent=pupils.filter(p=>p.status==="waiting").length;
+  document.getElementById("n-enquiry").textContent=pupils.filter(p=>p.status==="enquiry").length;
+  const now=new Date().toISOString();
+  document.getElementById("n-tests").textContent=testsCache.filter(t=>t.test_date>=now).length;
+
+  const done=testsCache.filter(t=>t.result==="pass"||t.result==="fail");
+  const passes=done.filter(t=>t.result==="pass").length;
+  const passRate=done.length?Math.round(passes/done.length*100):null;
+  const el=document.getElementById("m-pass");
+  el.textContent=passRate==null?"–":passRate+"%";
+  el.className="v "+(passRate==null?"":passRate>=55?"good":"bad");
+
+  const withF=testsCache.filter(t=>t.driving_faults!=null);
+  const avgF=withF.length?(withF.reduce((s,t)=>s+Number(t.driving_faults||0),0)/withF.length).toFixed(2):"–";
+  const avgS=withF.length?(withF.reduce((s,t)=>s+Number(t.serious_faults||0),0)/withF.length).toFixed(2):"–";
+  document.getElementById("m-faults").textContent=avgF;
+  document.getElementById("m-serious").textContent=avgS;
+
+  // cancel rate async
+  (async()=>{
+    try{
+      const since=new Date(Date.now()-14*864e5).toISOString();
+      const lessons=await(await fetch(BASE+"/rest/v1/lessons?select=id,status,pupil_id,lesson_type&start_time=gte."+since,{headers:H})).json()||[];
+      const real=(lessons||[]).filter(l=>l.lesson_type!=="gap"&&l.lesson_type!=="student_away");
+      const cancelled=real.filter(l=>l.status==="cancelled").length;
+      const pct=real.length?Math.round(cancelled/real.length*100):0;
+      document.getElementById("m-cancel").textContent=pct+"%";
+      const future=await(await fetch(BASE+"/rest/v1/lessons?select=pupil_id&start_time=gte."+now+"&status=neq.cancelled",{headers:H})).json()||[];
+      const withL=new Set((future||[]).map(l=>l.pupil_id).filter(Boolean));
+      const p=active.length?Math.round(withL.size/active.length*100):0;
+      document.getElementById("bar-booked").style.width=p+"%";
+      document.getElementById("booked-label").textContent=withL.size+" of "+active.length+" active ("+p+"%)";
+    }catch(e){}
+  })();
+}
+
+function renderPupils(){
+  const q=(document.getElementById("pupil-search").value||"").toLowerCase();
+  let list=pupilsCache.filter(p=>p.status!=="enquiry");
+  if(pupilStatusFilter!=="all") list=list.filter(p=>p.status===pupilStatusFilter);
+  if(q) list=list.filter(p=>`${p.first_name} ${p.last_name} ${p.phone||""} ${p.email||""}`.toLowerCase().includes(q));
+  const el=document.getElementById("pupil-list");
+  if(!list.length){el.innerHTML='<p class="muted">No pupils match</p>';return}
+  el.innerHTML=list.map(p=>`<div class="list-row">
+    <div><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
+    <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div></div>
+    <span class="chip ${p.status==="active"?"chip-ok":p.status==="waiting"?"chip-wait":"chip-info"}">${esc(p.status)}</span>
+  </div>`).join("");
+}
+
+async function loadEnquiries(){
+  const el=document.getElementById("enquiry-list");
+  const rows=pupilsCache.filter(p=>p.status==="enquiry");
+  if(!rows.length){el.innerHTML='<p class="muted">No open enquiries</p>';return}
+  el.innerHTML=rows.map(p=>`<div class="list-row">
+    <div><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
+    <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div>
+    <div class="muted">${esc(p.notes||"")}</div></div>
+    <div class="actions">
+      <button class="btn btn-navy btn-sm" onclick="setStatus('${p.id}','waiting')">Accept</button>
+      <button class="btn-outline" onclick="setStatus('${p.id}','inactive')">Decline</button>
+      <button class="btn-danger" onclick="removePupil('${p.id}')">Remove</button>
+    </div></div>`).join("");
+}
+
+async function setStatus(id,status){
+  await fetch(BASE+"/rest/v1/pupils?id=eq."+id,{method:"PATCH",headers:{...H,Prefer:"return=minimal"},body:JSON.stringify({status})});
+  await loadPupils(); loadDash(); loadEnquiries(); renderPupils();
+}
+async function removePupil(id){
+  if(!confirm("Remove?"))return;
+  await fetch(BASE+"/rest/v1/pupils?id=eq."+id,{method:"DELETE",headers:H});
+  await loadPupils(); loadDash(); loadEnquiries();
+}
+
+function shiftWeek(n){weekStart=new Date(weekStart);weekStart.setDate(weekStart.getDate()+n*7);renderDiary()}
+async function renderDiary(){
+  const end=new Date(weekStart); end.setDate(end.getDate()+7);
+  document.getElementById("week-label").textContent=weekStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+new Date(end-1).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  let lessons=[];
+  try{
+    lessons=await(await fetch(BASE+"/rest/v1/lessons?select=*,pupil:pupils(first_name,last_name)&start_time=gte."+weekStart.toISOString()+"&start_time=lt."+end.toISOString()+"&order=start_time.asc",{headers:H})).json()||[];
+  }catch(e){}
+  if(!Array.isArray(lessons)) lessons=[];
+  const grid=document.getElementById("diary-grid"); grid.innerHTML="";
+  for(let i=0;i<7;i++){
+    const day=new Date(weekStart); day.setDate(day.getDate()+i);
+    const dayStr=day.toDateString();
+    const cell=document.createElement("div"); cell.className="diary-day";
+    cell.innerHTML="<h4>"+day.toLocaleDateString("en-GB",{weekday:"short",day:"numeric"})+"</h4>";
+    lessons.filter(l=>new Date(l.start_time).toDateString()===dayStr).forEach(l=>{
+      const name=l.pupil?l.pupil.first_name+" "+(l.pupil.last_name||"").charAt(0): (l.title||l.lesson_type||"");
+      const t=new Date(l.start_time).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+      const cls=l.lesson_type==="gap"?"gap":(l.title==="Away"||l.lesson_type==="student_away")?"away":"";
+      const d=document.createElement("div"); d.className="lesson-chip "+cls;
+      d.textContent=t+" "+name; cell.appendChild(d);
+    });
+    grid.appendChild(cell);
+  }
+}
+
+function showTests(mode,btn){
+  if(btn){btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));btn.classList.add("on")}
+  const now=new Date().toISOString();
+  const list=testsCache.filter(t=>mode==="future"?t.test_date>=now:t.test_date<now);
+  const el=document.getElementById("test-list");
+  if(!list.length){el.innerHTML='<p class="muted">None</p>';return}
+  el.innerHTML="<table><thead><tr><th>Pupil</th><th>Date</th><th>Result</th></tr></thead><tbody>"+
+    list.map(t=>{
+      const name=t.pupil?`${t.pupil.first_name} ${t.pupil.last_name}`:"–";
+      const res=t.result||"tbc";
+      const chip=res==="pass"?"chip-ok":res==="fail"?"chip-bad":"chip-wait";
+      return `<tr><td>${esc(name)}</td><td>${fmt(t.test_date)}</td><td><span class="chip ${chip}">${esc(res)}</span></td></tr>`;
+    }).join("")+"</tbody></table>";
+}
+
+function onPeriodChange(){
+  const c=document.getElementById("fin-period").value==="custom";
+  document.getElementById("fin-from-wrap").style.display=c?"block":"none";
+  document.getElementById("fin-to-wrap").style.display=c?"block":"none";
+}
+
+function getFinRange(){
+  const p=document.getElementById("fin-period").value;
+  const now=new Date();
+  if(p==="all") return {from:null,to:null};
+  if(p==="this_tax") return taxYearBounds(0);
+  if(p==="last_tax") return taxYearBounds(-1);
+  if(p==="this_month"){
+    const from=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01";
+    return {from,to:now.toISOString().slice(0,10)};
+  }
+  if(p==="last_month"){
+    const d=new Date(now.getFullYear(),now.getMonth()-1,1);
+    const e=new Date(now.getFullYear(),now.getMonth(),0);
+    return {from:d.toISOString().slice(0,10),to:e.toISOString().slice(0,10)};
+  }
+  return {from:document.getElementById("fin-from").value||null,to:document.getElementById("fin-to").value||null};
+}
+
+function filteredPayments(){
+  const {from,to}=getFinRange();
+  return (paymentsCache||[]).filter(r=>{
+    const d=r.transaction_date||(r.created_at||"").slice(0,10);
+    if(!d) return true;
+    if(from&&d<from) return false;
+    if(to&&d>to) return false;
+    return true;
+  });
+}
+
+function isExpense(r){
+  const t=(r.type||r.transaction_type||r.category||"").toLowerCase();
+  return t.includes("expense")||t.includes("cost")||t==="expense";
+}
+function isIncome(r){ return !isExpense(r); }
+
+function applyFinance(){ showFin(document.querySelector("#tab-finance .tabs-sub button.on")?.textContent?.toLowerCase().includes("income")?"income":
+  document.querySelector("#tab-finance .tabs-sub button.on")?.textContent?.toLowerCase().includes("expense")?"expense":
+  document.querySelector("#tab-finance .tabs-sub button.on")?.textContent?.toLowerCase().includes("add")?"add":"summary"); }
+
+function showFin(mode,btn){
+  if(btn){btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));btn.classList.add("on")}
+  ["summary","income","expense","add"].forEach(m=>document.getElementById("fin-"+m).classList.toggle("hidden",m!==mode));
+  const rows=filteredPayments();
+  const inc=rows.filter(isIncome);
+  const exp=rows.filter(isExpense);
+  const sumInc=inc.reduce((s,r)=>s+Number(r.amount||0),0);
+  const sumExp=exp.reduce((s,r)=>s+Number(r.amount||0),0);
+  const {from,to}=getFinRange();
+  document.getElementById("fin-summary").innerHTML=`
+    <p class="muted" style="margin-bottom:.75rem">${from||"…"} → ${to||"…"} · ${rows.length} entries</p>
+    <div class="metric-row">
+      <div class="metric"><div class="v good">£${sumInc.toFixed(2)}</div><div class="l">Income</div></div>
+      <div class="metric"><div class="v bad">£${sumExp.toFixed(2)}</div><div class="l">Expenses</div></div>
+      <div class="metric"><div class="v">£${(sumInc-sumExp).toFixed(2)}</div><div class="l">Net</div></div>
+    </div>`;
+  document.getElementById("fin-income").innerHTML=tablePay(inc);
+  document.getElementById("fin-expense").innerHTML=tablePay(exp);
+  if(!document.getElementById("pay-date").value) document.getElementById("pay-date").value=new Date().toISOString().slice(0,10);
+}
+
+function tablePay(rows){
+  if(!rows.length) return '<p class="muted">No rows in this period</p>';
+  return "<table><thead><tr><th>Date</th><th>Detail</th><th>Amount</th><th>Method</th><th></th></tr></thead><tbody>"+
+    rows.map(r=>{
+      const pupil=r.pupil?`${r.pupil.first_name} ${r.pupil.last_name}`:"";
+      const detail=pupil||r.category||r.type||r.notes||"";
+      return `<tr>
+        <td>${esc(r.transaction_date||"")}</td>
+        <td>${esc(detail)}</td>
+        <td>£${Number(r.amount||0).toFixed(2)}</td>
+        <td>${esc(r.payment_method||"–")}</td>
+        <td><button class="btn-danger" onclick="delPay('${r.id}')">Del</button></td>
+      </tr>`;
+    }).join("")+"</tbody></table>";
+}
+
+async function delPay(id){
+  if(!confirm("Delete this entry?"))return;
+  await fetch(BASE+"/rest/v1/payments?id=eq."+id,{method:"DELETE",headers:H});
+  await loadPayments(); applyFinance();
+}
+
+async function addPayment(){
+  const type=document.getElementById("pay-type").value;
+  const cat=document.getElementById("pay-cat").value.trim()||type;
+  const amount=Number(document.getElementById("pay-amt").value);
+  const date=document.getElementById("pay-date").value;
+  const method=document.getElementById("pay-method").value;
+  const notes=document.getElementById("pay-notes").value.trim()||null;
+  if(!amount||!date) return alert("Amount and date required");
+  const body={type: type==="expense"?"expense":"income", category:cat, amount, transaction_date:date, payment_method:method, notes};
+  const res=await fetch(BASE+"/rest/v1/payments",{method:"POST",headers:{...H,Prefer:"return=minimal"},body:JSON.stringify(body)});
+  if(!res.ok){
+    // fallback columns
+    const res2=await fetch(BASE+"/rest/v1/payments",{method:"POST",headers:{...H,Prefer:"return=minimal"},body:JSON.stringify({type:body.type,amount,transaction_date:date,payment_method:method,notes:cat+(notes?" · "+notes:"")})});
+    if(!res2.ok) return alert(await res2.text());
+  }
+  document.getElementById("pay-amt").value="";
+  document.getElementById("pay-notes").value="";
+  await loadPayments(); applyFinance();
+  alert("Saved");
+}
+
+function exportFinance(){
+  const rows=filteredPayments();
+  const {from,to}=getFinRange();
+  const lines=["date,type,amount,method,notes,pupil"];
+  rows.forEach(r=>{
+    const pupil=r.pupil?`${r.pupil.first_name||""} ${r.pupil.last_name||""}`.trim():"";
+    lines.push([r.transaction_date||"",r.type||r.category||"",r.amount??"",r.payment_method||"",(r.notes||"").replace(/,/g,";"),pupil].join(","));
+  });
+  const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`dmw-finance_${from||"all"}_${to||"all"}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+async function loadGaps(){
+  const el=document.getElementById("gap-list");
+  try{
+    const now=new Date().toISOString();
+    const rows=await(await fetch(BASE+"/rest/v1/lessons?lesson_type=eq.gap&start_time=gte."+now+"&order=start_time.asc&limit=40",{headers:H})).json()||[];
+    if(!rows.length){el.innerHTML='<p class="muted">No upcoming gaps</p>';return}
+    el.innerHTML="<table><thead><tr><th>When</th><th>Notes</th></tr></thead><tbody>"+
+      rows.map(g=>`<tr><td>${fmt(g.start_time)}</td><td>${esc(g.notes||g.title||"–")}</td></tr>`).join("")+"</tbody></table>";
+  }catch{el.innerHTML='<p class="muted">Could not load</p>'}
+}
+
+async function loadRoster(){
+  const el=document.getElementById("roster");
+  try{
+    const rows=await(await fetch(BASE+"/rest/v1/students?select=*",{headers:H})).json()||[];
+    if(!rows.length){el.innerHTML='<p class="muted">No portal accounts</p>';return}
+    el.innerHTML=rows.map(s=>`<div class="list-row"><div><strong>${esc(s.username)}</strong><div class="muted">${esc(s.password||"")}</div></div>
+      <button class="btn-danger" onclick="delStudent('${esc(s.username)}')">Delete</button></div>`).join("");
+  }catch{el.innerHTML='<p class="muted">Error</p>'}
+}
+async function loadActivity(){
+  const el=document.getElementById("activity");
+  try{
+    const rows=await(await fetch(BASE+"/rest/v1/activity_logs?order=created_at.desc&limit=15",{headers:H})).json()||[];
+    if(!rows.length){el.innerHTML='<p class="muted">No activity</p>';return}
+    el.innerHTML=rows.map(l=>`<div class="list-row"><div><strong>${esc(l.username)}</strong> — ${esc(l.action)}
+      <div class="muted">${l.created_at?new Date(l.created_at).toLocaleString("en-GB"):""}</div></div></div>`).join("");
+  }catch{el.innerHTML='<p class="muted">No activity log</p>'}
+}
+
+async function addLearner(){
+  const user=document.getElementById("user").value.trim().toLowerCase();
+  let pass=document.getElementById("pass").value.trim();
+  const first=document.getElementById("fn").value.trim()||user;
+  const last=document.getElementById("ln").value.trim()||"";
+  const phone=document.getElementById("phone").value.trim()||null;
+  const email=document.getElementById("email").value.trim().toLowerCase()||null;
+  if(!user) return alert("Username required");
+  if(!pass){const c="abcdefghijkmnpqrstuvwxyz23456789";pass=Array.from({length:10},()=>c[Math.floor(Math.random()*c.length)]).join("")}
+  await fetch(BASE+"/rest/v1/students",{method:"POST",headers:{...H,Prefer:"return=minimal"},body:JSON.stringify({username:user,password:pass})});
+  await fetch(BASE+"/rest/v1/pupils",{method:"POST",headers:{...H,Prefer:"return=minimal"},body:JSON.stringify({first_name:first,last_name:last||user,phone,email,status:"waiting",portal_username:user,portal_password:pass})});
+  alert("Saved\nUsername: "+user+"\nPassword: "+pass);
+  ["fn","ln","phone","email","user","pass"].forEach(id=>document.getElementById(id).value="");
+  refresh();
+}
+async function delStudent(u){
+  if(!confirm("Delete "+u+"?"))return;
+  await fetch(BASE+"/rest/v1/students?username=eq."+encodeURIComponent(u),{method:"DELETE",headers:H});
+  loadRoster();
+}
+function fmt(iso){if(!iso)return"–";try{return new Date(iso).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}catch{return iso}}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+</script>
 </body>
 </html>

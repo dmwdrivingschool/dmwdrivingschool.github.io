@@ -3,300 +3,598 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DMW Admin Hub</title>
+  <title>DMW Control Centre</title>
   <link rel="icon" type="image/png" href="favicon.png">
   <style>
     :root {
       --navy: #0A4CA1;
       --deep: #062F63;
-      --bg: #F4F7FA;
-      --card: #fff;
-      --text: #1e293b;
-      --muted: #64748b;
-      --border: #e2e8f0;
-      --green: #16a34a;
-      --amber: #d97706;
-      --rose: #e11d48;
+      --gold: #E8B931;
+      --bg: #eef2f6;
+      --card: #ffffff;
+      --text: #1a2332;
+      --muted: #5c6b7a;
+      --line: #d8e0e8;
+      --ok: #0d9f6e;
+      --bad: #c43c3c;
+      --warn: #c47a12;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { background: var(--bg); color: var(--text); min-height: 100vh; }
-    header {
-      background: var(--deep); color: #fff; padding: 14px 20px;
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg); color: var(--text); min-height: 100vh;
     }
-    header img { height: 40px; width: auto; }
-    header h1 { font-size: 1.1rem; font-weight: 700; }
-    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 16px 80px; }
-    .gate {
-      max-width: 400px; margin: 80px auto; background: var(--card); border-radius: 12px;
-      padding: 32px 24px; box-shadow: 0 8px 30px rgba(0,0,0,.06); border-top: 4px solid var(--navy);
-      text-align: center;
+
+    /* Gate */
+    #gate {
+      max-width: 380px; margin: 12vh auto; background: var(--card);
+      border-radius: 16px; padding: 2rem 1.5rem; text-align: center;
+      box-shadow: 0 12px 40px rgba(6,47,99,.12);
     }
-    .gate input, .panel input, .panel select, .panel textarea {
-      width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 8px;
-      font-size: 0.95rem; margin-top: 6px;
+    #gate h1 { font-size: 1.25rem; color: var(--deep); margin-bottom: .35rem; }
+    #gate p { color: var(--muted); font-size: .9rem; margin-bottom: 1.25rem; }
+    #gate input {
+      width: 100%; padding: .75rem 1rem; border: 1px solid var(--line);
+      border-radius: 10px; font-size: 1rem; margin-bottom: .75rem;
     }
     .btn {
-      display: inline-block; width: 100%; padding: 12px; border: none; border-radius: 8px;
-      font-weight: 700; cursor: pointer; font-size: 0.95rem;
+      border: none; border-radius: 10px; font-weight: 700; cursor: pointer;
+      padding: .75rem 1rem; font-size: .95rem;
     }
-    .btn-primary { background: var(--navy); color: #fff; }
-    .btn-green { background: var(--green); color: #fff; }
-    .btn-ghost { background: transparent; color: #fff; border: 2px solid #ffcc00; width: auto; padding: 8px 14px; }
-    .err { color: var(--rose); font-size: 0.85rem; margin-top: 10px; display: none; font-weight: 600; }
-    .cards {
-      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px;
+    .btn-navy { background: var(--navy); color: #fff; width: 100%; }
+    .btn-gold { background: var(--gold); color: var(--deep); }
+    .btn-sm { padding: .4rem .75rem; font-size: .8rem; width: auto; }
+    .btn-outline {
+      background: #fff; border: 1px solid var(--line); color: var(--text);
+      padding: .4rem .75rem; font-size: .8rem; border-radius: 8px; cursor: pointer;
     }
-    @media (min-width: 700px) { .cards { grid-template-columns: repeat(4, 1fr); } }
-    .card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      padding: 18px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.03);
+    .err { color: var(--bad); font-size: .85rem; font-weight: 600; display: none; margin-top: .5rem; }
+
+    /* Shell */
+    #app { display: none; }
+    .top {
+      background: var(--deep); color: #fff;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .85rem 1.25rem; gap: 1rem; flex-wrap: wrap;
     }
-    .card .label { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
-    .card .num { font-size: 1.75rem; font-weight: 800; color: var(--deep); }
-    .card.warn .num { color: var(--rose); }
-    .card.ok .num { color: var(--green); }
-    .section {
-      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      padding: 20px; margin-bottom: 20px;
+    .brand { display: flex; align-items: center; gap: .75rem; font-weight: 700; }
+    .brand img { height: 36px; width: auto; }
+    .nav {
+      display: flex; flex-wrap: wrap; gap: .25rem;
+      background: var(--deep); padding: 0 1rem .65rem;
     }
-    .section h2 {
-      font-size: 1.05rem; font-weight: 700; margin-bottom: 14px; padding-bottom: 8px;
-      border-bottom: 2px solid var(--bg); color: var(--deep);
+    .nav button {
+      background: transparent; border: none; color: #a8c0d8;
+      padding: .5rem .85rem; border-radius: 8px; font-weight: 600;
+      font-size: .88rem; cursor: pointer;
     }
-    .grid-2 { display: grid; gap: 20px; }
-    @media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
-    .field { margin-bottom: 12px; }
-    .field label { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
-    .roster-item {
+    .nav button.on { background: rgba(255,255,255,.12); color: #fff; }
+
+    .main { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
+
+    /* Cards */
+    .stat-row {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem;
+      margin-bottom: 1.25rem;
+    }
+    @media (min-width: 720px) {
+      .stat-row { grid-template-columns: repeat(4, 1fr); }
+    }
+    .stat {
+      background: var(--card); border-radius: 14px; padding: 1.1rem 1rem;
+      border: 1px solid var(--line);
+    }
+    .stat strong { display: block; font-size: 1.7rem; color: var(--deep); line-height: 1.1; }
+    .stat span { font-size: .8rem; color: var(--muted); }
+
+    .panel {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 14px; padding: 1.15rem 1.1rem; margin-bottom: 1rem;
+    }
+    .panel h2 {
+      font-size: 1rem; color: var(--deep); margin-bottom: .85rem;
+      padding-bottom: .5rem; border-bottom: 1px solid var(--line);
+    }
+    .panel h3 { font-size: .9rem; color: var(--muted); margin: 1rem 0 .5rem; text-transform: uppercase; letter-spacing: .03em; }
+
+    .metric-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: .65rem;
+    }
+    @media (min-width: 700px) { .metric-row { grid-template-columns: repeat(4, 1fr); } }
+    .metric {
+      border: 1px solid var(--line); border-radius: 12px; padding: .85rem;
+      background: #f8fafc;
+    }
+    .metric .v { font-size: 1.15rem; font-weight: 800; }
+    .metric .v.good { color: var(--ok); }
+    .metric .v.bad { color: var(--bad); }
+    .metric .l { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
+
+    .bar {
+      height: 8px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin-top: .45rem;
+    }
+    .bar > i { display: block; height: 100%; background: var(--navy); border-radius: 99px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th, td { text-align: left; padding: .55rem .4rem; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-size: .75rem; text-transform: uppercase; }
+
+    .field { margin-bottom: .75rem; }
+    .field label { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: .25rem; }
+    .field input, .field select, .field textarea {
+      width: 100%; padding: .65rem .75rem; border: 1px solid var(--line);
+      border-radius: 8px; font-size: .95rem;
+    }
+    .two { display: grid; gap: .75rem; }
+    @media (min-width: 700px) { .two { grid-template-columns: 1fr 1fr; } }
+
+    .chip {
+      display: inline-block; padding: .15rem .5rem; border-radius: 99px;
+      font-size: .72rem; font-weight: 700;
+    }
+    .chip-ok { background: #d1fae5; color: #065f46; }
+    .chip-bad { background: #fee2e2; color: #991b1b; }
+    .chip-wait { background: #fef3c7; color: #92400e; }
+    .chip-info { background: #e0f2fe; color: #075985; }
+
+    .list-row {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 10px 12px; background: var(--bg); border-radius: 8px; margin-bottom: 8px;
-      font-size: 0.9rem; border-left: 4px solid var(--navy);
+      gap: .75rem; padding: .65rem 0; border-bottom: 1px solid var(--line);
+      font-size: .9rem;
     }
-    .del { color: var(--rose); cursor: pointer; font-size: 0.8rem; font-weight: 700;
-      border: 1px solid #fecaca; padding: 4px 8px; border-radius: 4px; background: #fff; }
-    .links { display: flex; flex-wrap: wrap; gap: 10px; }
-    .links a {
-      display: inline-block; padding: 10px 14px; background: var(--bg); border-radius: 8px;
-      text-decoration: none; color: var(--navy); font-weight: 600; font-size: 0.9rem;
-      border: 1px solid var(--border);
+    .muted { color: var(--muted); font-size: .82rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+    .tabs-sub { display: flex; gap: .35rem; margin-bottom: .85rem; flex-wrap: wrap; }
+    .tabs-sub button {
+      border: 1px solid var(--line); background: #fff; border-radius: 99px;
+      padding: .35rem .85rem; font-size: .82rem; font-weight: 600; cursor: pointer;
     }
-    .links a:hover { background: #e0f2fe; }
-    .log {
-      font-size: 0.85rem; padding: 10px; background: #fafbfc; border: 1px solid var(--border);
-      border-left: 4px solid var(--navy); border-radius: 6px; margin-bottom: 8px;
-    }
-    .log time { display: block; font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
-    .hidden { display: none !important; }
+    .tabs-sub button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+
     footer {
-      position: fixed; bottom: 0; left: 0; right: 0; background: var(--deep); color: #94a3b8;
-      text-align: center; padding: 12px; font-size: 0.8rem;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--deep); color: #8aa0b8; text-align: center;
+      padding: .55rem; font-size: .75rem;
     }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
-  <div id="gate" class="gate">
-    <h2 style="margin-bottom:6px">DMW Admin Hub</h2>
-    <p style="color:#64748b;font-size:0.9rem;margin-bottom:20px">Master password required</p>
-    <input type="password" id="gate-pass" placeholder="Password">
-    <button class="btn btn-primary" style="margin-top:14px" onclick="unlock()">Unlock</button>
-    <div id="gate-err" class="err">Incorrect password</div>
+  <div id="gate">
+    <h1>DMW Control Centre</h1>
+    <p>Instructor access only</p>
+    <input type="password" id="gate-pass" placeholder="Master password" autocomplete="current-password">
+    <button class="btn btn-navy" onclick="unlock()">Open</button>
+    <div class="err" id="gate-err">Incorrect password</div>
   </div>
 
-  <div id="app" class="hidden">
-    <header>
-      <div style="display:flex;align-items:center;gap:12px">
-        <img src="image-1.jpg" alt="DMW" onerror="this.style.display='none'">
-        <h1>DMW Admin Hub</h1>
+  <div id="app">
+    <div class="top">
+      <div class="brand">
+        <img src="image-1.jpg" alt="DMW" onerror="this.remove()">
+        <span>DMW Control Centre</span>
       </div>
-      <button class="btn btn-ghost" onclick="lock()">Lock</button>
-    </header>
+      <button class="btn btn-gold btn-sm" onclick="lock()">Lock</button>
+    </div>
+    <nav class="nav" id="main-nav">
+      <button class="on" data-tab="dash">Dashboard</button>
+      <button data-tab="enquiries">Enquiries</button>
+      <button data-tab="tests">Tests</button>
+      <button data-tab="finance">Finances</button>
+      <button data-tab="gaps">Gaps</button>
+      <button data-tab="portal">Portal</button>
+    </nav>
 
-    <div class="wrap">
-      <div class="cards" id="stat-cards">
-        <div class="card"><div class="num" id="s-active">–</div><div class="label">Active pupils</div></div>
-        <div class="card"><div class="num" id="s-waiting">–</div><div class="label">Waiting list</div></div>
-        <div class="card"><div class="num" id="s-enquiry">–</div><div class="label">Enquiries</div></div>
-        <div class="card"><div class="num" id="s-tests">–</div><div class="label">Upcoming tests</div></div>
-      </div>
-
-      <div class="section">
-        <h2>Quick links</h2>
-        <div class="links">
-          <a href="portal.html" target="_blank">Video portal</a>
-          <a href="enquiry.html" target="_blank">Enquiry form (public)</a>
-          <a href="#" onclick="exportFinance();return false">Export finance CSV</a>
-        </div>
-        <p style="font-size:0.8rem;color:#64748b;margin-top:12px">
-          Instructor &amp; pupil apps run separately (your Vercel / local app URL). Open that for diary, messages, and lessons.
-        </p>
-      </div>
-
-      <div class="grid-2">
-        <div class="section">
-          <h2>Add learner (portal + app)</h2>
-          <div class="field"><label>First name</label><input id="fn"></div>
-          <div class="field"><label>Last name</label><input id="ln"></div>
-          <div class="field"><label>Phone</label><input id="phone"></div>
-          <div class="field"><label>Email</label><input id="email" type="email"></div>
-          <div class="field"><label>Portal username</label><input id="user" placeholder="e.g. johnsmith"></div>
-          <div class="field"><label>Password (blank = auto)</label><input id="pass"></div>
-          <button class="btn btn-green" onclick="addLearner()">Save to portal + app</button>
+    <div class="main">
+      <!-- DASHBOARD -->
+      <section id="tab-dash">
+        <div class="stat-row">
+          <div class="stat"><strong id="n-active">–</strong><span>Active pupils</span></div>
+          <div class="stat"><strong id="n-waiting">–</strong><span>Waiting list</span></div>
+          <div class="stat"><strong id="n-enquiry">–</strong><span>Open enquiries</span></div>
+          <div class="stat"><strong id="n-tests">–</strong><span>Upcoming tests</span></div>
         </div>
 
-        <div class="section">
-          <h2>Portal accounts</h2>
-          <div id="roster">Loading…</div>
+        <div class="panel">
+          <h2>School snapshot</h2>
+          <div class="metric-row" id="metrics">
+            <div class="metric"><div class="v" id="m-pass">–</div><div class="l">Pass rate (all tests)</div></div>
+            <div class="metric"><div class="v" id="m-faults">–</div><div class="l">Avg driving faults</div></div>
+            <div class="metric"><div class="v" id="m-serious">–</div><div class="l">Avg serious faults</div></div>
+            <div class="metric"><div class="v" id="m-cancel">–</div><div class="l">Cancelled (last 14 days)</div></div>
+          </div>
+          <div style="margin-top:1rem">
+            <div class="muted">Pupils with a future lesson booked</div>
+            <div class="bar"><i id="bar-booked" style="width:0%"></i></div>
+            <div class="muted" id="booked-label" style="margin-top:.35rem"></div>
+          </div>
         </div>
-      </div>
 
-      <div class="section">
-        <h2>Recent enquiries (from website form)</h2>
-        <div id="enquiries">Loading…</div>
-      </div>
+        <div class="panel">
+          <h2>Shortcuts</h2>
+          <div class="actions">
+            <a class="btn-outline" href="enquiry.html" target="_blank">Public enquiry form</a>
+            <a class="btn-outline" href="portal.html" target="_blank">Video portal</a>
+            <button class="btn-outline" onclick="exportFinance()">Download finance CSV</button>
+          </div>
+          <p class="muted" style="margin-top:.75rem">
+            Diary, messages, progress and reflective logs live in your instructor app (Vercel / local).
+          </p>
+        </div>
+      </section>
 
-      <div class="section">
-        <h2>Portal activity (latest)</h2>
-        <div id="activity">Loading…</div>
-      </div>
+      <!-- ENQUIRIES -->
+      <section id="tab-enquiries" class="hidden">
+        <div class="panel">
+          <h2>Website enquiries</h2>
+          <p class="muted" style="margin-bottom:.75rem">From dmwdrivingschool.co.uk/enquiry — accept moves them to waiting.</p>
+          <div id="enquiry-list">Loading…</div>
+        </div>
+      </section>
+
+      <!-- TESTS -->
+      <section id="tab-tests" class="hidden">
+        <div class="panel">
+          <h2>Practical tests</h2>
+          <div class="tabs-sub">
+            <button class="on" onclick="showTests('future', this)">Upcoming</button>
+            <button onclick="showTests('past', this)">Past</button>
+          </div>
+          <div id="test-list">Loading…</div>
+        </div>
+      </section>
+
+      <!-- FINANCE -->
+      <section id="tab-finance" class="hidden">
+        <div class="panel">
+          <h2>Finances</h2>
+          <div class="tabs-sub">
+            <button class="on" onclick="showFin('summary', this)">Summary</button>
+            <button onclick="showFin('income', this)">Income</button>
+            <button onclick="showFin('expense', this)">Expenses</button>
+          </div>
+          <div id="fin-summary"></div>
+          <div id="fin-income" class="hidden"></div>
+          <div id="fin-expense" class="hidden"></div>
+          <button class="btn btn-navy btn-sm" style="margin-top:1rem;width:auto" onclick="exportFinance()">Export CSV</button>
+        </div>
+      </section>
+
+      <!-- GAPS -->
+      <section id="tab-gaps" class="hidden">
+        <div class="panel">
+          <h2>Open gaps on the diary</h2>
+          <p class="muted" style="margin-bottom:.75rem">Slots marked as available for pupils to request.</p>
+          <div id="gap-list">Loading…</div>
+        </div>
+      </section>
+
+      <!-- PORTAL -->
+      <section id="tab-portal" class="hidden">
+        <div class="two">
+          <div class="panel">
+            <h2>Add portal + app learner</h2>
+            <div class="field"><label>First name</label><input id="fn"></div>
+            <div class="field"><label>Last name</label><input id="ln"></div>
+            <div class="field"><label>Phone</label><input id="phone"></div>
+            <div class="field"><label>Email</label><input id="email" type="email"></div>
+            <div class="field"><label>Username</label><input id="user" placeholder="e.g. johnsmith"></div>
+            <div class="field"><label>Password (blank = auto)</label><input id="pass"></div>
+            <button class="btn btn-navy" onclick="addLearner()">Save</button>
+          </div>
+          <div class="panel">
+            <h2>Portal logins</h2>
+            <div id="roster">Loading…</div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Recent portal activity</h2>
+          <div id="activity">Loading…</div>
+        </div>
+      </section>
     </div>
   </div>
 
-  <footer>© DMW Driving School · Gloucester</footer>
+  <footer>DMW Driving School · Gloucester · Control Centre</footer>
 
   <script>
-    const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
-    const H = { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" };
+    const URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+    const KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+    const H = { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json" };
+
+    let paymentsCache = [];
+    let testsCache = [];
+
+    document.getElementById("main-nav").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-tab]");
+      if (!b) return;
+      document.querySelectorAll("#main-nav button").forEach(x => x.classList.remove("on"));
+      b.classList.add("on");
+      document.querySelectorAll(".main > section").forEach(s => s.classList.add("hidden"));
+      document.getElementById("tab-" + b.dataset.tab).classList.remove("hidden");
+    });
 
     async function unlock() {
-      const input = document.getElementById("gate-pass").value.trim();
-      if (!input) return alert("Enter password");
+      const pass = document.getElementById("gate-pass").value.trim();
+      if (!pass) return;
       try {
-        const res = await fetch(SUPABASE_URL + "/rest/v1/credentials?select=*", { headers: H });
-        const rows = await res.json();
+        const rows = await (await fetch(URL + "/rest/v1/credentials?select=*", { headers: H })).json();
         const admin = (rows || []).find(r => r.role === "admin");
-        if (admin && admin.password === input) {
-          document.getElementById("gate").classList.add("hidden");
-          document.getElementById("app").classList.remove("hidden");
-          refreshAll();
-          setInterval(refreshAll, 20000);
+        if (admin && admin.password === pass) {
+          document.getElementById("gate").style.display = "none";
+          document.getElementById("app").style.display = "block";
+          refresh();
+          setInterval(refresh, 30000);
         } else {
           document.getElementById("gate-err").style.display = "block";
         }
-      } catch (e) {
-        document.getElementById("gate-err").innerText = "Connection error";
+      } catch {
+        document.getElementById("gate-err").textContent = "Connection error";
         document.getElementById("gate-err").style.display = "block";
       }
     }
-
     function lock() {
-      document.getElementById("app").classList.add("hidden");
-      document.getElementById("gate").classList.remove("hidden");
-      document.getElementById("gate-pass").value = "";
+      document.getElementById("app").style.display = "none";
+      document.getElementById("gate").style.display = "block";
     }
 
-    async function refreshAll() {
-      loadStats();
-      loadRoster();
+    async function refresh() {
+      loadDash();
       loadEnquiries();
+      loadTests();
+      loadFinance();
+      loadGaps();
+      loadRoster();
       loadActivity();
     }
 
-    async function loadStats() {
+    async function loadDash() {
       try {
-        const pupils = await (await fetch(SUPABASE_URL + "/rest/v1/pupils?select=id,status", { headers: H })).json();
-        const list = Array.isArray(pupils) ? pupils : [];
-        document.getElementById("s-active").textContent = list.filter(p => p.status === "active").length;
-        document.getElementById("s-waiting").textContent = list.filter(p => p.status === "waiting").length;
-        document.getElementById("s-enquiry").textContent = list.filter(p => p.status === "enquiry").length;
+        const pupils = await (await fetch(URL + "/rest/v1/pupils?select=id,status", { headers: H })).json() || [];
+        const active = pupils.filter(p => p.status === "active");
+        document.getElementById("n-active").textContent = active.length;
+        document.getElementById("n-waiting").textContent = pupils.filter(p => p.status === "waiting").length;
+        document.getElementById("n-enquiry").textContent = pupils.filter(p => p.status === "enquiry").length;
+
         const now = new Date().toISOString();
-        const tests = await (await fetch(SUPABASE_URL + "/rest/v1/practical_tests?select=id&test_date=gte." + now, { headers: H })).json();
-        document.getElementById("s-tests").textContent = Array.isArray(tests) ? tests.length : "–";
+        const tests = await (await fetch(URL + "/rest/v1/practical_tests?select=*&order=test_date.desc", { headers: H })).json() || [];
+        testsCache = Array.isArray(tests) ? tests : [];
+        document.getElementById("n-tests").textContent = testsCache.filter(t => t.test_date >= now).length;
+
+        const done = testsCache.filter(t => t.result === "pass" || t.result === "fail");
+        const passes = done.filter(t => t.result === "pass").length;
+        const passRate = done.length ? Math.round((passes / done.length) * 100) : null;
+        const elPass = document.getElementById("m-pass");
+        elPass.textContent = passRate == null ? "–" : passRate + "%";
+        elPass.className = "v " + (passRate == null ? "" : passRate >= 55 ? "good" : "bad");
+
+        const withFaults = testsCache.filter(t => t.driving_faults != null);
+        const avgF = withFaults.length
+          ? (withFaults.reduce((s, t) => s + Number(t.driving_faults || 0), 0) / withFaults.length).toFixed(2)
+          : "–";
+        const avgS = withFaults.length
+          ? (withFaults.reduce((s, t) => s + Number(t.serious_faults || 0), 0) / withFaults.length).toFixed(2)
+          : "–";
+        document.getElementById("m-faults").textContent = avgF;
+        document.getElementById("m-faults").className = "v " + (avgF !== "–" && Number(avgF) < 6 ? "good" : avgF !== "–" ? "bad" : "");
+        document.getElementById("m-serious").textContent = avgS;
+        document.getElementById("m-serious").className = "v " + (avgS !== "–" && Number(avgS) < 0.55 ? "good" : avgS !== "–" ? "bad" : "");
+
+        const since = new Date(Date.now() - 14 * 864e5).toISOString();
+        const lessons = await (await fetch(
+          URL + "/rest/v1/lessons?select=id,status,pupil_id,start_time,lesson_type&start_time=gte." + since,
+          { headers: H }
+        )).json() || [];
+        const real = (lessons || []).filter(l => l.lesson_type !== "gap" && l.lesson_type !== "student_away");
+        const cancelled = real.filter(l => l.status === "cancelled").length;
+        const cancelPct = real.length ? Math.round((cancelled / real.length) * 100) : 0;
+        document.getElementById("m-cancel").textContent = cancelPct + "%";
+        document.getElementById("m-cancel").className = "v " + (cancelPct > 25 ? "bad" : "good");
+
+        const future = await (await fetch(
+          URL + "/rest/v1/lessons?select=pupil_id&start_time=gte." + now + "&status=neq.cancelled&lesson_type=neq.gap&lesson_type=neq.student_away",
+          { headers: H }
+        )).json() || [];
+        const withLesson = new Set((future || []).map(l => l.pupil_id).filter(Boolean));
+        const pct = active.length ? Math.round((withLesson.size / active.length) * 100) : 0;
+        document.getElementById("bar-booked").style.width = pct + "%";
+        document.getElementById("booked-label").textContent = withLesson.size + " of " + active.length + " active pupils (" + pct + "%)";
       } catch (e) {
         console.warn(e);
+      }
+    }
+
+    async function loadEnquiries() {
+      const el = document.getElementById("enquiry-list");
+      try {
+        const rows = await (await fetch(
+          URL + "/rest/v1/pupils?status=eq.enquiry&select=*&order=created_at.desc&limit=30",
+          { headers: H }
+        )).json() || [];
+        if (!rows.length) {
+          el.innerHTML = '<p class="muted">No open enquiries</p>';
+          return;
+        }
+        el.innerHTML = rows.map(p => `
+          <div class="list-row">
+            <div>
+              <strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
+              <div class="muted">${esc(p.phone || "")} · ${esc(p.email || "")}</div>
+              <div class="muted">${esc(p.notes || "")}</div>
+            </div>
+            <div class="actions">
+              <button class="btn btn-navy btn-sm" onclick="setStatus('${p.id}','waiting')">Accept</button>
+              <button class="btn-outline" onclick="setStatus('${p.id}','inactive')">Decline</button>
+              <button class="btn-outline" onclick="removePupil('${p.id}')">Remove</button>
+            </div>
+          </div>`).join("");
+      } catch {
+        el.innerHTML = '<p class="muted">Could not load enquiries</p>';
+      }
+    }
+
+    async function setStatus(id, status) {
+      await fetch(URL + "/rest/v1/pupils?id=eq." + id, {
+        method: "PATCH", headers: { ...H, Prefer: "return=minimal" },
+        body: JSON.stringify({ status })
+      });
+      refresh();
+    }
+    async function removePupil(id) {
+      if (!confirm("Remove this record?")) return;
+      await fetch(URL + "/rest/v1/pupils?id=eq." + id, { method: "DELETE", headers: H });
+      refresh();
+    }
+
+    async function loadTests() {
+      const rows = testsCache.length ? testsCache : await (await fetch(URL + "/rest/v1/practical_tests?select=*,pupil:pupils(first_name,last_name)&order=test_date.desc", { headers: H })).json() || [];
+      if (!testsCache.length) testsCache = Array.isArray(rows) ? rows : [];
+      showTests("future");
+    }
+
+    function showTests(mode, btn) {
+      if (btn) {
+        btn.parentElement.querySelectorAll("button").forEach(b => b.classList.remove("on"));
+        btn.classList.add("on");
+      }
+      const now = new Date().toISOString();
+      const list = (testsCache || []).filter(t => mode === "future" ? t.test_date >= now : t.test_date < now);
+      const el = document.getElementById("test-list");
+      if (!list.length) {
+        el.innerHTML = '<p class="muted">None</p>';
+        return;
+      }
+      el.innerHTML = `<table><thead><tr><th>Pupil</th><th>Date</th><th>Result</th><th>Centre</th></tr></thead><tbody>` +
+        list.map(t => {
+          const name = t.pupil ? `${t.pupil.first_name} ${t.pupil.last_name}` : "–";
+          const res = t.result || "tbc";
+          const chip = res === "pass" ? "chip-ok" : res === "fail" ? "chip-bad" : "chip-wait";
+          return `<tr>
+            <td>${esc(name)}</td>
+            <td>${fmt(t.test_date)}</td>
+            <td><span class="chip ${chip}">${esc(res)}</span></td>
+            <td>${esc(t.centre || "–")}</td>
+          </tr>`;
+        }).join("") + "</tbody></table>";
+    }
+
+    async function loadFinance() {
+      try {
+        paymentsCache = await (await fetch(
+          URL + "/rest/v1/payments?select=*,pupil:pupils(first_name,last_name)&order=transaction_date.desc&limit=200",
+          { headers: H }
+        )).json() || [];
+      } catch { paymentsCache = []; }
+      showFin("summary");
+    }
+
+    function showFin(mode, btn) {
+      if (btn) {
+        btn.parentElement.querySelectorAll("button").forEach(b => b.classList.remove("on"));
+        btn.classList.add("on");
+      }
+      document.getElementById("fin-summary").classList.toggle("hidden", mode !== "summary");
+      document.getElementById("fin-income").classList.toggle("hidden", mode !== "income");
+      document.getElementById("fin-expense").classList.toggle("hidden", mode !== "expense");
+
+      const rows = Array.isArray(paymentsCache) ? paymentsCache : [];
+      const income = rows.filter(r => (r.type || "").toLowerCase().includes("income") || (r.type || "").toLowerCase() === "lesson" || Number(r.amount) > 0 && !(r.type || "").toLowerCase().includes("expense"));
+      // Prefer explicit type
+      const inc = rows.filter(r => {
+        const t = (r.type || r.transaction_type || "").toLowerCase();
+        return t.includes("income") || t.includes("lesson") || t === "payment";
+      });
+      const exp = rows.filter(r => {
+        const t = (r.type || r.transaction_type || "").toLowerCase();
+        return t.includes("expense") || t.includes("cost");
+      });
+      // Fallback: if no types match, split by amount sign isn't available — show all in income
+      const incomeRows = exp.length || inc.length ? inc : rows;
+      const expenseRows = exp;
+
+      const sumInc = incomeRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+      const sumExp = expenseRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+
+      document.getElementById("fin-summary").innerHTML = `
+        <div class="metric-row">
+          <div class="metric"><div class="v good">£${sumInc.toFixed(2)}</div><div class="l">Income (listed)</div></div>
+          <div class="metric"><div class="v bad">£${sumExp.toFixed(2)}</div><div class="l">Expenses (listed)</div></div>
+          <div class="metric"><div class="v">£${(sumInc - sumExp).toFixed(2)}</div><div class="l">Difference</div></div>
+        </div>
+        <p class="muted" style="margin-top:.75rem">Figures from the app payments table. Use the instructor app Money tab to add or edit.</p>`;
+
+      document.getElementById("fin-income").innerHTML = tablePay(incomeRows);
+      document.getElementById("fin-expense").innerHTML = tablePay(expenseRows.length ? expenseRows : []);
+    }
+
+    function tablePay(rows) {
+      if (!rows.length) return '<p class="muted">No rows</p>';
+      return `<table><thead><tr><th>Date</th><th>Detail</th><th>Amount</th><th>Method</th></tr></thead><tbody>` +
+        rows.map(r => {
+          const pupil = r.pupil ? `${r.pupil.first_name} ${r.pupil.last_name}` : "";
+          return `<tr>
+            <td>${esc(r.transaction_date || "")}</td>
+            <td>${esc(pupil || r.type || r.notes || "")}</td>
+            <td>£${Number(r.amount || 0).toFixed(2)}</td>
+            <td>${esc(r.payment_method || "–")}</td>
+          </tr>`;
+        }).join("") + "</tbody></table>";
+    }
+
+    async function loadGaps() {
+      const el = document.getElementById("gap-list");
+      try {
+        const now = new Date().toISOString();
+        const rows = await (await fetch(
+          URL + "/rest/v1/lessons?lesson_type=eq.gap&start_time=gte." + now + "&order=start_time.asc&limit=40",
+          { headers: H }
+        )).json() || [];
+        if (!rows.length) {
+          el.innerHTML = '<p class="muted">No upcoming gaps</p>';
+          return;
+        }
+        el.innerHTML = `<table><thead><tr><th>When</th><th>Notes</th></tr></thead><tbody>` +
+          rows.map(g => `<tr><td>${fmt(g.start_time)}</td><td>${esc(g.notes || g.title || "–")}</td></tr>`).join("") +
+          "</tbody></table>";
+      } catch {
+        el.innerHTML = '<p class="muted">Could not load gaps</p>';
       }
     }
 
     async function loadRoster() {
       const el = document.getElementById("roster");
       try {
-        const rows = await (await fetch(SUPABASE_URL + "/rest/v1/students?select=*", { headers: H })).json();
-        if (!rows || !rows.length) {
-          el.innerHTML = '<p style="color:#64748b;font-size:0.9rem">No portal accounts yet</p>';
+        const rows = await (await fetch(URL + "/rest/v1/students?select=*", { headers: H })).json() || [];
+        if (!rows.length) {
+          el.innerHTML = '<p class="muted">No portal accounts</p>';
           return;
         }
-        el.innerHTML = rows.map(s =>
-          `<div class="roster-item"><div><strong>${s.username}</strong><br><span style="color:#64748b;font-size:0.8rem">${s.password || ""}</span></div>
-           <button class="del" onclick="delStudent('${s.username}')">Delete</button></div>`
-        ).join("");
-      } catch (e) {
-        el.textContent = "Could not load roster";
+        el.innerHTML = rows.map(s => `
+          <div class="list-row">
+            <div><strong>${esc(s.username)}</strong><div class="muted">${esc(s.password || "")}</div></div>
+            <button class="btn-outline" onclick="delStudent('${esc(s.username)}')">Delete</button>
+          </div>`).join("");
+      } catch {
+        el.innerHTML = '<p class="muted">Error</p>';
       }
-    }
-
-    async function loadEnquiries() {
-      const el = document.getElementById("enquiries");
-      try {
-        const rows = await (await fetch(
-          SUPABASE_URL + "/rest/v1/pupils?status=eq.enquiry&select=*&order=created_at.desc&limit=15",
-          { headers: H }
-        )).json();
-        if (!rows || !rows.length) {
-          el.innerHTML = '<p style="color:#64748b;font-size:0.9rem">No open enquiries</p>';
-          return;
-        }
-        el.innerHTML = rows.map(p =>
-          `<div class="log"><strong>${p.first_name || ""} ${p.last_name || ""}</strong>
-           · ${p.phone || ""} · ${p.email || ""}
-           <br>${p.notes || p.enquiry_notes || ""}
-           <time>${p.created_at ? new Date(p.created_at).toLocaleString("en-GB") : ""}</time>
-           <div style="margin-top:8px;display:flex;gap:8px">
-             <button class="btn btn-green" style="width:auto;padding:6px 12px;font-size:0.8rem" onclick="setStatus('${p.id}','waiting')">Accept → waiting</button>
-             <button class="btn" style="width:auto;padding:6px 12px;font-size:0.8rem;background:#e2e8f0" onclick="setStatus('${p.id}','inactive')">Decline</button>
-             <button class="del" onclick="removePupil('${p.id}')">Remove</button>
-           </div></div>`
-        ).join("");
-      } catch (e) {
-        el.textContent = "Could not load enquiries (check pupils table RLS / columns)";
-      }
-    }
-
-    async function setStatus(id, status) {
-      await fetch(SUPABASE_URL + "/rest/v1/pupils?id=eq." + id, {
-        method: "PATCH",
-        headers: { ...H, Prefer: "return=minimal" },
-        body: JSON.stringify({ status })
-      });
-      refreshAll();
-    }
-
-    async function removePupil(id) {
-      if (!confirm("Remove this enquiry completely?")) return;
-      await fetch(SUPABASE_URL + "/rest/v1/pupils?id=eq." + id, {
-        method: "DELETE",
-        headers: H
-      });
-      refreshAll();
     }
 
     async function loadActivity() {
       const el = document.getElementById("activity");
       try {
-        const rows = await (await fetch(
-          SUPABASE_URL + "/rest/v1/activity_logs?order=created_at.desc&limit=20",
-          { headers: H }
-        )).json();
-        if (!rows || !rows.length) {
-          el.innerHTML = '<p style="color:#64748b;font-size:0.9rem">No activity yet</p>';
+        const rows = await (await fetch(URL + "/rest/v1/activity_logs?order=created_at.desc&limit=15", { headers: H })).json() || [];
+        if (!rows.length) {
+          el.innerHTML = '<p class="muted">No activity</p>';
           return;
         }
-        el.innerHTML = rows.map(l =>
-          `<div class="log"><strong>${l.username}</strong> — ${l.action}
-           <time>${l.created_at ? new Date(l.created_at).toLocaleString("en-GB") : ""}</time></div>`
-        ).join("");
-      } catch (e) {
-        el.textContent = "No activity log";
+        el.innerHTML = rows.map(l => `
+          <div class="list-row">
+            <div><strong>${esc(l.username)}</strong> — ${esc(l.action)}
+            <div class="muted">${l.created_at ? new Date(l.created_at).toLocaleString("en-GB") : ""}</div></div>
+          </div>`).join("");
+      } catch {
+        el.innerHTML = '<p class="muted">No activity log</p>';
       }
     }
 
@@ -309,53 +607,62 @@
       const email = document.getElementById("email").value.trim().toLowerCase() || null;
       if (!user) return alert("Username required");
       if (!pass) {
-        const chars = "abcdefghijkmnpqrstuvwxyz23456789";
-        pass = Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+        const c = "abcdefghijkmnpqrstuvwxyz23456789";
+        pass = Array.from({ length: 10 }, () => c[Math.floor(Math.random() * c.length)]).join("");
       }
-      await fetch(SUPABASE_URL + "/rest/v1/students", {
+      await fetch(URL + "/rest/v1/students", {
         method: "POST", headers: { ...H, Prefer: "return=minimal" },
         body: JSON.stringify({ username: user, password: pass })
       });
-      await fetch(SUPABASE_URL + "/rest/v1/pupils", {
+      await fetch(URL + "/rest/v1/pupils", {
         method: "POST", headers: { ...H, Prefer: "return=minimal" },
         body: JSON.stringify({
           first_name: first, last_name: last || user, phone, email,
           status: "waiting", portal_username: user, portal_password: pass
         })
       });
-      alert("Saved.\\nUsername: " + user + "\\nPassword: " + pass);
+      alert("Saved\\nUsername: " + user + "\\nPassword: " + pass);
       ["fn","ln","phone","email","user","pass"].forEach(id => document.getElementById(id).value = "");
-      refreshAll();
+      refresh();
     }
 
     async function delStudent(username) {
-      if (!confirm("Delete portal access for " + username + "?")) return;
-      await fetch(SUPABASE_URL + "/rest/v1/students?username=eq." + encodeURIComponent(username), {
+      if (!confirm("Delete " + username + "?")) return;
+      await fetch(URL + "/rest/v1/students?username=eq." + encodeURIComponent(username), {
         method: "DELETE", headers: H
       });
-      refreshAll();
+      refresh();
     }
 
     async function exportFinance() {
+      const rows = Array.isArray(paymentsCache) && paymentsCache.length
+        ? paymentsCache
+        : await (await fetch(URL + "/rest/v1/payments?select=*,pupil:pupils(first_name,last_name)", { headers: H })).json() || [];
+      const lines = ["date,type,amount,method,notes,pupil"];
+      rows.forEach(r => {
+        const pupil = r.pupil ? `${r.pupil.first_name || ""} ${r.pupil.last_name || ""}`.trim() : "";
+        lines.push([r.transaction_date || "", r.type || "", r.amount ?? "", r.payment_method || "",
+          (r.notes || "").replace(/,/g, ";"), pupil].join(","));
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([lines.join("\\n")], { type: "text/csv" }));
+      a.download = "dmw-finance-" + new Date().toISOString().slice(0, 10) + ".csv";
+      a.click();
+    }
+
+    function fmt(iso) {
+      if (!iso) return "–";
       try {
-        const rows = await (await fetch(
-          SUPABASE_URL + "/rest/v1/payments?select=*,pupil:pupils(first_name,last_name)&order=transaction_date.desc",
-          { headers: H }
-        )).json();
-        if (!Array.isArray(rows)) return alert("Could not load payments");
-        const lines = ["date,type,amount,method,notes,pupil"];
-        rows.forEach(r => {
-          const pupil = r.pupil ? ((r.pupil.first_name || "") + " " + (r.pupil.last_name || "")).trim() : "";
-          lines.push([r.transaction_date || "", r.type || "", r.amount ?? "", r.payment_method || "",
-            (r.notes || "").replace(/,/g, ";"), pupil].join(","));
+        return new Date(iso).toLocaleString("en-GB", {
+          weekday: "short", day: "numeric", month: "short", year: "numeric",
+          hour: "2-digit", minute: "2-digit"
         });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(new Blob([lines.join("\\n")], { type: "text/csv" }));
-        a.download = "dmw-finance-" + new Date().toISOString().slice(0, 10) + ".csv";
-        a.click();
-      } catch (e) {
-        alert(e.message);
-      }
+      } catch { return iso; }
+    }
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[c]);
     }
   </script>
 </body>

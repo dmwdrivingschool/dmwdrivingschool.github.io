@@ -5,34 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DMW Control Centre</title>
 <link rel="icon" type="image/png" href="favicon.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--navy:#0A4CA1;--deep:#062F63;--gold:#E8B931;--bg:#eef2f6;--card:#fff;--text:#1a2332;--muted:#5c6b7a;--line:#d8e0e8;--ok:#0d9f6e;--bad:#c43c3c}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-#gate{max-width:380px;margin:12vh auto;background:var(--card);border-radius:16px;padding:2rem 1.5rem;text-align:center;box-shadow:0 12px 40px rgba(6,47,99,.12)}
-#gate h1{font-size:1.25rem;color:var(--deep);margin-bottom:.35rem}
-#gate p{color:var(--muted);font-size:.9rem;margin-bottom:1.25rem}
-#gate input{width:100%;padding:.75rem 1rem;border:1px solid var(--line);border-radius:10px;font-size:1rem;margin-bottom:.75rem}
+#gate{max-width:400px;margin:10vh auto;background:var(--card);border-radius:16px;padding:2rem 1.5rem;box-shadow:0 12px 40px rgba(6,47,99,.12)}
+#gate h1{font-size:1.25rem;color:var(--deep);margin-bottom:.25rem;text-align:center}
+#gate .sub{color:var(--muted);font-size:.88rem;margin-bottom:1.25rem;text-align:center}
+#gate input{width:100%;padding:.75rem 1rem;border:1px solid var(--line);border-radius:10px;font-size:1rem;margin-bottom:.65rem}
 .btn{border:none;border-radius:10px;font-weight:700;cursor:pointer;padding:.7rem 1rem;font-size:.9rem}
-.btn-navy{background:var(--navy);color:#fff}
+.btn-navy{background:var(--navy);color:#fff;width:100%}
 .btn-gold{background:var(--gold);color:var(--deep)}
-.btn-sm{padding:.4rem .7rem;font-size:.8rem}
+.btn-sm{padding:.4rem .7rem;font-size:.8rem;width:auto}
 .btn-outline{background:#fff;border:1px solid var(--line);color:var(--text);padding:.4rem .7rem;font-size:.8rem;border-radius:8px;cursor:pointer}
-.btn-danger{background:#fee2e2;color:#991b1b;border:none;padding:.4rem .7rem;font-size:.8rem;border-radius:8px;cursor:pointer}
-.err{color:var(--bad);font-size:.85rem;font-weight:600;display:none;margin-top:.5rem}
+.btn-danger{background:#fee2e2;color:#991b1b;border:none;padding:.35rem .65rem;font-size:.78rem;border-radius:8px;cursor:pointer}
+.err{color:var(--bad);font-size:.85rem;font-weight:600;display:none;margin-top:.5rem;text-align:center}
 #app{display:none}
 .top{background:var(--deep);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.25rem;gap:1rem;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:.75rem;font-weight:700}
-.brand img{height:36px;width:auto}
+.brand img{height:36px}
 .nav{display:flex;flex-wrap:wrap;gap:.25rem;background:var(--deep);padding:0 1rem .65rem}
 .nav button{background:transparent;border:none;color:#a8c0d8;padding:.5rem .8rem;border-radius:8px;font-weight:600;font-size:.85rem;cursor:pointer}
 .nav button.on{background:rgba(255,255,255,.12);color:#fff}
 .main{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 5rem}
 .stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;margin-bottom:1.25rem}
 @media(min-width:720px){.stat-row{grid-template-columns:repeat(4,1fr)}}
-.stat{background:var(--card);border-radius:14px;padding:1.1rem 1rem;border:1px solid var(--line);cursor:pointer;text-align:left;width:100%;transition:box-shadow .15s}
+.stat{background:var(--card);border-radius:14px;padding:1.1rem 1rem;border:1px solid var(--line);cursor:pointer;text-align:left;width:100%}
 .stat:hover{box-shadow:0 4px 14px rgba(6,47,99,.1)}
-.stat strong{display:block;font-size:1.7rem;color:var(--deep);line-height:1.1}
+.stat strong{display:block;font-size:1.7rem;color:var(--deep)}
 .stat span{font-size:.8rem;color:var(--muted)}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.15rem 1.1rem;margin-bottom:1rem}
 .panel h2{font-size:1rem;color:var(--deep);margin-bottom:.85rem;padding-bottom:.5rem;border-bottom:1px solid var(--line)}
@@ -43,7 +44,7 @@ body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(
 .metric .v.good{color:var(--ok)}.metric .v.bad{color:var(--bad)}
 .metric .l{font-size:.75rem;color:var(--muted);margin-top:.2rem}
 .bar{height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:.45rem}
-.bar>i{display:block;height:100%;background:var(--navy);border-radius:99px}
+.bar>i{display:block;height:100%;background:var(--navy)}
 table{width:100%;border-collapse:collapse;font-size:.88rem}
 th,td{text-align:left;padding:.55rem .4rem;border-bottom:1px solid var(--line)}
 th{color:var(--muted);font-size:.72rem;text-transform:uppercase}
@@ -68,24 +69,30 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
 .diary-day{background:#f8fafc;border:1px solid var(--line);border-radius:8px;min-height:120px;padding:4px}
 .diary-day h4{font-size:.7rem;color:var(--muted);margin-bottom:4px;text-align:center}
 .lesson-chip{font-size:.65rem;background:var(--navy);color:#fff;border-radius:4px;padding:2px 4px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.lesson-chip.away{background:#64748b}
-.lesson-chip.gap{background:#94a3b8}
+.lesson-chip.away{background:#64748b}.lesson-chip.gap{background:#94a3b8}.lesson-chip.cancelled{background:#dc2626}
 .filters{display:flex;flex-wrap:wrap;gap:.5rem;align-items:end;margin-bottom:.85rem}
 .filters .field{margin:0;min-width:120px}
+.banner{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:.65rem .85rem;border-radius:10px;font-size:.85rem;margin-bottom:1rem;display:none}
 </style>
 </head>
 <body>
 <div id="gate">
   <h1>DMW Control Centre</h1>
-  <p>Instructor access only</p>
-  <input type="password" id="gate-pass" placeholder="Master password" autocomplete="current-password">
-  <button class="btn btn-navy" style="width:100%" onclick="unlock()">Open</button>
-  <div class="err" id="gate-err">Incorrect password</div>
+  <p class="sub">Sign in with the same instructor account you use in the app</p>
+  <input type="email" id="gate-email" placeholder="Instructor email" autocomplete="username">
+  <input type="password" id="gate-pass" placeholder="Password" autocomplete="current-password">
+  <button class="btn btn-navy" onclick="unlock()">Sign in</button>
+  <div class="err" id="gate-err"></div>
+  <p class="muted" style="margin-top:1rem;text-align:center">Not the old master password — use your app login (e.g. admin@dmwdrivingschool.co.uk)</p>
 </div>
+
 <div id="app">
   <div class="top">
     <div class="brand"><img src="image-1.jpg" alt="DMW" onerror="this.remove()"><span>DMW Control Centre</span></div>
-    <button class="btn btn-gold btn-sm" onclick="lock()">Lock</button>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <span class="muted" id="who" style="color:#94a3b8;font-size:.8rem"></span>
+      <button class="btn btn-gold btn-sm" onclick="lock()">Sign out</button>
+    </div>
   </div>
   <nav class="nav" id="main-nav">
     <button class="on" data-tab="dash">Dashboard</button>
@@ -98,6 +105,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
     <button data-tab="portal">Portal</button>
   </nav>
   <div class="main">
+    <div class="banner" id="data-banner"></div>
     <section id="tab-dash">
       <div class="stat-row">
         <button type="button" class="stat" onclick="goTab('pupils','active')"><strong id="n-active">–</strong><span>Active pupils</span></button>
@@ -136,23 +144,18 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
       </div>
     </section>
 
-    <section id="tab-enquiries" class="hidden">
-      <div class="panel">
-        <h2>Website enquiries</h2>
-        <div id="enquiry-list">Loading…</div>
-      </div>
-    </section>
+    <section id="tab-enquiries" class="hidden"><div class="panel"><h2>Website enquiries</h2><div id="enquiry-list">Loading…</div></div></section>
 
     <section id="tab-diary" class="hidden">
       <div class="panel">
-        <h2>Diary (week view)</h2>
+        <h2>Diary (week)</h2>
         <div class="diary-head">
           <button class="btn-outline" onclick="shiftWeek(-1)">‹ Prev</button>
           <strong id="week-label"></strong>
           <button class="btn-outline" onclick="shiftWeek(1)">Next ›</button>
         </div>
         <div class="diary-days" id="diary-grid"></div>
-        <p class="muted" style="margin-top:.75rem">Full edit/cancel is in the instructor app. This is a web overview.</p>
+        <p class="muted" style="margin-top:.75rem">Edit lessons in the instructor app.</p>
       </div>
     </section>
 
@@ -200,9 +203,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
             <div class="field"><label>Type</label>
               <select id="pay-type"><option value="income">Income</option><option value="expense">Expense</option></select>
             </div>
-            <div class="field"><label>Category</label>
-              <input id="pay-cat" placeholder="e.g. Student Lesson / Fuel">
-            </div>
+            <div class="field"><label>Category / label</label><input id="pay-cat" placeholder="e.g. Student Lesson / Fuel"></div>
             <div class="field"><label>Amount (£)</label><input id="pay-amt" type="number" step="0.01"></div>
             <div class="field"><label>Date</label><input id="pay-date" type="date"></div>
             <div class="field"><label>Method</label>
@@ -210,14 +211,12 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
             </div>
             <div class="field"><label>Notes</label><input id="pay-notes"></div>
           </div>
-          <button class="btn btn-navy" style="margin-top:.5rem;width:auto" onclick="addPayment()">Save entry</button>
+          <button class="btn btn-navy btn-sm" style="margin-top:.5rem" onclick="addPayment()">Save entry</button>
         </div>
       </div>
     </section>
 
-    <section id="tab-gaps" class="hidden">
-      <div class="panel"><h2>Upcoming gaps</h2><div id="gap-list">Loading…</div></div>
-    </section>
+    <section id="tab-gaps" class="hidden"><div class="panel"><h2>Upcoming gaps</h2><div id="gap-list">Loading…</div></div></section>
 
     <section id="tab-portal" class="hidden">
       <div class="two">
@@ -237,35 +236,41 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
     </section>
   </div>
 </div>
-<footer>DMW Driving School · Gloucester · Control Centre</footer>
-<script>
-const BASE="https://cxcqmyxbpjueezapknim.supabase.co";
-const KEY="sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
-const H={apikey:KEY,Authorization:"Bearer "+KEY,"Content-Type":"application/json"};
+<footer>DMW Driving School · Gloucester · Secure Control Centre</footer>
 
-let pupilsCache=[], paymentsCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="all";
+<script>
+const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+const SUPABASE_ANON = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let pupilsCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="all";
 
 function startOfWeek(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x}
 function taxYearBounds(offset){
-  const now=new Date();
-  let y=now.getFullYear();
-  const startThis=new Date(y,3,6);
-  if(now<startThis) y--;
-  y+=offset;
-  return {from: y+"-04-06", to:(y+1)+"-04-05"};
+  const now=new Date(); let y=now.getFullYear();
+  if(now<new Date(y,3,6)) y--;
+  y+=offset; return {from:y+"-04-06", to:(y+1)+"-04-05"};
 }
 
 document.getElementById("main-nav").addEventListener("click",e=>{
-  const b=e.target.closest("button[data-tab]"); if(!b)return;
-  goTab(b.dataset.tab);
+  const b=e.target.closest("button[data-tab]"); if(!b)return; goTab(b.dataset.tab);
 });
+document.getElementById("pupil-filters").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-status]"); if(!b)return;
+  pupilStatusFilter=b.dataset.status;
+  document.querySelectorAll("#pupil-filters button").forEach(x=>x.classList.toggle("on",x.dataset.status===pupilStatusFilter));
+  renderPupils();
+});
+document.getElementById("pupil-search").addEventListener("input",renderPupils);
 
 function goTab(tab, pupilFilter){
   document.querySelectorAll("#main-nav button").forEach(x=>x.classList.toggle("on",x.dataset.tab===tab));
   document.querySelectorAll(".main > section").forEach(s=>s.classList.add("hidden"));
   document.getElementById("tab-"+tab).classList.remove("hidden");
   if(tab==="pupils"){
-    if(pupilFilter){pupilStatusFilter=pupilFilter; syncPupilFilterBtns()}
+    if(pupilFilter){pupilStatusFilter=pupilFilter;
+      document.querySelectorAll("#pupil-filters button").forEach(x=>x.classList.toggle("on",x.dataset.status===pupilStatusFilter));
+    }
     renderPupils();
   }
   if(tab==="diary") renderDiary();
@@ -273,33 +278,60 @@ function goTab(tab, pupilFilter){
   if(tab==="tests") showTests("future");
 }
 
-function syncPupilFilterBtns(){
-  document.querySelectorAll("#pupil-filters button").forEach(b=>b.classList.toggle("on",b.dataset.status===pupilStatusFilter));
-}
-
-document.getElementById("pupil-filters").addEventListener("click",e=>{
-  const b=e.target.closest("button[data-status]"); if(!b)return;
-  pupilStatusFilter=b.dataset.status; syncPupilFilterBtns(); renderPupils();
-});
-document.getElementById("pupil-search").addEventListener("input",renderPupils);
-
 async function unlock(){
-  const pass=document.getElementById("gate-pass").value.trim(); if(!pass)return;
-  try{
-    const rows=await (await fetch(BASE+"/rest/v1/credentials?select=*",{headers:H})).json();
-    const admin=(rows||[]).find(r=>r.role==="admin");
-    if(admin&&admin.password===pass){
-      document.getElementById("gate").style.display="none";
-      document.getElementById("app").style.display="block";
-      refresh();
-      setInterval(refresh,30000);
-    }else{document.getElementById("gate-err").style.display="block"}
-  }catch{document.getElementById("gate-err").textContent="Connection error";document.getElementById("gate-err").style.display="block"}
+  const email=document.getElementById("gate-email").value.trim();
+  const password=document.getElementById("gate-pass").value;
+  const err=document.getElementById("gate-err");
+  err.style.display="none";
+  if(!email||!password){err.textContent="Enter email and password";err.style.display="block";return}
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){err.textContent=error.message;err.style.display="block";return}
+  // Optional: require instructor role
+  const uid=data.user.id;
+  const {data:prof}=await sb.from("profiles").select("role,full_name,email").eq("id",uid).maybeSingle();
+  if(prof && prof.role && prof.role!=="instructor" && prof.role!=="admin"){
+    await sb.auth.signOut();
+    err.textContent="This account is not an instructor login";
+    err.style.display="block";
+    return;
+  }
+  enterApp(data.user, prof);
 }
-function lock(){document.getElementById("app").style.display="none";document.getElementById("gate").style.display="block"}
+
+async function enterApp(user, prof){
+  document.getElementById("gate").style.display="none";
+  document.getElementById("app").style.display="block";
+  document.getElementById("who").textContent=prof?.full_name||user.email||"";
+  await refresh();
+  setInterval(refresh, 30000);
+}
+
+async function lock(){
+  await sb.auth.signOut();
+  document.getElementById("app").style.display="none";
+  document.getElementById("gate").style.display="block";
+  document.getElementById("gate-pass").value="";
+}
+
+// Restore session on load
+sb.auth.getSession().then(({data})=>{
+  if(data.session){
+    sb.from("profiles").select("role,full_name,email").eq("id",data.session.user.id).maybeSingle()
+      .then(({data:prof})=>{
+        if(prof && prof.role && prof.role!=="instructor" && prof.role!=="admin") return;
+        enterApp(data.session.user, prof);
+      });
+  }
+});
+
+function showBanner(msg){
+  const b=document.getElementById("data-banner");
+  if(!msg){b.style.display="none";return}
+  b.textContent=msg; b.style.display="block";
+}
 
 async function refresh(){
-  await Promise.all([loadPupils(),loadPayments(),loadTests()]);
+  await Promise.all([loadPupils(), loadPayments(), loadTests()]);
   loadDash(); loadEnquiries(); loadGaps(); loadRoster(); loadActivity();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   if(!document.getElementById("tab-pupils").classList.contains("hidden")) renderPupils();
@@ -307,25 +339,29 @@ async function refresh(){
 }
 
 async function loadPupils(){
-  try{
-    const r=await fetch(BASE+"/rest/v1/pupils?select=*&order=last_name.asc",{headers:H});
-    pupilsCache=await r.json();
-    if(!Array.isArray(pupilsCache)){console.error(pupilsCache);pupilsCache=[]}
-  }catch(e){console.error(e);pupilsCache=[]}
+  const {data,error}=await sb.from("pupils").select("*").order("last_name",{ascending:true});
+  if(error){console.error(error); showBanner("Pupils: "+error.message+" — run SQL_secure_admin.sql if needed"); pupilsCache=[]; return}
+  pupilsCache=data||[];
+  showBanner("");
 }
 async function loadPayments(){
-  try{
-    const r=await fetch(BASE+"/rest/v1/payments?select=*,pupil:pupils(first_name,last_name)&order=transaction_date.desc&limit=500",{headers:H});
-    paymentsCache=await r.json();
-    if(!Array.isArray(paymentsCache)) paymentsCache=[];
-  }catch(e){paymentsCache=[]}
+  let {data,error}=await sb.from("transactions").select("*, pupil:pupils(first_name,last_name)").order("transaction_date",{ascending:false}).limit(500);
+  if(error){
+    // try without join / different order column
+    const r2=await sb.from("transactions").select("*").limit(500);
+    if(r2.error){console.error(r2.error); txCache=[]; showBanner((document.getElementById("data-banner").textContent||"")+" Payments: "+r2.error.message); return}
+    data=r2.data;
+  }
+  txCache=data||[];
 }
 async function loadTests(){
-  try{
-    const r=await fetch(BASE+"/rest/v1/practical_tests?select=*,pupil:pupils(first_name,last_name)&order=test_date.desc",{headers:H});
-    testsCache=await r.json();
-    if(!Array.isArray(testsCache)) testsCache=[];
-  }catch(e){testsCache=[]}
+  let {data,error}=await sb.from("practical_tests").select("*, pupil:pupils(first_name,last_name)").order("test_date",{ascending:false});
+  if(error){
+    const r2=await sb.from("practical_tests").select("*");
+    data=r2.data; error=r2.error;
+  }
+  if(error){testsCache=[]; return}
+  testsCache=data||[];
 }
 
 function loadDash(){
@@ -335,7 +371,7 @@ function loadDash(){
   document.getElementById("n-waiting").textContent=pupils.filter(p=>p.status==="waiting").length;
   document.getElementById("n-enquiry").textContent=pupils.filter(p=>p.status==="enquiry").length;
   const now=new Date().toISOString();
-  document.getElementById("n-tests").textContent=testsCache.filter(t=>t.test_date>=now).length;
+  document.getElementById("n-tests").textContent=testsCache.filter(t=>(t.test_date||"")>=now).length;
 
   const done=testsCache.filter(t=>t.result==="pass"||t.result==="fail");
   const passes=done.filter(t=>t.result==="pass").length;
@@ -343,28 +379,22 @@ function loadDash(){
   const el=document.getElementById("m-pass");
   el.textContent=passRate==null?"–":passRate+"%";
   el.className="v "+(passRate==null?"":passRate>=55?"good":"bad");
-
   const withF=testsCache.filter(t=>t.driving_faults!=null);
-  const avgF=withF.length?(withF.reduce((s,t)=>s+Number(t.driving_faults||0),0)/withF.length).toFixed(2):"–";
-  const avgS=withF.length?(withF.reduce((s,t)=>s+Number(t.serious_faults||0),0)/withF.length).toFixed(2):"–";
-  document.getElementById("m-faults").textContent=avgF;
-  document.getElementById("m-serious").textContent=avgS;
+  document.getElementById("m-faults").textContent=withF.length?(withF.reduce((s,t)=>s+Number(t.driving_faults||0),0)/withF.length).toFixed(2):"–";
+  document.getElementById("m-serious").textContent=withF.length?(withF.reduce((s,t)=>s+Number(t.serious_faults||0),0)/withF.length).toFixed(2):"–";
 
-  // cancel rate async
   (async()=>{
-    try{
-      const since=new Date(Date.now()-14*864e5).toISOString();
-      const lessons=await(await fetch(BASE+"/rest/v1/lessons?select=id,status,pupil_id,lesson_type&start_time=gte."+since,{headers:H})).json()||[];
-      const real=(lessons||[]).filter(l=>l.lesson_type!=="gap"&&l.lesson_type!=="student_away");
-      const cancelled=real.filter(l=>l.status==="cancelled").length;
-      const pct=real.length?Math.round(cancelled/real.length*100):0;
-      document.getElementById("m-cancel").textContent=pct+"%";
-      const future=await(await fetch(BASE+"/rest/v1/lessons?select=pupil_id&start_time=gte."+now+"&status=neq.cancelled",{headers:H})).json()||[];
-      const withL=new Set((future||[]).map(l=>l.pupil_id).filter(Boolean));
-      const p=active.length?Math.round(withL.size/active.length*100):0;
-      document.getElementById("bar-booked").style.width=p+"%";
-      document.getElementById("booked-label").textContent=withL.size+" of "+active.length+" active ("+p+"%)";
-    }catch(e){}
+    const since=new Date(Date.now()-14*864e5).toISOString();
+    const {data:lessons}=await sb.from("lessons").select("id,status,pupil_id,lesson_type,start_time").gte("start_time",since);
+    const real=(lessons||[]).filter(l=>l.lesson_type!=="gap"&&l.lesson_type!=="student_away");
+    const cancelled=real.filter(l=>l.status==="cancelled").length;
+    const pct=real.length?Math.round(cancelled/real.length*100):0;
+    document.getElementById("m-cancel").textContent=pct+"%";
+    const {data:future}=await sb.from("lessons").select("pupil_id").gte("start_time",now).neq("status","cancelled");
+    const withL=new Set((future||[]).map(l=>l.pupil_id).filter(Boolean));
+    const p=active.length?Math.round(withL.size/active.length*100):0;
+    document.getElementById("bar-booked").style.width=p+"%";
+    document.getElementById("booked-label").textContent=withL.size+" of "+active.length+" active ("+p+"%)";
   })();
 }
 
@@ -374,7 +404,7 @@ function renderPupils(){
   if(pupilStatusFilter!=="all") list=list.filter(p=>p.status===pupilStatusFilter);
   if(q) list=list.filter(p=>`${p.first_name} ${p.last_name} ${p.phone||""} ${p.email||""}`.toLowerCase().includes(q));
   const el=document.getElementById("pupil-list");
-  if(!list.length){el.innerHTML='<p class="muted">No pupils match</p>';return}
+  if(!list.length){el.innerHTML='<p class="muted">No pupils match (total loaded: '+pupilsCache.length+')</p>';return}
   el.innerHTML=list.map(p=>`<div class="list-row">
     <div><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
     <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div></div>
@@ -382,7 +412,7 @@ function renderPupils(){
   </div>`).join("");
 }
 
-async function loadEnquiries(){
+function loadEnquiries(){
   const el=document.getElementById("enquiry-list");
   const rows=pupilsCache.filter(p=>p.status==="enquiry");
   if(!rows.length){el.innerHTML='<p class="muted">No open enquiries</p>';return}
@@ -398,36 +428,42 @@ async function loadEnquiries(){
 }
 
 async function setStatus(id,status){
-  await fetch(BASE+"/rest/v1/pupils?id=eq."+id,{method:"PATCH",headers:{...H,Prefer:"return=minimal"},body:JSON.stringify({status})});
-  await loadPupils(); loadDash(); loadEnquiries(); renderPupils();
+  const {error}=await sb.from("pupils").update({status}).eq("id",id);
+  if(error) alert(error.message); else refresh();
 }
 async function removePupil(id){
   if(!confirm("Remove?"))return;
-  await fetch(BASE+"/rest/v1/pupils?id=eq."+id,{method:"DELETE",headers:H});
-  await loadPupils(); loadDash(); loadEnquiries();
+  const {error}=await sb.from("pupils").delete().eq("id",id);
+  if(error) alert(error.message); else refresh();
 }
 
 function shiftWeek(n){weekStart=new Date(weekStart);weekStart.setDate(weekStart.getDate()+n*7);renderDiary()}
 async function renderDiary(){
   const end=new Date(weekStart); end.setDate(end.getDate()+7);
-  document.getElementById("week-label").textContent=weekStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+new Date(end-1).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
-  let lessons=[];
-  try{
-    lessons=await(await fetch(BASE+"/rest/v1/lessons?select=*,pupil:pupils(first_name,last_name)&start_time=gte."+weekStart.toISOString()+"&start_time=lt."+end.toISOString()+"&order=start_time.asc",{headers:H})).json()||[];
-  }catch(e){}
-  if(!Array.isArray(lessons)) lessons=[];
+  document.getElementById("week-label").textContent=
+    weekStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+
+    new Date(end-1).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  const {data:lessons}=await sb.from("lessons")
+    .select("*, pupil:pupils(first_name,last_name)")
+    .gte("start_time",weekStart.toISOString())
+    .lt("start_time",end.toISOString())
+    .order("start_time");
+  const list=lessons||[];
   const grid=document.getElementById("diary-grid"); grid.innerHTML="";
   for(let i=0;i<7;i++){
     const day=new Date(weekStart); day.setDate(day.getDate()+i);
     const dayStr=day.toDateString();
     const cell=document.createElement("div"); cell.className="diary-day";
     cell.innerHTML="<h4>"+day.toLocaleDateString("en-GB",{weekday:"short",day:"numeric"})+"</h4>";
-    lessons.filter(l=>new Date(l.start_time).toDateString()===dayStr).forEach(l=>{
-      const name=l.pupil?l.pupil.first_name+" "+(l.pupil.last_name||"").charAt(0): (l.title||l.lesson_type||"");
+    list.filter(l=>new Date(l.start_time).toDateString()===dayStr).forEach(l=>{
+      const name=l.pupil?l.pupil.first_name+" "+(l.pupil.last_name||"").charAt(0):(l.title||l.lesson_type||"");
       const t=new Date(l.start_time).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
-      const cls=l.lesson_type==="gap"?"gap":(l.title==="Away"||l.lesson_type==="student_away")?"away":"";
+      let cls="";
+      if(l.status==="cancelled") cls="cancelled";
+      else if(l.lesson_type==="gap") cls="gap";
+      else if(l.title==="Away"||l.lesson_type==="student_away") cls="away";
       const d=document.createElement("div"); d.className="lesson-chip "+cls;
-      d.textContent=t+" "+name; cell.appendChild(d);
+      d.textContent=t+" "+name+(l.status==="cancelled"?" (X)":""); cell.appendChild(d);
     });
     grid.appendChild(cell);
   }
@@ -436,7 +472,7 @@ async function renderDiary(){
 function showTests(mode,btn){
   if(btn){btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));btn.classList.add("on")}
   const now=new Date().toISOString();
-  const list=testsCache.filter(t=>mode==="future"?t.test_date>=now:t.test_date<now);
+  const list=testsCache.filter(t=>mode==="future"?(t.test_date||"")>=now:(t.test_date||"")<now);
   const el=document.getElementById("test-list");
   if(!list.length){el.innerHTML='<p class="muted">None</p>';return}
   el.innerHTML="<table><thead><tr><th>Pupil</th><th>Date</th><th>Result</th></tr></thead><tbody>"+
@@ -453,7 +489,6 @@ function onPeriodChange(){
   document.getElementById("fin-from-wrap").style.display=c?"block":"none";
   document.getElementById("fin-to-wrap").style.display=c?"block":"none";
 }
-
 function getFinRange(){
   const p=document.getElementById("fin-period").value;
   const now=new Date();
@@ -461,8 +496,7 @@ function getFinRange(){
   if(p==="this_tax") return taxYearBounds(0);
   if(p==="last_tax") return taxYearBounds(-1);
   if(p==="this_month"){
-    const from=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01";
-    return {from,to:now.toISOString().slice(0,10)};
+    return {from:now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01", to:now.toISOString().slice(0,10)};
   }
   if(p==="last_month"){
     const d=new Date(now.getFullYear(),now.getMonth()-1,1);
@@ -471,39 +505,37 @@ function getFinRange(){
   }
   return {from:document.getElementById("fin-from").value||null,to:document.getElementById("fin-to").value||null};
 }
-
 function filteredPayments(){
   const {from,to}=getFinRange();
-  return (paymentsCache||[]).filter(r=>{
-    const d=r.transaction_date||(r.created_at||"").slice(0,10);
-    if(!d) return true;
-    if(from&&d<from) return false;
-    if(to&&d>to) return false;
+  return (txCache||[]).filter(r=>{
+    const d=r.transaction_date||(r.created_at||"").slice(0,10)||"";
+    if(from&&d&&d<from) return false;
+    if(to&&d&&d>to) return false;
     return true;
   });
 }
-
 function isExpense(r){
   const t=(r.type||r.transaction_type||r.category||"").toLowerCase();
-  return t.includes("expense")||t.includes("cost")||t==="expense";
+  return t.includes("expense")||t.includes("cost");
 }
-function isIncome(r){ return !isExpense(r); }
-
-function applyFinance(){ showFin(document.querySelector("#tab-finance .tabs-sub button.on")?.textContent?.toLowerCase().includes("income")?"income":
-  document.querySelector("#tab-finance .tabs-sub button.on")?.textContent?.toLowerCase().includes("expense")?"expense":
-  document.querySelector("#tab-finance .tabs-sub button.on")?.textContent?.toLowerCase().includes("add")?"add":"summary"); }
-
+function applyFinance(){
+  const on=document.querySelector("#tab-finance .tabs-sub button.on");
+  const mode=on&&on.textContent.toLowerCase().includes("income")?"income":
+    on&&on.textContent.toLowerCase().includes("expense")?"expense":
+    on&&on.textContent.toLowerCase().includes("add")?"add":"summary";
+  showFin(mode);
+}
 function showFin(mode,btn){
   if(btn){btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));btn.classList.add("on")}
   ["summary","income","expense","add"].forEach(m=>document.getElementById("fin-"+m).classList.toggle("hidden",m!==mode));
   const rows=filteredPayments();
-  const inc=rows.filter(isIncome);
+  const inc=rows.filter(r=>!isExpense(r));
   const exp=rows.filter(isExpense);
   const sumInc=inc.reduce((s,r)=>s+Number(r.amount||0),0);
   const sumExp=exp.reduce((s,r)=>s+Number(r.amount||0),0);
   const {from,to}=getFinRange();
   document.getElementById("fin-summary").innerHTML=`
-    <p class="muted" style="margin-bottom:.75rem">${from||"…"} → ${to||"…"} · ${rows.length} entries</p>
+    <p class="muted" style="margin-bottom:.75rem">${from||"all"} → ${to||"all"} · ${rows.length} entries (loaded ${txCache.length})</p>
     <div class="metric-row">
       <div class="metric"><div class="v good">£${sumInc.toFixed(2)}</div><div class="l">Income</div></div>
       <div class="metric"><div class="v bad">£${sumExp.toFixed(2)}</div><div class="l">Expenses</div></div>
@@ -513,29 +545,22 @@ function showFin(mode,btn){
   document.getElementById("fin-expense").innerHTML=tablePay(exp);
   if(!document.getElementById("pay-date").value) document.getElementById("pay-date").value=new Date().toISOString().slice(0,10);
 }
-
 function tablePay(rows){
   if(!rows.length) return '<p class="muted">No rows in this period</p>';
   return "<table><thead><tr><th>Date</th><th>Detail</th><th>Amount</th><th>Method</th><th></th></tr></thead><tbody>"+
     rows.map(r=>{
       const pupil=r.pupil?`${r.pupil.first_name} ${r.pupil.last_name}`:"";
       const detail=pupil||r.category||r.type||r.notes||"";
-      return `<tr>
-        <td>${esc(r.transaction_date||"")}</td>
-        <td>${esc(detail)}</td>
-        <td>£${Number(r.amount||0).toFixed(2)}</td>
-        <td>${esc(r.payment_method||"–")}</td>
-        <td><button class="btn-danger" onclick="delPay('${r.id}')">Del</button></td>
-      </tr>`;
+      return `<tr><td>${esc(r.transaction_date||"")}</td><td>${esc(detail)}</td>
+        <td>£${Number(r.amount||0).toFixed(2)}</td><td>${esc(r.payment_method||"–")}</td>
+        <td><button class="btn-danger" onclick="delPay('${r.id}')">Del</button></td></tr>`;
     }).join("")+"</tbody></table>";
 }
-
 async function delPay(id){
-  if(!confirm("Delete this entry?"))return;
-  await fetch(BASE+"/rest/v1/payments?id=eq."+id,{method:"DELETE",headers:H});
-  await loadPayments(); applyFinance();
+  if(!confirm("Delete?"))return;
+  const {error}=await sb.from("transactions").delete().eq("id",id);
+  if(error) alert(error.message); else { await loadPayments(); applyFinance(); }
 }
-
 async function addPayment(){
   const type=document.getElementById("pay-type").value;
   const cat=document.getElementById("pay-cat").value.trim()||type;
@@ -544,19 +569,15 @@ async function addPayment(){
   const method=document.getElementById("pay-method").value;
   const notes=document.getElementById("pay-notes").value.trim()||null;
   if(!amount||!date) return alert("Amount and date required");
-  const body={type: type==="expense"?"expense":"income", category:cat, amount, transaction_date:date, payment_method:method, notes};
-  const res=await fetch(BASE+"/rest/v1/payments",{method:"POST",headers:{...H,Prefer:"return=minimal"},body:JSON.stringify(body)});
-  if(!res.ok){
-    // fallback columns
-    const res2=await fetch(BASE+"/rest/v1/payments",{method:"POST",headers:{...H,Prefer:"return=minimal"},body:JSON.stringify({type:body.type,amount,transaction_date:date,payment_method:method,notes:cat+(notes?" · "+notes:"")})});
-    if(!res2.ok) return alert(await res2.text());
+  let {error}=await sb.from("transactions").insert({type, category:cat, amount, transaction_date:date, payment_method:method, notes});
+  if(error){
+    ({error}=await sb.from("transactions").insert({type, amount, transaction_date:date, payment_method:method, notes: [cat,notes].filter(Boolean).join(" · ")}));
   }
+  if(error) return alert(error.message);
   document.getElementById("pay-amt").value="";
-  document.getElementById("pay-notes").value="";
   await loadPayments(); applyFinance();
   alert("Saved");
 }
-
 function exportFinance(){
   const rows=filteredPayments();
   const {from,to}=getFinRange();
@@ -565,43 +586,35 @@ function exportFinance(){
     const pupil=r.pupil?`${r.pupil.first_name||""} ${r.pupil.last_name||""}`.trim():"";
     lines.push([r.transaction_date||"",r.type||r.category||"",r.amount??"",r.payment_method||"",(r.notes||"").replace(/,/g,";"),pupil].join(","));
   });
-  const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
+  a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));
   a.download=`dmw-finance_${from||"all"}_${to||"all"}.csv`;
-  document.body.appendChild(a); a.click(); a.remove();
+  a.click();
 }
 
 async function loadGaps(){
   const el=document.getElementById("gap-list");
-  try{
-    const now=new Date().toISOString();
-    const rows=await(await fetch(BASE+"/rest/v1/lessons?lesson_type=eq.gap&start_time=gte."+now+"&order=start_time.asc&limit=40",{headers:H})).json()||[];
-    if(!rows.length){el.innerHTML='<p class="muted">No upcoming gaps</p>';return}
-    el.innerHTML="<table><thead><tr><th>When</th><th>Notes</th></tr></thead><tbody>"+
-      rows.map(g=>`<tr><td>${fmt(g.start_time)}</td><td>${esc(g.notes||g.title||"–")}</td></tr>`).join("")+"</tbody></table>";
-  }catch{el.innerHTML='<p class="muted">Could not load</p>'}
+  const now=new Date().toISOString();
+  const {data}=await sb.from("lessons").select("*").eq("lesson_type","gap").gte("start_time",now).order("start_time").limit(40);
+  if(!data||!data.length){el.innerHTML='<p class="muted">No upcoming gaps</p>';return}
+  el.innerHTML="<table><thead><tr><th>When</th><th>Notes</th></tr></thead><tbody>"+
+    data.map(g=>`<tr><td>${fmt(g.start_time)}</td><td>${esc(g.notes||g.title||"–")}</td></tr>`).join("")+"</tbody></table>";
 }
-
 async function loadRoster(){
   const el=document.getElementById("roster");
-  try{
-    const rows=await(await fetch(BASE+"/rest/v1/students?select=*",{headers:H})).json()||[];
-    if(!rows.length){el.innerHTML='<p class="muted">No portal accounts</p>';return}
-    el.innerHTML=rows.map(s=>`<div class="list-row"><div><strong>${esc(s.username)}</strong><div class="muted">${esc(s.password||"")}</div></div>
-      <button class="btn-danger" onclick="delStudent('${esc(s.username)}')">Delete</button></div>`).join("");
-  }catch{el.innerHTML='<p class="muted">Error</p>'}
+  const {data,error}=await sb.from("students").select("*");
+  if(error){el.innerHTML='<p class="muted">'+esc(error.message)+'</p>';return}
+  if(!data.length){el.innerHTML='<p class="muted">No portal accounts</p>';return}
+  el.innerHTML=data.map(s=>`<div class="list-row"><div><strong>${esc(s.username)}</strong><div class="muted">${esc(s.password||"")}</div></div>
+    <button class="btn-danger" onclick="delStudent('${esc(s.username)}')">Delete</button></div>`).join("");
 }
 async function loadActivity(){
   const el=document.getElementById("activity");
-  try{
-    const rows=await(await fetch(BASE+"/rest/v1/activity_logs?order=created_at.desc&limit=15",{headers:H})).json()||[];
-    if(!rows.length){el.innerHTML='<p class="muted">No activity</p>';return}
-    el.innerHTML=rows.map(l=>`<div class="list-row"><div><strong>${esc(l.username)}</strong> — ${esc(l.action)}
-      <div class="muted">${l.created_at?new Date(l.created_at).toLocaleString("en-GB"):""}</div></div></div>`).join("");
-  }catch{el.innerHTML='<p class="muted">No activity log</p>'}
+  const {data}=await sb.from("activity_logs").select("*").order("created_at",{ascending:false}).limit(15);
+  if(!data||!data.length){el.innerHTML='<p class="muted">No activity</p>';return}
+  el.innerHTML=data.map(l=>`<div class="list-row"><div><strong>${esc(l.username)}</strong> — ${esc(l.action)}
+    <div class="muted">${l.created_at?new Date(l.created_at).toLocaleString("en-GB"):""}</div></div></div>`).join("");
 }
-
 async function addLearner(){
   const user=document.getElementById("user").value.trim().toLowerCase();
   let pass=document.getElementById("pass").value.trim();
@@ -611,15 +624,15 @@ async function addLearner(){
   const email=document.getElementById("email").value.trim().toLowerCase()||null;
   if(!user) return alert("Username required");
   if(!pass){const c="abcdefghijkmnpqrstuvwxyz23456789";pass=Array.from({length:10},()=>c[Math.floor(Math.random()*c.length)]).join("")}
-  await fetch(BASE+"/rest/v1/students",{method:"POST",headers:{...H,Prefer:"return=minimal"},body:JSON.stringify({username:user,password:pass})});
-  await fetch(BASE+"/rest/v1/pupils",{method:"POST",headers:{...H,Prefer:"return=minimal"},body:JSON.stringify({first_name:first,last_name:last||user,phone,email,status:"waiting",portal_username:user,portal_password:pass})});
+  await sb.from("students").insert({username:user,password:pass});
+  await sb.from("pupils").insert({first_name:first,last_name:last||user,phone,email,status:"waiting",portal_username:user,portal_password:pass});
   alert("Saved\nUsername: "+user+"\nPassword: "+pass);
   ["fn","ln","phone","email","user","pass"].forEach(id=>document.getElementById(id).value="");
   refresh();
 }
 async function delStudent(u){
   if(!confirm("Delete "+u+"?"))return;
-  await fetch(BASE+"/rest/v1/students?username=eq."+encodeURIComponent(u),{method:"DELETE",headers:H});
+  await sb.from("students").delete().eq("username",u);
   loadRoster();
 }
 function fmt(iso){if(!iso)return"–";try{return new Date(iso).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}catch{return iso}}

@@ -1,584 +1,362 @@
 <!DOCTYPE html>
 <html lang="en-GB">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DMW Portal Control Panel - Admin Only</title>
-        <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="apple-touch-icon" href="favicon.png">
-    <link rel="canonical" href="https://dmwdrivingschool.co.uk">
-    <style>
-        :root {
-            --dmw-dark: #1e1e24;
-            --dmw-accent: #ffcc00;
-            --dmw-blue: #0084ff;
-            --dmw-bg: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-dark: #1e293b;
-            --border-light: #e2e8f0;
-            --text-muted: #64748b;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
-        body { background-color: var(--dmw-bg); color: var(--text-dark); line-height: 1.5; padding-bottom: 80px; }
-       
-        .site-header { background-color: var(--dmw-dark); padding: 14px 0; box-shadow: 0 2px 12px rgba(0,0,0,0.12); text-align: center; }
-        .logo-container { max-width: 210px; margin: 0 auto; }
-        .logo-img { width: 100%; height: auto; display: block; }
-       
-        .admin-wrapper { max-width: 1400px; margin: 40px auto; padding: 0 20px; display: none; }
-        .portal-banner { display: flex; justify-content: space-between; align-items: center; background: var(--dmw-dark); color: #fff; padding: 22px 30px; border-radius: 10px; margin-bottom: 30px; }
-        .portal-banner h1 { font-size: 1.35rem; font-weight: 700; }
-        .logout-btn { background: transparent; color: var(--dmw-accent); border: 2px solid var(--dmw-accent); padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
-        .logout-btn:hover { background: var(--dmw-accent); color: var(--dmw-dark); }
-       
-        .grid-panels { display: grid; gap: 30px; grid-template-columns: 1fr; }
-        @media(min-width: 950px) { .grid-panels { grid-template-columns: 350px 1fr 1fr; } }
-       
-        .panel-card { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-light); padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); height: max-content; }
-        .panel-card h2 { font-size: 1.15rem; font-weight: 700; color: var(--dmw-dark); margin-bottom: 15px; border-bottom: 2px solid var(--dmw-bg); padding-bottom: 8px; }
-       
-        /* --- Matrix Accordion --- */
-        .matrix-outer-box { width: 100%; margin-bottom: 35px; }
-        .matrix-category-card { background: var(--card-bg); border: 1px solid var(--border-light); border-radius: 10px; overflow: hidden; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.01); }
-        .matrix-category-header { background: #272730; color: #ffffff; padding: 16px 25px; font-weight: 700; font-size: 1.05rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
-        .matrix-category-header:hover { background: var(--dmw-dark); color: var(--dmw-accent); }
-        .matrix-category-header .arrow-indicator { font-size: 0.85rem; color: #94a3b8; transition: transform 0.25s; }
-        .matrix-category-card.active .arrow-indicator { transform: rotate(180deg); color: var(--dmw-accent); }
-       
-        .matrix-category-drawer { display: none; padding: 16px; overflow-x: auto; background: #fafbfc; border-top: 1px solid var(--border-light); }
-        .matrix-category-card.active .matrix-category-drawer { display: block; }
-       
-        .matrix-table { width: 100%; border-collapse: collapse; min-width: 700px; font-size: 0.85rem; background: #ffffff; }
-        .matrix-table th, .matrix-table td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; vertical-align: middle; }
-        .matrix-table th { background: #f1f5f9; color: var(--dmw-dark); font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.02em; }
-        .matrix-table td.video-name-cell { text-align: left; font-weight: 600; color: #334155; width: 280px; background: #ffffff; position: sticky; left: 0; border-right: 2px solid #cbd5e1; white-space: nowrap; }
-       
-        /* --- Compact status badges (name-sized) --- */
-        .status-box-cell {
-            display: inline-block;
-            min-width: 54px;
-            max-width: 70px;
-            font-weight: 700;
-            font-size: 0.72rem;
-            border-radius: 20px;
-            padding: 4px 8px;
-            text-transform: uppercase;
-            color: #fff;
-            text-align: center;
-            line-height: 1.3;
-            letter-spacing: 0.02em;
-        }
-        .cell-not-started { background: #ef4444; }
-        .cell-halfway { background: #eab308; color: #1e293b; }
-        .cell-completed { background: #22c55e; }
-       
-        .input-item { margin-bottom: 15px; }
-        .input-item label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-dark); margin-bottom: 5px; }
-        .input-item input { width: 100%; padding: 11px 14px; border: 1px solid var(--border-light); border-radius: 6px; outline: none; font-size: 0.95rem; }
-        .input-item input:focus { border-color: var(--dmw-dark); }
-       
-        .action-btn { width: 100%; padding: 12px; border: none; font-weight: 700; font-size: 0.95rem; border-radius: 6px; cursor: pointer; transition: opacity 0.2s; }
-        .btn-add { background: #2ecc71; color: white; }
-        .action-btn:hover { opacity: 0.9; }
-       
-        .student-list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--dmw-bg); border-radius: 6px; margin-bottom: 10px; font-size: 0.95rem; font-weight: 500; border-left: 4px solid var(--dmw-dark); }
-        .student-list-item span { color: var(--text-dark); line-height: 1.4; }
-        .student-list-item strong { color: #0f172a; font-weight: 600; }
-        .delete-icon { color: #df4744; cursor: pointer; font-weight: 700; font-size: 0.88rem; padding: 4px 10px; border: 1px solid #fca5a5; border-radius: 4px; background: #fff; transition: all 0.2s; }
-        .delete-icon:hover { background: #fef2f2; }
-       
-        .log-item { background: #fafbfc; border: 1px solid var(--border-light); padding: 12px; border-radius: 6px; margin-bottom: 10px; font-size: 0.88rem; line-height: 1.4; border-left: 4px solid var(--dmw-blue); }
-        .log-time { font-size: 0.78rem; color: var(--text-muted); display: block; margin-top: 4px; }
-       
-        .gate-lock-box { background: var(--card-bg); padding: 40px 30px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); width: 100%; max-width: 400px; text-align: center; margin: 100px auto; border-top: 5px solid var(--dmw-dark); }
-        .gate-lock-box h2 { font-size: 1.45rem; margin-bottom: 6px; font-weight: 700; }
-        .gate-lock-box p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 25px; }
-       
-        .site-footer { background-color: var(--dmw-dark); color: #94a3b8; padding: 24px 0; font-size: 13.5px; border-top: 1px solid #272730; position: fixed; bottom: 0; width: 100%; z-index: 100; }
-        .footer-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: center; align-items: center; padding: 0 20px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DMW Admin Hub</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    :root {
+      --navy: #0A4CA1;
+      --deep: #062F63;
+      --bg: #F4F7FA;
+      --card: #fff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --green: #16a34a;
+      --amber: #d97706;
+      --rose: #e11d48;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; }
+    header {
+      background: var(--deep); color: #fff; padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    header img { height: 40px; width: auto; }
+    header h1 { font-size: 1.1rem; font-weight: 700; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 16px 80px; }
+    .gate {
+      max-width: 400px; margin: 80px auto; background: var(--card); border-radius: 12px;
+      padding: 32px 24px; box-shadow: 0 8px 30px rgba(0,0,0,.06); border-top: 4px solid var(--navy);
+      text-align: center;
+    }
+    .gate input, .panel input, .panel select, .panel textarea {
+      width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 0.95rem; margin-top: 6px;
+    }
+    .btn {
+      display: inline-block; width: 100%; padding: 12px; border: none; border-radius: 8px;
+      font-weight: 700; cursor: pointer; font-size: 0.95rem;
+    }
+    .btn-primary { background: var(--navy); color: #fff; }
+    .btn-green { background: var(--green); color: #fff; }
+    .btn-ghost { background: transparent; color: #fff; border: 2px solid #ffcc00; width: auto; padding: 8px 14px; }
+    .err { color: var(--rose); font-size: 0.85rem; margin-top: 10px; display: none; font-weight: 600; }
+    .cards {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px;
+    }
+    @media (min-width: 700px) { .cards { grid-template-columns: repeat(4, 1fr); } }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 18px 16px; box-shadow: 0 2px 8px rgba(0,0,0,.03);
+    }
+    .card .label { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+    .card .num { font-size: 1.75rem; font-weight: 800; color: var(--deep); }
+    .card.warn .num { color: var(--rose); }
+    .card.ok .num { color: var(--green); }
+    .section {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 20px; margin-bottom: 20px;
+    }
+    .section h2 {
+      font-size: 1.05rem; font-weight: 700; margin-bottom: 14px; padding-bottom: 8px;
+      border-bottom: 2px solid var(--bg); color: var(--deep);
+    }
+    .grid-2 { display: grid; gap: 20px; }
+    @media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+    .field { margin-bottom: 12px; }
+    .field label { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+    .roster-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 12px; background: var(--bg); border-radius: 8px; margin-bottom: 8px;
+      font-size: 0.9rem; border-left: 4px solid var(--navy);
+    }
+    .del { color: var(--rose); cursor: pointer; font-size: 0.8rem; font-weight: 700;
+      border: 1px solid #fecaca; padding: 4px 8px; border-radius: 4px; background: #fff; }
+    .links { display: flex; flex-wrap: wrap; gap: 10px; }
+    .links a {
+      display: inline-block; padding: 10px 14px; background: var(--bg); border-radius: 8px;
+      text-decoration: none; color: var(--navy); font-weight: 600; font-size: 0.9rem;
+      border: 1px solid var(--border);
+    }
+    .links a:hover { background: #e0f2fe; }
+    .log {
+      font-size: 0.85rem; padding: 10px; background: #fafbfc; border: 1px solid var(--border);
+      border-left: 4px solid var(--navy); border-radius: 6px; margin-bottom: 8px;
+    }
+    .log time { display: block; font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+    .hidden { display: none !important; }
+    footer {
+      position: fixed; bottom: 0; left: 0; right: 0; background: var(--deep); color: #94a3b8;
+      text-align: center; padding: 12px; font-size: 0.8rem;
+    }
+  </style>
 </head>
 <body>
-    <header class="site-header">
-        <div class="logo-container">
-            <img src="image-1.jpg" alt="DMW Logo" class="logo-img">
-        </div>
+  <div id="gate" class="gate">
+    <h2 style="margin-bottom:6px">DMW Admin Hub</h2>
+    <p style="color:#64748b;font-size:0.9rem;margin-bottom:20px">Master password required</p>
+    <input type="password" id="gate-pass" placeholder="Password">
+    <button class="btn btn-primary" style="margin-top:14px" onclick="unlock()">Unlock</button>
+    <div id="gate-err" class="err">Incorrect password</div>
+  </div>
+
+  <div id="app" class="hidden">
+    <header>
+      <div style="display:flex;align-items:center;gap:12px">
+        <img src="image-1.jpg" alt="DMW" onerror="this.style.display='none'">
+        <h1>DMW Admin Hub</h1>
+      </div>
+      <button class="btn btn-ghost" onclick="lock()">Lock</button>
     </header>
-   
-    <div id="admin-gate-screen" class="gate-lock-box">
-        <h2>Admin Gateway</h2>
-        <p>Enter your master security password to open controls</p>
-        <div class="input-item">
-            <input type="password" id="admin-gate-pass" placeholder="Master Password">
+
+    <div class="wrap">
+      <div class="cards" id="stat-cards">
+        <div class="card"><div class="num" id="s-active">–</div><div class="label">Active pupils</div></div>
+        <div class="card"><div class="num" id="s-waiting">–</div><div class="label">Waiting list</div></div>
+        <div class="card"><div class="num" id="s-enquiry">–</div><div class="label">Enquiries</div></div>
+        <div class="card"><div class="num" id="s-tests">–</div><div class="label">Upcoming tests</div></div>
+      </div>
+
+      <div class="section">
+        <h2>Quick links</h2>
+        <div class="links">
+          <a href="portal.html" target="_blank">Video portal</a>
+          <a href="enquiry.html" target="_blank">Enquiry form (public)</a>
+          <a href="#" onclick="exportFinance();return false">Export finance CSV</a>
         </div>
-        <button class="action-btn btn-add" style="background: var(--dmw-dark); color: white;" onclick="verifyAdminGate()">Unlock Dashboard</button>
-        <div id="gate-error" style="color: #df4744; font-size: 0.85rem; margin-top: 12px; display: none; font-weight: 600;">Incorrect master password!</div>
+        <p style="font-size:0.8rem;color:#64748b;margin-top:12px">
+          Instructor &amp; pupil apps run separately (your Vercel / local app URL). Open that for diary, messages, and lessons.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <div class="section">
+          <h2>Add learner (portal + app)</h2>
+          <div class="field"><label>First name</label><input id="fn"></div>
+          <div class="field"><label>Last name</label><input id="ln"></div>
+          <div class="field"><label>Phone</label><input id="phone"></div>
+          <div class="field"><label>Email</label><input id="email" type="email"></div>
+          <div class="field"><label>Portal username</label><input id="user" placeholder="e.g. johnsmith"></div>
+          <div class="field"><label>Password (blank = auto)</label><input id="pass"></div>
+          <button class="btn btn-green" onclick="addLearner()">Save to portal + app</button>
+        </div>
+
+        <div class="section">
+          <h2>Portal accounts</h2>
+          <div id="roster">Loading…</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Recent enquiries (from website form)</h2>
+        <div id="enquiries">Loading…</div>
+      </div>
+
+      <div class="section">
+        <h2>Portal activity (latest)</h2>
+        <div id="activity">Loading…</div>
+      </div>
     </div>
-   
-    <main class="admin-wrapper" id="admin-dashboard">
-        <div class="portal-banner">
-            <h1>DMW Student Accounts Dashboard</h1>
-            <button class="logout-btn" onclick="lockAdminGate()">Lock Panel</button>
-        </div>
+  </div>
 
-        <!-- Progress Matrices -->
-        <div class="matrix-outer-box">
-            <div class="matrix-category-card">
-                <div class="matrix-category-header" onclick="toggleMatrixCategory(this)">
-                    <span>📋 Module 1: Preparing & Junctions Progress Grid</span>
-                    <span class="arrow-indicator">▼</span>
-                </div>
-                <div class="matrix-category-drawer" id="matrix-m1-mount">Loading data entries...</div>
-            </div>
-            <div class="matrix-category-card">
-                <div class="matrix-category-header" onclick="toggleMatrixCategory(this)">
-                    <span>🚗 Module 2: Everyday Driving Progress Grid</span>
-                    <span class="arrow-indicator">▼</span>
-                </div>
-                <div class="matrix-category-drawer" id="matrix-m2-mount">Loading data entries...</div>
-            </div>
-            <div class="matrix-category-card">
-                <div class="matrix-category-header" onclick="toggleMatrixCategory(this)">
-                    <span>🛣️ Module 3: Crossroads Progress Grid</span>
-                    <span class="arrow-indicator">▼</span>
-                </div>
-                <div class="matrix-category-drawer" id="matrix-m3-mount">Loading data entries...</div>
-            </div>
-            <div class="matrix-category-card">
-                <div class="matrix-category-header" onclick="toggleMatrixCategory(this)">
-                    <span>⭕ Module 4: Roundabouts Progress Grid</span>
-                    <span class="arrow-indicator">▼</span>
-                </div>
-                <div class="matrix-category-drawer" id="matrix-m4-mount">Loading data entries...</div>
-            </div>
-            <div class="matrix-category-card">
-                <div class="matrix-category-header" onclick="toggleMatrixCategory(this)">
-                    <span>🅿️ Module 5: Manoeuvres & Exercises Progress Grid</span>
-                    <span class="arrow-indicator">▼</span>
-                </div>
-                <div class="matrix-category-drawer" id="matrix-m5-mount">Loading data entries...</div>
-            </div>
-        </div>
-       
-        <div class="grid-panels">
-            <div class="panel-card">
-                <h2>Add New Learner Account</h2>
-                <div class="input-item">
-                    <label>First name</label>
-                    <input type="text" id="new-first-name" placeholder="e.g. John" autocomplete="off">
-                </div>
-                <div class="input-item">
-                    <label>Last name</label>
-                    <input type="text" id="new-last-name" placeholder="e.g. Smith" autocomplete="off">
-                </div>
-                <div class="input-item">
-                    <label>Phone (optional)</label>
-                    <input type="text" id="new-phone" placeholder="07..." autocomplete="off">
-                </div>
-                <div class="input-item">
-                    <label>Email (optional)</label>
-                    <input type="email" id="new-email" placeholder="email@example.com" autocomplete="off">
-                </div>
-                <div class="input-item">
-                    <label>Portal / app username</label>
-                    <input type="text" id="new-username" placeholder="e.g. johnsmith" autocomplete="off">
-                </div>
-                <div class="input-item">
-                    <label>Password (leave blank to auto-generate)</label>
-                    <input type="text" id="new-password" placeholder="e.g. pass123" autocomplete="off">
-                </div>
-                <button class="action-btn btn-add" onclick="addNewStudent()">Save to Portal + App</button>
-            </div>
-           
-            <div class="panel-card">
-                <h2>Active Student Database Roster</h2>
-                <div id="live-roster-mount">Loading cloud database entries...</div>
-            </div>
+  <footer>© DMW Driving School · Gloucester</footer>
 
-            <div class="panel-card">
-                <h2>Live Student Activity Feed Logs</h2>
-                <div class="input-item" style="margin-top: 10px; margin-bottom: 15px;">
-                    <label style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted);">Filter History By Pupil</label>
-                    <select id="pupil-log-filter" onchange="fetchActivityLogs()" style="width: 100%; padding: 10px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 0.9rem; outline: none; background: #fff; font-weight: 600; color: var(--text-dark);">
-                        <option value="ALL_PUPILS">🔍 View All Pupil Activity Streams</option>
-                    </select>
-                </div>
-                <div id="activity-log-mount" style="max-height: 380px; overflow-y: auto; padding-right: 5px;">Loading activity streams...</div>
-            </div>
-        
-            <div class="panel-card" style="grid-column: 1 / -1;">
-                <h2>Tax / finance export (from app)</h2>
-                <p style="font-size:0.9rem;color:#64748b;margin-bottom:12px;">Downloads income & expenses from the instructor app database (payments table).</p>
-                <button class="action-btn btn-add" style="background:#1e1e24;max-width:280px;" onclick="exportFinanceCsv()">Download CSV</button>
-            </div>
+  <script>
+    const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+    const H = { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" };
 
-        </div>
-    </main>
-
-    <footer class="site-footer">
-        <div class="footer-container">
-            <p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
-        </div>
-    </footer>
-
-    <script>
-        const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
-        const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
-
-        async function verifyAdminGate() {
-            const inputPass = document.getElementById('admin-gate-pass').value.trim();
-            if (!inputPass) { alert("Please enter a passcode."); return; }
-            try {
-                const response = await fetch(SUPABASE_URL + "/rest/v1/credentials?select=*", {
-                    method: 'GET',
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-                const records = await response.json();
-                let accessGranted = false;
-                if (records && records.length > 0) {
-                    const adminRow = records.find(r => r.role === 'admin');
-                    if (adminRow && adminRow.password === inputPass) { accessGranted = true; }
-                }
-                if (accessGranted) {
-                    document.getElementById('admin-gate-screen').style.display = 'none';
-                    document.getElementById('admin-dashboard').style.display = 'block';
-                    document.getElementById('gate-error').style.display = 'none';
-                    fetchLiveRoster();
-                    fetchActivityLogs();
-                   
-                    if (window.logInterval) clearInterval(window.logInterval);
-                    window.logInterval = setInterval(() => {
-                        fetchActivityLogs();
-                        compileAllCategoryMatrices();
-                    }, 15000);
-                } else {
-                    document.getElementById('gate-error').innerText = "Incorrect master password!";
-                    document.getElementById('gate-error').style.display = 'block';
-                }
-            } catch (error) {
-                document.getElementById('gate-error').innerText = "Database connection error. Try again!";
-                document.getElementById('gate-error').style.display = 'block';
-            }
+    async function unlock() {
+      const input = document.getElementById("gate-pass").value.trim();
+      if (!input) return alert("Enter password");
+      try {
+        const res = await fetch(SUPABASE_URL + "/rest/v1/credentials?select=*", { headers: H });
+        const rows = await res.json();
+        const admin = (rows || []).find(r => r.role === "admin");
+        if (admin && admin.password === input) {
+          document.getElementById("gate").classList.add("hidden");
+          document.getElementById("app").classList.remove("hidden");
+          refreshAll();
+          setInterval(refreshAll, 20000);
+        } else {
+          document.getElementById("gate-err").style.display = "block";
         }
-       
-        function lockAdminGate() {
-            if (window.logInterval) clearInterval(window.logInterval);
-            document.getElementById('admin-gate-pass').value = '';
-            document.getElementById('admin-gate-screen').style.display = 'block';
-            document.getElementById('admin-dashboard').style.display = 'none';
+      } catch (e) {
+        document.getElementById("gate-err").innerText = "Connection error";
+        document.getElementById("gate-err").style.display = "block";
+      }
+    }
+
+    function lock() {
+      document.getElementById("app").classList.add("hidden");
+      document.getElementById("gate").classList.remove("hidden");
+      document.getElementById("gate-pass").value = "";
+    }
+
+    async function refreshAll() {
+      loadStats();
+      loadRoster();
+      loadEnquiries();
+      loadActivity();
+    }
+
+    async function loadStats() {
+      try {
+        const pupils = await (await fetch(SUPABASE_URL + "/rest/v1/pupils?select=id,status", { headers: H })).json();
+        const list = Array.isArray(pupils) ? pupils : [];
+        document.getElementById("s-active").textContent = list.filter(p => p.status === "active").length;
+        document.getElementById("s-waiting").textContent = list.filter(p => p.status === "waiting").length;
+        document.getElementById("s-enquiry").textContent = list.filter(p => p.status === "enquiry").length;
+        const now = new Date().toISOString();
+        const tests = await (await fetch(SUPABASE_URL + "/rest/v1/practical_tests?select=id&test_date=gte." + now, { headers: H })).json();
+        document.getElementById("s-tests").textContent = Array.isArray(tests) ? tests.length : "–";
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    async function loadRoster() {
+      const el = document.getElementById("roster");
+      try {
+        const rows = await (await fetch(SUPABASE_URL + "/rest/v1/students?select=*", { headers: H })).json();
+        if (!rows || !rows.length) {
+          el.innerHTML = '<p style="color:#64748b;font-size:0.9rem">No portal accounts yet</p>';
+          return;
         }
+        el.innerHTML = rows.map(s =>
+          `<div class="roster-item"><div><strong>${s.username}</strong><br><span style="color:#64748b;font-size:0.8rem">${s.password || ""}</span></div>
+           <button class="del" onclick="delStudent('${s.username}')">Delete</button></div>`
+        ).join("");
+      } catch (e) {
+        el.textContent = "Could not load roster";
+      }
+    }
 
-        function toggleMatrixCategory(headerElement) {
-            const currentCard = headerElement.parentElement;
-            currentCard.classList.toggle('active');
+    async function loadEnquiries() {
+      const el = document.getElementById("enquiries");
+      try {
+        const rows = await (await fetch(
+          SUPABASE_URL + "/rest/v1/pupils?status=eq.enquiry&select=*&order=created_at.desc&limit=15",
+          { headers: H }
+        )).json();
+        if (!rows || !rows.length) {
+          el.innerHTML = '<p style="color:#64748b;font-size:0.9rem">No open enquiries</p>';
+          return;
         }
+        el.innerHTML = rows.map(p =>
+          `<div class="log"><strong>${p.first_name || ""} ${p.last_name || ""}</strong>
+           · ${p.phone || ""} · ${p.email || ""}
+           <br>${p.notes || p.enquiry_notes || ""}
+           <time>${p.created_at ? new Date(p.created_at).toLocaleString("en-GB") : ""}</time>
+           <div style="margin-top:8px;display:flex;gap:8px">
+             <button class="btn btn-green" style="width:auto;padding:6px 12px;font-size:0.8rem" onclick="setStatus('${p.id}','waiting')">Accept → waiting</button>
+             <button class="btn" style="width:auto;padding:6px 12px;font-size:0.8rem;background:#e2e8f0" onclick="setStatus('${p.id}','inactive')">Decline</button>
+             <button class="del" onclick="removePupil('${p.id}')">Remove</button>
+           </div></div>`
+        ).join("");
+      } catch (e) {
+        el.textContent = "Could not load enquiries (check pupils table RLS / columns)";
+      }
+    }
 
-        async function fetchLiveRoster() {
-            const rosterContainer = document.getElementById('live-roster-mount');
-            const dropdownFilter = document.getElementById('pupil-log-filter');
-            try {
-                const response = await fetch(SUPABASE_URL + "/rest/v1/students?select=*", {
-                    method: 'GET',
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-                const databaseRows = await response.json();
-                if (!databaseRows || databaseRows.length === 0) {
-                    rosterContainer.innerHTML = '<p style="color: #64748b; font-size: 0.9rem; padding: 10px 0;">No active student logs found in your database.</p>';
-                    return;
-                }
-               
-                rosterContainer.innerHTML = '';
-                window.globalActivePupilsList = databaseRows;
-               
-                const currentSelection = dropdownFilter.value;
-                dropdownFilter.innerHTML = '<option value="ALL_PUPILS">🔍 View All Pupil Activity Streams</option>';
-               
-                databaseRows.forEach(student => {
-                    const rowItem = document.createElement('div');
-                    rowItem.className = 'student-list-item';
-                    rowItem.innerHTML = '<div><span>User: <strong>' + student.username + '</strong></span><br><span>Pass: <strong>' + student.password + '</strong></span></div><span class="delete-icon" onclick="removeStudentAccount(\'' + student.username + '\')">✕ Delete</span>';
-                    rosterContainer.appendChild(rowItem);
+    async function setStatus(id, status) {
+      await fetch(SUPABASE_URL + "/rest/v1/pupils?id=eq." + id, {
+        method: "PATCH",
+        headers: { ...H, Prefer: "return=minimal" },
+        body: JSON.stringify({ status })
+      });
+      refreshAll();
+    }
 
-                    const filterOption = document.createElement('option');
-                    filterOption.value = student.username;
-                    filterOption.innerText = student.username.charAt(0).toUpperCase() + student.username.slice(1);
-                    dropdownFilter.appendChild(filterOption);
-                });
-               
-                if (currentSelection) dropdownFilter.value = currentSelection;
-                compileAllCategoryMatrices();
-            } catch (error) {
-                rosterContainer.innerText = "Error syncing live cloud logs.";
-            }
+    async function removePupil(id) {
+      if (!confirm("Remove this enquiry completely?")) return;
+      await fetch(SUPABASE_URL + "/rest/v1/pupils?id=eq." + id, {
+        method: "DELETE",
+        headers: H
+      });
+      refreshAll();
+    }
+
+    async function loadActivity() {
+      const el = document.getElementById("activity");
+      try {
+        const rows = await (await fetch(
+          SUPABASE_URL + "/rest/v1/activity_logs?order=created_at.desc&limit=20",
+          { headers: H }
+        )).json();
+        if (!rows || !rows.length) {
+          el.innerHTML = '<p style="color:#64748b;font-size:0.9rem">No activity yet</p>';
+          return;
         }
+        el.innerHTML = rows.map(l =>
+          `<div class="log"><strong>${l.username}</strong> — ${l.action}
+           <time>${l.created_at ? new Date(l.created_at).toLocaleString("en-GB") : ""}</time></div>`
+        ).join("");
+      } catch (e) {
+        el.textContent = "No activity log";
+      }
+    }
 
-        async function compileAllCategoryMatrices() {
-            if (!window.globalActivePupilsList || window.globalActivePupilsList.length === 0) return;
+    async function addLearner() {
+      const user = document.getElementById("user").value.trim().toLowerCase();
+      let pass = document.getElementById("pass").value.trim();
+      const first = document.getElementById("fn").value.trim() || user;
+      const last = document.getElementById("ln").value.trim() || "";
+      const phone = document.getElementById("phone").value.trim() || null;
+      const email = document.getElementById("email").value.trim().toLowerCase() || null;
+      if (!user) return alert("Username required");
+      if (!pass) {
+        const chars = "abcdefghijkmnpqrstuvwxyz23456789";
+        pass = Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+      }
+      await fetch(SUPABASE_URL + "/rest/v1/students", {
+        method: "POST", headers: { ...H, Prefer: "return=minimal" },
+        body: JSON.stringify({ username: user, password: pass })
+      });
+      await fetch(SUPABASE_URL + "/rest/v1/pupils", {
+        method: "POST", headers: { ...H, Prefer: "return=minimal" },
+        body: JSON.stringify({
+          first_name: first, last_name: last || user, phone, email,
+          status: "waiting", portal_username: user, portal_password: pass
+        })
+      });
+      alert("Saved.\\nUsername: " + user + "\\nPassword: " + pass);
+      ["fn","ln","phone","email","user","pass"].forEach(id => document.getElementById(id).value = "");
+      refreshAll();
+    }
 
-            const module1Videos = [
-                "Approaching Junctions Turning Left",
-                "Emerging From An Open Junction Turning Left",
-                "Approaching Junctions Turning Right",
-                "Emerging From a Closed Junction Turning Right",
-                "Emerging From a Stop Junction",
-                "Emerging From a One-Way Street Turning Right",
-                "Approaching Junctions Turning Right – Giveway",
-                "Approaching Long Protected Junctions Turning Rights",
-                "Approaching Protected Junctions Turning Right"
-            ];
-            const module2Videos = [
-                "Level Crossings",
-                "Meeting Traffic",
-                "Following Distance Dry Weather Driving Conditions",
-                "Following Distance Wet Weather Driving Conditions",
-                "Slip Road Onto Dual Carriageway",
-                "Road Position Left Hand Bend",
-                "Road Position Right Hand Bend",
-                "Satellite Navigation"
-            ];
-            const module3Videos = [
-                "Introduction Into Crossroads",
-                "Turning Right Offside to Offside",
-                "Turning Right Nearside to Nearside",
-                "Turning Right Using Local Knowledge",
-                "Turning Right At Crossroads But Unsure of Location",
-                "Unmarked Crossroads",
-                "Emerging From Crossroads Turning Right With Eye Contact",
-                "Traffic Lights Driving Ahead (With Junction Box)",
-                "Traffic Lights Turning Left (With Junction Box)",
-                "Traffic Lights Turning Right (With Junction Box)"
-            ];
-            const module4Videos = [
-                "Introduction To Roundabouts",
-                "Turning Left First Exit",
-                "Following Road Ahead 2nd Exit",
-                "Following Road Ahead 2nd Exit Right Hand Lane",
-                "Turning Right With Multiple Lanes",
-                "Turning Right At Roundabouts But Exiting The Right Lane",
-                "Blocking At Roundabouts",
-                "Blockers",
-                "Mini Roundabouts Following Road Ahead",
-                "Mini Roundabouts Turning Right 3rd Exit"
-            ];
-            const module5Videos = [
-                "Queues Of Traffic, Leaving A Gap",
-                "Turn In The Road",
-                "Reversing Left Into Side Road",
-                "Reverse Parallel Park",
-                "Bay Park 90 Degrees",
-                "Bay Park 45 Degrees",
-                "Pull Up Safety On The Right",
-                "Emergency Stop",
-                "Controlled Stop Move Off At Angle",
-                "Hill Start"
-            ];
+    async function delStudent(username) {
+      if (!confirm("Delete portal access for " + username + "?")) return;
+      await fetch(SUPABASE_URL + "/rest/v1/students?username=eq." + encodeURIComponent(username), {
+        method: "DELETE", headers: H
+      });
+      refreshAll();
+    }
 
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/activity_logs?select=*`, {
-                    method: 'GET',
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-                const allLogsRows = await response.json() || [];
-
-                function buildTargetGridHtml(videoArray) {
-                    let htmlGrid = `<table class="matrix-table"><thead><tr><th>Video Tutorial Topic</th>`;
-                   
-                    window.globalActivePupilsList.forEach(pupil => {
-                        htmlGrid += `<th>${pupil.username}</th>`;
-                    });
-                    htmlGrid += `</tr></thead><tbody>`;
-
-                    videoArray.forEach(videoTitle => {
-                        htmlGrid += `<tr><td class="video-name-cell">🔸 ${videoTitle}</td>`;
-                       
-                        window.globalActivePupilsList.forEach(pupil => {
-                            const studentTopicLogs = allLogsRows.filter(l => l.username === pupil.username && l.action && l.action.includes(videoTitle));
-                           
-                            let cellColorStyleClass = "cell-not-started";
-                            let progressPercentageString = "0%";
-
-                            if (studentTopicLogs.some(l => l.action.includes("Completed Video:"))) {
-                                cellColorStyleClass = "cell-completed";
-                                progressPercentageString = "100%";
-                            } else if (studentTopicLogs.some(l => l.action.includes("Halfway Through Video:"))) {
-                                cellColorStyleClass = "cell-halfway";
-                                progressPercentageString = "50%";
-                            } else if (studentTopicLogs.some(l => l.action.includes("Started Video:"))) {
-                                cellColorStyleClass = "cell-halfway";
-                                progressPercentageString = "Start";
-                            }
-
-                            htmlGrid += `<td><div class="status-box-cell ${cellColorStyleClass}">${progressPercentageString}</div></td>`;
-                        });
-                        htmlGrid += `</tr>`;
-                    });
-                    htmlGrid += `</tbody></table>`;
-                    return htmlGrid;
-                }
-
-                document.getElementById('matrix-m1-mount').innerHTML = buildTargetGridHtml(module1Videos);
-                document.getElementById('matrix-m2-mount').innerHTML = buildTargetGridHtml(module2Videos);
-                document.getElementById('matrix-m3-mount').innerHTML = buildTargetGridHtml(module3Videos);
-                document.getElementById('matrix-m4-mount').innerHTML = buildTargetGridHtml(module4Videos);
-                document.getElementById('matrix-m5-mount').innerHTML = buildTargetGridHtml(module5Videos);
-            } catch (e) {
-                console.error("Accordion matrix processing error:", e);
-            }
-        }
-
-        async function fetchActivityLogs() {
-            const logContainer = document.getElementById('activity-log-mount');
-            const selectedPupil = document.getElementById('pupil-log-filter').value;
-            if (!logContainer) return;
-
-            try {
-                let fetchUrl = `${SUPABASE_URL}/rest/v1/activity_logs?order=created_at.desc&limit=40`;
-                if (selectedPupil !== "ALL_PUPILS") {
-                    fetchUrl = `${SUPABASE_URL}/rest/v1/activity_logs?username=eq.${selectedPupil}&order=created_at.desc&limit=40`;
-                }
-                const response = await fetch(fetchUrl, {
-                    method: 'GET',
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-                const logRows = await response.json();
-                logContainer.innerHTML = '';
-
-                if (!logRows || logRows.length === 0) {
-                    logContainer.innerHTML = '<p style="color: #64748b; font-size: 0.9rem; padding: 10px 0;">No tracking feeds logged for this selection.</p>';
-                    return;
-                }
-
-                logRows.forEach(log => {
-                    const rawTime = new Date(log.created_at);
-                    const localTimeStr = rawTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' ' + rawTime.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-                    const logCard = document.createElement('div');
-                    logCard.className = 'log-item';
-                    logCard.innerHTML = 'Student: <strong style="color:var(--dmw-blue); text-transform:capitalize;">' + log.username + '</strong><br>' + log.action + '<span class="log-time">⏰ ' + localTimeStr + '</span>';
-                    logContainer.appendChild(logCard);
-                });
-            } catch (e) {
-                logContainer.innerText = "Tracking log fetch error.";
-            }
-        }
-
-        async function addNewStudent() {
-            const userIn = document.getElementById('new-username').value.trim().toLowerCase();
-            let passIn = document.getElementById('new-password').value.trim();
-            const firstName = (document.getElementById('new-first-name') || {}).value?.trim() || userIn;
-            const lastName = (document.getElementById('new-last-name') || {}).value?.trim() || '';
-            const phone = (document.getElementById('new-phone') || {}).value?.trim() || null;
-            const email = (document.getElementById('new-email') || {}).value?.trim().toLowerCase() || null;
-            if (!userIn) { alert("Please complete the username input field first!"); return; }
-
-            if (!passIn) {
-                const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-                let randomPass = "";
-                for (let i = 0; i < 10; i++) {
-                    randomPass += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                passIn = randomPass;
-            }
-
-            try {
-                // 1) Portal students table (video portal login)
-                const response = await fetch(SUPABASE_URL + "/rest/v1/students", {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=minimal'
-                    },
-                    body: JSON.stringify({ username: userIn, password: passIn })
-                });
-                if (!response.ok && response.status !== 409) {
-                    const t = await response.text();
-                    console.warn('students insert', response.status, t);
-                }
-
-                // 2) App pupils table — same portal username/password for video + link to app
-                const pupilBody = {
-                    first_name: firstName,
-                    last_name: lastName || userIn,
-                    phone: phone,
-                    email: email,
-                    status: 'waiting',
-                    portal_username: userIn,
-                    portal_password: passIn
-                };
-                const pRes = await fetch(SUPABASE_URL + "/rest/v1/pupils", {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=minimal'
-                    },
-                    body: JSON.stringify(pupilBody)
-                });
-                if (!pRes.ok) {
-                    console.warn('pupils insert', pRes.status, await pRes.text());
-                }
-
-                alert('Saved.\nPortal username: ' + userIn + '\nPassword: ' + passIn + '\n\nAlso added to the app (Waiting). Create app login via App Invite if they need the full app.');
-                document.getElementById('new-username').value = '';
-                document.getElementById('new-password').value = '';
-                if (document.getElementById('new-first-name')) document.getElementById('new-first-name').value = '';
-                if (document.getElementById('new-last-name')) document.getElementById('new-last-name').value = '';
-                if (document.getElementById('new-phone')) document.getElementById('new-phone').value = '';
-                if (document.getElementById('new-email')) document.getElementById('new-email').value = '';
-                fetchLiveRoster();
-            } catch (e) {
-                alert("Network upload error occurred.");
-            }
-        }
-
-        async function exportFinanceCsv() {
-            try {
-                const response = await fetch(SUPABASE_URL + "/rest/v1/payments?select=*,pupil:pupils(first_name,last_name)&order=transaction_date.desc", {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-                });
-                const rows = await response.json();
-                if (!rows || rows.error) { alert('Could not load payments'); return; }
-                const header = ['date','type','amount','method','notes','pupil'];
-                const lines = [header.join(',')];
-                rows.forEach(r => {
-                    const pupil = r.pupil ? ((r.pupil.first_name||'') + ' ' + (r.pupil.last_name||'')).trim() : '';
-                    lines.push([
-                        r.transaction_date || '',
-                        r.type || r.transaction_type || '',
-                        r.amount ?? '',
-                        r.payment_method || '',
-                        (r.notes || '').replace(/,/g, ';'),
-                        pupil
-                    ].join(','));
-                });
-                const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'dmw-finance-' + new Date().toISOString().slice(0,10) + '.csv';
-                a.click();
-            } catch (e) {
-                alert('Export failed: ' + e.message);
-            }
-        }
-
-        async function removeStudentAccount(targetUser) {
-            if (!confirm('Are you sure you want to completely delete access for: ' + targetUser + '?')) return;
-            try {
-                const response = await fetch(SUPABASE_URL + "/rest/v1/students?username=eq." + targetUser, {
-                    method: 'DELETE',
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-                if (response.ok) {
-                    fetchLiveRoster();
-                } else {
-                    alert("Could not delete student account.");
-                }
-            } catch (e) {
-                alert("Network connection failure.");
-            }
-        }
-    </script>
+    async function exportFinance() {
+      try {
+        const rows = await (await fetch(
+          SUPABASE_URL + "/rest/v1/payments?select=*,pupil:pupils(first_name,last_name)&order=transaction_date.desc",
+          { headers: H }
+        )).json();
+        if (!Array.isArray(rows)) return alert("Could not load payments");
+        const lines = ["date,type,amount,method,notes,pupil"];
+        rows.forEach(r => {
+          const pupil = r.pupil ? ((r.pupil.first_name || "") + " " + (r.pupil.last_name || "")).trim() : "";
+          lines.push([r.transaction_date || "", r.type || "", r.amount ?? "", r.payment_method || "",
+            (r.notes || "").replace(/,/g, ";"), pupil].join(","));
+        });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([lines.join("\\n")], { type: "text/csv" }));
+        a.download = "dmw-finance-" + new Date().toISOString().slice(0, 10) + ".csv";
+        a.click();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+  </script>
 </body>
 </html>

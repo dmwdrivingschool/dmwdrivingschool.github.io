@@ -50,14 +50,19 @@
     .btn:disabled { opacity: .5; }
     .summary-line { font-size: .9rem; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
     .summary-line strong { color: #64748b; font-weight: 600; display: inline-block; min-width: 90px; }
-    .ok { text-align: center; padding: 12px 0; }
-    .ok h2 { color: var(--deep); margin-bottom: 10px; }
+    .ok { text-align: left; padding: 4px 0; }
+    .ok h2 { color: var(--deep); margin-bottom: 10px; text-align: center; }
     .ok p { color: #475569; font-size: .95rem; line-height: 1.5; margin-bottom: 10px; }
-    .ok a {
-      display: inline-block; margin-top: 8px; padding: 12px 18px; background: var(--navy);
-      color: #fff; text-decoration: none; border-radius: 10px; font-weight: 700;
+    .ok a.install-link {
+      display: block; margin-top: 8px; padding: 14px 18px; background: var(--navy);
+      color: #fff; text-decoration: none; border-radius: 10px; font-weight: 700; text-align: center;
     }
     .err { color: #b91c1c; font-size: .85rem; margin-bottom: 10px; display: none; }
+    .success-note {
+      background: #ecfdf5; border: 1px solid #a7f3d0; border-left: 4px solid #059669;
+      border-radius: 10px; padding: 12px; font-size: .88rem; color: #065f46; margin-bottom: 14px;
+    }
+    .hint { font-size: .8rem; color: #64748b; margin: -6px 0 12px 0; }
     footer { text-align: center; padding: 16px; font-size: .78rem; color: #94a3b8; }
     .page { display: none; }
     .page.on { display: block; }
@@ -96,8 +101,8 @@
         <input id="pc" required autocomplete="postal-code">
         <label>Phone *</label>
         <input id="phone" type="tel" required autocomplete="tel">
-        <label>Email</label>
-        <input id="email" type="email" autocomplete="email">
+        <label>Email *</label>
+        <input id="email" type="email" required autocomplete="email">
         <div class="row">
           <button type="button" class="btn btn-primary" onclick="go(2)">Next — availability</button>
         </div>
@@ -127,10 +132,40 @@
 
     <div class="card ok" id="done" style="display:none">
       <h2>Thank you</h2>
-      <p>Your enquiry has been sent. I’ll be in touch as soon as I can.</p>
-      <p>You’re welcome to install the DMW pupil app now. While you’re on the waiting list you’ll see a short status message there; full access opens when I accept you.</p>
-      <p class="sub">Use the same email/phone you put on this form when your instructor sends a login invite.</p>
-      <a id="app-link" href="https://dmwdrivingschool.co.uk">Back to website</a>
+      <p style="text-align:center">Your enquiry has been sent. I’ll be in touch as soon as I can.</p>
+
+      <div class="success-note" id="signup-box">
+        <strong>Set up the DMW pupil app now</strong><br>
+        While you’re on the waiting list you’ll see a short status message there; full access opens when I accept you.
+      </div>
+
+      <label>Email</label>
+      <input id="signup-email" type="email" autocomplete="email" readonly>
+
+      <label>Choose a password *</label>
+      <input id="signup-password" type="password" minlength="6" autocomplete="new-password" placeholder="At least 6 characters">
+      <p class="hint">Use the same email as your enquiry. You’ll sign in with this password on the app.</p>
+
+      <label>Confirm password *</label>
+      <input id="signup-password2" type="password" minlength="6" autocomplete="new-password" placeholder="Repeat password">
+
+      <div class="err" id="signup-err"></div>
+      <div class="success-note" id="signup-ok" style="display:none"></div>
+
+      <button type="button" class="btn btn-primary" id="signup-btn" onclick="createAppLogin()" style="width:100%; margin-bottom:10px;">
+        Create app login
+      </button>
+
+      <a class="install-link" id="app-link" href="https://app.dmwdrivingschool.co.uk" target="_blank" rel="noopener">
+        📱 Open / install the DMW app
+      </a>
+      <p class="hint" style="margin-top:10px; text-align:center;">
+        On iPhone: open in Safari → Share → Add to Home Screen.<br>
+        On Android: open in Chrome → menu → Install app / Add to Home screen.
+      </p>
+      <p class="sub" style="text-align:center; margin-top:14px;">
+        <a href="https://dmwdrivingschool.co.uk" style="color:#0A4CA1;">Back to website</a>
+      </p>
     </div>
   </div>
 
@@ -139,9 +174,15 @@
   <script>
     const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
     const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+    const APP_URL = "https://app.dmwdrivingschool.co.uk";
     const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
     const availability = {};
     DAYS.forEach(d => availability[d] = []);
+
+    let createdPupilId = null;
+    let enquiryEmail = "";
+    let enquiryFirstName = "";
+    let enquiryLastName = "";
 
     function slots() {
       const out = [];
@@ -196,13 +237,19 @@
     }
 
     function validate1() {
-      const need = ["fn","ln","a1","pc","phone"];
+      const need = ["fn","ln","a1","pc","phone","email"];
       for (const id of need) {
         if (!document.getElementById(id).value.trim()) {
-          showErr("Please complete the required fields on step 1.");
+          showErr("Please complete the required fields on step 1 (including email).");
           go(1);
           return false;
         }
+      }
+      const em = document.getElementById("email").value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+        showErr("Please enter a valid email address.");
+        go(1);
+        return false;
       }
       return true;
     }
@@ -231,6 +278,50 @@
       return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
     }
 
+    async function supabaseInsert(table, body, prefer) {
+      const res = await fetch(SUPABASE_URL + "/rest/v1/" + table, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: "Bearer " + SUPABASE_KEY,
+          "Content-Type": "application/json",
+          Prefer: prefer || "return=representation"
+        },
+        body: JSON.stringify(body)
+      });
+      const text = await res.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (_) {}
+      return { ok: res.ok, status: res.status, data, text };
+    }
+
+    /** Notify instructor devices via existing send-push edge function (inbound message path). */
+    async function notifyInstructor(pupilId, firstName, lastName) {
+      try {
+        const msgBody = {
+          pupil_id: pupilId,
+          subject: "New enquiry",
+          body: firstName + " " + lastName + " just submitted a website enquiry.",
+          direction: "inbound"
+        };
+        const msgRes = await supabaseInsert("messages", msgBody, "return=representation");
+        const msg = Array.isArray(msgRes.data) ? msgRes.data[0] : msgRes.data;
+        if (msg && msg.id) {
+          await fetch(SUPABASE_URL + "/functions/v1/send-push", {
+            method: "POST",
+            headers: {
+              apikey: SUPABASE_KEY,
+              Authorization: "Bearer " + SUPABASE_KEY,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message_id: msg.id })
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn("notifyInstructor", e);
+      }
+    }
+
     async function send() {
       if (!validate1()) return;
       const btn = document.getElementById("send-btn");
@@ -240,11 +331,15 @@
         .map(d => d + ": " + availability[d].join(", "))
         .join("\n");
 
+      enquiryEmail = val("email");
+      enquiryFirstName = val("fn");
+      enquiryLastName = val("ln");
+
       const body = {
         first_name: val("fn"),
         last_name: val("ln"),
         phone: val("phone"),
-        email: val("email") || null,
+        email: enquiryEmail || null,
         address_line1: val("a1"),
         address_line2: val("a2") || null,
         city: val("city") || null,
@@ -256,20 +351,12 @@
       };
 
       try {
-        const res = await fetch(SUPABASE_URL + "/rest/v1/pupils", {
-          method: "POST",
-          headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: "Bearer " + SUPABASE_KEY,
-            "Content-Type": "application/json",
-            Prefer: "return=minimal"
-          },
-          body: JSON.stringify(body)
-        });
-        if (!res.ok) {
-          const t = await res.text();
-          console.error(t);
-          // Retry with minimal columns if schema is strict
+        let pupilId = null;
+        let res = await supabaseInsert("pupils", body, "return=representation");
+        if (res.ok) {
+          const row = Array.isArray(res.data) ? res.data[0] : res.data;
+          pupilId = row && row.id;
+        } else {
           const minimal = {
             first_name: body.first_name,
             last_name: body.last_name,
@@ -285,24 +372,129 @@
               availText ? "Availability:\n" + availText : ""
             ].filter(Boolean).join("\n")
           };
-          const res2 = await fetch(SUPABASE_URL + "/rest/v1/pupils", {
+          res = await supabaseInsert("pupils", minimal, "return=representation");
+          if (!res.ok) throw new Error(res.text || "insert failed");
+          const row = Array.isArray(res.data) ? res.data[0] : res.data;
+          pupilId = row && row.id;
+        }
+
+        createdPupilId = pupilId;
+        if (pupilId) {
+          await notifyInstructor(pupilId, body.first_name, body.last_name);
+        }
+
+        document.getElementById("form-card").style.display = "none";
+        document.getElementById("done").style.display = "block";
+        document.getElementById("signup-email").value = enquiryEmail;
+        window.scrollTo(0, 0);
+      } catch (e) {
+        console.error(e);
+        showErr("Could not send right now. Please try again or contact the school directly.");
+        btn.disabled = false;
+      }
+    }
+
+    async function createAppLogin() {
+      const errEl = document.getElementById("signup-err");
+      const okEl = document.getElementById("signup-ok");
+      errEl.style.display = "none";
+      okEl.style.display = "none";
+
+      const email = (document.getElementById("signup-email").value || enquiryEmail || "").trim();
+      const password = document.getElementById("signup-password").value;
+      const password2 = document.getElementById("signup-password2").value;
+
+      if (!email) {
+        errEl.textContent = "Email is required.";
+        errEl.style.display = "block";
+        return;
+      }
+      if (!password || password.length < 6) {
+        errEl.textContent = "Password must be at least 6 characters.";
+        errEl.style.display = "block";
+        return;
+      }
+      if (password !== password2) {
+        errEl.textContent = "Passwords do not match.";
+        errEl.style.display = "block";
+        return;
+      }
+
+      const btn = document.getElementById("signup-btn");
+      btn.disabled = true;
+
+      try {
+        const authRes = await fetch(SUPABASE_URL + "/auth/v1/signup", {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: "Bearer " + SUPABASE_KEY,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            data: {
+              full_name: (enquiryFirstName || "") + " " + (enquiryLastName || ""),
+              role: "pupil"
+            }
+          })
+        });
+        const authData = await authRes.json().catch(() => ({}));
+
+        if (!authRes.ok) {
+          const msg = authData.msg || authData.error_description || authData.message || "Could not create login";
+          if (/already|registered|exists/i.test(msg)) {
+            errEl.textContent = "This email already has a login. Open the app and sign in, or use Forgot password if needed.";
+          } else {
+            errEl.textContent = msg;
+          }
+          errEl.style.display = "block";
+          btn.disabled = false;
+          return;
+        }
+
+        const userId = authData.user && authData.user.id;
+        if (userId) {
+          await fetch(SUPABASE_URL + "/rest/v1/profiles", {
             method: "POST",
             headers: {
               apikey: SUPABASE_KEY,
               Authorization: "Bearer " + SUPABASE_KEY,
               "Content-Type": "application/json",
-              Prefer: "return=minimal"
+              Prefer: "resolution=merge-duplicates,return=minimal"
             },
-            body: JSON.stringify(minimal)
-          });
-          if (!res2.ok) throw new Error(await res2.text());
+            body: JSON.stringify({
+              id: userId,
+              role: "pupil",
+              email,
+              full_name: (enquiryFirstName || "") + " " + (enquiryLastName || "")
+            })
+          }).catch(() => {});
+
+          if (createdPupilId) {
+            await fetch(SUPABASE_URL + "/rest/v1/pupils?id=eq." + encodeURIComponent(createdPupilId), {
+              method: "PATCH",
+              headers: {
+                apikey: SUPABASE_KEY,
+                Authorization: "Bearer " + SUPABASE_KEY,
+                "Content-Type": "application/json",
+                Prefer: "return=minimal"
+              },
+              body: JSON.stringify({ profile_id: userId, email })
+            }).catch(() => {});
+          }
         }
-        document.getElementById("form-card").style.display = "none";
-        document.getElementById("done").style.display = "block";
-        window.scrollTo(0, 0);
+
+        okEl.innerHTML = "Login created. Open the app below and sign in with <strong>" + escapeHtml(email) + "</strong> and the password you chose.";
+        okEl.style.display = "block";
+        btn.textContent = "Login created ✓";
+        document.getElementById("signup-password").disabled = true;
+        document.getElementById("signup-password2").disabled = true;
       } catch (e) {
         console.error(e);
-        showErr("Could not send right now. Please try again or contact the school directly.");
+        errEl.textContent = "Could not create login right now. You can still open the app — your instructor can send a password later.";
+        errEl.style.display = "block";
         btn.disabled = false;
       }
     }

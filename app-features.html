@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMW App Features | Track Lessons, Messages &amp; Progress | DMW Driving School</title>
+    <meta name="description" content="Discover the DMW Driving School app — live instructor tracking, in-app messages with photos, progress charts, reflective logs, lesson management and more. Free for all active pupils.">
+    <meta name="keywords" content="dmw driving school app, driving lesson tracker gloucester, pupil progress app, instructor on the way tracking">
+    <link rel="canonical" href="https://dmwdrivingschool.co.uk/app-features.html">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <style>
+        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
+
+        html, body {
+            display: flow-root;
+            margin: 0 !important;
+            padding: 0 !important;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+            overflow-x: hidden;
+            max-width: 100%;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        * { box-sizing: border-box; max-width: 100%; }
+
+        .master-sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 10000;
+            width: 100%;
+            background-color: #111111;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .top-info-banner {
+            background-color: #111111 !important;
+            color: #ffffff !important;
+            text-align: center !important;
+            padding: 14px 20px 6px 20px !important;
+            font-size: 1.25rem !important;
+            font-weight: 900 !important;
+            letter-spacing: 1px !important;
+            line-height: 1.2 !important;
+            animation: bookingPulse 1.5s infinite ease-in-out !important;
+            margin: 0 !important;
+            width: 100% !important;
+        }
+        .top-info-sub {
+            background-color: #111111;
+            color: #f1c40f;
+            text-align: center;
+            padding: 0 20px 12px 20px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin: 0;
+            border-bottom: 1px solid #222;
+        }
+        @keyframes bookingPulse {
+            0% { color: #ffffff; text-shadow: none; }
+            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; }
+            100% { color: #ffffff; text-shadow: none; }
+        }
+
+        header { background-color: #111111 !important; margin: 0 !important; width: 100% !important; display: block; position: relative; z-index: 10010; }
+        .navbar-shell { max-width: 1140px !important; margin: 0 auto !important; display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 12px 20px !important; flex-wrap: wrap !important; gap: 15px !important; }
+        .brand-logo img { height: 60px; width: auto; display: block; }
+        .nav-links-list { display: flex; flex-wrap: wrap; justify-content: center; list-style: none; gap: 16px 24px; align-items: center; margin: 0 auto; padding: 0; }
+        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; }
+        .nav-links-list li a:hover { color: #3498db; }
+        .active-page { color: #3498db !important; font-weight: bold; border-bottom: 2px solid #3498db; }
+
+        .hero-band {
+            position: relative;
+            width: 100%;
+            min-height: 220px;
+            background: linear-gradient(135deg, rgba(6, 47, 99, 0.92), rgba(10, 76, 161, 0.88));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+            color: #fff;
+        }
+        .hero-band h1 {
+            margin: 0 0 10px 0;
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .hero-band p {
+            margin: 0 auto;
+            max-width: 640px;
+            font-size: 1.1rem;
+            opacity: 0.95;
+            line-height: 1.5;
+        }
+        .hero-pill {
+            display: inline-block;
+            margin-top: 18px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.35);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .content-workspace {
+            max-width: 1140px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .intro-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 28px 24px;
+            margin-bottom: 28px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        }
+        .intro-card h2 {
+            margin: 0 0 10px 0;
+            color: var(--dmw-deep-navy);
+            font-size: 1.45rem;
+        }
+        .intro-card p {
+            margin: 0 0 12px 0;
+            color: #475569;
+            font-size: 1.05rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+
+        .feature-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 22px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+        }
+        .feature-card .icon {
+            font-size: 1.75rem;
+            margin-bottom: 8px;
+        }
+        .feature-card h3 {
+            margin: 0 0 8px 0;
+            color: #1e1e24;
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+        .feature-card .card-line {
+            height: 3px;
+            background: var(--dmw-main-blue);
+            margin: 0 0 12px 0;
+            border-radius: 2px;
+            width: 48px;
+        }
+        .feature-card p {
+            margin: 0;
+            color: #475569;
+            font-size: 0.95rem;
+            line-height: 1.55;
+            flex: 1;
+        }
+        .feature-card ul {
+            margin: 10px 0 0 0;
+            padding-left: 18px;
+            color: #334155;
+            font-size: 0.9rem;
+            line-height: 1.45;
+        }
+        .feature-card li { margin-bottom: 4px; }
+
+        .who-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+        .who-card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        }
+        .who-card .who-head {
+            background: #f8f9fa;
+            padding: 14px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 700;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+        .who-card .who-body {
+            padding: 18px 20px;
+            color: #475569;
+            font-size: 0.95rem;
+        }
+        .who-card .who-body ul {
+            margin: 8px 0 0 0;
+            padding-left: 18px;
+        }
+        .who-card .who-body li { margin-bottom: 6px; }
+
+        .cta-band {
+            background: linear-gradient(135deg, var(--dmw-deep-navy), var(--dmw-main-blue));
+            color: #fff;
+            border-radius: 12px;
+            padding: 28px 24px;
+            text-align: center;
+            margin-bottom: 40px;
+            box-shadow: 0 6px 20px rgba(10, 76, 161, 0.25);
+        }
+        .cta-band h2 { margin: 0 0 10px 0; font-size: 1.5rem; }
+        .cta-band p { margin: 0 0 18px 0; opacity: 0.95; max-width: 560px; margin-left: auto; margin-right: auto; }
+        .cta-band a {
+            display: inline-block;
+            background: #fff;
+            color: var(--dmw-main-blue);
+            font-weight: 700;
+            text-decoration: none;
+            padding: 12px 22px;
+            border-radius: 8px;
+            margin: 4px;
+        }
+        .cta-band a.secondary {
+            background: transparent;
+            color: #fff;
+            border: 2px solid rgba(255,255,255,0.7);
+        }
+
+        footer {
+            background: #111827;
+            color: #9ca3af;
+            text-align: center;
+            padding: 30px;
+            margin-top: 40px;
+            width: 100%;
+        }
+        footer a { color: #93c5fd; text-decoration: none; margin: 0 6px; }
+
+        .sticky-enquiry-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: var(--dmw-main-blue);
+            color: #ffffff !important;
+            padding: 10px 18px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 14px rgba(10, 76, 161, 0.4);
+            z-index: 99999;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .sticky-enquiry-widget:hover { background-color: var(--dmw-deep-navy); }
+
+        @media (max-width: 750px) {
+            .master-sticky-header { position: relative !important; }
+            .top-info-banner { font-size: 1.05rem !important; padding: 10px 15px 4px !important; }
+            .navbar-shell { flex-direction: column !important; gap: 8px !important; padding: 8px 10px !important; }
+            .brand-logo img { height: 45px; margin: 0 auto; }
+            .nav-links-list { gap: 10px 14px; }
+            .nav-links-list li a { font-size: 0.85rem; }
+            .hero-band h1 { font-size: 1.45rem; }
+            .hero-band p { font-size: 1rem; }
+            .feature-grid, .who-grid { grid-template-columns: 1fr; }
+            .content-workspace { margin: 20px auto; padding: 0 12px; }
+            .sticky-enquiry-widget { right: 12px; bottom: 14px; font-size: 0.8rem; padding: 8px 13px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="master-sticky-header">
+        <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 855096 ✨</div>
+        <div class="top-info-sub">Let’s see if we’re a good fit</div>
+        <header>
+            <div class="navbar-shell">
+                <div class="brand-logo"><a href="index.html"><img src="image-1.jpg" alt="DMW Driving School"></a></div>
+                <nav>
+                    <ul class="nav-links-list">
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="prices.html">Prices</a></li>
+                        <li><a href="pass-photos.html">Pass Photos</a></li>
+                        <li><a href="faq.html">FAQ</a></li>
+                        <li><a href="contact.html">Contact Us</a></li>
+                        <li><a href="terms.html">Terms &amp; Conditions</a></li>
+                        <li><a href="app-features.html" class="active-page">App Features</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </header>
+    </div>
+
+    <div class="hero-band">
+        <div>
+            <h1>📱 The DMW App</h1>
+            <p>Everything you need for lessons in one place — built in-house for DMW pupils and your instructor.</p>
+            <span class="hero-pill">Free for all active DMW pupils</span>
+        </div>
+    </div>
+
+    <div class="content-workspace">
+        <div class="intro-card">
+            <h2>Smarter lessons. Clearer progress. Less hassle.</h2>
+            <p>
+                The DMW app connects you with your instructor in real time. Track when they’re on the way,
+                message with photos, manage bookings, follow your progress, and study between lessons —
+                all from your phone.
+            </p>
+            <p style="margin-bottom:0;">
+                Add the app to your home screen for the best experience, and turn on notifications so you never miss a message or update.
+            </p>
+        </div>
+
+        <h2 style="color: var(--dmw-deep-navy); font-size: 1.5rem; margin: 0 0 16px 0;">What’s new &amp; what you can do</h2>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="icon">🗺️</div>
+                <h3>Live “On the way” tracking</h3>
+                <div class="card-line"></div>
+                <p>
+                    When your instructor sets off, you’ll see a live map on your home screen with their position updating in real time.
+                </p>
+                <ul>
+                    <li>Clear “instructor is on the way” banner</li>
+                    <li>Estimated arrival time (set when they leave)</li>
+                    <li>Map closes automatically when they arrive</li>
+                    <li>Friendly message if a trip has to be cancelled</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="icon">💬</div>
+                <h3>Messages with photos</h3>
+                <div class="card-line"></div>
+                <p>
+                    Chat with your instructor in the app — including photo attachments from your camera or gallery.
+                </p>
+                <ul>
+                    <li>Paperclip to take or upload a photo</li>
+                    <li>Push notifications (even when the app is closed*)</li>
+                    <li>Message history in one place</li>
+                    <li>Quick message box on the pupil home screen</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="icon">📅</div>
+                <h3>Lessons &amp; cancellations</h3>
+                <div class="card-line"></div>
+                <p>
+                    See upcoming lessons at a glance, cancel when you need to, and understand the 48-hour notice policy clearly.
+                </p>
+                <ul>
+                    <li>Upcoming lessons on your home screen</li>
+                    <li>Cancel with a clear confirmation</li>
+                    <li>Within 48 hours: instructor can apply or waive a charge</li>
+                    <li>Book available diary gaps when offered</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="icon">📈</div>
+                <h3>Progress &amp; reflective logs</h3>
+                <div class="card-line"></div>
+                <p>
+                    Follow the same syllabus structure used in lessons and keep reflective notes between sessions.
+                </p>
+                <ul>
+                    <li>Progress chart by skill area</li>
+                    <li>Interactive reflective log</li>
+                    <li>Aligned with DVSA-style training topics</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="icon">🎬</div>
+                <h3>Learning videos &amp; resources</h3>
+                <div class="card-line"></div>
+                <p>
+                    Access training videos and learning resources between lessons to reinforce what you’ve practised on the road.
+                </p>
+                <ul>
+                    <li>Learning videos section</li>
+                    <li>Resources / learning aids</li>
+                    <li>Support for junctions, manoeuvres and more</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="icon">🔔</div>
+                <h3>Smart notifications</h3>
+                <div class="card-line"></div>
+                <p>
+                    Stay informed about messages, lesson updates and when your instructor is on the way.
+                </p>
+                <ul>
+                    <li>Enable notifications in Settings</li>
+                    <li>Works best when installed to your home screen</li>
+                    <li>Test notification to confirm it’s working</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="icon">💳</div>
+                <h3>Payments &amp; credit</h3>
+                <div class="card-line"></div>
+                <p>
+                    See your lesson credit balance and payment-related information in the app.
+                </p>
+                <ul>
+                    <li>Credit hours on your home screen</li>
+                    <li>Payments section for your records</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="icon">🗓️</div>
+                <h3>Availability &amp; holidays</h3>
+                <div class="card-line"></div>
+                <p>
+                    Share when you’re free and flag holidays so booking stays organised for both of you.
+                </p>
+                <ul>
+                    <li>My availability</li>
+                    <li>Add upcoming holiday dates</li>
+                    <li>See when your instructor is away</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="who-grid">
+            <div class="who-card">
+                <div class="who-head">👤 For pupils</div>
+                <div class="who-body">
+                    Your home screen adapts when your instructor is en route — big map, clear message, and the tools you need without clutter.
+                    Message, track progress, manage lessons and study between sessions, all in one app.
+                </div>
+            </div>
+            <div class="who-card">
+                <div class="who-head">🚗 For your instructor</div>
+                <div class="who-body">
+                    Diary, pupils, messages, money tools and “On the way” tracking in one place — including live GPS sharing,
+                    arrival / cancel controls, and cancellation charge decisions when notice is under 48 hours.
+                </div>
+            </div>
+        </div>
+
+        <div class="intro-card" style="border-left: 4px solid var(--dmw-main-blue);">
+            <h2 style="font-size: 1.2rem;">How to get the app</h2>
+            <p style="margin-bottom: 8px;">Your instructor will set up your login. Then:</p>
+            <ul style="margin: 0; padding-left: 20px; color: #475569;">
+                <li style="margin-bottom: 6px;"><strong>iPhone:</strong> Open in Safari → Share → <em>Add to Home Screen</em></li>
+                <li style="margin-bottom: 6px;"><strong>Android:</strong> Open in Chrome → menu → <em>Add to Home screen</em> / Install app</li>
+                <li>Open from the home screen icon, then enable notifications in Settings</li>
+            </ul>
+            <p style="margin: 14px 0 0 0; font-size: 0.9rem; color: #64748b; font-style: italic;">
+                *Push alerts when the app is fully closed work on supported devices after notifications are enabled.
+                iPhone requires iOS 16.4+ and the app added to the Home Screen.
+            </p>
+        </div>
+
+        <div class="cta-band">
+            <h2>Ready to get on the road?</h2>
+            <p>Book with a Grade A instructor in Gloucester and surrounding areas — and get the DMW app free as an active pupil.</p>
+            <a href="https://www.dmwdrivingschool.co.uk/contact.html">📅 Check availability</a>
+            <a class="secondary" href="https://www.dmwdrivingschool.co.uk/prices.html">View prices</a>
+        </div>
+    </div>
+
+    <footer>
+        <p style="margin:0;">&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
+        <p style="margin-top:12px;font-size:0.85rem;">
+            <a href="privacy.html">Privacy Policy</a> ·
+            <a href="cookies.html">Cookie Notice</a> ·
+            <a href="terms-of-use.html">Terms of Use</a> ·
+            <a href="terms.html">Lesson &amp; Payment Terms</a> ·
+            <a href="refund.html">Refund Policy</a>
+        </p>
+    </footer>
+
+    <a href="https://www.dmwdrivingschool.co.uk/contact.html" class="sticky-enquiry-widget">
+        📅 Check Availability
+    </a>
+</body>
+</html>

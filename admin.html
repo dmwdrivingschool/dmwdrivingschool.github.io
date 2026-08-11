@@ -60,21 +60,54 @@ th{color:var(--muted);font-size:.72rem;text-transform:uppercase}
 footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0b8;text-align:center;padding:.55rem;font-size:.75rem;z-index:10}
 .filters{display:flex;flex-wrap:wrap;gap:.5rem;align-items:end;margin-bottom:.85rem}.filters .field{margin:0;min-width:120px}
 .banner{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;padding:.65rem .85rem;border-radius:10px;font-size:.85rem;margin-bottom:1rem;display:none}
-/* diary app-like */
+/* diary – match app week layout */
 .d-head{display:flex;align-items:center;justify-content:space-between;background:var(--deep);color:#fff;padding:.75rem 1rem;border-radius:12px 12px 0 0}
-.d-grid{display:grid;grid-template-columns:48px repeat(7,1fr);border:1px solid var(--line);border-top:0;background:#fff;border-radius:0 0 12px 12px;overflow:auto;max-height:70vh}
-.d-corner,.d-dayh{position:sticky;top:0;background:#f8fafc;z-index:2;border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:.4rem 2px;text-align:center;font-size:.7rem;font-weight:700}
-.d-time{border-bottom:1px solid #f1f5f9;border-right:1px solid var(--line);font-size:.65rem;color:var(--muted);padding:2px 4px;height:28px}
-.d-cell{border-bottom:1px solid #f1f5f9;border-right:1px solid var(--line);position:relative;height:28px}
-.d-block{position:absolute;left:2px;right:2px;border-radius:4px;font-size:.6rem;color:#fff;padding:2px 3px;overflow:hidden;z-index:1;line-height:1.2}
-.d-block.cancelled{background:#dc2626!important;text-decoration:line-through}
-.d-block.away{background:#64748b!important}.d-block.gap{background:#94a3b8!important}
+.d-scroll{overflow:auto;max-height:calc(100vh - 220px);background:#fff;border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px}
+.d-days{display:grid;grid-template-columns:40px repeat(7,minmax(0,1fr));position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid #cbd5e1}
+.d-dayh{padding:.4rem 2px;text-align:center;border-right:1px solid #f1f5f9;background:#fff}
+.d-dayh .dow{font-size:.65rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.03em}
+.d-dayh .dom{font-size:.85rem;font-weight:700;color:#1e293b;width:1.5rem;height:1.5rem;line-height:1.5rem;margin:.15rem auto 0;border-radius:999px}
+.d-dayh.today{background:#eff6ff}
+.d-dayh.today .dom{background:#0A4CA1;color:#fff}
+.d-body{display:grid;grid-template-columns:40px repeat(7,minmax(0,1fr));position:relative}
+.d-times{position:relative;border-right:1px solid #cbd5e1;background:#f8fafc}
+.d-hour-line{position:absolute;left:0;right:0;border-bottom:1px solid #cbd5e1;box-sizing:border-box}
+.d-hour-line .half{position:absolute;left:0;right:0;top:50%;border-bottom:1px dashed #e2e8f0}
+.d-hour-line .lbl{position:absolute;left:2px;top:-7px;font-size:.62rem;font-weight:700;color:#475569;font-variant-numeric:tabular-nums}
+.d-col{position:relative;border-right:1px solid #e2e8f0}
+.d-col.today{background:rgba(239,246,255,.45)}
+.d-block{position:absolute;left:2px;right:2px;border-radius:5px;color:#fff;padding:2px 4px;overflow:hidden;z-index:1;box-shadow:0 1px 2px rgba(0,0,0,.08);cursor:pointer;line-height:1.15}
+.d-block .nm{font-weight:700;font-size:.72rem;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.d-block .tm{font-size:.65rem;opacity:.95;font-variant-numeric:tabular-nums;font-weight:600;margin-top:1px}
+.d-block.cancelled{background:#dc2626!important;text-decoration:line-through;opacity:.95}
+.d-block.away{background:#475569!important}
+.d-block.gap{background:#3b82f6!important}
+.d-block.booked{background:#fb923c}
+.d-block.delivered{background:#22c55e}
+.d-block.mock{background:#fbbf24;color:#1e293b}
+.d-block.test{background:#000}
 /* modal */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
 .modal-box{background:#fff;border-radius:16px 16px 0 0;padding:1.25rem;width:100%;max-width:520px;max-height:90vh;overflow:auto}
 @media(min-width:600px){.modal{align-items:center}.modal-box{border-radius:16px}}
 .settings-list button{display:block;width:100%;text-align:left;padding:.9rem 1rem;border:none;border-bottom:1px solid var(--line);background:#fff;font-size:.95rem;font-weight:600;cursor:pointer}
 .settings-list button:hover{background:#f8fafc}
+
+    .matrix-outer { margin-bottom: 1.25rem; }
+    .matrix-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: .75rem; }
+    .matrix-head { background: #1e293b; color: #fff; padding: .85rem 1rem; font-weight: 700; font-size: .95rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .matrix-head:hover { background: #0f172a; }
+    .matrix-drawer { display: none; padding: .75rem; overflow-x: auto; background: #f8fafc; border-top: 1px solid var(--line); }
+    .matrix-card.open .matrix-drawer { display: block; }
+    .matrix-table { width: 100%; border-collapse: collapse; min-width: 640px; font-size: .8rem; background: #fff; }
+    .matrix-table th, .matrix-table td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; vertical-align: middle; }
+    .matrix-table th { background: #f1f5f9; font-weight: 700; font-size: .72rem; text-transform: uppercase; }
+    .matrix-table td.vname { text-align: left; font-weight: 600; color: #334155; position: sticky; left: 0; background: #fff; border-right: 2px solid #cbd5e1; white-space: nowrap; max-width: 220px; }
+    .status-pill { display: inline-block; min-width: 48px; font-weight: 700; font-size: .7rem; border-radius: 999px; padding: 3px 7px; color: #fff; }
+    .st-0 { background: #ef4444; }
+    .st-50 { background: #eab308; color: #1e293b; }
+    .st-100 { background: #22c55e; }
+
 </style>
 </head>
 <body>
@@ -104,6 +137,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
     <button data-tab="finance">Finances</button>
     <button data-tab="gaps">Gaps</button>
     <button data-tab="portal">Portal</button>
+    <button data-tab="website">Website</button>
     <button class="nav-right" data-tab="settings">Settings</button>
   </nav>
   <div class="main">
@@ -143,6 +177,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:.75rem">
           <input id="pupil-search" placeholder="Search name / phone / email" style="flex:1;min-width:180px;padding:.65rem .75rem;border:1px solid var(--line);border-radius:8px">
+          <button type="button" class="btn btn-navy btn-sm" onclick="openAddPupilForm()">+ Add pupil</button>
           <button type="button" class="btn-outline" onclick="document.getElementById('pupil-import-file').click()">Import pupils CSV</button>
           <button type="button" class="btn-outline" onclick="downloadPupilTemplate()">CSV template</button>
           <input type="file" id="pupil-import-file" accept=".csv,text/csv" class="hidden" onchange="importPupilsCsv(event)">
@@ -236,20 +271,78 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--deep);color:#8aa0
     </section>
 
     <section id="tab-portal" class="hidden">
-      <div class="two">
-        <div class="panel">
-          <h2>Add portal + app learner</h2>
-          <div class="field"><label>First name</label><input id="fn"></div>
-          <div class="field"><label>Last name</label><input id="ln"></div>
-          <div class="field"><label>Phone</label><input id="phone"></div>
-          <div class="field"><label>Email</label><input id="email" type="email"></div>
-          <div class="field"><label>Username</label><input id="user"></div>
-          <div class="field"><label>Password (blank = auto)</label><input id="pass"></div>
-          <button class="btn btn-navy" onclick="addLearner()">Save</button>
+      <div class="panel" style="margin-bottom:1rem">
+        <h2>Video watch progress</h2>
+        <p class="muted" style="margin-bottom:.75rem">
+          Pupils sign into the portal with the <strong>same email &amp; password</strong> as the app.
+          Grid shows 0% / Start / 50% / 100% from the portal activity log (same as your original control panel).
+        </p>
+        <div class="matrix-outer" id="video-matrices">
+          <div class="matrix-card open">
+            <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">📋 Module 1: Preparing &amp; Junctions <span>▼</span></div>
+            <div class="matrix-drawer" id="matrix-m1">Loading…</div>
+          </div>
+          <div class="matrix-card">
+            <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">🚗 Module 2: Everyday Driving <span>▼</span></div>
+            <div class="matrix-drawer" id="matrix-m2">Loading…</div>
+          </div>
+          <div class="matrix-card">
+            <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">🛣️ Module 3: Crossroads <span>▼</span></div>
+            <div class="matrix-drawer" id="matrix-m3">Loading…</div>
+          </div>
+          <div class="matrix-card">
+            <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">⭕ Module 4: Roundabouts <span>▼</span></div>
+            <div class="matrix-drawer" id="matrix-m4">Loading…</div>
+          </div>
+          <div class="matrix-card">
+            <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">🅿️ Module 5: Manoeuvres &amp; Exercises <span>▼</span></div>
+            <div class="matrix-drawer" id="matrix-m5">Loading…</div>
+          </div>
         </div>
-        <div class="panel"><h2>Portal logins</h2><div id="roster">Loading…</div></div>
       </div>
-      <div class="panel"><h2>Recent portal activity</h2><div id="activity">Loading…</div></div>
+      <div class="panel">
+        <h2>Live activity feed</h2>
+        <div class="field" style="max-width:320px">
+          <label>Filter by pupil</label>
+          <select id="pupil-log-filter" onchange="loadActivityFeed()">
+            <option value="ALL">All pupils</option>
+          </select>
+        </div>
+        <div id="activity" style="max-height:380px;overflow-y:auto;margin-top:.75rem">Loading…</div>
+      </div>
+    </section>
+
+    
+    <section id="tab-website" class="hidden">
+      <div class="panel">
+        <h2>Website photos</h2>
+        <p class="muted" style="margin-bottom:1rem">
+          Upload photos to Supabase Storage. They appear instantly on the home-page carousel and the Pass Photos page — no GitHub upload needed.
+        </p>
+        <div class="tabs-sub">
+          <button type="button" class="on" onclick="websiteShow('carousel',this)">Carousel (home)</button>
+          <button type="button" onclick="websiteShow('gallery',this)">Pass photos page</button>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:1rem">
+          <label class="btn btn-navy btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
+            📤 Upload photos
+            <input type="file" id="website-file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden onchange="websiteUpload(event)">
+          </label>
+          <button type="button" class="btn-outline" onclick="websiteReload()">↻ Refresh</button>
+          <button type="button" class="btn-outline" onclick="websiteSelectAll()">Select all</button>
+          <button type="button" class="btn-outline" onclick="websiteSelectNone()">Clear selection</button>
+          <button type="button" class="btn-danger" onclick="websiteDeleteSelected()">🗑 Delete selected</button>
+          <span class="muted" id="website-status">Loading…</span>
+        </div>
+
+        <div id="website-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px"></div>
+
+        <p class="muted" style="margin-top:1rem;font-size:.82rem">
+          Tap a photo (or its checkbox) to select. Use <strong>Delete selected</strong> to remove several at once.
+          ↑ / ↓ reorders. Changes save immediately to Supabase.
+        </p>
+      </div>
     </section>
 
     <section id="tab-settings" class="hidden">
@@ -313,6 +406,8 @@ function goTab(tab, pupilFilter){
   if(tab==="finance"){fillCats(); applyFinance()}
   if(tab==="tests") showTests("future");
   if(tab==="settings"){document.getElementById("settings-menu").classList.remove("hidden");document.getElementById("settings-panel").classList.add("hidden")}
+  if(tab==="portal"){ loadActivity(); }
+  if(tab==="website"){ websiteShow(websiteMode || "carousel"); }
 }
 
 async function unlock(){
@@ -493,10 +588,25 @@ function loadEnquiries(){
     </div></div>`).join("");
 }
 async function setStatus(id,status){const {error}=await sb.from("pupils").update({status}).eq("id",id); if(error)alert(error.message); else refresh()}
-async function removePupil(id){if(!confirm("Remove?"))return; const {error}=await sb.from("pupils").delete().eq("id",id); if(error)alert(error.message); else refresh()}
+async function removePupil(id){
+  if(!confirm("Remove this pupil?\n\nLessons/messages/progress may be removed.\nPayments are KEPT (unlinked). Delete finances only from the Finances tab if needed.")) return;
+  // Keep all transactions — only unlink
+  await sb.from("transactions").update({pupil_id:null}).eq("pupil_id",id);
+  // Optional related cleanup (same idea as the app)
+  await sb.from("messages").delete().eq("pupil_id",id);
+  await sb.from("lessons").delete().eq("pupil_id",id);
+  await sb.from("reflective_logs").delete().eq("pupil_id",id);
+  await sb.from("pupil_progress").delete().eq("pupil_id",id);
+  const {error}=await sb.from("pupils").delete().eq("id",id);
+  if(error) alert(error.message);
+  else refresh();
+}
 
 function shiftWeek(n){weekStart=new Date(weekStart); weekStart.setDate(weekStart.getDate()+n*7); renderDiary()}
 async function renderDiary(){
+  const HOUR_H=48, START_H=6, END_H=22;
+  const hours=[]; for(let h=START_H;h<=END_H;h++) hours.push(h);
+  const gridH=hours.length*HOUR_H;
   const end=new Date(weekStart); end.setDate(end.getDate()+7);
   document.getElementById("week-label").textContent=
     weekStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+
@@ -504,38 +614,107 @@ async function renderDiary(){
   const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)")
     .gte("start_time",weekStart.toISOString()).lt("start_time",end.toISOString()).order("start_time");
   const list=lessons||[];
-  const hours=[]; for(let h=7;h<=21;h++) hours.push(h);
-  let html='<div class="d-grid"><div class="d-corner"></div>';
+  const today=new Date(); today.setHours(0,0,0,0);
+
+  let head='<div class="d-days"><div></div>';
   for(let i=0;i<7;i++){
-    const day=new Date(weekStart); day.setDate(day.getDate()+i);
-    html+=`<div class="d-dayh">${day.toLocaleDateString("en-GB",{weekday:"short"})}<br>${day.getDate()}</div>`;
+    const day=new Date(weekStart); day.setDate(day.getDate()+i); day.setHours(0,0,0,0);
+    const isToday=day.getTime()===today.getTime();
+    head+=`<div class="d-dayh${isToday?" today":""}"><div class="dow">${day.toLocaleDateString("en-GB",{weekday:"short"})}</div><div class="dom">${day.getDate()}</div></div>`;
   }
-  hours.forEach(h=>{
-    html+=`<div class="d-time">${String(h).padStart(2,"0")}:00</div>`;
-    for(let i=0;i<7;i++){
-      const day=new Date(weekStart); day.setDate(day.getDate()+i);
-      const dayStr=day.toDateString();
-      const cellLessons=list.filter(l=>{
-        const s=new Date(l.start_time);
-        return s.toDateString()===dayStr && s.getHours()===h;
-      });
-      html+=`<div class="d-cell">`;
-      cellLessons.forEach(l=>{
-        const s=new Date(l.start_time), e=new Date(l.end_time);
-        const mins=Math.max(30,(e-s)/60000);
-        const name=l.pupil?l.pupil.first_name:(l.title||l.lesson_type||"");
-        let cls="";
-        if(l.status==="cancelled") cls="cancelled";
-        else if(l.lesson_type==="gap") cls="gap";
-        else if(l.title==="Away"||l.lesson_type==="student_away") cls="away";
-        const bg=cls?"": "background:#0A4CA1";
-        html+=`<div class="d-block ${cls}" style="height:${Math.min(mins/60*28,80)}px;${bg}">${s.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})} ${esc(name)}</div>`;
-      });
-      html+=`</div>`;
-    }
+  head+="</div>";
+
+  let times='<div class="d-times" style="height:'+gridH+'px">';
+  hours.forEach((h,idx)=>{
+    times+=`<div class="d-hour-line" style="top:${idx*HOUR_H}px;height:${HOUR_H}px"><div class="half"></div><span class="lbl">${String(h).padStart(2,"0")}:00</span></div>`;
   });
-  html+="</div>";
-  document.getElementById("diary-wrap").innerHTML=html;
+  times+="</div>";
+
+  let cols="";
+  for(let i=0;i<7;i++){
+    const day=new Date(weekStart); day.setDate(day.getDate()+i); day.setHours(0,0,0,0);
+    const isToday=day.getTime()===today.getTime();
+    const dayStr=day.toDateString();
+    const dayLessons=list.filter(l=>new Date(l.start_time).toDateString()===dayStr);
+    cols+=`<div class="d-col${isToday?" today":""}" style="height:${gridH}px">`;
+    hours.forEach((h,idx)=>{
+      cols+=`<div class="d-hour-line" style="top:${idx*HOUR_H}px;height:${HOUR_H}px"><div class="half"></div></div>`;
+    });
+    dayLessons.forEach(l=>{
+      const s=new Date(l.start_time), e=new Date(l.end_time);
+      const startMin=s.getHours()*60+s.getMinutes();
+      const dur=Math.max(20,(e-s)/60000);
+      const top=((startMin-START_H*60)/60)*HOUR_H;
+      const height=Math.max((dur/60)*HOUR_H,28);
+      // First name only – clearer in narrow day columns
+      let name=l.pupil?l.pupil.first_name:(l.title||l.lesson_type||"Private");
+      let cls="booked";
+      if(l.status==="cancelled") cls="cancelled";
+      else if(l.lesson_type==="gap") cls="gap";
+      else if(l.title==="Away"||l.lesson_type==="student_away"||l.lesson_type==="private") cls="away";
+      else if(l.lesson_type==="mock_test") cls="mock";
+      else if(l.lesson_type==="driving_test") cls="test";
+      else if(l.status==="delivered") cls="delivered";
+      const tm=s.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+      const isAway=cls==="away";
+      const pid=l.pupil_id||"";
+      const lid=l.id||"";
+      cols+=`<div class="d-block ${cls}" style="top:${top}px;height:${height}px" title="${esc(name)} ${tm}" data-lesson-id="${lid}" data-pupil-id="${pid}" data-away="${isAway?"1":"0"}" onclick="onDiaryBlockClick(this)"><div class="nm">${esc(name)}</div>${height>=32?`<div class="tm">${tm}</div>`:""}</div>`;
+    });
+    cols+="</div>";
+  }
+
+  document.getElementById("diary-wrap").innerHTML=
+    `<div class="d-scroll" id="diary-scroll">${head}<div class="d-body">${times}${cols}</div></div>`;
+
+  // scroll so ~07:00 is near the top (like the app)
+  requestAnimationFrame(()=>{
+    const sc=document.getElementById("diary-scroll");
+    if(sc) sc.scrollTop=Math.max(0,(7-START_H)*HOUR_H-8);
+  });
+}
+
+async function onDiaryBlockClick(el){
+  const pupilId=el.getAttribute("data-pupil-id")||"";
+  const lessonId=el.getAttribute("data-lesson-id")||"";
+  const isAway=el.getAttribute("data-away")==="1";
+
+  if(isAway && lessonId){
+    openModal(`<h2 style="margin-bottom:1rem">Away / private block</h2>
+      <p class="muted" style="margin-bottom:1rem">Remove this block from the diary?</p>
+      <div class="actions">
+        <button class="btn btn-navy btn-sm" onclick="endAwayBlock('${lessonId}')">Remove from diary</button>
+        <button class="btn-outline" onclick="closeModal()">Cancel</button>
+      </div>`);
+    return;
+  }
+
+  if(pupilId){
+    let p=pupilsCache.find(x=>x.id===pupilId);
+    if(!p){
+      const {data}=await sb.from("pupils").select("*").eq("id",pupilId).maybeSingle();
+      p=data;
+    }
+    if(p){ showPupil(p); return; }
+  }
+
+  // gap or unknown – offer delete
+  if(lessonId){
+    openModal(`<h2 style="margin-bottom:1rem">Diary block</h2>
+      <p class="muted" style="margin-bottom:1rem">No pupil linked. You can remove this block.</p>
+      <div class="actions">
+        <button class="btn btn-navy btn-sm" onclick="endAwayBlock('${lessonId}')">Remove</button>
+        <button class="btn-outline" onclick="closeModal()">Cancel</button>
+      </div>`);
+  }
+}
+
+async function endAwayBlock(lessonId){
+  if(!confirm("Remove this block from the diary?")) return;
+  const {error}=await sb.from("lessons").delete().eq("id", lessonId);
+  if(error){ alert("Could not remove: "+error.message); return; }
+  closeModal();
+  renderDiary();
 }
 
 function showTests(mode,btn){
@@ -738,13 +917,8 @@ async function loadRoster(){
   el.innerHTML=data.map(s=>`<div class="list-row"><div><strong>${esc(s.username)}</strong><div class="muted">${esc(s.password||"")}</div></div>
     <button class="btn-danger" onclick="delStudent('${esc(s.username)}')">Delete</button></div>`).join("");
 }
-async function loadActivity(){
-  const el=document.getElementById("activity");
-  const {data}=await sb.from("activity_logs").select("*").order("created_at",{ascending:false}).limit(15);
-  if(!data||!data.length){el.innerHTML='<p class="muted">No activity</p>';return}
-  el.innerHTML=data.map(l=>`<div class="list-row"><div><strong>${esc(l.username)}</strong> — ${esc(l.action)}
-    <div class="muted">${l.created_at?new Date(l.created_at).toLocaleString("en-GB"):""}</div></div></div>`).join("");
-}
+/* loadActivity defined later with matrices */
+
 async function addLearner(){
   const user=document.getElementById("user").value.trim().toLowerCase();
   let pass=document.getElementById("pass").value.trim();
@@ -858,7 +1032,365 @@ async function delRes(id){if(!confirm("Delete?"))return; await sb.from("resource
 
 function openModal(html){document.getElementById("modal-box").innerHTML=html; document.getElementById("modal").classList.remove("hidden")}
 function closeModal(){document.getElementById("modal").classList.add("hidden")}
+
+/* ---- Website photos editor (Supabase Storage + website_photos table) ---- */
+let websiteMode = "carousel";
+let websiteItems = []; // current list for active mode {id, url, storage_path, sort_order}
+let websiteSelected = new Set(); // selected photo ids for multi-delete
+
+function websiteShow(mode, btn){
+  websiteMode = mode || websiteMode;
+  websiteSelected = new Set();
+  if (btn) {
+    btn.parentElement.querySelectorAll("button").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+  }
+  websiteReload();
+}
+
+async function websiteReload(){
+  const status = document.getElementById("website-status");
+  const grid = document.getElementById("website-grid");
+  if (!status || !grid) return;
+  status.textContent = "Loading…";
+  grid.innerHTML = "";
+  try {
+    const { data, error } = await sb
+      .from("website_photos")
+      .select("id,url,storage_path,sort_order,caption,created_at")
+      .eq("type", websiteMode)
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+    websiteItems = data || [];
+    // Drop selections that no longer exist
+    const ids = new Set(websiteItems.map(i => i.id));
+    websiteSelected = new Set([...websiteSelected].filter(id => ids.has(id)));
+    websiteUpdateStatus();
+    renderWebsiteGrid();
+  } catch (e) {
+    status.textContent = "Error: " + (e.message || e);
+    grid.innerHTML = '<p class="muted">Could not load photos. Check the website_photos table and RLS policies.</p>';
+  }
+}
+
+function websiteUpdateStatus(){
+  const status = document.getElementById("website-status");
+  if (!status) return;
+  const n = websiteItems.length;
+  const s = websiteSelected.size;
+  status.textContent = n + " photo" + (n === 1 ? "" : "s")
+    + (s ? " · " + s + " selected" : "");
+}
+
+function websiteToggleSelect(id, ev){
+  if (ev) ev.stopPropagation();
+  if (websiteSelected.has(id)) websiteSelected.delete(id);
+  else websiteSelected.add(id);
+  websiteUpdateStatus();
+  renderWebsiteGrid();
+}
+
+function websiteSelectAll(){
+  websiteSelected = new Set(websiteItems.map(i => i.id));
+  websiteUpdateStatus();
+  renderWebsiteGrid();
+}
+
+function websiteSelectNone(){
+  websiteSelected = new Set();
+  websiteUpdateStatus();
+  renderWebsiteGrid();
+}
+
+function renderWebsiteGrid(){
+  const grid = document.getElementById("website-grid");
+  if (!grid) return;
+  if (!websiteItems.length) {
+    grid.innerHTML = '<p class="muted" style="grid-column:1/-1">No photos yet. Use “Upload photos” above.</p>';
+    return;
+  }
+  grid.innerHTML = websiteItems.map((item, idx) => {
+    const src = item.url && (item.url.startsWith("http") || item.url.startsWith("//"))
+      ? item.url
+      : item.url;
+    const selected = websiteSelected.has(item.id);
+    return `<div style="border:2px solid ${selected ? 'var(--navy,#0A4CA1)' : 'var(--line)'};border-radius:10px;overflow:hidden;background:#fff;display:flex;flex-direction:column;position:relative;box-shadow:${selected ? '0 0 0 2px rgba(10,76,161,.25)' : 'none'}">
+      <label style="position:absolute;top:8px;left:8px;z-index:2;background:rgba(255,255,255,.92);border-radius:6px;padding:4px 6px;display:flex;align-items:center;gap:4px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.12)">
+        <input type="checkbox" ${selected ? "checked" : ""} onclick="websiteToggleSelect('${item.id}',event)" style="width:16px;height:16px;accent-color:#0A4CA1">
+      </label>
+      <div style="aspect-ratio:3/4;background:#f1f5f9;position:relative;cursor:pointer" onclick="websiteToggleSelect('${item.id}')">
+        <img src="${esc(src)}" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy"
+             onerror="this.style.opacity=.3">
+      </div>
+      <div style="padding:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
+        <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move up"
+          onclick="websiteMove('${item.id}',-1)" ${idx===0?"disabled":""}>↑</button>
+        <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move down"
+          onclick="websiteMove('${item.id}',1)" ${idx===websiteItems.length-1?"disabled":""}>↓</button>
+        <button type="button" class="btn-danger" style="padding:2px 8px;font-size:.75rem"
+          onclick="websiteDelete('${item.id}')">Del</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function websiteUpload(ev){
+  const files = Array.from(ev.target.files || []);
+  ev.target.value = "";
+  if (!files.length) return;
+  const status = document.getElementById("website-status");
+  status.textContent = "Uploading " + files.length + " file(s)…";
+
+  // Next sort_order
+  let nextOrder = websiteItems.length
+    ? Math.max(...websiteItems.map(i => i.sort_order || 0)) + 1
+    : 0;
+
+  for (const file of files) {
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = websiteMode + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+
+      const { error: upErr } = await sb.storage
+        .from("pass-photos")
+        .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+      if (upErr) throw upErr;
+
+      const { data: pub } = sb.storage.from("pass-photos").getPublicUrl(path);
+      const publicUrl = pub && pub.publicUrl;
+
+      const { error: insErr } = await sb.from("website_photos").insert({
+        url: publicUrl,
+        storage_path: path,
+        type: websiteMode,
+        sort_order: nextOrder++
+      });
+      if (insErr) throw insErr;
+    } catch (e) {
+      alert("Upload failed for " + file.name + ": " + (e.message || e));
+    }
+  }
+  await websiteReload();
+}
+
+async function websiteMove(id, direction){
+  const idx = websiteItems.findIndex(i => i.id === id);
+  if (idx < 0) return;
+  const swapIdx = idx + direction;
+  if (swapIdx < 0 || swapIdx >= websiteItems.length) return;
+
+  const a = websiteItems[idx];
+  const b = websiteItems[swapIdx];
+  const orderA = a.sort_order;
+  const orderB = b.sort_order;
+
+  // Swap sort_order values
+  try {
+    await sb.from("website_photos").update({ sort_order: orderB }).eq("id", a.id);
+    await sb.from("website_photos").update({ sort_order: orderA }).eq("id", b.id);
+    await websiteReload();
+  } catch (e) {
+    alert("Could not reorder: " + (e.message || e));
+  }
+}
+
+async function websiteDelete(id){
+  const item = websiteItems.find(i => i.id === id);
+  if (!item) return;
+  if (!confirm("Delete this photo?")) return;
+  try {
+    if (item.storage_path) {
+      await sb.storage.from("pass-photos").remove([item.storage_path]);
+    }
+    const { error } = await sb.from("website_photos").delete().eq("id", id);
+    if (error) throw error;
+    websiteSelected.delete(id);
+    await websiteReload();
+  } catch (e) {
+    alert("Delete failed: " + (e.message || e));
+  }
+}
+
+async function websiteDeleteSelected(){
+  const ids = [...websiteSelected];
+  if (!ids.length) {
+    alert("Select one or more photos first (tap photos or use Select all).");
+    return;
+  }
+  if (!confirm("Delete " + ids.length + " selected photo" + (ids.length === 1 ? "" : "s") + "?\nThis cannot be undone.")) return;
+  const status = document.getElementById("website-status");
+  if (status) status.textContent = "Deleting " + ids.length + "…";
+  const paths = [];
+  for (const id of ids) {
+    const item = websiteItems.find(i => i.id === id);
+    if (item && item.storage_path) paths.push(item.storage_path);
+  }
+  try {
+    if (paths.length) {
+      await sb.storage.from("pass-photos").remove(paths);
+    }
+    const { error } = await sb.from("website_photos").delete().in("id", ids);
+    if (error) throw error;
+    websiteSelected = new Set();
+    await websiteReload();
+  } catch (e) {
+    alert("Delete failed: " + (e.message || e));
+    await websiteReload();
+  }
+}
+
+
 function fmt(iso){if(!iso)return"–";try{return new Date(iso).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}catch{return iso}}
+
+
+function openAddPupilForm(){
+  openModal(`<h3>Add pupil</h3>
+    <div class="field"><label>First name *</label><input id="ap-fn"></div>
+    <div class="field"><label>Last name *</label><input id="ap-ln"></div>
+    <div class="field"><label>Phone</label><input id="ap-phone"></div>
+    <div class="field"><label>Email</label><input id="ap-email" type="email"></div>
+    <div class="field"><label>Status</label>
+      <select id="ap-status">
+        <option value="active">Active</option>
+        <option value="waiting">Waiting</option>
+        <option value="enquiry">Enquiry</option>
+        <option value="inactive">Inactive</option>
+      </select>
+    </div>
+    <div class="field"><label>Address line 1</label><input id="ap-a1"></div>
+    <div class="field"><label>Postcode</label><input id="ap-pc"></div>
+    <button class="btn btn-navy" onclick="saveNewPupil()">Save pupil</button>
+    <button class="btn-outline" onclick="closeModal()">Cancel</button>`);
+}
+async function saveNewPupil(){
+  const first=document.getElementById("ap-fn").value.trim();
+  const last=document.getElementById("ap-ln").value.trim();
+  if(!first||!last) return alert("First and last name required");
+  const row={
+    first_name:first, last_name:last,
+    phone:document.getElementById("ap-phone").value.trim()||null,
+    email:(document.getElementById("ap-email").value.trim()||null),
+    status:document.getElementById("ap-status").value,
+    address_line1:document.getElementById("ap-a1").value.trim()||null,
+    postcode:document.getElementById("ap-pc").value.trim()||null,
+  };
+  if(row.email) row.email=row.email.toLowerCase();
+  const {error}=await sb.from("pupils").insert(row);
+  if(error) alert(error.message);
+  else { closeModal(); await loadPupils(); renderPupils(); loadDash(); }
+}
+
+
+const MODULE_VIDEOS = {
+  m1: ["Approaching Junctions Turning Left","Emerging From An Open Junction Turning Left","Approaching Junctions Turning Right","Emerging From a Closed Junction Turning Right","Emerging From a Stop Junction","Emerging From a One-Way Street Turning Right","Approaching Junctions Turning Right – Giveway","Approaching Long Protected Junctions Turning Rights","Approaching Protected Junctions Turning Right"],
+  m2: ["Level Crossings","Meeting Traffic","Following Distance Dry Weather Driving Conditions","Following Distance Wet Weather Driving Conditions","Slip Road Onto Dual Carriageway","Road Position Left Hand Bend","Road Position Right Hand Bend","Satellite Navigation"],
+  m3: ["Introduction Into Crossroads","Turning Right Offside to Offside","Turning Right Nearside to Nearside","Turning Right Using Local Knowledge","Turning Right At Crossroads But Unsure of Location","Unmarked Crossroads","Emerging From Crossroads Turning Right With Eye Contact","Traffic Lights Driving Ahead (With Junction Box)","Traffic Lights Turning Left (With Junction Box)","Traffic Lights Turning Right (With Junction Box)"],
+  m4: ["Introduction To Roundabouts","Turning Left First Exit","Following Road Ahead 2nd Exit","Following Road Ahead 2nd Exit Right Hand Lane","Turning Right With Multiple Lanes","Turning Right At Roundabouts But Exiting The Right Lane","Blocking At Roundabouts","Blockers","Mini Roundabouts Following Road Ahead","Mini Roundabouts Turning Right 3rd Exit"],
+  m5: ["Queues Of Traffic, Leaving A Gap","Turn In The Road","Reversing Left Into Side Road","Reverse Parallel Park","Bay Park 90 Degrees","Bay Park 45 Degrees","Pull Up Safety On The Right","Emergency Stop","Controlled Stop Move Off At Angle","Hill Start"]
+};
+
+async function loadVideoProgress(){
+  const mounts = ["m1","m2","m3","m4","m5"];
+  mounts.forEach(m=>{ const el=document.getElementById("matrix-"+m); if(el) el.innerHTML="Loading…"; });
+
+  // Learners for columns: prefer pupils with email/status, also students table for older usernames
+  let learners = [];
+  try {
+    const { data: pupils } = await sb.from("pupils").select("id,first_name,last_name,email,portal_username,status").in("status",["active","waiting","passed"]);
+    (pupils||[]).forEach(p=>{
+      const key = (p.email||p.portal_username||"").toLowerCase();
+      const label = ((p.first_name||"")+" "+(p.last_name||"")).trim() || key || "Pupil";
+      if(key) learners.push({ key, label });
+    });
+  } catch(e){}
+  try {
+    const { data: students } = await sb.from("students").select("username");
+    (students||[]).forEach(s=>{
+      const key=(s.username||"").toLowerCase();
+      if(key && !learners.some(l=>l.key===key)) learners.push({ key, label: key });
+    });
+  } catch(e){}
+
+  if(!learners.length){
+    mounts.forEach(m=>{
+      const el=document.getElementById("matrix-"+m);
+      if(el) el.innerHTML='<p class="muted">No learners found. Add pupils (with email) or wait for portal activity.</p>';
+    });
+    return;
+  }
+
+  let allLogs = [];
+  try {
+    const { data, error } = await sb.from("activity_logs").select("*").order("created_at",{ascending:false}).limit(2000);
+    if(error) throw error;
+    allLogs = data||[];
+  } catch(e){
+    mounts.forEach(m=>{
+      const el=document.getElementById("matrix-"+m);
+      if(el) el.innerHTML='<p class="muted">Could not load activity_logs: '+(e.message||e)+'</p>';
+    });
+    return;
+  }
+
+  function cellFor(learnerKey, videoTitle){
+    const logs = allLogs.filter(l => (l.username||"").toLowerCase()===learnerKey && l.action && l.action.includes(videoTitle));
+    let cls="st-0", txt="0%";
+    if(logs.some(l=>l.action.includes("Completed Video:"))){ cls="st-100"; txt="100%"; }
+    else if(logs.some(l=>l.action.includes("Halfway Through Video:"))){ cls="st-50"; txt="50%"; }
+    else if(logs.some(l=>l.action.includes("Started Video:"))){ cls="st-50"; txt="Start"; }
+    return `<span class="status-pill ${cls}">${txt}</span>`;
+  }
+
+  function buildGrid(videoArray){
+    let html=`<table class="matrix-table"><thead><tr><th>Video topic</th>`;
+    learners.forEach(l=>{ html+=`<th title="${esc(l.key)}">${esc(l.label.split(" ")[0]||l.label)}</th>`; });
+    html+=`</tr></thead><tbody>`;
+    videoArray.forEach(title=>{
+      html+=`<tr><td class="vname">${esc(title)}</td>`;
+      learners.forEach(l=>{ html+=`<td>${cellFor(l.key, title)}</td>`; });
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table>`;
+    return html;
+  }
+
+  document.getElementById("matrix-m1").innerHTML = buildGrid(MODULE_VIDEOS.m1);
+  document.getElementById("matrix-m2").innerHTML = buildGrid(MODULE_VIDEOS.m2);
+  document.getElementById("matrix-m3").innerHTML = buildGrid(MODULE_VIDEOS.m3);
+  document.getElementById("matrix-m4").innerHTML = buildGrid(MODULE_VIDEOS.m4);
+  document.getElementById("matrix-m5").innerHTML = buildGrid(MODULE_VIDEOS.m5);
+
+  // Fill activity filter
+  const sel=document.getElementById("pupil-log-filter");
+  if(sel){
+    const cur=sel.value||"ALL";
+    sel.innerHTML='<option value="ALL">All pupils</option>'+learners.map(l=>`<option value="${esc(l.key)}">${esc(l.label)}</option>`).join("");
+    sel.value=cur;
+  }
+}
+
+async function loadActivityFeed(){
+  const el=document.getElementById("activity");
+  if(!el) return;
+  const selected=(document.getElementById("pupil-log-filter")||{}).value||"ALL";
+  let q=sb.from("activity_logs").select("*").order("created_at",{ascending:false}).limit(40);
+  // supabase-js filter
+  const { data, error } = selected==="ALL"
+    ? await sb.from("activity_logs").select("*").order("created_at",{ascending:false}).limit(40)
+    : await sb.from("activity_logs").select("*").eq("username", selected).order("created_at",{ascending:false}).limit(40);
+  if(error){ el.innerHTML='<p class="muted">'+esc(error.message)+'</p>'; return; }
+  if(!data||!data.length){ el.innerHTML='<p class="muted">No activity logged yet.</p>'; return; }
+  el.innerHTML=data.map(l=>{
+    const t=l.created_at?new Date(l.created_at).toLocaleString("en-GB"):"";
+    return `<div class="list-row"><div><strong>${esc(l.username||"")}</strong> — ${esc(l.action||"")}<div class="muted">${t}</div></div></div>`;
+  }).join("");
+}
+
+async function loadActivity(){
+  await loadVideoProgress();
+  await loadActivityFeed();
+}
+
 
 async function importPupilsCsv(ev){
   const file=ev.target.files[0]; if(!file)return;

@@ -399,21 +399,94 @@
         const GITHUB_RAW_BASE = "https://raw.githubusercontent.com/dmwdrivingschool/dmwdrivingschool.github.io/main/";
 
         
-        // Auto-login from pupil app: tokens in hash (#access_token=...) or query (?access_token=...)
+                // Auto-login from pupil app: ?access_token=&refresh_token=&email=&uid=
         (function tryAppAutoLogin() {
             const fromSearch = new URLSearchParams(window.location.search);
             const fromHash = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
             function param(name) {
                 return fromHash.get(name) || fromSearch.get(name) || '';
             }
-            const accessToken = param('access_token');
+            const accessTokenIn = param('access_token');
+            const refreshToken = param('refresh_token');
             const emailParam = (param('email') || '').toLowerCase();
+            const uidParam = param('uid');
+            const returnUrl = param('return') || 'https://app.dmwdrivingschool.co.uk/pupil';
             const u = param('u') || param('portal_user');
             const p = param('p') || param('portal_pass');
 
-            async function loginWithToken(token, emailHint) {
+            function setStatus(msg, isError) {
                 const errEl = document.getElementById('error');
+                if (!errEl) return;
+                errEl.innerText = msg;
+                errEl.style.display = 'block';
+                errEl.style.color = isError ? '#df4744' : '#0A4CA1';
+            }
+
+            async function resolveAccessToken() {
+                if (refreshToken) {
+                    try {
+                        const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+                            method: 'POST',
+                            headers: {
+                                'apikey': SUPABASE_KEY,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ refresh_token: refreshToken })
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.access_token) return data.access_token;
+                    } catch (e) {
+                        console.warn('refresh_token failed', e);
+                    }
+                }
+                return accessTokenIn || '';
+            }
+
+            async function fetchPupils(token, email, uid) {
+                const headers = {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                };
+                // 1) by profile_id (auth user id)
+                if (uid) {
+                    const r = await fetch(
+                        SUPABASE_URL + '/rest/v1/pupils?profile_id=eq.' + encodeURIComponent(uid) + '&select=id,first_name,status,email,profile_id',
+                        { headers }
+                    );
+                    const rows = await r.json();
+                    if (Array.isArray(rows) && rows.length) return rows;
+                }
+                // 2) exact email
+                if (email) {
+                    const r = await fetch(
+                        SUPABASE_URL + '/rest/v1/pupils?email=eq.' + encodeURIComponent(email) + '&select=id,first_name,status,email,profile_id',
+                        { headers }
+                    );
+                    const rows = await r.json();
+                    if (Array.isArray(rows) && rows.length) return rows;
+                }
+                // 3) ilike email
+                if (email) {
+                    const r = await fetch(
+                        SUPABASE_URL + '/rest/v1/pupils?email=ilike.' + encodeURIComponent(email) + '&select=id,first_name,status,email,profile_id',
+                        { headers }
+                    );
+                    const rows = await r.json();
+                    if (Array.isArray(rows) && rows.length) return rows;
+                }
+                return [];
+            }
+
+            async function loginWithToken(tokenHint, emailHint, uidHint) {
                 try {
+                    setStatus('Signing you in from the app…', false);
+                    const token = tokenHint || (await resolveAccessToken());
+                    if (!token) {
+                        setStatus('Missing session — open Learning videos again from the app.', true);
+                        return false;
+                    }
+
                     const userRes = await fetch(SUPABASE_URL + '/auth/v1/user', {
                         headers: {
                             'apikey': SUPABASE_KEY,
@@ -421,59 +494,52 @@
                         }
                     });
                     const user = await userRes.json();
-                    if (!userRes.ok || !user || !user.email) {
-                        if (errEl) {
-                            errEl.innerText = 'Session expired — please sign in with your app email and password.';
-                            errEl.style.display = 'block';
+                    if (!userRes.ok || !user || (!user.email && !user.id)) {
+                        // try refresh path once more
+                        if (refreshToken && token === accessTokenIn) {
+                            const fresh = await resolveAccessToken();
+                            if (fresh && fresh !== token) {
+                                return loginWithToken(fresh, emailHint, uidHint);
+                            }
                         }
+                        setStatus('Session expired — sign in with your app email and password.', true);
                         return false;
                     }
-                    const email = (user.email || emailHint || '').toLowerCase();
 
-                    // Exact email match on pupils (authenticated)
-                    let pupils = [];
-                    const pupilRes = await fetch(
-                        SUPABASE_URL + '/rest/v1/pupils?email=eq.' + encodeURIComponent(email) + '&select=id,first_name,status',
-                        {
-                            headers: {
-                                'apikey': SUPABASE_KEY,
-                                'Authorization': 'Bearer ' + token,
-                                'Content-Type': 'application/json'
-                            }
-                        }
-                    );
-                    pupils = await pupilRes.json();
-                    if (!Array.isArray(pupils) || !pupils.length) {
-                        // Fallback: ilike
-                        const pupilRes2 = await fetch(
-                            SUPABASE_URL + '/rest/v1/pupils?email=ilike.' + encodeURIComponent(email) + '&select=id,first_name,status',
-                            {
-                                headers: {
-                                    'apikey': SUPABASE_KEY,
-                                    'Authorization': 'Bearer ' + token
-                                }
-                            }
-                        );
-                        pupils = await pupilRes2.json();
-                    }
-                    if (!Array.isArray(pupils) || !pupils.length) {
-                        if (errEl) {
-                            errEl.innerText = 'No learner profile for ' + email + '. Ask your instructor to set your email on your pupil record.';
-                            errEl.style.display = 'block';
-                        }
+                    const email = (user.email || emailHint || '').toLowerCase();
+                    const uid = user.id || uidHint || '';
+                    const pupils = await fetchPupils(token, email, uid);
+
+                    if (!pupils.length) {
+                        setStatus('No learner profile for ' + (email || uid) + '. Ask your instructor to link your email on the app.', true);
                         return false;
                     }
 
                     sessionStorage.setItem('authenticated', 'true');
-                    sessionStorage.setItem('current_student_username', email);
+                    sessionStorage.setItem('current_student_username', email || pupils[0].email || 'learner');
                     sessionStorage.setItem('pupil_id', pupils[0].id);
                     sessionStorage.setItem('access_token', token);
-                    try { history.replaceState({}, '', window.location.pathname + window.location.hash); } catch (e) {}
+                    sessionStorage.setItem('portal_return', returnUrl);
 
-                    // Wait until showDashboard exists
+                    try {
+                        history.replaceState({}, '', window.location.pathname + window.location.hash.split('?')[0]);
+                    } catch (e) {}
+
                     function go() {
                         if (typeof showDashboard === 'function') {
                             showDashboard();
+                            // Add back-to-app control if missing
+                            try {
+                                var banner = document.querySelector('.portal-banner');
+                                if (banner && !document.getElementById('back-to-app-btn')) {
+                                    var a = document.createElement('a');
+                                    a.id = 'back-to-app-btn';
+                                    a.href = returnUrl;
+                                    a.textContent = '← Back to app';
+                                    a.style.cssText = 'margin-right:10px;color:#fff;font-weight:600;font-size:0.9rem;text-decoration:none;border:1px solid rgba(255,255,255,0.5);padding:6px 12px;border-radius:6px;';
+                                    banner.insertBefore(a, banner.firstChild);
+                                }
+                            } catch (e) {}
                             if (typeof logStudentActivity === 'function') {
                                 logStudentActivity('Logged Into Portal (app session)');
                             }
@@ -485,25 +551,14 @@
                     return true;
                 } catch (e) {
                     console.warn('Auto-login failed', e);
-                    if (errEl) {
-                        errEl.innerText = 'Auto-login failed. Sign in with your app email and password.';
-                        errEl.style.display = 'block';
-                    }
+                    setStatus('Auto-login failed. Sign in with your app email and password.', true);
                     return false;
                 }
             }
 
             function run() {
-                if (accessToken) {
-                    // Hide login form while we try auto-login
-                    try {
-                        var lb = document.querySelector('.login-box');
-                        var vw = document.querySelector('.viewport-wrapper');
-                        if (lb) lb.style.opacity = '0.5';
-                        var errEl = document.getElementById('error');
-                        if (errEl) { errEl.innerText = 'Signing you in from the app…'; errEl.style.display = 'block'; errEl.style.color = '#0A4CA1'; }
-                    } catch (e) {}
-                    loginWithToken(accessToken, emailParam);
+                if (accessTokenIn || refreshToken) {
+                    loginWithToken(accessTokenIn, emailParam, uidParam);
                     return;
                 }
                 if (u && p) {
@@ -525,7 +580,7 @@
             }
         })();
 
-        // Auto-login if already authenticated
+// Auto-login if already authenticated
         if (sessionStorage.getItem("authenticated") === "true") {
             window.addEventListener('DOMContentLoaded', showDashboard);
         }

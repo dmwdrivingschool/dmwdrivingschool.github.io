@@ -119,15 +119,15 @@
         <!-- Login Screen -->
         <div id="login-screen" class="login-box">
             <h2>DMW Student Portal</h2>
-            <p>Enter your access details to view course resources</p>
+            <p>Sign in with the same email and password you use for the DMW app</p>
             <div class="input-group">
-                <input type="text" id="username" placeholder="Username" autocomplete="username">
+                <input type="email" id="username" placeholder="Email" autocomplete="username">
             </div>
             <div class="input-group">
                 <input type="password" id="password" placeholder="Password" autocomplete="current-password">
             </div>
-            <button class="login-btn" onclick="checkLogin()">Secure Login</button>
-            <p class="instructor-warning">Contact your driving instructor if you do not have your student login details.</p>
+            <button class="login-btn" onclick="checkLogin()">Sign in</button>
+            <p class="instructor-warning">Portal access is only for learners registered on the DMW app. Ask your instructor if you need an account.</p>
             <div id="error" class="error-msg">Invalid credentials!</div>
         </div>
 
@@ -380,9 +380,15 @@
         </div>
     </div>
 
-    <footer class="site-footer">
+        <footer class="site-footer">
         <div class="footer-container">
             <p>&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
+            <p style="margin-top:10px;font-size:0.8rem;">
+                <a href="https://dmwdrivingschool.co.uk/privacy.html" style="color:#93c5fd;text-decoration:none;margin:0 6px;">Privacy</a> ·
+                <a href="https://dmwdrivingschool.co.uk/cookies.html" style="color:#93c5fd;text-decoration:none;margin:0 6px;">Cookies</a> ·
+                <a href="https://dmwdrivingschool.co.uk/terms-of-use.html" style="color:#93c5fd;text-decoration:none;margin:0 6px;">Terms of Use</a> ·
+                <a href="https://dmwdrivingschool.co.uk/terms.html" style="color:#93c5fd;text-decoration:none;margin:0 6px;">Lesson Terms</a>
+            </p>
         </div>
     </footer>
 
@@ -393,19 +399,129 @@
         const GITHUB_RAW_BASE = "https://raw.githubusercontent.com/dmwdrivingschool/dmwdrivingschool.github.io/main/";
 
         
-        // Auto-login from instructor app link
+        // Auto-login from pupil app: tokens in hash (#access_token=...) or query (?access_token=...)
         (function tryAppAutoLogin() {
-            const params = new URLSearchParams(window.location.search);
-            const u = params.get('u') || params.get('portal_user');
-            const p = params.get('p') || params.get('portal_pass');
-            if (u && p) {
-                window.addEventListener('DOMContentLoaded', () => {
-                    document.getElementById('username').value = u;
-                    document.getElementById('password').value = p;
-                    checkLogin();
-                    // Clean URL
-                    history.replaceState({}, '', window.location.pathname);
-                });
+            const fromSearch = new URLSearchParams(window.location.search);
+            const fromHash = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+            function param(name) {
+                return fromHash.get(name) || fromSearch.get(name) || '';
+            }
+            const accessToken = param('access_token');
+            const emailParam = (param('email') || '').toLowerCase();
+            const u = param('u') || param('portal_user');
+            const p = param('p') || param('portal_pass');
+
+            async function loginWithToken(token, emailHint) {
+                const errEl = document.getElementById('error');
+                try {
+                    const userRes = await fetch(SUPABASE_URL + '/auth/v1/user', {
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': 'Bearer ' + token
+                        }
+                    });
+                    const user = await userRes.json();
+                    if (!userRes.ok || !user || !user.email) {
+                        if (errEl) {
+                            errEl.innerText = 'Session expired — please sign in with your app email and password.';
+                            errEl.style.display = 'block';
+                        }
+                        return false;
+                    }
+                    const email = (user.email || emailHint || '').toLowerCase();
+
+                    // Exact email match on pupils (authenticated)
+                    let pupils = [];
+                    const pupilRes = await fetch(
+                        SUPABASE_URL + '/rest/v1/pupils?email=eq.' + encodeURIComponent(email) + '&select=id,first_name,status',
+                        {
+                            headers: {
+                                'apikey': SUPABASE_KEY,
+                                'Authorization': 'Bearer ' + token,
+                                'Content-Type': 'application/json'
+                            }
+                        }
+                    );
+                    pupils = await pupilRes.json();
+                    if (!Array.isArray(pupils) || !pupils.length) {
+                        // Fallback: ilike
+                        const pupilRes2 = await fetch(
+                            SUPABASE_URL + '/rest/v1/pupils?email=ilike.' + encodeURIComponent(email) + '&select=id,first_name,status',
+                            {
+                                headers: {
+                                    'apikey': SUPABASE_KEY,
+                                    'Authorization': 'Bearer ' + token
+                                }
+                            }
+                        );
+                        pupils = await pupilRes2.json();
+                    }
+                    if (!Array.isArray(pupils) || !pupils.length) {
+                        if (errEl) {
+                            errEl.innerText = 'No learner profile for ' + email + '. Ask your instructor to set your email on your pupil record.';
+                            errEl.style.display = 'block';
+                        }
+                        return false;
+                    }
+
+                    sessionStorage.setItem('authenticated', 'true');
+                    sessionStorage.setItem('current_student_username', email);
+                    sessionStorage.setItem('pupil_id', pupils[0].id);
+                    sessionStorage.setItem('access_token', token);
+                    try { history.replaceState({}, '', window.location.pathname + window.location.hash); } catch (e) {}
+
+                    // Wait until showDashboard exists
+                    function go() {
+                        if (typeof showDashboard === 'function') {
+                            showDashboard();
+                            if (typeof logStudentActivity === 'function') {
+                                logStudentActivity('Logged Into Portal (app session)');
+                            }
+                        } else {
+                            setTimeout(go, 50);
+                        }
+                    }
+                    go();
+                    return true;
+                } catch (e) {
+                    console.warn('Auto-login failed', e);
+                    if (errEl) {
+                        errEl.innerText = 'Auto-login failed. Sign in with your app email and password.';
+                        errEl.style.display = 'block';
+                    }
+                    return false;
+                }
+            }
+
+            function run() {
+                if (accessToken) {
+                    // Hide login form while we try auto-login
+                    try {
+                        var lb = document.querySelector('.login-box');
+                        var vw = document.querySelector('.viewport-wrapper');
+                        if (lb) lb.style.opacity = '0.5';
+                        var errEl = document.getElementById('error');
+                        if (errEl) { errEl.innerText = 'Signing you in from the app…'; errEl.style.display = 'block'; errEl.style.color = '#0A4CA1'; }
+                    } catch (e) {}
+                    loginWithToken(accessToken, emailParam);
+                    return;
+                }
+                if (u && p) {
+                    const userEl = document.getElementById('username');
+                    const passEl = document.getElementById('password');
+                    if (userEl && passEl) {
+                        userEl.value = u;
+                        passEl.value = p;
+                        try { history.replaceState({}, '', window.location.pathname); } catch (e) {}
+                        if (typeof checkLogin === 'function') checkLogin();
+                    }
+                }
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', run);
+            } else {
+                run();
             }
         })();
 
@@ -434,71 +550,65 @@
 
         // Login
         async function checkLogin() {
-            const userField = document.getElementById("username").value.trim().toLowerCase();
+            const email = document.getElementById("username").value.trim().toLowerCase();
             const passField = document.getElementById("password").value.trim();
+            const err = document.getElementById("error");
+            err.style.display = "none";
 
-            if (!userField || !passField) {
-                document.getElementById("error").style.display = "block";
+            if (!email || !passField) {
+                err.innerText = "Enter your app email and password";
+                err.style.display = "block";
                 return;
             }
 
             try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/students?username=eq.${userField}&password=eq.${passField}&select=*`, {
-                    method: 'GET',
+                // Same auth as the main app (Supabase Auth)
+                const authRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
                     headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`
-                    }
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email: email, password: passField })
                 });
+                const authData = await authRes.json();
+                if (!authRes.ok || !authData.access_token) {
+                    err.innerText = "Invalid email or password";
+                    err.style.display = "block";
+                    return;
+                }
 
-                const profileMatches = await response.json();
-
-                if (profileMatches && profileMatches.length > 0) {
-                    sessionStorage.setItem("authenticated", "true");
-                    sessionStorage.setItem("current_student_username", userField);
-                    showDashboard();
-                    logStudentActivity("Logged Into Portal");
-                } else {
-                    // Also allow app pupils.portal_username / portal_password
-                    let pupilOk = false;
-                    try {
-                        const pRes = await fetch(`${SUPABASE_URL}/rest/v1/pupils?portal_username=eq.${encodeURIComponent(userField)}&portal_password=eq.${encodeURIComponent(passField)}&select=id,first_name`, {
-                            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                        });
-                        const pupils = await pRes.json();
-                        if (pupils && pupils.length > 0) {
-                            pupilOk = true;
-                            sessionStorage.setItem("authenticated", "true");
-                            sessionStorage.setItem("current_student_username", userField);
-                            sessionStorage.setItem("pupil_id", pupils[0].id);
-                            showDashboard();
-                            logStudentActivity("Logged Into Portal (app account)");
+                // Must be a registered pupil (or instructor) on the app
+                const token = authData.access_token;
+                const pupilRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/pupils?email=ilike.${encodeURIComponent(email)}&select=id,first_name,status,profile_id`,
+                    {
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': 'Bearer ' + token
                         }
-                    } catch (e2) {}
-                    if (pupilOk) return;
-                    // Fallback master account
-                    if (userField === "dmwstudent" && passField === "drive2026") {
-                        sessionStorage.setItem("authenticated", "true");
-                        sessionStorage.setItem("current_student_username", "dmwstudent");
-                        showDashboard();
-                        logStudentActivity("Logged Into Portal (Master Fallback)");
-                    } else {
-                        document.getElementById("error").style.display = "block";
                     }
+                );
+                const pupils = await pupilRes.json();
+                if (!pupils || !pupils.length) {
+                    err.innerText = "No learner account linked to this email. Contact your instructor.";
+                    err.style.display = "block";
+                    return;
                 }
+
+                sessionStorage.setItem("authenticated", "true");
+                sessionStorage.setItem("current_student_username", email);
+                sessionStorage.setItem("pupil_id", pupils[0].id);
+                sessionStorage.setItem("access_token", token);
+                showDashboard();
+                logStudentActivity("Logged Into Portal (app account)");
             } catch (error) {
-                if (userField === "dmwstudent" && passField === "drive2026") {
-                    sessionStorage.setItem("authenticated", "true");
-                    sessionStorage.setItem("current_student_username", "dmwstudent");
-                    showDashboard();
-                    logStudentActivity("Logged Into Portal (Master Fallback)");
-                } else {
-                    document.getElementById("error").innerText = "Database connection error. Try again!";
-                    document.getElementById("error").style.display = "block";
-                }
+                err.innerText = "Connection error. Try again.";
+                err.style.display = "block";
             }
         }
 
+        
         function showDashboard() {
             document.getElementById("login-screen").style.display = "none";
             document.getElementById("page-wrapper").style.display = "block";

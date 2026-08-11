@@ -352,30 +352,79 @@
 
       try {
         let pupilId = null;
-        let res = await supabaseInsert("pupils", body, "return=representation");
-        if (res.ok) {
-          const row = Array.isArray(res.data) ? res.data[0] : res.data;
-          pupilId = row && row.id;
-        } else {
-          const minimal = {
-            first_name: body.first_name,
-            last_name: body.last_name,
-            phone: body.phone,
-            email: body.email,
-            status: "enquiry",
-            notes: [
-              body.address_line1,
-              body.address_line2,
-              body.city,
-              body.postcode,
-              notesExtra,
-              availText ? "Availability:\n" + availText : ""
-            ].filter(Boolean).join("\n")
-          };
-          res = await supabaseInsert("pupils", minimal, "return=representation");
-          if (!res.ok) throw new Error(res.text || "insert failed");
-          const row = Array.isArray(res.data) ? res.data[0] : res.data;
-          pupilId = row && row.id;
+        let lastErr = "";
+
+        // 1) Secure RPC (if you deployed submit_website_enquiry) — bypasses RLS safely
+        try {
+          const rpcRes = await fetch(SUPABASE_URL + "/rest/v1/rpc/submit_website_enquiry", {
+            method: "POST",
+            headers: {
+              apikey: SUPABASE_KEY,
+              Authorization: "Bearer " + SUPABASE_KEY,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              payload: {
+                first_name: body.first_name,
+                last_name: body.last_name,
+                phone: body.phone,
+                email: body.email,
+                address_line1: body.address_line1,
+                address_line2: body.address_line2,
+                city: body.city,
+                postcode: body.postcode,
+                preferred_gearbox: body.preferred_gearbox,
+                notes: body.notes
+              }
+            })
+          });
+          const rpcText = await rpcRes.text();
+          if (rpcRes.ok) {
+            try {
+              const parsed = JSON.parse(rpcText);
+              pupilId = typeof parsed === "string" ? parsed : parsed;
+            } catch (_) {
+              pupilId = (rpcText || "").replace(/"/g, "").trim() || null;
+            }
+          } else {
+            lastErr = rpcText;
+          }
+        } catch (rpcErr) {
+          console.warn("rpc enquiry", rpcErr);
+        }
+
+        // 2) Direct insert (needs RLS policy public_insert_enquiries)
+        if (!pupilId) {
+          let res = await supabaseInsert("pupils", body, "return=representation");
+          if (res.ok) {
+            const row = Array.isArray(res.data) ? res.data[0] : res.data;
+            pupilId = row && row.id;
+          } else {
+            lastErr = res.text || lastErr;
+            const minimal = {
+              first_name: body.first_name,
+              last_name: body.last_name,
+              phone: body.phone,
+              email: body.email,
+              status: "enquiry",
+              notes: [
+                body.address_line1,
+                body.address_line2,
+                body.city,
+                body.postcode,
+                notesExtra,
+                availText ? "Availability:\n" + availText : ""
+              ].filter(Boolean).join("\n")
+            };
+            res = await supabaseInsert("pupils", minimal, "return=representation");
+            if (res.ok) {
+              const row = Array.isArray(res.data) ? res.data[0] : res.data;
+              pupilId = row && row.id;
+            } else {
+              lastErr = res.text || lastErr;
+              throw new Error((lastErr || "insert failed").slice(0, 300));
+            }
+          }
         }
 
         createdPupilId = pupilId;
@@ -389,7 +438,12 @@
         window.scrollTo(0, 0);
       } catch (e) {
         console.error(e);
-        showErr("Could not send right now. Please try again or contact the school directly.");
+        const msg = (e && e.message) ? String(e.message) : "";
+        if (/row-level security|42501/i.test(msg)) {
+          showErr("Could not save enquiry (database security / RLS). Run the SQL fix in Supabase, then try again.");
+        } else {
+          showErr("Could not send right now. " + (msg ? msg.slice(0, 180) : "Please try again or contact the school directly."));
+        }
         btn.disabled = false;
       }
     }

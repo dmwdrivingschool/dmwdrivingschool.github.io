@@ -24,6 +24,8 @@
     }
     .steps i.on { background: var(--navy); }
     label { display: block; font-size: .78rem; font-weight: 600; color: #64748b; margin-bottom: 4px; }
+    .field-err { color: #b91c1c; font-size: .78rem; margin: -8px 0 10px 0; display: none; }
+    input.invalid { border-color: #ef4444; background: #fef2f2; }
     input, textarea {
       width: 100%; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 10px;
       font-size: 1rem; margin-bottom: 12px;
@@ -89,20 +91,26 @@
         </div>
         <label>First name *</label>
         <input id="fn" required autocomplete="given-name">
+        <div class="field-err" id="err-fn">Please enter your first name</div>
         <label>Last name *</label>
         <input id="ln" required autocomplete="family-name">
+        <div class="field-err" id="err-ln">Please enter your last name</div>
         <label>Address line 1 *</label>
         <input id="a1" required autocomplete="address-line1">
+        <div class="field-err" id="err-a1">Please enter your address</div>
         <label>Address line 2</label>
         <input id="a2" autocomplete="address-line2">
         <label>City / town</label>
         <input id="city" autocomplete="address-level2">
         <label>Postcode *</label>
         <input id="pc" required autocomplete="postal-code">
+        <div class="field-err" id="err-pc">Please enter your postcode</div>
         <label>Phone *</label>
         <input id="phone" type="tel" required autocomplete="tel">
+        <div class="field-err" id="err-phone">Please enter your phone number</div>
         <label>Email *</label>
         <input id="email" type="email" required autocomplete="email">
+        <div class="field-err" id="err-email">Please enter a valid email address</div>
         <div class="row">
           <button type="button" class="btn btn-primary" onclick="go(2)">Next — availability</button>
         </div>
@@ -110,7 +118,7 @@
 
       <!-- PAGE 2 -->
       <div class="page" id="p2">
-        <p class="sub">Tap the times you could usually do lessons (9am–8pm, 30‑minute slots).</p>
+        <p class="sub">Tap the times you can do lessons around any other commitments such as work or education. This can be updated later in the app if required.</p>
         <div id="avail"></div>
         <div class="row">
           <button type="button" class="btn btn-ghost" onclick="go(1)">Back</button>
@@ -175,27 +183,43 @@
     const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
     const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
     const APP_URL = "https://app.dmwdrivingschool.co.uk";
-    const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+    const ALL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+    let DAYS = ALL_DAYS.slice();
     const availability = {};
-    DAYS.forEach(d => availability[d] = []);
+    ALL_DAYS.forEach(d => availability[d] = []);
 
     let createdPupilId = null;
     let enquiryEmail = "";
     let enquiryFirstName = "";
     let enquiryLastName = "";
+    let workHours = { start: "09:00", end: "20:00", days: { Monday:true,Tuesday:true,Wednesday:true,Thursday:true,Friday:true,Saturday:false,Sunday:false } };
 
-    function slots() {
-      const out = [];
-      for (let m = 9 * 60; m < 20 * 60; m += 30) {
-        out.push(String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"));
-      }
-      return out;
+    function toMinutes(hhmm) {
+      const [h, m] = String(hhmm || "09:00").split(":").map(Number);
+      return (h || 0) * 60 + (m || 0);
     }
 
-    (function buildAvail() {
+    function slotsFromHours(start, end) {
+      const out = [];
+      let m = toMinutes(start);
+      const endM = toMinutes(end);
+      // half-open range [start, end)
+      for (; m < endM; m += 30) {
+        out.push(String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"));
+      }
+      return out.length ? out : ["09:00"];
+    }
+
+    function buildAvail() {
       const root = document.getElementById("avail");
-      const list = slots();
+      if (!root) return;
+      root.innerHTML = "";
+      const list = slotsFromHours(workHours.start, workHours.end);
+      const dayFlags = workHours.days || {};
+      DAYS = ALL_DAYS.filter(d => dayFlags[d] !== false);
+      if (!DAYS.length) DAYS = ALL_DAYS.slice(0, 5);
       DAYS.forEach(day => {
+        if (!availability[day]) availability[day] = [];
         const div = document.createElement("div");
         div.className = "day";
         div.innerHTML = "<h3>" + day + "</h3>";
@@ -204,7 +228,7 @@
         list.forEach(t => {
           const b = document.createElement("button");
           b.type = "button";
-          b.className = "slot";
+          b.className = "slot" + (availability[day].includes(t) ? " on" : "");
           b.textContent = t;
           b.onclick = () => {
             const arr = availability[day];
@@ -219,6 +243,32 @@
         div.appendChild(row);
         root.appendChild(div);
       });
+    }
+
+    // Load instructor working hours from Supabase app_settings (synced from instructor Settings)
+    (async function loadWorkingHours() {
+      try {
+        const res = await fetch(SUPABASE_URL + "/rest/v1/app_settings?id=eq.working_hours&select=value", {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: "Bearer " + SUPABASE_KEY
+          }
+        });
+        if (res.ok) {
+          const rows = await res.json();
+          if (rows && rows[0] && rows[0].value) {
+            const v = rows[0].value;
+            workHours = {
+              start: v.start || "09:00",
+              end: v.end || "20:00",
+              days: Object.assign({}, workHours.days, v.days || {})
+            };
+          }
+        }
+      } catch (e) {
+        console.warn("working hours", e);
+      }
+      buildAvail();
     })();
 
     function go(n) {
@@ -238,19 +288,37 @@
 
     function validate1() {
       const need = ["fn","ln","a1","pc","phone","email"];
-      for (const id of need) {
-        if (!document.getElementById(id).value.trim()) {
-          showErr("Please complete the required fields on step 1 (including email).");
-          go(1);
-          return false;
+      let ok = true;
+      let firstBad = null;
+      need.forEach(id => {
+        const el = document.getElementById(id);
+        const err = document.getElementById("err-" + id);
+        const empty = !el.value.trim();
+        el.classList.toggle("invalid", empty);
+        if (err) err.style.display = empty ? "block" : "none";
+        if (empty) {
+          ok = false;
+          if (!firstBad) firstBad = el;
         }
+      });
+      const emEl = document.getElementById("email");
+      const emErr = document.getElementById("err-email");
+      const em = emEl.value.trim();
+      if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
+        emEl.classList.add("invalid");
+        if (emErr) {
+          emErr.textContent = "Please enter a valid email address";
+          emErr.style.display = "block";
+        }
+        ok = false;
+        if (!firstBad) firstBad = emEl;
       }
-      const em = document.getElementById("email").value.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
-        showErr("Please enter a valid email address.");
-        go(1);
+      if (!ok) {
+        showErr("Please fill in the highlighted required fields.");
+        if (firstBad) firstBad.focus();
         return false;
       }
+      document.getElementById("err").style.display = "none";
       return true;
     }
 

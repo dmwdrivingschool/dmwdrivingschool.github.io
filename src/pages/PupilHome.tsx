@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { triggerMessagePush } from '../lib/pushNotifications'
+import { fetchQuietHours, isQuietNow, nextWindowOpen, type QuietHoursSettings } from '../lib/quietHours'
 import { cacheGet, cacheSet, isOnline } from '../lib/offlineCache'
 import { useAuth } from '../contexts/AuthContext'
 import type { Lesson, Pupil } from '../types/database'
@@ -49,6 +50,7 @@ export default function PupilHome() {
   const [quickMsg, setQuickMsg] = useState('')
   const [quickFile, setQuickFile] = useState<File | null>(null)
   const [sending, setSending] = useState(false)
+  const [quietHours, setQuietHours] = useState<QuietHoursSettings | null>(null)
   const [blockingMsgs, setBlockingMsgs] = useState<any[]>([])
   const [feedMsgs, setFeedMsgs] = useState<any[]>([])
   const [installHint, setInstallHint] = useState(false)
@@ -82,6 +84,7 @@ export default function PupilHome() {
     setLoading(true)
     const p = await getLinkedPupil(profile)
     setPupil(p)
+    fetchQuietHours().then(setQuietHours)
     if (p) {
       // Instructor-triggered remote logout
       const flo = (p as any).force_logout_at
@@ -262,6 +265,49 @@ export default function PupilHome() {
       alert('Messaging is not enabled yet. Your instructor will turn this on when you can message them.')
       return
     }
+
+    // Re-fetch live rather than trust whatever loaded when the Home screen
+    // first opened — this box previously had no quiet-hours check at all,
+    // so a message sent here always went straight through and pushed to
+    // the instructor immediately, even during quiet hours.
+    const liveQuietHours = await fetchQuietHours()
+    setQuietHours(liveQuietHours)
+
+    if (isQuietNow(liveQuietHours)) {
+      setSending(true)
+      let attachment_path: string | null = null
+      if (quickFile) {
+        const path = `${pupil.id}/${Date.now()}-${quickFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+        const { error: upErr } = await supabase.storage
+          .from('message-attachments')
+          .upload(path, quickFile, { upsert: false, contentType: quickFile.type || 'image/jpeg' })
+        if (upErr) {
+          alert(upErr.message + '\n\nCreate a public Storage bucket named "message-attachments" in Supabase if missing.')
+          setSending(false)
+          return
+        }
+        attachment_path = path
+      }
+      const sendAt = nextWindowOpen(liveQuietHours)
+      const { error } = await supabase.from('queued_pupil_messages').insert({
+        pupil_id: pupil.id,
+        body: quickMsg.trim(),
+        attachment_path,
+        attachment_name: quickFile?.name || null,
+        send_at: sendAt.toISOString(),
+      })
+      if (error) alert(error.message)
+      else {
+        setQuickMsg('')
+        setQuickFile(null)
+        alert(
+          `It's currently outside your instructor's messaging hours. Your message has been scheduled to send at ${sendAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}.\n\n${liveQuietHours.emergencyNote}`
+        )
+      }
+      setSending(false)
+      return
+    }
+
     setSending(true)
     let attachment_url: string | null = null
     if (quickFile) {
@@ -661,6 +707,12 @@ Thank you for your interest in DMW Driving School.`)
           </div>
           {(pupil as any).messaging_enabled ? (
             <form onSubmit={sendQuick} className="space-y-1.5">
+              {quietActive && quietHours && (
+                <div className="flex items-center gap-1.5 text-[11px] bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-2 py-1.5">
+                  <Clock size={12} className="shrink-0" />
+                  Instructor quiet hours — your message will be scheduled to send at {quietHours.end}. If it's important, call or text your instructor directly.
+                </div>
+              )}
               <div className="flex gap-2">
                 <input
                   value={quickMsg}
@@ -671,9 +723,12 @@ Thank you for your interest in DMW Driving School.`)
                 <button
                   type="submit"
                   disabled={sending || !quickMsg.trim()}
-                  className="px-3 py-2 rounded-xl bg-blue-900 text-white text-xs font-semibold disabled:opacity-40 shrink-0"
+                  className={cn(
+                    'px-3 py-2 rounded-xl text-white text-xs font-semibold disabled:opacity-40 shrink-0',
+                    quietActive ? 'bg-indigo-600' : 'bg-blue-900'
+                  )}
                 >
-                  Send
+                  {quietActive ? 'Schedule' : 'Send'}
                 </button>
               </div>
             </form>
@@ -729,6 +784,8 @@ Thank you for your interest in DMW Driving School.`)
   const nextLesson = lessons[0]
   const testDate = pupil?.practical_test_date
   const daysToTest = testDate ? differenceInDays(new Date(testDate), new Date()) : null
+
+  const quietActive = !!quietHours && isQuietNow(quietHours)
 
   const tileClass =
     'bg-white border border-slate-200 rounded-[clamp(0.65rem,2.2vw,1rem)] flex flex-col items-center justify-center gap-[clamp(0.2rem,1.2vw,0.45rem)] text-center px-[clamp(0.25rem,1.5vw,0.6rem)] py-[clamp(0.55rem,2.4vw,1rem)] min-h-[clamp(3.4rem,14vw,5.2rem)] active:bg-slate-50'
@@ -946,6 +1003,12 @@ Thank you for your interest in DMW Driving School.`)
           </div>
         ) : (
         <form onSubmit={sendQuick} className="space-y-1.5 mb-1.5">
+          {quietActive && quietHours && (
+            <div className="flex items-center gap-1.5 text-[11px] bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-2 py-1.5">
+              <Clock size={12} className="shrink-0" />
+              Instructor quiet hours — your message will be scheduled to send at {quietHours.end}. If it's important, call or text your instructor directly.
+            </div>
+          )}
           {quickFile && (
             <div className="flex items-center justify-between gap-2 text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
               <span className="truncate">{quickFile.name}</span>
@@ -968,8 +1031,15 @@ Thank you for your interest in DMW Driving School.`)
               placeholder="Write a message…"
               className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-sm"
             />
-            <button type="submit" disabled={sending || (!quickMsg.trim() && !quickFile)} className="px-3 py-2 rounded-xl bg-blue-900 text-white text-xs font-semibold disabled:opacity-40 shrink-0">
-              Send
+            <button
+              type="submit"
+              disabled={sending || (!quickMsg.trim() && !quickFile)}
+              className={cn(
+                'px-3 py-2 rounded-xl text-white text-xs font-semibold disabled:opacity-40 shrink-0',
+                quietActive ? 'bg-indigo-600' : 'bg-blue-900'
+              )}
+            >
+              {quietActive ? 'Schedule' : 'Send'}
             </button>
           </div>
         </form>

@@ -443,7 +443,7 @@ function showBanner(msg){const b=document.getElementById("data-banner"); if(!msg
 
 async function refresh(){
   await Promise.all([loadPupils(),loadPayments(),loadTests()]);
-  loadDash(); loadEnquiries(); loadGaps(); loadRoster(); loadActivity();
+  loadDash(); loadEnquiries(); loadGaps(); loadActivity();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   if(!document.getElementById("tab-pupils").classList.contains("hidden")) renderPupils();
   if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
@@ -909,32 +909,7 @@ async function saveGap(){
 }
 async function delGap(id){if(!confirm("Delete gap?"))return; await sb.from("lessons").delete().eq("id",id); loadGaps()}
 
-async function loadRoster(){
-  const el=document.getElementById("roster");
-  const {data,error}=await sb.from("students").select("*");
-  if(error){el.innerHTML='<p class="muted">'+esc(error.message)+'</p>';return}
-  if(!data.length){el.innerHTML='<p class="muted">No portal accounts</p>';return}
-  el.innerHTML=data.map(s=>`<div class="list-row"><div><strong>${esc(s.username)}</strong><div class="muted">${esc(s.password||"")}</div></div>
-    <button class="btn-danger" onclick="delStudent('${esc(s.username)}')">Delete</button></div>`).join("");
-}
 /* loadActivity defined later with matrices */
-
-async function addLearner(){
-  const user=document.getElementById("user").value.trim().toLowerCase();
-  let pass=document.getElementById("pass").value.trim();
-  const first=document.getElementById("fn").value.trim()||user;
-  const last=document.getElementById("ln").value.trim()||"";
-  const phone=document.getElementById("phone").value.trim()||null;
-  const email=document.getElementById("email").value.trim().toLowerCase()||null;
-  if(!user) return alert("Username required");
-  if(!pass){const c="abcdefghijkmnpqrstuvwxyz23456789";pass=Array.from({length:10},()=>c[Math.floor(Math.random()*c.length)]).join("")}
-  await sb.from("students").insert({username:user,password:pass});
-  await sb.from("pupils").insert({first_name:first,last_name:last||user,phone,email,status:"waiting",portal_username:user,portal_password:pass});
-  alert("Saved\nUsername: "+user+"\nPassword: "+pass);
-  ["fn","ln","phone","email","user","pass"].forEach(id=>document.getElementById(id).value="");
-  refresh();
-}
-async function delStudent(u){if(!confirm("Delete "+u+"?"))return; await sb.from("students").delete().eq("username",u); loadRoster()}
 
 /* Settings */
 async function openSettings(which){
@@ -1357,7 +1332,7 @@ async function loadVideoProgress(){
   const mounts = ["m1","m2","m3","m4","m5"];
   mounts.forEach(m=>{ const el=document.getElementById("matrix-"+m); if(el) el.innerHTML="Loading…"; });
 
-  // Learners for columns: prefer pupils with email/status, also students table for older usernames
+  // Learners for columns: pupils with email/status
   let learners = [];
   try {
     const { data: pupils } = await sb.from("pupils").select("id,first_name,last_name,email,portal_username,status").in("status",["active","waiting","passed"]);
@@ -1365,13 +1340,6 @@ async function loadVideoProgress(){
       const key = (p.email||p.portal_username||"").toLowerCase();
       const label = ((p.first_name||"")+" "+(p.last_name||"")).trim() || key || "Pupil";
       if(key) learners.push({ key, label });
-    });
-  } catch(e){}
-  try {
-    const { data: students } = await sb.from("students").select("username");
-    (students||[]).forEach(s=>{
-      const key=(s.username||"").toLowerCase();
-      if(key && !learners.some(l=>l.key===key)) learners.push({ key, label: key });
     });
   } catch(e){}
 

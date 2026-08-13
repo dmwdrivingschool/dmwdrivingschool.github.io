@@ -369,6 +369,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
         <h2>Settings</h2>
         <div class="settings-list" id="settings-menu">
           <button type="button" onclick="openSettings('reminders')">Reminders</button>
+          <button type="button" onclick="openSettings('workinghours')">Working hours</button>
           <button type="button" onclick="openSettings('diary')">Diary options</button>
           <button type="button" onclick="openSettings('resources')">Resources</button>
           <button type="button" onclick="openSettings('reflect')">Reflective logs</button>
@@ -396,6 +397,19 @@ const INCOME_CATS=["Pupil Lesson","Pupil Test Fee","Bank Interest","Other"];
 const EXPENSE_CATS=["Advertising","Bank Charges","Car Finance","Franchise / Car Rental","Fuel","Insurance","Miscellaneous","Motor Expenses","Office Expenses","Payment Service Fee","Printing & Stationery","Pupil Lesson","Pupil Test Fee","Square Payment Charge","Subscriptions","Telephone & Internet"];
 
 let pupilsCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="active";
+let workingHours={start:"09:00",end:"20:00",days:{Monday:true,Tuesday:true,Wednesday:true,Thursday:true,Friday:true,Saturday:false,Sunday:false}};
+async function loadWorkingHours(){
+  try{
+    const {data}=await sb.from("app_settings").select("value").eq("id","working_hours").maybeSingle();
+    if(data&&data.value){
+      const v=data.value;
+      workingHours={
+        start:v.start||workingHours.start, end:v.end||workingHours.end,
+        days:Object.assign({},workingHours.days,v.days||{})
+      };
+    }
+  }catch(e){}
+}
 
 function startOfWeek(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x}
 function taxYearBounds(offset){const now=new Date();let y=now.getFullYear();if(now<new Date(y,3,6))y--;y+=offset;return{from:y+"-04-06",to:(y+1)+"-04-05"}}
@@ -461,7 +475,7 @@ sb.auth.getSession().then(({data})=>{
 function showBanner(msg){const b=document.getElementById("data-banner"); if(!msg){b.style.display="none";return} b.textContent=msg;b.style.display="block"}
 
 async function refresh(){
-  await Promise.all([loadPupils(),loadPayments(),loadTests()]);
+  await Promise.all([loadPupils(),loadPayments(),loadTests(),loadWorkingHours()]);
   loadDash(); loadEnquiries(); loadGaps(); loadActivity();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   if(!document.getElementById("tab-pupils").classList.contains("hidden")) renderPupils();
@@ -649,7 +663,10 @@ async function removePupil(id){
 
 function shiftWeek(n){weekStart=new Date(weekStart); weekStart.setDate(weekStart.getDate()+n*7); renderDiary()}
 async function renderDiary(){
-  const HOUR_H=48, START_H=6, END_H=22;
+  const HOUR_H=48;
+  const [whS]=String(workingHours.start||"09:00").split(":").map(Number);
+  const [whE]=String(workingHours.end||"20:00").split(":").map(Number);
+  const START_H=Math.min(6,whS-1), END_H=Math.max(22,whE+1);
   const hours=[]; for(let h=START_H;h<=END_H;h++) hours.push(h);
   const gridH=hours.length*HOUR_H;
   const end=new Date(weekStart); end.setDate(end.getDate()+7);
@@ -712,11 +729,18 @@ async function renderDiary(){
   document.getElementById("diary-wrap").innerHTML=
     `<div class="d-scroll" id="diary-scroll">${head}<div class="d-body">${times}${cols}</div></div>`;
 
-  // scroll so ~07:00 is near the top (like the app)
-  requestAnimationFrame(()=>{
-    const sc=document.getElementById("diary-scroll");
-    if(sc) sc.scrollTop=Math.max(0,(7-START_H)*HOUR_H-8);
-  });
+  // Focus the visible viewport on working hours ± 1 hour (scroll for the rest)
+  const [wsH]=String(workingHours.start||"09:00").split(":").map(Number);
+  const [weH,weM]=String(workingHours.end||"20:00").split(":").map(Number);
+  const focusStart=Math.max(START_H,wsH-1);
+  const focusEnd=Math.min(END_H,(weM>0?weH+1:weH)+1);
+  const headerH=46; // approx height of the sticky day-header row inside the scroll box
+  const focusPx=(focusEnd-focusStart)*HOUR_H+headerH;
+  const sc=document.getElementById("diary-scroll");
+  if(sc){
+    sc.style.maxHeight=`min(calc(100vh - 220px), ${focusPx}px)`;
+    requestAnimationFrame(()=>{ sc.scrollTop=Math.max(0,(focusStart-START_H)*HOUR_H); });
+  }
 }
 
 async function onDiaryBlockClick(el){
@@ -1047,6 +1071,22 @@ async function openSettings(which){
       </div>
       <div class="field"><label>Message</label><input id="rem-msg" value="${esc(raw.message||"")}"></div>
       <button class="btn btn-navy btn-sm" onclick="saveReminders()">Save</button>`;
+  } else if(which==="workinghours"){
+    const d=workingHours.days;
+    const dayRow=(key,label)=>`<label style="display:flex;align-items:center;gap:.4rem;font-weight:600;font-size:.85rem"><input type="checkbox" data-wd="${key}" ${d[key]?"checked":""}> ${label}</label>`;
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Working hours</h3>
+      <p class="muted" style="margin-bottom:1rem">Controls what pupils can select on "My availability" in the app, the enquiry form on the website, and how your diary here is focused by default.</p>
+      <div class="two">
+        <div class="field"><label>Start time</label><input id="wh-start" type="time" value="${esc(workingHours.start)}"></div>
+        <div class="field"><label>End time</label><input id="wh-end" type="time" value="${esc(workingHours.end)}"></div>
+      </div>
+      <div class="field"><label>Working days</label>
+        <div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.3rem">
+          ${dayRow("Monday","Mon")}${dayRow("Tuesday","Tue")}${dayRow("Wednesday","Wed")}${dayRow("Thursday","Thu")}${dayRow("Friday","Fri")}${dayRow("Saturday","Sat")}${dayRow("Sunday","Sun")}
+        </div>
+      </div>
+      <button class="btn btn-navy btn-sm" onclick="saveWorkingHours()">Save</button>`;
   } else if(which==="diary"){
     const view=localStorage.getItem("dmw_diary_view")||"week";
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
@@ -1101,6 +1141,18 @@ function saveReminders(){
     message: document.getElementById("rem-msg").value
   }));
   alert("Saved");
+}
+async function saveWorkingHours(){
+  const start=document.getElementById("wh-start").value||"09:00";
+  const end=document.getElementById("wh-end").value||"20:00";
+  const days={};
+  document.querySelectorAll("#settings-panel [data-wd]").forEach(el=>{days[el.dataset.wd]=el.checked});
+  const payload={start,end,days};
+  const {error}=await sb.from("app_settings").upsert({id:"working_hours",value:payload,updated_at:new Date().toISOString()},{onConflict:"id"});
+  if(error) return alert("Could not save: "+error.message);
+  workingHours=payload;
+  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+  alert("Saved — this now applies to the app's pupil availability screen, the website enquiry form, and your diary view here.");
 }
 function saveReflect(){
   const o={}; document.querySelectorAll("#settings-panel [data-rk]").forEach(el=>{o[el.dataset.rk]=el.value});

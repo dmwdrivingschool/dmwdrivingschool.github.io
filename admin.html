@@ -573,12 +573,21 @@ function renderPupils(){
     </div>
     <div class="actions">
       <span class="chip ${p.status==="active"?"chip-ok":p.status==="waiting"?"chip-wait":"chip-info"}">${esc(p.status)}</span>
-      <button class="btn-outline" onclick='showPupil(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Details</button>
-      <button class="btn-outline" onclick='editPupil(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Edit</button>
+      <button class="btn-outline" onclick="showPupilById('${p.id}')">Details</button>
+      <button class="btn-outline" onclick="editPupilById('${p.id}')">Edit</button>
       ${p.email?`<button class="btn-outline" onclick="copyEmail('${esc(p.email)}')">Email</button>`:""}
+      <button class="btn-danger" onclick="removePupil('${p.id}')">Delete</button>
     </div>
   </div>`).join("");
 }
+// Edit/Details used to build the button's onclick by JSON.stringify-ing the
+// whole pupil record straight into the HTML attribute. Any awkward
+// character in a pupil's notes/address could mangle that attribute and
+// silently break the button (click does nothing, no error visible). Looking
+// the pupil up by id from the already-loaded cache — same pattern the diary
+// already used for its own "open pupil" clicks — is robust to that.
+function showPupilById(id){ const p=pupilsCache.find(x=>x.id===id); if(p) showPupil(p); }
+function editPupilById(id){ const p=pupilsCache.find(x=>x.id===id); if(p) editPupil(p); }
 
 function copyEmail(email){
   navigator.clipboard.writeText(email).then(()=>alert("Copied: "+email)).catch(()=>prompt("Copy email:",email));
@@ -594,8 +603,9 @@ function showPupil(p){
       ${row("Notes",p.notes)}
     </div>
     <div class="actions" style="margin-top:1rem">
-      <button class="btn btn-navy btn-sm" onclick='closeModal();editPupil(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Edit</button>
+      <button class="btn btn-navy btn-sm" onclick="closeModal();editPupilById('${p.id}')">Edit</button>
       <button class="btn-outline" onclick="closeModal()">Close</button>
+      <button class="btn-danger" onclick="closeModal();removePupil('${p.id}')">Delete</button>
     </div>`);
 }
 function row(k,v){return `<div style="padding:.4rem 0;border-bottom:1px solid #f1f5f9;font-size:.9rem"><strong style="color:#64748b;display:inline-block;min-width:110px">${k}</strong> ${esc(v||"—")}</div>`}

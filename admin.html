@@ -593,7 +593,39 @@ function copyEmail(email){
   navigator.clipboard.writeText(email).then(()=>alert("Copied: "+email)).catch(()=>prompt("Copy email:",email));
 }
 
-function showPupil(p){
+// Clicking a pupil (from the Pupils tab OR a diary lesson) used to only show
+// the basic contact-card fields below. To match what tapping a lesson shows
+// in the phone app (full profile — lessons, paid/unpaid, payment history),
+// this now also pulls the pupil's recent lessons and payment history.
+async function showPupil(p){
+  openModal(`<h2 style="margin-bottom:1rem">${esc(p.first_name)} ${esc(p.last_name)}</h2><p class="muted">Loading…</p>`);
+
+  const [{data:lessons}, {data:txs}] = await Promise.all([
+    sb.from("lessons")
+      .select("id,start_time,end_time,lesson_type,status,payment_status,title")
+      .eq("pupil_id",p.id).order("start_time",{ascending:false}).limit(25),
+    sb.from("transactions")
+      .select("id,transaction_date,amount,category,payment_method,notes")
+      .eq("pupil_id",p.id).order("transaction_date",{ascending:false}).limit(25),
+  ]);
+
+  const lessonRows=(lessons||[]).map(l=>{
+    const d=new Date(l.start_time);
+    const when=d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})+" "+d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+    const type=esc((l.title||l.lesson_type||"Lesson").replace(/_/g," "));
+    const statusChip=l.status==="cancelled"?'<span class="chip chip-bad">Cancelled</span>':l.status==="delivered"?'<span class="chip chip-ok">Delivered</span>':'<span class="chip chip-wait">Booked</span>';
+    const payChip=l.payment_status==="paid"?'<span class="chip chip-ok">Paid</span>':'<span class="chip chip-bad">Unpaid</span>';
+    return `<tr><td>${when}</td><td style="text-transform:capitalize">${type}</td><td>${statusChip}</td><td>${payChip}</td></tr>`;
+  }).join("");
+
+  const txRows=(txs||[]).map(t=>{
+    const d=new Date(t.transaction_date);
+    const when=d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+    return `<tr><td>${when}</td><td>£${Number(t.amount||0).toFixed(2)}</td><td>${esc(t.category||"")}</td><td>${esc(t.payment_method||"")}</td></tr>`;
+  }).join("");
+
+  const sectionHeading=(txt)=>`<h3 style="margin:1.1rem 0 .5rem;font-family:var(--fd);font-weight:700;font-size:.78rem;letter-spacing:.03em;text-transform:uppercase;color:var(--deep);padding-bottom:.4rem;border-bottom:2px dashed var(--line)">${txt}</h3>`;
+
   openModal(`<h2 style="margin-bottom:1rem">${esc(p.first_name)} ${esc(p.last_name)}</h2>
     <div class="summary-lines">
       ${row("Status",p.status)}${row("Phone",p.phone)}${row("Email",p.email)}
@@ -602,6 +634,10 @@ function showPupil(p){
       ${row("Gearbox",p.preferred_gearbox)}${row("Credit hours",p.credit_hours)}
       ${row("Notes",p.notes)}
     </div>
+    ${sectionHeading("Recent lessons")}
+    ${lessonRows?`<div style="max-height:220px;overflow-y:auto"><table><thead><tr><th>When</th><th>Type</th><th>Status</th><th>Payment</th></tr></thead><tbody>${lessonRows}</tbody></table></div>`:'<p class="muted">No lessons yet</p>'}
+    ${sectionHeading("Payment history")}
+    ${txRows?`<div style="max-height:220px;overflow-y:auto"><table><thead><tr><th>Date</th><th>Amount</th><th>Category</th><th>Method</th></tr></thead><tbody>${txRows}</tbody></table></div>`:'<p class="muted">No payments logged</p>'}
     <div class="actions" style="margin-top:1rem">
       <button class="btn btn-navy btn-sm" onclick="closeModal();editPupilById('${p.id}')">Edit</button>
       <button class="btn-outline" onclick="closeModal()">Close</button>

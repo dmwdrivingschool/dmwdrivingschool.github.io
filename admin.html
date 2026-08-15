@@ -842,10 +842,26 @@ async function savePupilLesson(id){
 }
 async function deletePupilLesson(id){
   if(!confirm("Delete this lesson? This can't be undone.")) return;
+  const l=pupilDetail.lessons.find(x=>x.id===id);
+  const pupilId=pupilDetail.p.id, startTime=l?l.start_time:null;
   const {error}=await sb.from("lessons").delete().eq("id",id);
   if(error) return alert(error.message);
+  // Same shared reflective_logs table the app reads/writes — its log for
+  // this date goes with the lesson, same as the app now does, unless
+  // another lesson still exists for this pupil that same day.
+  if(pupilId && startTime) await deleteReflectiveLogForDate(pupilId, startTime);
   await refreshPupilDetail();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+}
+async function deleteReflectiveLogForDate(pupilId,startTime){
+  const logDate=new Date(startTime).toISOString().slice(0,10);
+  const {data:remaining}=await sb.from("lessons").select("id")
+    .eq("pupil_id",pupilId)
+    .gte("start_time",`${logDate}T00:00:00.000Z`)
+    .lte("start_time",`${logDate}T23:59:59.999Z`)
+    .limit(1);
+  if(remaining && remaining.length>0) return;
+  await sb.from("reflective_logs").delete().eq("pupil_id",pupilId).eq("log_date",logDate);
 }
 
 function renderPupilPayments(){

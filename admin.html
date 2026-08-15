@@ -698,7 +698,12 @@ function renderPupilSummary(){
   const purchasedHrs=txs.reduce((s,t)=>s+hoursFromPaymentRecord(t),0);
   const deliveredMins=lessons.filter(l=>l.status==="delivered")
     .reduce((s,l)=>s+Math.round((new Date(l.end_time)-new Date(l.start_time))/60000),0);
-  const deliveredHrs=deliveredMins/60;
+  // Once a pupil is Passed, GDPR purge removes their lesson history, so
+  // deliveredMins above reads as 0 forever. Use the delivered_hours_at_pass
+  // snapshot instead in that case, same as the app (see pupilCredit.ts).
+  const deliveredHrs=(p.status==="passed" && p.delivered_hours_at_pass!=null)
+    ? Number(p.delivered_hours_at_pass)
+    : deliveredMins/60;
   const credit=Math.round((purchasedHrs-deliveredHrs)*100)/100;
   return `<div class="summary-lines">
       ${row("Status",p.status)}${row("Phone",p.phone)}${row("Email",p.email)}
@@ -707,6 +712,7 @@ function renderPupilSummary(){
       ${row("Gearbox",p.preferred_gearbox)}
       ${row("Credit (purchased − delivered)",credit+" hrs")}
       ${row("Booking balance (manual)",(p.credit_hours||0)+" hrs")}
+      ${p.status==="passed"?row("Delivered hours at pass",p.delivered_hours_at_pass!=null?p.delivered_hours_at_pass+" hrs":"Not set"):""}
       ${row("Total paid",'£'+totalPaid.toFixed(2))}
       ${row("Notes",p.notes)}
     </div>`;
@@ -820,6 +826,13 @@ function editPupil(p){
       </div>
       <div class="field"><label>Licence number</label><input id="ep-lic" value="${esc(p.licence_number||"")}"></div>
     </div>
+    ${p.status==="passed"?`<div class="field" style="margin-top:.5rem">
+      <label>Delivered hours at pass</label>
+      <input id="ep-dhap" type="number" min="0" step="0.5" value="${p.delivered_hours_at_pass!=null?p.delivered_hours_at_pass:""}">
+      <p class="muted" style="margin:.25rem 0 0">Once Passed, lesson history is GDPR-purged, so Credit (purchased −
+        delivered) has nothing left to subtract. This snapshot is used instead — leave blank if unknown, or set it
+        after checking bank statements if Credit looks wrong.</p>
+    </div>`:""}
     <button class="btn btn-navy" style="margin-top:.5rem" onclick="savePupil('${p.id}')">Save</button>
     <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>`);
 }
@@ -829,6 +842,8 @@ async function savePupil(id){
     address_line1:val("ep-a1")||null, address_line2:val("ep-a2")||null, city:val("ep-city")||null, postcode:val("ep-pc")||null,
     status:val("ep-status"), licence_number:val("ep-lic")||null
   };
+  const dhapEl=document.getElementById("ep-dhap");
+  if(dhapEl) payload.delivered_hours_at_pass = dhapEl.value.trim()===""?null:Number(dhapEl.value);
   const {error}=await sb.from("pupils").update(payload).eq("id",id);
   if(error) alert(error.message); else {closeModal(); await loadPupils(); renderPupils(); loadDash()}
 }

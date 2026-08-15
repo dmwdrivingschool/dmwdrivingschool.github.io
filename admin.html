@@ -680,7 +680,7 @@ async function showPupil(p){
   openModal(`<h2 style="margin-bottom:1rem">${esc(p.first_name)} ${esc(p.last_name)}</h2><p class="muted">Loading…</p>`);
 
   const [{data:lessons},{data:txs},{data:prog},{data:logs},{data:tests},{data:logins}]=await Promise.all([
-    sb.from("lessons").select("id,start_time,end_time,lesson_type,status,payment_status,title")
+    sb.from("lessons").select("id,start_time,end_time,lesson_type,status,charged,payment_status,title")
       .eq("pupil_id",p.id).order("start_time",{ascending:false}).limit(200),
     sb.from("transactions").select("id,transaction_date,amount,category,payment_method,notes,description")
       .eq("pupil_id",p.id).eq("type","income").order("transaction_date",{ascending:false}).limit(200),
@@ -705,7 +705,7 @@ async function refreshPupilDetail(){
   if(!pupilDetail) return;
   const id=pupilDetail.p.id, tab=pupilDetail.tab;
   const [{data:lessons},{data:txs},{data:prog},{data:p}]=await Promise.all([
-    sb.from("lessons").select("id,start_time,end_time,lesson_type,status,payment_status,title")
+    sb.from("lessons").select("id,start_time,end_time,lesson_type,status,charged,payment_status,title")
       .eq("pupil_id",id).order("start_time",{ascending:false}).limit(200),
     sb.from("transactions").select("id,transaction_date,amount,category,payment_method,notes,description")
       .eq("pupil_id",id).eq("type","income").order("transaction_date",{ascending:false}).limit(200),
@@ -748,7 +748,10 @@ function renderPupilSummary(){
   const {p,lessons,txs}=pupilDetail;
   const totalPaid=txs.reduce((s,t)=>s+Number(t.amount||0),0);
   const purchasedHrs=txs.reduce((s,t)=>s+hoursFromPaymentRecord(t),0);
-  const deliveredMins=lessons.filter(l=>l.status==="delivered")
+  // A cancelled lesson marked "charged" (billed as if it went ahead — see
+  // the app's Edit Lesson / Cancel Lesson) counts here too, same as the app
+  // (src/lib/pupilCredit.ts), so Credit doesn't drift between the two.
+  const deliveredMins=lessons.filter(l=>l.status==="delivered"||(l.status==="cancelled"&&l.charged))
     .reduce((s,l)=>s+Math.round((new Date(l.end_time)-new Date(l.start_time))/60000),0);
   // Once a pupil is Passed, GDPR purge removes their lesson history, so
   // deliveredMins above reads as 0 forever. Use the delivered_hours_at_pass
@@ -780,7 +783,8 @@ function renderPupilLessons(){
     const type=esc((l.title||l.lesson_type||"Lesson").replace(/_/g," "));
     const statusChip=l.status==="cancelled"?'<span class="chip chip-bad">Cancelled</span>':l.status==="delivered"?'<span class="chip chip-ok">Delivered</span>':'<span class="chip chip-wait">Booked</span>';
     const payChip=l.payment_status==="paid"?'<span class="chip chip-ok">Paid</span>':'<span class="chip chip-bad">Unpaid</span>';
-    return `<tr><td>${when}</td><td style="text-transform:capitalize">${type}</td><td>${statusChip}</td><td>${payChip}</td>
+    const chargedChip=(l.status==="cancelled"&&l.charged)?' <span class="chip chip-bad">Charged</span>':'';
+    return `<tr><td>${when}</td><td style="text-transform:capitalize">${type}</td><td>${statusChip}${chargedChip}</td><td>${payChip}</td>
       <td class="actions">
         <button class="btn-outline" onclick="pupilEditLesson('${l.id}')">Edit</button>
         <button class="btn-danger" onclick="deletePupilLesson('${l.id}')">Del</button>
@@ -804,8 +808,14 @@ function pupilEditLesson(id){
       <div class="field"><label>Start time</label><input type="time" id="pl-start" value="${startStr}"></div>
       <div class="field"><label>End time</label><input type="time" id="pl-end" value="${endStr}"></div>
       <div class="field"><label>Status</label>
-        <select id="pl-status">${["booked","delivered","cancelled"].map(s2=>`<option value="${s2}" ${l.status===s2?"selected":""}>${s2}</option>`).join("")}</select>
+        <select id="pl-status" onchange="document.getElementById('pl-charged-wrap').style.display=(this.value==='cancelled')?'':'none'">${["booked","delivered","cancelled"].map(s2=>`<option value="${s2}" ${l.status===s2?"selected":""}>${s2}</option>`).join("")}</select>
       </div>
+    </div>
+    <div id="pl-charged-wrap" style="display:${l.status==="cancelled"?"":"none"};margin-bottom:.75rem">
+      <label style="display:flex;align-items:center;gap:.5rem;font-weight:normal">
+        <input type="checkbox" id="pl-charged" ${l.charged?"checked":""}>
+        Lesson charged (counts as used hours toward Credit, same as delivered)
+      </label>
     </div>
     <p class="muted" style="margin-bottom:.75rem">Payment status isn't edited here — same as the app, it's only ever set by an actual payment, not by editing the lesson.</p>
     <div class="actions">
@@ -818,10 +828,12 @@ async function savePupilLesson(id){
   if(!dateStr) return alert("Date is required");
   const start=new Date(`${dateStr}T${document.getElementById("pl-start").value||"09:00"}:00`);
   const end=new Date(`${dateStr}T${document.getElementById("pl-end").value||"10:00"}:00`);
+  const newStatus=document.getElementById("pl-status").value;
   const payload={
     start_time:start.toISOString(), end_time:end.toISOString(),
     lesson_type:document.getElementById("pl-type").value,
-    status:document.getElementById("pl-status").value
+    status:newStatus,
+    charged:newStatus==="cancelled"?!!document.getElementById("pl-charged").checked:false
   };
   const {error}=await sb.from("lessons").update(payload).eq("id",id);
   if(error) return alert(error.message);
@@ -1111,7 +1123,10 @@ async function renderDiary(){
       const isAway=cls==="away";
       const pid=l.pupil_id||"";
       const lid=l.id||"";
-      cols+=`<div class="d-block ${cls}" style="top:${top}px;height:${height}px" title="${esc(name)} ${tm}" data-lesson-id="${lid}" data-pupil-id="${pid}" data-away="${isAway?"1":"0"}" onclick="onDiaryBlockClick(this)"><div class="nm">${esc(name)}</div>${height>=32?`<div class="tm">${tm}</div>`:""}</div>`;
+      const isCharged=l.status==="cancelled"&&l.charged;
+      const title=isCharged?`${esc(name)} ${tm} — Cancelled, Charged`:`${esc(name)} ${tm}`;
+      const dispName=isCharged?`${esc(name)} (charged)`:esc(name);
+      cols+=`<div class="d-block ${cls}" style="top:${top}px;height:${height}px" title="${title}" data-lesson-id="${lid}" data-pupil-id="${pid}" data-away="${isAway?"1":"0"}" onclick="onDiaryBlockClick(this)"><div class="nm">${dispName}</div>${height>=32?`<div class="tm">${tm}</div>`:""}</div>`;
     });
     cols+="</div>";
   }

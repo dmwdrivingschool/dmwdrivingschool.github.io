@@ -1475,15 +1475,43 @@ function showFinCategoryModal(cat,isExp){
     return c===cat && isExpense(r)===isExp;
   });
   const total=rows.reduce((s,r)=>s+Number(r.amount||0),0);
+  const catArg=JSON.stringify(cat).replace(/'/g,"&#39;");
   const body=rows.length?tablePay(rows,true):'<p class="muted">No entries in this category for the selected period</p>';
   openModal(`<h2 style="margin-bottom:.4rem">${esc(cat)}</h2>
     <p class="muted" style="margin-bottom:1rem">${rows.length} entr${rows.length===1?"y":"ies"} · £${total.toFixed(2)}</p>
     <div style="max-height:60vh;overflow-y:auto">${body}</div>
-    <div class="actions" style="margin-top:1rem"><button class="btn-outline" onclick="finCatModal=null;closeModal()">Close</button></div>`);
+    <div class="actions" style="margin-top:1rem">
+      <button class="btn btn-navy btn-sm" onclick='startAddPayForCategory(${catArg},${isExp?"true":"false"})'>+ Add entry</button>
+      <button class="btn-outline" onclick="finCatModal=null;closeModal()">Close</button>
+    </div>`);
 }
 async function catDelPay(id){
   await delPay(id);
   if(finCatModal) showFinCategoryModal(finCatModal.cat,finCatModal.isExp);
+}
+// "+ Add entry" from inside a category's drill-down modal — jumps to the
+// same Add Entry form used everywhere else, pre-filled with this category's
+// type (income/expense) and category so you don't have to re-pick them.
+function startAddPayForCategory(cat,isExp){
+  finCatModal=null;
+  closeModal();
+  document.querySelectorAll("#tab-finance .tabs-sub button").forEach(b=>b.classList.remove("on"));
+  const addBtn=[...document.querySelectorAll("#tab-finance .tabs-sub button")].find(b=>/add/i.test(b.textContent));
+  if(addBtn) addBtn.classList.add("on");
+  showFin("add");
+  document.getElementById("pay-edit-id").value="";
+  document.getElementById("pay-edit-old-hrs").value="";
+  document.getElementById("pay-type").value=isExp?"expense":"income";
+  fillCats();
+  document.getElementById("pay-cat").value=cat;
+  document.getElementById("pay-amt").value="";
+  document.getElementById("pay-date").value=new Date().toISOString().slice(0,10);
+  document.getElementById("pay-method").value="Bank Transfer";
+  document.getElementById("pay-notes").value="";
+  document.getElementById("pay-pupil").value="";
+  document.getElementById("pay-hrs").value="";
+  document.getElementById("pay-mins").value="";
+  onPayCatChange();
 }
 function tablePay(rows,inModal){
   if(!rows.length) return '<p class="muted">No rows</p>';

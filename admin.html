@@ -394,7 +394,9 @@ const SUPABASE_ANON="sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
 
 const INCOME_CATS=["Pupil Lesson","Pupil Test Fee","Bank Interest","Other"];
-const EXPENSE_CATS=["Advertising","Bank Charges","Car Finance","Franchise / Car Rental","Fuel","Insurance","Miscellaneous","Motor Expenses","Office Expenses","Payment Service Fee","Printing & Stationery","Pupil Lesson","Pupil Test Fee","Square Payment Charge","Subscriptions","Telephone & Internet"];
+// "Lesson Refund" added 15 Aug 2026 to match Total Drive's category list —
+// the app previously had no matching expense category for refunds at all.
+const EXPENSE_CATS=["Advertising","Bank Charges","Car Finance","Franchise / Car Rental","Fuel","Insurance","Lesson Refund","Miscellaneous","Motor Expenses","Office Expenses","Payment Service Fee","Printing & Stationery","Pupil Lesson","Pupil Test Fee","Square Payment Charge","Subscriptions","Telephone & Internet"];
 
 let pupilsCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="active";
 let workingHours={start:"09:00",end:"20:00",days:{Monday:true,Tuesday:true,Wednesday:true,Thursday:true,Friday:true,Saturday:false,Sunday:false}};
@@ -1058,15 +1060,58 @@ function showFin(mode,btn){
   const sumInc=inc.reduce((s,r)=>s+Number(r.amount||0),0); const sumExp=exp.reduce((s,r)=>s+Number(r.amount||0),0);
   const {from,to}=getFinRange();
   document.getElementById("fin-summary").innerHTML=`<p class="muted" style="margin-bottom:.75rem">${from||"all"} → ${to||"all"} · ${rows.length} entries</p>
-    <div class="metric-row">
+    <div class="metric-row" style="margin-bottom:1.2rem">
       <div class="metric"><div class="v good">£${sumInc.toFixed(2)}</div><div class="l">Income</div></div>
       <div class="metric"><div class="v bad">£${sumExp.toFixed(2)}</div><div class="l">Expenses</div></div>
       <div class="metric"><div class="v">£${(sumInc-sumExp).toFixed(2)}</div><div class="l">Net</div></div>
+    </div>
+    <p class="muted" style="margin-bottom:.5rem;font-size:.72rem">
+      Category breakdown — laid out to match Total Drive's own Summary tab so you can put the two
+      side by side and spot exactly which category / count is off. Any row shaded amber is a
+      category on these entries that isn't one of the app's standard ones — check it first.
+    </p>
+    ${financeCategoryTable(inc,INCOME_CATS,"Income")}
+    <div style="height:.9rem"></div>
+    ${financeCategoryTable(exp,EXPENSE_CATS,"Expenses")}
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--asphalt);color:#fff;border-radius:3px;padding:.85rem 1rem;margin-top:.9rem">
+      <span style="font-family:var(--fb);text-transform:uppercase;font-size:.72rem;letter-spacing:.05em;font-weight:700">Grand total</span>
+      <span style="font-family:var(--fm);font-size:1.05rem;font-weight:700">£${(sumInc-sumExp).toFixed(2)}</span>
     </div>`;
   document.getElementById("fin-income").innerHTML=tablePay(inc);
   document.getElementById("fin-expense").innerHTML=tablePay(exp);
   if(!document.getElementById("pay-date").value) document.getElementById("pay-date").value=new Date().toISOString().slice(0,10);
   fillCats();
+}
+// Category-by-category table matching Total Drive's Summary layout: every
+// standard category is always shown (even at 0/£0.00, same as Total Drive)
+// so the two can be compared row by row. Any category present in the data
+// that ISN'T one of the app's standard ones gets its own row too, shaded
+// amber — that's usually exactly where a mismatch against Total Drive comes
+// from (an entry filed under the wrong category, or an old category no
+// longer offered when adding new entries).
+function financeCategoryTable(rows,standardCats,label){
+  const byCat={};
+  rows.forEach(r=>{
+    const c=r.category||r.type||"Uncategorised";
+    if(!byCat[c]) byCat[c]={count:0,amount:0};
+    byCat[c].count++; byCat[c].amount+=Number(r.amount||0);
+  });
+  const known=new Set(standardCats);
+  const extra=Object.keys(byCat).filter(c=>!known.has(c)).sort();
+  const allCats=[...standardCats,...extra];
+  const total=rows.reduce((s,r)=>s+Number(r.amount||0),0);
+  const body=allCats.map(c=>{
+    const d=byCat[c]||{count:0,amount:0};
+    const flagged=extra.includes(c);
+    return `<tr${flagged?' style="background:#FFF7E8"':""}>
+      <td>${esc(c)}${flagged?' <span style="color:var(--signal-dim);font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">· not a standard category</span>':""}</td>
+      <td style="text-align:right">${d.count}</td>
+      <td style="text-align:right">£${d.amount.toFixed(2)}</td>
+    </tr>`;
+  }).join("");
+  return `<table><thead><tr><th>${esc(label)}</th><th style="text-align:right">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr style="background:#eef1f5;font-weight:700"><td>Total ${esc(label)}</td><td style="text-align:right">${rows.length}</td><td style="text-align:right">£${total.toFixed(2)}</td></tr></tfoot></table>`;
 }
 function tablePay(rows){
   if(!rows.length) return '<p class="muted">No rows</p>';

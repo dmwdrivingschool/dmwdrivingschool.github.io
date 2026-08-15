@@ -164,10 +164,14 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
       </div>
       <div class="panel">
         <h2>School snapshot</h2>
+        <p class="muted" id="dvsa-note" style="margin-bottom:.75rem"></p>
         <div class="metric-row">
           <div class="metric"><div class="v" id="m-pass">–</div><div class="l">Pass rate</div></div>
           <div class="metric"><div class="v" id="m-faults">–</div><div class="l">Avg driving faults</div></div>
           <div class="metric"><div class="v" id="m-serious">–</div><div class="l">Avg serious faults</div></div>
+          <div class="metric"><div class="v" id="m-examiner">–</div><div class="l">Examiner action taken</div></div>
+        </div>
+        <div class="metric-row" style="margin-top:.7rem">
           <div class="metric"><div class="v" id="m-cancel">–</div><div class="l">Cancelled (14 days)</div></div>
         </div>
         <div style="margin-top:1rem">
@@ -534,14 +538,40 @@ function loadDash(){
   document.getElementById("n-enquiry").textContent=pupils.filter(p=>p.status==="enquiry").length;
   const now=new Date().toISOString();
   document.getElementById("n-tests").textContent=testsCache.filter(t=>(t.test_date||"")>=now).length;
-  const done=testsCache.filter(t=>t.result==="pass"||t.result==="fail");
-  const passes=done.filter(t=>t.result==="pass").length;
-  const passRate=done.length?Math.round(passes/done.length*100):null;
-  const el=document.getElementById("m-pass");
-  el.textContent=passRate==null?"–":passRate+"%"; el.className="v "+(passRate==null?"":passRate>=55?"good":"bad");
-  const withF=testsCache.filter(t=>t.driving_faults!=null);
-  document.getElementById("m-faults").textContent=withF.length?(withF.reduce((s,t)=>s+Number(t.driving_faults||0),0)/withF.length).toFixed(2):"–";
-  document.getElementById("m-serious").textContent=withF.length?(withF.reduce((s,t)=>s+Number(t.serious_faults||0),0)/withF.length).toFixed(2):"–";
+
+  // DVSA Standards Check indicators — same rolling-12-month window and same
+  // thresholds as the app's School Metrics screen (driving faults < 6,
+  // serious faults < 0.55, examiner action < 10%, pass rate > 55%), so the
+  // red/black colouring and the numbers themselves both match what the app
+  // shows. (Previously this used an all-time average, not the DVSA 12-month
+  // window, so the numbers here didn't actually match the app's.)
+  const yearAgo=new Date(); yearAgo.setFullYear(yearAgo.getFullYear()-1);
+  const completed=testsCache.filter(t=>t.result==="pass"||t.result==="fail");
+  const last12=completed.filter(t=>new Date(t.test_date)>=yearAgo);
+  const nDiv=last12.length||1;
+  const sumD=last12.reduce((s,t)=>s+Number(t.driving_faults||0),0);
+  const sumS=last12.reduce((s,t)=>s+Number(t.serious_faults||0),0);
+  const examN=last12.filter(t=>t.examiner_action).length;
+  const passes=last12.filter(t=>t.result==="pass").length;
+  const avgDriving=last12.length?Math.round((sumD/nDiv)*100)/100:0;
+  const avgSerious=last12.length?Math.round((sumS/nDiv)*100)/100:0;
+  const examinerPct=last12.length?Math.round((examN/nDiv)*10000)/100:0;
+  const passRate=last12.length?Math.round((passes/last12.length)*100):0;
+  const drivingOk=avgDriving<6, seriousOk=avgSerious<0.55, examinerOk=examinerPct<10, passOk=passRate>55;
+  const triggerCount=[!drivingOk,!seriousOk,!examinerOk,!passOk].filter(Boolean).length;
+  const setMetric=(id,ok,text)=>{const m=document.getElementById(id); m.textContent=text; m.className="v "+(last12.length?(ok?"good":"bad"):"")};
+  if(last12.length){
+    setMetric("m-pass",passOk,passRate+"%");
+    setMetric("m-faults",drivingOk,String(avgDriving));
+    setMetric("m-serious",seriousOk,String(avgSerious));
+    setMetric("m-examiner",examinerOk,examinerPct+"%");
+    let note=`Trigger if 3+ indicators are red — you may be asked to book a standards check. Currently red: ${triggerCount}. Based on ${last12.length} test${last12.length===1?"":"s"} in the last 12 months.`;
+    if(last12.length<5) note+=" DVSA's published indicators formally apply once you've brought 5+ pupils for a test in a rolling 12-month period — with fewer, these percentages can look more extreme than they really are.";
+    document.getElementById("dvsa-note").textContent=note;
+  } else {
+    setMetric("m-pass",false,"–"); setMetric("m-faults",false,"–"); setMetric("m-serious",false,"–"); setMetric("m-examiner",false,"–");
+    document.getElementById("dvsa-note").textContent="No practical test results in the last 12 months yet — these indicators only mean something once you have data to calculate them from.";
+  }
   (async()=>{
     const since=new Date(Date.now()-14*864e5).toISOString();
     const {data:lessons}=await sb.from("lessons").select("id,status,pupil_id,lesson_type,start_time").gte("start_time",since);
@@ -667,6 +697,28 @@ async function showPupil(p){
   renderPupilModal();
 }
 
+// Re-fetches everything for the pupil currently open in the modal, keeping
+// whichever tab they're on — used after an edit/delete from within Lessons,
+// Payments or Progress so the modal reflects the change immediately without
+// losing place.
+async function refreshPupilDetail(){
+  if(!pupilDetail) return;
+  const id=pupilDetail.p.id, tab=pupilDetail.tab;
+  const [{data:lessons},{data:txs},{data:prog},{data:p}]=await Promise.all([
+    sb.from("lessons").select("id,start_time,end_time,lesson_type,status,payment_status,title")
+      .eq("pupil_id",id).order("start_time",{ascending:false}).limit(200),
+    sb.from("transactions").select("id,transaction_date,amount,category,payment_method,notes,description")
+      .eq("pupil_id",id).eq("type","income").order("transaction_date",{ascending:false}).limit(200),
+    sb.from("pupil_progress").select("*").eq("pupil_id",id),
+    sb.from("pupils").select("*").eq("id",id).maybeSingle(),
+  ]);
+  const progressMap={};
+  (prog||[]).forEach(r=>{ if(r.topic_id) progressMap[r.topic_id]=(typeof r.level==="number"?r.level:(PUPIL_COMP_TO_LEVEL[r.competence]??0)); });
+  pupilDetail={...pupilDetail, p:p||pupilDetail.p, lessons:lessons||[], txs:txs||[], progress:progressMap, tab};
+  await loadPupils(); // keep the Pupils list / caches consistent too
+  renderPupilModal();
+}
+
 function pupilTab(tab){ if(pupilDetail){ pupilDetail.tab=tab; renderPupilModal(); } }
 
 function renderPupilModal(){
@@ -718,6 +770,7 @@ function renderPupilSummary(){
     </div>`;
 }
 
+const LESSON_TYPES=["lesson","driving_test","mock_test","theory_test","pass_plus","refresher","motorway","private","gap"];
 function renderPupilLessons(){
   const {lessons}=pupilDetail;
   if(!lessons.length) return '<p class="muted">No lessons yet</p>';
@@ -727,9 +780,60 @@ function renderPupilLessons(){
     const type=esc((l.title||l.lesson_type||"Lesson").replace(/_/g," "));
     const statusChip=l.status==="cancelled"?'<span class="chip chip-bad">Cancelled</span>':l.status==="delivered"?'<span class="chip chip-ok">Delivered</span>':'<span class="chip chip-wait">Booked</span>';
     const payChip=l.payment_status==="paid"?'<span class="chip chip-ok">Paid</span>':'<span class="chip chip-bad">Unpaid</span>';
-    return `<tr><td>${when}</td><td style="text-transform:capitalize">${type}</td><td>${statusChip}</td><td>${payChip}</td></tr>`;
+    return `<tr><td>${when}</td><td style="text-transform:capitalize">${type}</td><td>${statusChip}</td><td>${payChip}</td>
+      <td class="actions">
+        <button class="btn-outline" onclick="pupilEditLesson('${l.id}')">Edit</button>
+        <button class="btn-danger" onclick="deletePupilLesson('${l.id}')">Del</button>
+      </td></tr>`;
   }).join("");
-  return `<div style="max-height:60vh;overflow-y:auto"><table><thead><tr><th>When</th><th>Type</th><th>Status</th><th>Payment</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div style="max-height:60vh;overflow-y:auto"><table><thead><tr><th>When</th><th>Type</th><th>Status</th><th>Payment</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function pupilEditLesson(id){
+  const l=pupilDetail.lessons.find(x=>x.id===id);
+  if(!l) return;
+  const s=new Date(l.start_time), e=new Date(l.end_time);
+  const dateStr=s.toISOString().slice(0,10);
+  const startStr=String(s.getHours()).padStart(2,"0")+":"+String(s.getMinutes()).padStart(2,"0");
+  const endStr=String(e.getHours()).padStart(2,"0")+":"+String(e.getMinutes()).padStart(2,"0");
+  openModal(`<h2 style="margin-bottom:1rem">Edit lesson</h2>
+    <div class="two">
+      <div class="field"><label>Date</label><input type="date" id="pl-date" value="${dateStr}"></div>
+      <div class="field"><label>Type</label>
+        <select id="pl-type">${LESSON_TYPES.map(t=>`<option value="${t}" ${l.lesson_type===t?"selected":""}>${t.replace(/_/g," ")}</option>`).join("")}</select>
+      </div>
+      <div class="field"><label>Start time</label><input type="time" id="pl-start" value="${startStr}"></div>
+      <div class="field"><label>End time</label><input type="time" id="pl-end" value="${endStr}"></div>
+      <div class="field"><label>Status</label>
+        <select id="pl-status">${["booked","delivered","cancelled"].map(s2=>`<option value="${s2}" ${l.status===s2?"selected":""}>${s2}</option>`).join("")}</select>
+      </div>
+    </div>
+    <p class="muted" style="margin-bottom:.75rem">Payment status isn't edited here — same as the app, it's only ever set by an actual payment, not by editing the lesson.</p>
+    <div class="actions">
+      <button class="btn btn-navy btn-sm" onclick="savePupilLesson('${l.id}')">Save</button>
+      <button class="btn-outline" onclick="renderPupilModal()">Cancel</button>
+    </div>`);
+}
+async function savePupilLesson(id){
+  const dateStr=val("pl-date");
+  if(!dateStr) return alert("Date is required");
+  const start=new Date(`${dateStr}T${document.getElementById("pl-start").value||"09:00"}:00`);
+  const end=new Date(`${dateStr}T${document.getElementById("pl-end").value||"10:00"}:00`);
+  const payload={
+    start_time:start.toISOString(), end_time:end.toISOString(),
+    lesson_type:document.getElementById("pl-type").value,
+    status:document.getElementById("pl-status").value
+  };
+  const {error}=await sb.from("lessons").update(payload).eq("id",id);
+  if(error) return alert(error.message);
+  await refreshPupilDetail();
+  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+}
+async function deletePupilLesson(id){
+  if(!confirm("Delete this lesson? This can't be undone.")) return;
+  const {error}=await sb.from("lessons").delete().eq("id",id);
+  if(error) return alert(error.message);
+  await refreshPupilDetail();
+  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
 }
 
 function renderPupilPayments(){
@@ -738,9 +842,65 @@ function renderPupilPayments(){
   const rows=txs.map(t=>{
     const d=new Date(t.transaction_date);
     const when=d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
-    return `<tr><td>${when}</td><td>£${Number(t.amount||0).toFixed(2)}</td><td>${esc(t.category||"")}</td><td>${esc(t.payment_method||"")}</td></tr>`;
+    return `<tr><td>${when}</td><td>£${Number(t.amount||0).toFixed(2)}</td><td>${esc(t.category||"")}</td><td>${esc(t.payment_method||"")}</td>
+      <td class="actions">
+        <button class="btn-outline" onclick="pupilEditPayment('${t.id}')">Edit</button>
+        <button class="btn-danger" onclick="deletePupilPayment('${t.id}')">Del</button>
+      </td></tr>`;
   }).join("");
-  return `<div style="max-height:60vh;overflow-y:auto"><table><thead><tr><th>Date</th><th>Amount</th><th>Category</th><th>Method</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div style="max-height:60vh;overflow-y:auto"><table><thead><tr><th>Date</th><th>Amount</th><th>Category</th><th>Method</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+// Same `transactions` table, same £→hours credit adjustment as the main
+// Finances tab (see savePayment/delPay) — a payment edited or deleted from
+// here is identical to editing/deleting it from Finances or from the app.
+function pupilEditPayment(id){
+  const t=pupilDetail.txs.find(x=>x.id===id);
+  if(!t) return;
+  const allCats=[...new Set([...INCOME_CATS,t.category].filter(Boolean))];
+  openModal(`<h2 style="margin-bottom:1rem">Edit payment</h2>
+    <div class="two">
+      <div class="field"><label>Category</label>
+        <select id="pp-cat">${allCats.map(c=>`<option value="${esc(c)}" ${t.category===c?"selected":""}>${esc(c)}</option>`).join("")}</select>
+      </div>
+      <div class="field"><label>Amount (£)</label><input id="pp-amt" type="number" step="0.01" value="${t.amount||0}"></div>
+      <div class="field"><label>Date</label><input id="pp-date" type="date" value="${(t.transaction_date||"").slice(0,10)}"></div>
+      <div class="field"><label>Method</label>
+        <select id="pp-method">${["Bank Transfer","Cash","Cheque","Card","Direct Debit","Gift Card","PayPal"].map(m=>`<option ${t.payment_method===m?"selected":""}>${m}</option>`).join("")}</select>
+      </div>
+    </div>
+    <div class="field"><label>Notes</label><input id="pp-notes" value="${esc(t.notes||"")}"></div>
+    <p class="muted" style="margin-bottom:.75rem">If notes include an "(Xh Ym)" tag, editing it adjusts this pupil's Credit the same way changing it on the Finances tab does.</p>
+    <div class="actions">
+      <button class="btn btn-navy btn-sm" onclick="savePupilPayment('${t.id}')">Save</button>
+      <button class="btn-outline" onclick="renderPupilModal()">Cancel</button>
+    </div>`);
+}
+async function savePupilPayment(id){
+  const t=pupilDetail.txs.find(x=>x.id===id);
+  if(!t) return;
+  const amount=Number(document.getElementById("pp-amt").value);
+  const date=val("pp-date");
+  if(document.getElementById("pp-amt").value===""||isNaN(amount)) return alert("Amount is required (enter 0 for a free lesson/entry)");
+  if(!date) return alert("Date is required");
+  const notes=val("pp-notes")||null;
+  const payload={category:document.getElementById("pp-cat").value, amount, transaction_date:date, payment_method:document.getElementById("pp-method").value, notes};
+  const {error}=await sb.from("transactions").update(payload).eq("id",id);
+  if(error) return alert(error.message);
+  const oldHrs=hoursFromTxDescription(t.notes||"");
+  const newHrs=hoursFromTxDescription(notes||"");
+  if(newHrs-oldHrs) await adjustPupilCredit(pupilDetail.p.id,newHrs-oldHrs);
+  await loadPayments();
+  await refreshPupilDetail();
+}
+async function deletePupilPayment(id){
+  if(!confirm("Delete this payment?")) return;
+  const t=pupilDetail.txs.find(x=>x.id===id);
+  const {error}=await sb.from("transactions").delete().eq("id",id);
+  if(error) return alert(error.message);
+  const oldHrs=t?hoursFromTxDescription(t.notes||""):0;
+  if(oldHrs) await adjustPupilCredit(pupilDetail.p.id,-oldHrs);
+  await loadPayments();
+  await refreshPupilDetail();
 }
 
 function renderPupilProgress(){
@@ -749,7 +909,8 @@ function renderPupilProgress(){
   const totalScore=PUPIL_SYLLABUS.reduce((s,t)=>s+(progress[t.id]||0),0);
   const pct=Math.round((totalScore/(PUPIL_SYLLABUS.length*5))*100)||0;
   let html=`<div style="margin-bottom:1rem"><div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.3rem"><strong>Syllabus</strong><span class="muted">${pct}% Completed</span></div>
-    <div style="height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#10b981"></div></div></div>`;
+    <div style="height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#10b981"></div></div></div>
+    <p class="muted" style="margin-bottom:1rem">Tap a level dot to set it — same as tapping it in the app. Tap the filled dot again to clear back to "Not started".</p>`;
   groups.forEach(g=>{
     const topics=PUPIL_SYLLABUS.filter(t=>t.group===g);
     const gScore=topics.reduce((s,t)=>s+(progress[t.id]||0),0);
@@ -758,11 +919,23 @@ function renderPupilProgress(){
     topics.forEach(t=>{
       const level=progress[t.id]||0;
       html+=`<div style="margin-bottom:.6rem"><div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.25rem"><span>${esc(t.name)}</span><span class="muted">${PUPIL_COMPETENCE_LEVELS[level]}</span></div>
-        <div style="display:flex;gap:3px">${[1,2,3,4,5].map(s=>`<div style="flex:1;height:6px;border-radius:99px;background:${s<=level?"#10b981":"#e2e8f0"}"></div>`).join("")}</div></div>`;
+        <div style="display:flex;gap:3px">${[1,2,3,4,5].map(s=>`<button type="button" onclick="setPupilProgress('${t.id}',${s},${level})" style="flex:1;height:16px;border:none;border-radius:99px;cursor:pointer;padding:0;background:${s<=level?"#10b981":"#e2e8f0"}"></button>`).join("")}</div></div>`;
     });
     html+="</div>";
   });
   return html;
+}
+async function setPupilProgress(topicId,clickedLevel,currentLevel){
+  const level=(clickedLevel===currentLevel)?clickedLevel-1:clickedLevel; // tap the current top dot again to step back down
+  const competenceMap=["not_started","introduced","under_full_instruction","prompted","seldom_prompted","independent"];
+  const payload={pupil_id:pupilDetail.p.id, topic_id:topicId, level, competence:competenceMap[level]||"not_started", updated_at:new Date().toISOString()};
+  const {data:existing}=await sb.from("pupil_progress").select("id").eq("pupil_id",pupilDetail.p.id).eq("topic_id",topicId).maybeSingle();
+  let error;
+  if(existing?.id) ({error}=await sb.from("pupil_progress").update(payload).eq("id",existing.id));
+  else ({error}=await sb.from("pupil_progress").insert(payload));
+  if(error){ alert(error.message); return; }
+  pupilDetail.progress[topicId]=level;
+  renderPupilModal();
 }
 
 function renderPupilReflect(){
@@ -1005,6 +1178,7 @@ async function endAwayBlock(lessonId){
 
 function showTests(mode,btn){
   if(btn){btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));btn.classList.add("on")}
+  lastTestsMode=mode;
   const now=new Date().toISOString();
   const list=testsCache.filter(t=>mode==="future"?(t.test_date||"")>=now:(t.test_date||"")<now);
   const el=document.getElementById("test-list");
@@ -1014,8 +1188,151 @@ function showTests(mode,btn){
       const name=t.pupil?`${t.pupil.first_name} ${t.pupil.last_name}`:"–";
       const res=t.result||"tbc";
       const chip=res==="pass"?"chip-ok":res==="fail"?"chip-bad":"chip-wait";
-      return `<tr><td>${esc(name)}</td><td>${fmt(t.test_date)}</td><td><span class="chip ${chip}">${esc(res)}</span></td></tr>`;
+      return `<tr style="cursor:pointer" onclick="showTestModal('${t.id}')" title="Click to see the full result"><td>${esc(name)}</td><td>${fmt(t.test_date)}</td><td><span class="chip ${chip}">${esc(res)}</span></td></tr>`;
     }).join("")+"</tbody></table>";
+}
+let lastTestsMode="future";
+
+// Full result view for a single test — click-through from the Tests tab.
+// Real practical_tests rows (id is a plain uuid) can be edited/deleted
+// directly. Rows synthesised from a diary "Driving Test" lesson that hasn't
+// had a result entered yet (id like "lesson-<uuid>") don't have a
+// practical_tests row to delete — Edit on one of these creates that row
+// for the first time, exactly like entering a result in the app does.
+function showTestModal(id){
+  const t=testsCache.find(x=>String(x.id)===String(id));
+  if(!t) return;
+  const isReal=!String(t.id).startsWith("lesson-");
+  const name=t.pupil?`${t.pupil.first_name} ${t.pupil.last_name}`:"–";
+  openModal(`<h2 style="margin-bottom:.6rem">${esc(name)} — Practical test</h2>
+    <div class="summary-lines">
+      ${row("Result",(t.result||"tbc").toUpperCase())}
+      ${row("Date",t.test_date?new Date(t.test_date).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"")}
+      ${row("Centre",t.centre)}
+      ${row("Driving faults",String(t.driving_faults||0))}
+      ${row("Serious faults",String(t.serious_faults||0))}
+      ${row("Dangerous faults",String(t.dangerous_faults||0))}
+      ${row("Examiner took action",t.examiner_action?"Yes":"No")}
+      ${t.summary?row("Notes",t.summary):""}
+    </div>
+    ${!isReal?'<p class="muted" style="margin-top:.6rem">No result recorded yet — this is scheduled from a diary Driving Test lesson. Use Edit to enter the result.</p>':""}
+    <div class="actions" style="margin-top:1rem">
+      <button class="btn btn-navy btn-sm" onclick="openTestEditModal('${t.id}')">Edit</button>
+      ${isReal?`<button class="btn-danger" onclick="deleteTestResult('${t.id}')">Delete</button>`:""}
+      <button class="btn-outline" onclick="closeModal()">Close</button>
+    </div>`);
+}
+
+function openTestEditModal(id){
+  const t=testsCache.find(x=>String(x.id)===String(id));
+  if(!t) return;
+  const name=t.pupil?`${t.pupil.first_name} ${t.pupil.last_name}`:"–";
+  const d=t.test_date?new Date(t.test_date):new Date();
+  const dateStr=d.toISOString().slice(0,10);
+  const timeStr=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  openModal(`<h2 style="margin-bottom:1rem">${esc(name)} — Edit test</h2>
+    <div class="two">
+      <div class="field"><label>Date</label><input type="date" id="tt-date" value="${dateStr}"></div>
+      <div class="field"><label>Time</label><input type="time" id="tt-time" value="${timeStr}"></div>
+      <div class="field"><label>Centre</label><input id="tt-centre" value="${esc(t.centre||"")}"></div>
+      <div class="field"><label>Result</label>
+        <select id="tt-result">
+          ${["tbc","pass","fail"].map(r=>`<option value="${r}" ${((t.result||"tbc")===r)?"selected":""}>${r.toUpperCase()}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field"><label>Driving faults</label><input type="number" min="0" id="tt-driving" value="${t.driving_faults||0}"></div>
+      <div class="field"><label>Serious faults</label><input type="number" min="0" id="tt-serious" value="${t.serious_faults||0}"></div>
+      <div class="field"><label>Dangerous faults</label><input type="number" min="0" id="tt-dangerous" value="${t.dangerous_faults||0}"></div>
+      <div class="field"><label>Examiner took action</label>
+        <select id="tt-examiner"><option value="0" ${!t.examiner_action?"selected":""}>No</option><option value="1" ${t.examiner_action?"selected":""}>Yes</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="tt-summary" rows="3">${esc(t.summary||"")}</textarea></div>
+    <p class="muted" id="tt-pass-note" style="display:none;margin-bottom:.6rem">
+      Setting the result to PASS will also archive this pupil the same way the app does: move them to
+      Passed, and clear their lessons/messages/progress/personal details per the GDPR policy the app already applies.
+    </p>
+    <div class="actions">
+      <button class="btn btn-navy btn-sm" onclick="saveTestResult('${t.id}')">Save</button>
+      <button class="btn-outline" onclick="showTestModal('${t.id}')">Cancel</button>
+    </div>`);
+  const resultSel=document.getElementById("tt-result");
+  const toggleNote=()=>{document.getElementById("tt-pass-note").style.display=resultSel.value==="pass"?"block":"none"};
+  resultSel.addEventListener("change",toggleNote); toggleNote();
+}
+
+async function saveTestResult(id){
+  const t=testsCache.find(x=>String(x.id)===String(id));
+  if(!t) return;
+  const dateStr=val("tt-date"), timeStr=document.getElementById("tt-time").value||"09:00";
+  if(!dateStr) return alert("Date is required");
+  const test_date=new Date(`${dateStr}T${timeStr}:00`).toISOString();
+  const result=document.getElementById("tt-result").value;
+  const payload={
+    pupil_id:t.pupil_id,
+    test_date,
+    centre:val("tt-centre")||null,
+    result,
+    driving_faults:Number(document.getElementById("tt-driving").value)||0,
+    serious_faults:Number(document.getElementById("tt-serious").value)||0,
+    dangerous_faults:Number(document.getElementById("tt-dangerous").value)||0,
+    examiner_action:document.getElementById("tt-examiner").value==="1",
+    summary:val("tt-summary")||null,
+    is_live:true
+  };
+  const isReal=!String(t.id).startsWith("lesson-");
+  let error, newId=t.id;
+  if(isReal){
+    ({error}=await sb.from("practical_tests").update(payload).eq("id",t.id));
+  } else {
+    const {data,error:insErr}=await sb.from("practical_tests").insert(payload).select("id").maybeSingle();
+    error=insErr; if(data) newId=data.id;
+    // Keep the source diary lesson's own time roughly in sync, same idea as
+    // the app — best-effort, doesn't block saving the result if it fails.
+    if(!error && t._lessonId){
+      try{
+        const start=new Date(`${dateStr}T${timeStr}:00`);
+        await sb.from("lessons").update({start_time:start.toISOString(),notes:`Centre time: ${timeStr}`+(payload.centre?` | Centre: ${payload.centre}`:"")}).eq("id",t._lessonId);
+      }catch(e){ console.error("lesson sync failed",e); }
+    }
+  }
+  if(error) return alert(error.message);
+  if(result==="pass" && t.pupil_id) await passResultCleanup(t.pupil_id);
+  closeModal();
+  await loadTests(); await loadPupils(); loadDash();
+  showTests(lastTestsMode);
+}
+
+async function deleteTestResult(id){
+  if(!confirm("Delete this test result?")) return;
+  const {error}=await sb.from("practical_tests").delete().eq("id",id);
+  if(error) return alert(error.message);
+  closeModal();
+  await loadTests(); loadDash();
+  showTests(lastTestsMode);
+}
+
+// Mirrors the app's own "mark as passed" archive/GDPR-purge flow exactly
+// (see PracticalTests.tsx `save()`) so a pass entered here behaves the same
+// as a pass entered in the app — otherwise a test marked PASS from here
+// would silently NOT move the pupil to the Passed tab or purge their data,
+// which would be confusing and inconsistent with the app.
+async function passResultCleanup(pupilId){
+  await sb.from("reflective_logs").delete().eq("pupil_id",pupilId);
+  await sb.from("pupil_progress").delete().eq("pupil_id",pupilId);
+  await sb.from("messages").delete().eq("pupil_id",pupilId);
+  await sb.from("lessons").delete().eq("pupil_id",pupilId).neq("lesson_type","driving_test");
+  await sb.from("lessons").delete().eq("pupil_id",pupilId).is("lesson_type",null);
+  await sb.from("pupils").update({
+    status:"passed", messaging_enabled:false, email:null, phone:null,
+    address_line1:null, address_line2:null, city:null, postcode:null,
+    date_of_birth:null, licence_number:null, theory_cert_number:null,
+    licence_front_url:null, licence_rear_url:null, credit_hours:0, notes:null,
+    force_logout_at:new Date().toISOString()
+  }).eq("id",pupilId);
+  try{
+    await sb.functions.invoke("manage-auth",{body:{action:"remove_pupil_login",pupil_id:pupilId}});
+  }catch(e){ console.error("Could not remove passed pupil login",e); }
 }
 
 function onPeriodChange(){
@@ -1085,9 +1402,9 @@ function showFin(mode,btn){
       side by side and spot exactly which category / count is off. Any row shaded amber is a
       category on these entries that isn't one of the app's standard ones — check it first.
     </p>
-    ${financeCategoryTable(inc,INCOME_CATS,"Income")}
+    ${financeCategoryTable(inc,INCOME_CATS,"Income",false)}
     <div style="height:.9rem"></div>
-    ${financeCategoryTable(exp,EXPENSE_CATS,"Expenses")}
+    ${financeCategoryTable(exp,EXPENSE_CATS,"Expenses",true)}
     <div style="display:flex;justify-content:space-between;align-items:center;background:var(--asphalt);color:#fff;border-radius:3px;padding:.85rem 1rem;margin-top:.9rem">
       <span style="font-family:var(--fb);text-transform:uppercase;font-size:.72rem;letter-spacing:.05em;font-weight:700">Grand total</span>
       <span style="font-family:var(--fm);font-size:1.05rem;font-weight:700">£${(sumInc-sumExp).toFixed(2)}</span>
@@ -1104,7 +1421,7 @@ function showFin(mode,btn){
 // amber — that's usually exactly where a mismatch against Total Drive comes
 // from (an entry filed under the wrong category, or an old category no
 // longer offered when adding new entries).
-function financeCategoryTable(rows,standardCats,label){
+function financeCategoryTable(rows,standardCats,label,isExp){
   const byCat={};
   rows.forEach(r=>{
     const c=r.category||r.type||"Uncategorised";
@@ -1118,7 +1435,8 @@ function financeCategoryTable(rows,standardCats,label){
   const body=allCats.map(c=>{
     const d=byCat[c]||{count:0,amount:0};
     const flagged=extra.includes(c);
-    return `<tr${flagged?' style="background:#FFF7E8"':""}>
+    const catArg=JSON.stringify(c).replace(/'/g,"&#39;");
+    return `<tr style="cursor:pointer${flagged?";background:#FFF7E8":""}" onclick='showFinCategoryModal(${catArg},${isExp?"true":"false"})' title="Click to see every entry in this category">
       <td>${esc(c)}${flagged?' <span style="color:var(--signal-dim);font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">· not a standard category</span>':""}</td>
       <td style="text-align:right">${d.count}</td>
       <td style="text-align:right">£${d.amount.toFixed(2)}</td>
@@ -1128,8 +1446,34 @@ function financeCategoryTable(rows,standardCats,label){
     <tbody>${body}</tbody>
     <tfoot><tr style="background:#eef1f5;font-weight:700"><td>Total ${esc(label)}</td><td style="text-align:right">${rows.length}</td><td style="text-align:right">£${total.toFixed(2)}</td></tr></tfoot></table>`;
 }
-function tablePay(rows){
+// Clicking a category row in the Summary tab opens every entry filed under
+// that exact category (within the currently-selected date range), each with
+// its own Edit / Delete — same transactions table, same edit/delete logic
+// as the Income/Expenses tabs, so a change here is a change everywhere
+// (Finances tabs, pupil Payments tab, and the app's own Money screen all
+// read the same `transactions` rows).
+let finCatModal=null;
+function showFinCategoryModal(cat,isExp){
+  finCatModal={cat,isExp};
+  const rows=filteredPayments().filter(r=>{
+    const c=r.category||r.type||"Uncategorised";
+    return c===cat && isExpense(r)===isExp;
+  });
+  const total=rows.reduce((s,r)=>s+Number(r.amount||0),0);
+  const body=rows.length?tablePay(rows,true):'<p class="muted">No entries in this category for the selected period</p>';
+  openModal(`<h2 style="margin-bottom:.4rem">${esc(cat)}</h2>
+    <p class="muted" style="margin-bottom:1rem">${rows.length} entr${rows.length===1?"y":"ies"} · £${total.toFixed(2)}</p>
+    <div style="max-height:60vh;overflow-y:auto">${body}</div>
+    <div class="actions" style="margin-top:1rem"><button class="btn-outline" onclick="finCatModal=null;closeModal()">Close</button></div>`);
+}
+async function catDelPay(id){
+  await delPay(id);
+  if(finCatModal) showFinCategoryModal(finCatModal.cat,finCatModal.isExp);
+}
+function tablePay(rows,inModal){
   if(!rows.length) return '<p class="muted">No rows</p>';
+  const editCall=inModal?"finCatModal=null;closeModal();startEditPay(":"startEditPay(";
+  const delCall=inModal?"catDelPay('":"delPay('";
   return "<table><thead><tr><th>Date</th><th>Detail</th><th>Amount</th><th>Method</th><th></th></tr></thead><tbody>"+
     rows.map(r=>{
       const pupil=r.pupil?`${r.pupil.first_name} ${r.pupil.last_name}`:"";
@@ -1137,8 +1481,8 @@ function tablePay(rows){
       return `<tr><td>${esc(r.transaction_date||"")}</td><td>${esc(detail)}</td>
         <td>£${Number(r.amount||0).toFixed(2)}</td><td>${esc(r.payment_method||"–")}</td>
         <td class="actions">
-          <button class="btn-outline" onclick='startEditPay(${JSON.stringify(r).replace(/'/g,"&#39;")})'>Edit</button>
-          <button class="btn-danger" onclick="delPay('${r.id}')">Del</button>
+          <button class="btn-outline" onclick='${editCall}${JSON.stringify(r).replace(/'/g,"&#39;")})'>Edit</button>
+          <button class="btn-danger" onclick="${delCall}${r.id}')">Del</button>
         </td></tr>`;
     }).join("")+"</tbody></table>";
 }

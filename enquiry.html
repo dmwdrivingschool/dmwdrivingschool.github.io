@@ -187,7 +187,6 @@
     const availability = {};
     ALL_DAYS.forEach(d => availability[d] = []);
 
-    let createdPupilId = null;
     let enquiryEmail = "";
     let enquiryFirstName = "";
     let enquiryLastName = "";
@@ -494,7 +493,6 @@
           }
         }
 
-        createdPupilId = pupilId;
         if (pupilId) {
           await notifyInstructor(pupilId, body.first_name, body.last_name);
         }
@@ -558,34 +556,21 @@
 
         if (accountReady) {
           const userId = signUpData.user.id;
-          await fetch(SUPABASE_URL + "/rest/v1/profiles", {
-            method: "POST",
-            headers: {
-              apikey: SUPABASE_KEY,
-              Authorization: "Bearer " + SUPABASE_KEY,
-              "Content-Type": "application/json",
-              Prefer: "resolution=merge-duplicates,return=minimal"
-            },
-            body: JSON.stringify({
-              id: userId,
-              role: "pupil",
-              email,
-              full_name: (enquiryFirstName || "") + " " + (enquiryLastName || "")
-            })
+          // These two writes need to run as the pupil's OWN freshly-created
+          // session (via `sb`, which signUp() just authenticated), not the
+          // bare anon key — pupils/profiles both require an authenticated
+          // request under RLS. The previous raw fetch() calls sent the anon
+          // key as the bearer token, so both writes were silently rejected
+          // (a non-2xx response doesn't reject a fetch promise, so the
+          // .catch() never even saw it) and profile_id never got linked.
+          await sb.from("profiles").upsert({
+            id: userId,
+            role: "pupil",
+            email,
+            full_name: (enquiryFirstName || "") + " " + (enquiryLastName || "")
           }).catch(() => {});
 
-          if (createdPupilId) {
-            await fetch(SUPABASE_URL + "/rest/v1/pupils?id=eq." + encodeURIComponent(createdPupilId), {
-              method: "PATCH",
-              headers: {
-                apikey: SUPABASE_KEY,
-                Authorization: "Bearer " + SUPABASE_KEY,
-                "Content-Type": "application/json",
-                Prefer: "return=minimal"
-              },
-              body: JSON.stringify({ profile_id: userId, email })
-            }).catch(() => {});
-          }
+          await sb.rpc("pupil_link_profile_on_signup").catch(() => {});
         } else if (signUpError) {
           const msg = signUpError.message || "";
           if (/already|registered|exists/i.test(msg)) {

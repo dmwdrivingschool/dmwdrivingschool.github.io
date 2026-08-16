@@ -374,6 +374,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
         <div class="settings-list" id="settings-menu">
           <button type="button" onclick="openSettings('reminders')">Reminders</button>
           <button type="button" onclick="openSettings('workinghours')">Working hours</button>
+          <button type="button" onclick="openSettings('syllabus')">Progress syllabus</button>
           <button type="button" onclick="openSettings('diary')">Diary options</button>
           <button type="button" onclick="openSettings('resources')">Resources</button>
           <button type="button" onclick="openSettings('reflect')">Reflective logs</button>
@@ -415,6 +416,43 @@ async function loadWorkingHours(){
       };
     }
   }catch(e){}
+}
+let syllabusItems=[
+  {id:"cockpit",name:"Cockpit Drill & Safety Checks",group:"Basic Skills"},
+  {id:"move_off",name:"Move Off Safely",group:"Basic Skills"},
+  {id:"stop",name:"Stop Safely",group:"Basic Skills"},
+  {id:"gears",name:"Changing Gear",group:"Basic Skills"},
+  {id:"steering",name:"Steering",group:"Basic Skills"},
+  {id:"mirrors",name:"Use of Mirrors",group:"Basic Skills"},
+  {id:"signals",name:"Signals",group:"Basic Skills"},
+  {id:"junctions",name:"Junctions",group:"Road Skills"},
+  {id:"roundabouts",name:"Roundabouts",group:"Road Skills"},
+  {id:"dual",name:"Dual Carriageways",group:"Road Skills"},
+  {id:"meeting",name:"Meeting Traffic",group:"Road Skills"},
+  {id:"crossing",name:"Crossing Traffic",group:"Road Skills"},
+  {id:"overtaking",name:"Overtaking",group:"Road Skills"},
+  {id:"turn_in_road",name:"Turn in the Road",group:"Manoeuvres"},
+  {id:"reverse_bay",name:"Reverse Bay Park",group:"Manoeuvres"},
+  {id:"parallel",name:"Parallel Park",group:"Manoeuvres"},
+  {id:"forward_bay",name:"Forward Bay Park",group:"Manoeuvres"},
+  {id:"emergency",name:"Emergency Stop",group:"Manoeuvres"},
+  {id:"independent",name:"Independent Driving",group:"Advanced"},
+  {id:"eco",name:"Eco-Safe Driving",group:"Advanced"},
+];
+// Single shared source of truth (app_settings id='syllabus') — the instructor
+// app's Settings > Progress syllabus and the pupil app both read/write the
+// same row, so editing here (or there) updates every surface. Falls back to
+// the defaults above only if the row doesn't exist yet or the fetch fails.
+async function loadSyllabus(){
+  try{
+    const {data}=await sb.from("app_settings").select("value").eq("id","syllabus").maybeSingle();
+    if(data && Array.isArray(data.value) && data.value.length) syllabusItems=data.value;
+  }catch(e){}
+}
+async function saveSyllabus(){
+  const {error}=await sb.from("app_settings").upsert({id:"syllabus",value:syllabusItems,updated_at:new Date().toISOString()},{onConflict:"id"});
+  if(error){ alert("Could not save: "+error.message); return false; }
+  return true;
 }
 
 function startOfWeek(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x}
@@ -481,7 +519,7 @@ sb.auth.getSession().then(({data})=>{
 function showBanner(msg){const b=document.getElementById("data-banner"); if(!msg){b.style.display="none";return} b.textContent=msg;b.style.display="block"}
 
 async function refresh(){
-  await Promise.all([loadPupils(),loadPayments(),loadTests(),loadWorkingHours()]);
+  await Promise.all([loadPupils(),loadPayments(),loadTests(),loadWorkingHours(),loadSyllabus()]);
   loadDash(); loadEnquiries(); loadGaps(); loadActivity();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   if(!document.getElementById("tab-pupils").classList.contains("hidden")) renderPupils();
@@ -639,28 +677,6 @@ function copyEmail(email){
 // visible per-pupil in the app is also visible here. All the data for every
 // tab is fetched once up front and cached in `pupilDetail`; switching tabs
 // just re-renders from that cache, no refetching.
-const PUPIL_SYLLABUS=[
-  {id:"cockpit",name:"Cockpit Drill & Safety Checks",group:"Basic Skills"},
-  {id:"move_off",name:"Move Off Safely",group:"Basic Skills"},
-  {id:"stop",name:"Stop Safely",group:"Basic Skills"},
-  {id:"gears",name:"Changing Gear",group:"Basic Skills"},
-  {id:"steering",name:"Steering",group:"Basic Skills"},
-  {id:"mirrors",name:"Use of Mirrors",group:"Basic Skills"},
-  {id:"signals",name:"Signals",group:"Basic Skills"},
-  {id:"junctions",name:"Junctions",group:"Road Skills"},
-  {id:"roundabouts",name:"Roundabouts",group:"Road Skills"},
-  {id:"dual",name:"Dual Carriageways",group:"Road Skills"},
-  {id:"meeting",name:"Meeting Traffic",group:"Road Skills"},
-  {id:"crossing",name:"Crossing Traffic",group:"Road Skills"},
-  {id:"overtaking",name:"Overtaking",group:"Road Skills"},
-  {id:"turn_in_road",name:"Turn in the Road",group:"Manoeuvres"},
-  {id:"reverse_bay",name:"Reverse Bay Park",group:"Manoeuvres"},
-  {id:"parallel",name:"Parallel Park",group:"Manoeuvres"},
-  {id:"forward_bay",name:"Forward Bay Park",group:"Manoeuvres"},
-  {id:"emergency",name:"Emergency Stop",group:"Manoeuvres"},
-  {id:"independent",name:"Independent Driving",group:"Advanced"},
-  {id:"eco",name:"Eco-Safe Driving",group:"Advanced"},
-];
 const PUPIL_COMPETENCE_LEVELS=["Not started","Introduced","Under Full Instruction","Prompted","Seldom Prompted","Independent"];
 const PUPIL_COMP_TO_LEVEL={not_started:0,introduced:1,under_full_instruction:2,prompted:3,seldom_prompted:4,independent:5};
 
@@ -941,14 +957,14 @@ async function deletePupilPayment(id){
 
 function renderPupilProgress(){
   const {progress}=pupilDetail;
-  const groups=["Basic Skills","Road Skills","Manoeuvres","Advanced"];
-  const totalScore=PUPIL_SYLLABUS.reduce((s,t)=>s+(progress[t.id]||0),0);
-  const pct=Math.round((totalScore/(PUPIL_SYLLABUS.length*5))*100)||0;
+  const groups=[]; syllabusItems.forEach(t=>{ if(!groups.includes(t.group)) groups.push(t.group); });
+  const totalScore=syllabusItems.reduce((s,t)=>s+(progress[t.id]||0),0);
+  const pct=Math.round((totalScore/(syllabusItems.length*5))*100)||0;
   let html=`<div style="margin-bottom:1rem"><div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.3rem"><strong>Syllabus</strong><span class="muted">${pct}% Completed</span></div>
     <div style="height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#10b981"></div></div></div>
     <p class="muted" style="margin-bottom:1rem">Tap a level dot to set it — same as tapping it in the app. Tap the filled dot again to clear back to "Not started".</p>`;
   groups.forEach(g=>{
-    const topics=PUPIL_SYLLABUS.filter(t=>t.group===g);
+    const topics=syllabusItems.filter(t=>t.group===g);
     const gScore=topics.reduce((s,t)=>s+(progress[t.id]||0),0);
     const gPct=Math.round((gScore/(topics.length*5))*100)||0;
     html+=`<div style="margin-bottom:1rem"><div style="display:flex;justify-content:space-between;margin-bottom:.5rem"><h3 style="font-size:.85rem;font-weight:700">${g}</h3><span class="muted" style="font-size:.78rem">${gPct}%</span></div>`;
@@ -1755,6 +1771,16 @@ async function openSettings(which){
         </div>
       </div>
       <button class="btn btn-navy btn-sm" onclick="saveWorkingHours()">Save</button>`;
+  } else if(which==="syllabus"){
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Progress syllabus</h3>
+      <p class="muted" style="margin-bottom:1rem">These topics appear on every pupil's Progress tab — here, in your instructor app, and in the pupil's own app. <strong>Drag and drop</strong> to reorder (or use ↑ / ↓). Changes save immediately.</p>
+      <datalist id="syllabus-groups-dl"></datalist>
+      <div id="syllabus-list"></div>
+      <div class="field" style="margin-top:1rem"><label>New topic name</label><input id="syl-new-name" placeholder="e.g. Night driving"></div>
+      <div class="field"><label>Category</label><input id="syl-new-group" list="syllabus-groups-dl" placeholder="e.g. Basic Skills"></div>
+      <button class="btn btn-navy btn-sm" onclick="syllabusAdd()">Add topic</button>`;
+    renderSyllabusList();
   } else if(which==="diary"){
     const view=localStorage.getItem("dmw_diary_view")||"week";
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
@@ -1822,6 +1848,115 @@ async function saveWorkingHours(){
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   alert("Saved — this now applies to the app's pupil availability screen, the website enquiry form, and your diary view here.");
 }
+
+// Progress syllabus editor — flat, drag-sortable list of {id,name,group}
+// stored as a single jsonb array on app_settings id='syllabus'. Every
+// mutation (add/rename/regroup/delete/reorder) saves immediately, same
+// convention as the Website Photos editor's drag-and-drop reordering.
+function renderSyllabusList(){
+  const list=document.getElementById("syllabus-list");
+  const dl=document.getElementById("syllabus-groups-dl");
+  if(!list) return;
+  const groupsOrder=[];
+  syllabusItems.forEach(t=>{ if(!groupsOrder.includes(t.group)) groupsOrder.push(t.group); });
+  let html=""; let lastGroup=null;
+  syllabusItems.forEach((t,idx)=>{
+    if(t.group!==lastGroup){
+      html+=`<div class="muted" style="font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;margin:${idx===0?"0":"1rem"} 0 .35rem">${esc(t.group)}</div>`;
+      lastGroup=t.group;
+    }
+    html+=`<div class="syllabus-row" draggable="true" data-id="${t.id}" style="display:flex;align-items:center;gap:.5rem;background:#fff;border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;margin-bottom:.4rem;cursor:grab">
+      <span style="color:#94a3b8;font-size:1rem;line-height:1" title="Drag to reorder">⠿</span>
+      <input value="${esc(t.name)}" onchange="syllabusFieldChanged('${t.id}','name',this.value)" style="flex:1;min-width:0;border:1px solid var(--line);border-radius:6px;padding:.35rem .5rem;font-size:.85rem">
+      <input value="${esc(t.group)}" list="syllabus-groups-dl" onchange="syllabusFieldChanged('${t.id}','group',this.value)" style="width:9.5rem;border:1px solid var(--line);border-radius:6px;padding:.35rem .5rem;font-size:.85rem">
+      <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move up" onclick="syllabusMove('${t.id}',-1)" ${idx===0?"disabled":""}>↑</button>
+      <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move down" onclick="syllabusMove('${t.id}',1)" ${idx===syllabusItems.length-1?"disabled":""}>↓</button>
+      <button type="button" class="btn-danger" style="padding:2px 8px;font-size:.75rem" onclick="syllabusRemove('${t.id}')">Del</button>
+    </div>`;
+  });
+  list.innerHTML=html||'<p class="muted">No topics yet.</p>';
+  if(dl) dl.innerHTML=groupsOrder.map(g=>`<option value="${esc(g)}">`).join("");
+  syllabusBindDrag();
+}
+async function syllabusPersist(){
+  const ok=await saveSyllabus();
+  if(ok) renderSyllabusList();
+}
+async function syllabusFieldChanged(id,field,value){
+  const item=syllabusItems.find(i=>i.id===id);
+  if(!item) return;
+  const v=value.trim();
+  if(!v){ renderSyllabusList(); return; }
+  item[field]=v;
+  await syllabusPersist();
+}
+async function syllabusMove(id,dir){
+  const idx=syllabusItems.findIndex(i=>i.id===id);
+  if(idx<0) return;
+  const swap=idx+dir;
+  if(swap<0||swap>=syllabusItems.length) return;
+  const next=syllabusItems.slice();
+  const tmp=next[idx]; next[idx]=next[swap]; next[swap]=tmp;
+  syllabusItems=next;
+  await syllabusPersist();
+}
+async function syllabusRemove(id){
+  const item=syllabusItems.find(i=>i.id===id);
+  if(!item) return;
+  if(!confirm(`Remove "${item.name}" from the syllabus? Any progress already recorded against it is kept but will no longer be shown.`)) return;
+  syllabusItems=syllabusItems.filter(i=>i.id!==id);
+  await syllabusPersist();
+}
+async function syllabusAdd(){
+  const name=val("syl-new-name");
+  const group=val("syl-new-group")||"Other";
+  if(!name){ alert("Enter a topic name"); return; }
+  const id=name.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"")||("topic_"+Date.now());
+  if(syllabusItems.some(i=>i.id===id)){ alert("A topic with a similar name already exists."); return; }
+  syllabusItems=[...syllabusItems,{id,name,group}];
+  document.getElementById("syl-new-name").value="";
+  document.getElementById("syl-new-group").value="";
+  await syllabusPersist();
+}
+let syllabusDragId=null;
+function syllabusBindDrag(){
+  const list=document.getElementById("syllabus-list");
+  if(!list) return;
+  list.querySelectorAll(".syllabus-row").forEach(row=>{
+    row.addEventListener("dragstart",(e)=>{
+      syllabusDragId=row.getAttribute("data-id");
+      row.style.opacity="0.5";
+      try{ e.dataTransfer.setData("text/plain",syllabusDragId); e.dataTransfer.effectAllowed="move"; }catch(_){}
+    });
+    row.addEventListener("dragend",()=>{
+      row.style.opacity="1";
+      syllabusDragId=null;
+      list.querySelectorAll(".syllabus-row").forEach(r=>r.style.outline="");
+    });
+    row.addEventListener("dragover",(e)=>{
+      e.preventDefault();
+      try{ e.dataTransfer.dropEffect="move"; }catch(_){}
+      row.style.outline="2px dashed #0A4CA1";
+    });
+    row.addEventListener("dragleave",()=>{ row.style.outline=""; });
+    row.addEventListener("drop", async (e)=>{
+      e.preventDefault();
+      row.style.outline="";
+      const fromId=syllabusDragId||(e.dataTransfer && e.dataTransfer.getData("text/plain"));
+      const toId=row.getAttribute("data-id");
+      if(!fromId||!toId||fromId===toId) return;
+      const fromIdx=syllabusItems.findIndex(i=>i.id===fromId);
+      const toIdx=syllabusItems.findIndex(i=>i.id===toId);
+      if(fromIdx<0||toIdx<0) return;
+      const next=syllabusItems.slice();
+      const [moved]=next.splice(fromIdx,1);
+      next.splice(toIdx,0,moved);
+      syllabusItems=next;
+      await syllabusPersist();
+    });
+  });
+}
+
 function saveReflect(){
   const o={}; document.querySelectorAll("#settings-panel [data-rk]").forEach(el=>{o[el.dataset.rk]=el.value});
   localStorage.setItem("dmw_reflect_labels", JSON.stringify(o)); alert("Saved");

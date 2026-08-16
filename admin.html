@@ -494,9 +494,17 @@ async function loadPupils(){
   pupilsCache=data||[]; showBanner("");
 }
 async function loadPayments(){
-  let {data,error}=await sb.from("transactions").select("*, pupil:pupils(first_name,last_name)").order("transaction_date",{ascending:false}).limit(500);
-  if(error){const r2=await sb.from("transactions").select("*").limit(500); data=r2.data; error=r2.error}
-  if(error){txCache=[]; return} txCache=data||[];
+  const pageSize=1000;
+  let all=[],from=0;
+  while(true){
+    let {data,error}=await sb.from("transactions").select("*, pupil:pupils(first_name,last_name)").order("transaction_date",{ascending:false}).range(from,from+pageSize-1);
+    if(error){const r2=await sb.from("transactions").select("*").order("transaction_date",{ascending:false}).range(from,from+pageSize-1); data=r2.data; error=r2.error}
+    if(error){ if(from===0){txCache=[]; return} break }
+    all=all.concat(data||[]);
+    if(!data||data.length<pageSize) break;
+    from+=pageSize;
+  }
+  txCache=all;
 }
 async function loadTests(){
   let {data,error}=await sb.from("practical_tests").select("*, pupil:pupils(first_name,last_name)").order("test_date",{ascending:false});

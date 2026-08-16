@@ -150,19 +150,13 @@
       <label>Email</label>
       <input id="signup-email" type="email" autocomplete="email" readonly>
 
-      <label>Choose a password *</label>
-      <input id="signup-password" type="password" minlength="6" autocomplete="new-password" placeholder="At least 6 characters">
-      <p class="hint">Use the same email as your enquiry. You’ll sign in with this password on the app.</p>
-
-      <label>Confirm password *</label>
-      <input id="signup-password2" type="password" minlength="6" autocomplete="new-password" placeholder="Repeat password">
-
       <div class="err" id="signup-err"></div>
       <div class="success-note" id="signup-ok" style="display:none"></div>
 
-      <button type="button" class="btn btn-primary" id="signup-btn" onclick="createAppLogin()" style="width:100%; margin-bottom:10px;">
-        Create app login
+      <button type="button" class="btn btn-primary" id="signup-btn" onclick="sendLoginLink()" style="width:100%; margin-bottom:4px;">
+        Send me a password link
       </button>
+      <p class="hint" style="text-align:center; margin-top:0;">We’ll email you a secure link to set up your app password — no need to think one up now.</p>
 
       <a class="install-link" id="app-link" href="https://app.dmwdrivingschool.co.uk" target="_blank" rel="noopener">
         📱 Open / install the DMW app
@@ -179,10 +173,15 @@
 
   <footer>© DMW Driving School · Gloucester · Grade A instructor</footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script>
     const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
     const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
     const APP_URL = "https://app.dmwdrivingschool.co.uk";
+    // Used only for the two auth calls below (signUp / resetPasswordForEmail)
+    // so the redirect link and request shape are guaranteed correct — the
+    // rest of this page still talks to Supabase via plain fetch(), unchanged.
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const ALL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
     let DAYS = ALL_DAYS.slice();
     const availability = {};
@@ -516,28 +515,23 @@
       }
     }
 
-    async function createAppLogin() {
+    // One button instead of the old "type a password, confirm it, then
+    // press a second Create button" flow — that second step was easy to
+    // fill in and never actually submit, leaving an enquiry with no
+    // working login at all. This creates the account with a random
+    // password nobody types or needs to remember, then immediately emails
+    // a secure link so the pupil sets their own password from there —
+    // whether the account is brand new or (if they've somehow already got
+    // one) already existed, the end result is the same single email.
+    async function sendLoginLink() {
       const errEl = document.getElementById("signup-err");
       const okEl = document.getElementById("signup-ok");
       errEl.style.display = "none";
       okEl.style.display = "none";
 
       const email = (document.getElementById("signup-email").value || enquiryEmail || "").trim();
-      const password = document.getElementById("signup-password").value;
-      const password2 = document.getElementById("signup-password2").value;
-
       if (!email) {
         errEl.textContent = "Email is required.";
-        errEl.style.display = "block";
-        return;
-      }
-      if (!password || password.length < 6) {
-        errEl.textContent = "Password must be at least 6 characters.";
-        errEl.style.display = "block";
-        return;
-      }
-      if (password !== password2) {
-        errEl.textContent = "Passwords do not match.";
         errEl.style.display = "block";
         return;
       }
@@ -546,38 +540,24 @@
       btn.disabled = true;
 
       try {
-        const authRes = await fetch(SUPABASE_URL + "/auth/v1/signup", {
-          method: "POST",
-          headers: {
-            apikey: SUPABASE_KEY,
-            Authorization: "Bearer " + SUPABASE_KEY,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            email,
-            password,
+        const randomPassword = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) +
+                                (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
+
+        const { data: signUpData, error: signUpError } = await sb.auth.signUp({
+          email,
+          password: randomPassword,
+          options: {
             data: {
               full_name: (enquiryFirstName || "") + " " + (enquiryLastName || ""),
               role: "pupil"
             }
-          })
-        });
-        const authData = await authRes.json().catch(() => ({}));
-
-        if (!authRes.ok) {
-          const msg = authData.msg || authData.error_description || authData.message || "Could not create login";
-          if (/already|registered|exists/i.test(msg)) {
-            errEl.textContent = "This email already has a login. Open the app and sign in, or use Forgot password if needed.";
-          } else {
-            errEl.textContent = msg;
           }
-          errEl.style.display = "block";
-          btn.disabled = false;
-          return;
-        }
+        });
 
-        const userId = authData.user && authData.user.id;
-        if (userId) {
+        let accountReady = !signUpError && signUpData && signUpData.user && signUpData.user.id;
+
+        if (accountReady) {
+          const userId = signUpData.user.id;
           await fetch(SUPABASE_URL + "/rest/v1/profiles", {
             method: "POST",
             headers: {
@@ -606,16 +586,36 @@
               body: JSON.stringify({ profile_id: userId, email })
             }).catch(() => {});
           }
+        } else if (signUpError) {
+          const msg = signUpError.message || "";
+          if (/already|registered|exists/i.test(msg)) {
+            // An account already exists for this email — that's fine, all
+            // they need is the link below, same as "forgot password".
+            accountReady = true;
+          } else {
+            errEl.textContent = "Could not set up your login right now (" + msg + "). You can still open the app — your instructor can set this up for you.";
+            errEl.style.display = "block";
+            btn.disabled = false;
+            return;
+          }
         }
 
-        okEl.innerHTML = "Login created. Open the app below and sign in with <strong>" + escapeHtml(email) + "</strong> and the password you chose.";
+        // Never sends the random password above — the pupil sets their own
+        // via this link. accountReady guards against emailing a "reset"
+        // link for an email with no account at all, which Supabase would
+        // otherwise accept silently (by design) without actually sending
+        // anything — exactly the trap the instructor-side reset button
+        // used to fall into.
+        if (accountReady) {
+          await sb.auth.resetPasswordForEmail(email, { redirectTo: APP_URL + "/change-password" });
+        }
+
+        okEl.innerHTML = "Check your email at <strong>" + escapeHtml(email) + "</strong> — we've sent you a secure link to set up your password.";
         okEl.style.display = "block";
-        btn.textContent = "Login created ✓";
-        document.getElementById("signup-password").disabled = true;
-        document.getElementById("signup-password2").disabled = true;
+        btn.textContent = "Link sent ✓";
       } catch (e) {
         console.error(e);
-        errEl.textContent = "Could not create login right now. You can still open the app — your instructor can send a password later.";
+        errEl.textContent = "Could not send the login link right now. You can still open the app — your instructor can set this up for you.";
         errEl.style.display = "block";
         btn.disabled = false;
       }

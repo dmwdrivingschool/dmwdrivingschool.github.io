@@ -527,7 +527,7 @@ async function refresh(){
 }
 
 async function loadPupils(){
-  const {data,error}=await sb.from("pupils").select("*").order("last_name",{ascending:true});
+  const {data,error}=await sb.from("pupils").select("*").order("first_name",{ascending:true});
   if(error){showBanner("Pupils: "+error.message); pupilsCache=[]; return}
   pupilsCache=data||[]; showBanner("");
 }

@@ -152,6 +152,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
     <button data-tab="finance">Finances</button>
     <button data-tab="gaps">Gaps</button>
     <button data-tab="portal">Portal</button>
+    <button data-tab="teams" id="nav-teams-btn" class="hidden">Teams</button>
     <button data-tab="website">Website</button>
     <button class="nav-right" data-tab="settings">Settings</button>
   </nav>
@@ -401,11 +402,33 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
       </div>
     </section>
 
+    <section id="tab-teams" class="hidden">
+      <div class="panel">
+        <h2>Driving schools</h2>
+        <p class="muted" style="margin-bottom:.75rem">Only you (super admin) can create new driving schools or instructor logins.</p>
+        <div id="schools-list">Loading…</div>
+        <div class="field" style="margin-top:1rem"><label>Driving school name</label><input id="new-school-name" placeholder="e.g. Acme Driving School"></div>
+        <div class="field"><label>Admin full name</label><input id="new-school-admin-name"></div>
+        <div class="field"><label>Admin email</label><input id="new-school-admin-email" type="email" placeholder="Sends them an invite, like a solo instructor"></div>
+        <button class="btn btn-navy btn-sm" onclick="addSchool()">Add driving school</button>
+
+        <h3 style="margin:1.5rem 0 .75rem">Instructors</h3>
+        <div id="instructors-list">Loading…</div>
+        <div class="field" style="margin-top:1rem"><label>Full name</label><input id="new-instr-name"></div>
+        <div class="field"><label>Email</label><input id="new-instr-email" type="email"></div>
+        <div class="field"><label>Phone (optional)</label><input id="new-instr-phone"></div>
+        <div class="field"><label>Driving school</label>
+          <select id="new-instr-school"><option value="">— Solo instructor (no school) —</option></select>
+        </div>
+        <button class="btn btn-navy btn-sm" onclick="addInstructorGlobal()">Send invite</button>
+        <div class="err" id="teams-err" style="margin-top:.5rem"></div>
+      </div>
+    </section>
+
     <section id="tab-settings" class="hidden">
       <div class="panel">
         <h2>Settings</h2>
         <div class="settings-list" id="settings-menu">
-          <button type="button" id="settings-teams-btn" class="hidden" onclick="openSettings('teams')">Instructors &amp; driving schools</button>
           <button type="button" onclick="openSettings('reminders')">Reminders</button>
           <button type="button" onclick="openSettings('workinghours')">Working hours</button>
           <button type="button" onclick="openSettings('syllabus')">Progress syllabus</button>
@@ -521,6 +544,7 @@ function goTab(tab, pupilFilter){
   if(tab==="tests") showTests("future");
   if(tab==="settings"){document.getElementById("settings-menu").classList.remove("hidden");document.getElementById("settings-panel").classList.add("hidden")}
   if(tab==="portal"){ loadActivity(); loadLearningVideos(); }
+  if(tab==="teams"){ loadTeamsPanel(); }
   if(tab==="website"){ websiteShow(websiteMode || "carousel"); }
 }
 
@@ -563,7 +587,7 @@ async function enterApp(user,prof){
   await resolveVideoAccess(prof);
   document.querySelector('#main-nav button[data-tab="portal"]').classList.toggle("hidden", !canSeeVideosTab);
   document.getElementById("manage-videos-panel").classList.toggle("hidden", !isSuperAdminUser);
-  document.getElementById("settings-teams-btn").classList.toggle("hidden", !isSuperAdminUser);
+  document.getElementById("nav-teams-btn").classList.toggle("hidden", !isSuperAdminUser);
   await refresh(); setInterval(refresh,30000);
 }
 async function lock(){await sb.auth.signOut(); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
@@ -1798,28 +1822,7 @@ async function openSettings(which){
   document.getElementById("settings-menu").classList.add("hidden");
   const panel=document.getElementById("settings-panel");
   panel.classList.remove("hidden");
-  if(which==="teams"){
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
-      <h3 style="margin:1rem 0 .75rem">Driving schools</h3>
-      <p class="muted" style="margin-bottom:.75rem">Only you (super admin) can create new driving schools or instructor logins.</p>
-      <div id="schools-list">Loading…</div>
-      <div class="field" style="margin-top:1rem"><label>Driving school name</label><input id="new-school-name" placeholder="e.g. Acme Driving School"></div>
-      <div class="field"><label>Admin full name</label><input id="new-school-admin-name"></div>
-      <div class="field"><label>Admin email</label><input id="new-school-admin-email" type="email" placeholder="Sends them an invite, like a solo instructor"></div>
-      <button class="btn btn-navy btn-sm" onclick="addSchool()">Add driving school</button>
-
-      <h3 style="margin:1.5rem 0 .75rem">Instructors</h3>
-      <div id="instructors-list">Loading…</div>
-      <div class="field" style="margin-top:1rem"><label>Full name</label><input id="new-instr-name"></div>
-      <div class="field"><label>Email</label><input id="new-instr-email" type="email"></div>
-      <div class="field"><label>Phone (optional)</label><input id="new-instr-phone"></div>
-      <div class="field"><label>Driving school</label>
-        <select id="new-instr-school"><option value="">— Solo instructor (no school) —</option></select>
-      </div>
-      <button class="btn btn-navy btn-sm" onclick="addInstructorGlobal()">Send invite</button>
-      <div class="err" id="teams-err" style="margin-top:.5rem"></div>`;
-    loadTeamsPanel();
-  } else if(which==="reminders"){
+  if(which==="reminders"){
     const raw=JSON.parse(localStorage.getItem("dmw_admin_reminders")||'{"enabled":false,"hours":48,"message":"Looking forward to seeing you."}');
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Lesson reminders</h3>

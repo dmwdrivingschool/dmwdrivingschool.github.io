@@ -294,6 +294,36 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
     </section>
 
     <section id="tab-portal" class="hidden">
+      <div class="panel" style="margin-bottom:1rem" id="manage-videos-panel">
+        <h2>Manage learning videos</h2>
+        <p class="muted" style="margin-bottom:1rem">
+          Videos are hosted here in Supabase Storage and play in the pupil app — no GitHub upload needed.
+          Only visible to a pupil once their driving school (or standalone instructor) has video access switched
+          on in the app's Settings.
+        </p>
+        <div id="manage-videos-controls" style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end;margin-bottom:1rem">
+          <div class="field" style="min-width:200px;margin-bottom:0"><label>Title</label><input id="video-title" placeholder="e.g. Emergency Stop"></div>
+          <div class="field" style="min-width:220px;margin-bottom:0"><label>Module</label>
+            <select id="video-module">
+              <option value="1">📋 Module 1: Preparing &amp; Junctions</option>
+              <option value="2">🚗 Module 2: Everyday Driving</option>
+              <option value="3">🛣️ Module 3: Crossroads</option>
+              <option value="4">⭕ Module 4: Roundabouts</option>
+              <option value="5">🅿️ Module 5: Manoeuvres &amp; Exercises</option>
+            </select>
+          </div>
+          <label class="btn btn-navy btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
+            📤 Upload video
+            <input type="file" id="video-file" accept="video/mp4,video/quicktime,video/webm" hidden onchange="learningVideoUpload(event)">
+          </label>
+          <button type="button" class="btn-outline" onclick="loadLearningVideos()">↻ Refresh</button>
+          <span class="muted" id="video-status">Loading…</span>
+        </div>
+        <table>
+          <thead><tr><th>Title</th><th>Module</th><th></th></tr></thead>
+          <tbody id="video-list">Loading…</tbody>
+        </table>
+      </div>
       <div class="panel" style="margin-bottom:1rem">
         <h2>Video watch progress</h2>
         <p class="muted" style="margin-bottom:.75rem">
@@ -394,9 +424,17 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
 <footer>DMW Driving School · Secure Control Centre</footer>
 
 <script>
-const SUPABASE_URL="https://cxcqmyxbpjueezapknim.supabase.co";
-const SUPABASE_ANON="sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
+// ⚠ TEST BRANCH ONLY — pointed at the sandbox project to prove out video
+// management + multi-tenant role gating before touching live. Swap back to
+// the live URL/key below before this ever gets deployed for real:
+//   SUPABASE_URL="https://cxcqmyxbpjueezapknim.supabase.co"
+//   SUPABASE_ANON="sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B"
+const SUPABASE_URL="https://cagtizurdqwjfncwgjei.supabase.co";
+const SUPABASE_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhZ3RpenVyZHF3amZuY3dnamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMDQxODQsImV4cCI6MjEwMjU4MDE4NH0.L9E6V-geLaId4jvk3jY8TiVeadar8GaEC2RBkaG824Y";
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+
+// Role/video-access gating state — resolved once at login (see enterApp()).
+let isSuperAdminUser=false, canSeeVideosTab=false, currentSchoolId=null;
 
 const INCOME_CATS=["Pupil Lesson","Pupil Test Fee","Bank Interest","Other"];
 // "Lesson Refund" added 15 Aug 2026 to match Total Drive's category list —
@@ -483,7 +521,7 @@ function goTab(tab, pupilFilter){
   if(tab==="finance"){fillCats(); applyFinance()}
   if(tab==="tests") showTests("future");
   if(tab==="settings"){document.getElementById("settings-menu").classList.remove("hidden");document.getElementById("settings-panel").classList.add("hidden")}
-  if(tab==="portal"){ loadActivity(); }
+  if(tab==="portal"){ loadActivity(); loadLearningVideos(); }
   if(tab==="website"){ websiteShow(websiteMode || "carousel"); }
 }
 
@@ -494,23 +532,45 @@ async function unlock(){
   if(!email||!password){err.textContent="Enter email and password";err.style.display="block";return}
   const {data,error}=await sb.auth.signInWithPassword({email,password});
   if(error){err.textContent=error.message;err.style.display="block";return}
-  const {data:prof}=await sb.from("profiles").select("role,full_name,email").eq("id",data.user.id).maybeSingle();
-  if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="admin"){
+  // ⚠ Fixed a real bug found while testing: this previously only accepted
+  // role "instructor" or "admin" — but "admin" was never an actual role
+  // value in this schema, and "super_admin" (what the multi-tenant rollout
+  // promotes the existing instructor account to) wasn't accepted either.
+  // Before this fix, the control centre would have locked Dale out of his
+  // own login the moment migration 01 ran on live.
+  const {data:prof}=await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.user.id).maybeSingle();
+  if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin"){
     await sb.auth.signOut(); err.textContent="Not an instructor account"; err.style.display="block"; return;
   }
   enterApp(data.user,prof);
+}
+async function resolveVideoAccess(prof){
+  isSuperAdminUser = prof?.role === "super_admin";
+  currentSchoolId = prof?.school_id || null;
+  if (isSuperAdminUser) { canSeeVideosTab = true; return; }
+  canSeeVideosTab = false;
+  try {
+    const ownerType = currentSchoolId ? "school" : "instructor";
+    const ownerId = currentSchoolId || (await sb.auth.getUser()).data.user?.id;
+    if (!ownerId) return;
+    const { data } = await sb.from("premium_features").select("videos_enabled").eq("owner_type", ownerType).eq("owner_id", ownerId).maybeSingle();
+    canSeeVideosTab = !!(data && data.videos_enabled);
+  } catch (e) {}
 }
 async function enterApp(user,prof){
   document.getElementById("gate").style.display="none";
   document.getElementById("app").style.display="block";
   document.getElementById("who").textContent=prof?.full_name||user.email||"";
+  await resolveVideoAccess(prof);
+  document.querySelector('#main-nav button[data-tab="portal"]').classList.toggle("hidden", !canSeeVideosTab);
+  document.getElementById("manage-videos-panel").classList.toggle("hidden", !isSuperAdminUser);
   await refresh(); setInterval(refresh,30000);
 }
 async function lock(){await sb.auth.signOut(); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
 sb.auth.getSession().then(({data})=>{
   if(data.session){
-    sb.from("profiles").select("role,full_name,email").eq("id",data.session.user.id).maybeSingle().then(({data:prof})=>{
-      if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="admin")return;
+    sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.session.user.id).maybeSingle().then(({data:prof})=>{
+      if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin")return;
       enterApp(data.session.user,prof);
     });
   }
@@ -1976,6 +2036,96 @@ async function delRes(id){if(!confirm("Delete?"))return; await sb.from("resource
 
 function openModal(html){document.getElementById("modal-box").innerHTML=html; document.getElementById("modal").classList.remove("hidden")}
 function closeModal(){document.getElementById("modal").classList.add("hidden")}
+
+/* ---- Learning videos editor (Supabase Storage + learning_videos table) ----
+   super_admin only, same overall shape as the website photos editor below,
+   but the bucket is PRIVATE (pupils only ever reach a file through
+   pupil_videos_enabled()-gated RLS + a signed URL from the app, never a
+   public URL from here) and rows carry a title + module instead of just an
+   image. */
+let learningVideos = [];
+
+async function loadLearningVideos(){
+  const status = document.getElementById("video-status");
+  const list = document.getElementById("video-list");
+  if (!status || !list) return;
+  status.textContent = "Loading…";
+  try {
+    const { data, error } = await sb.from("learning_videos").select("id,title,description,storage_path,sort_order").order("sort_order",{ascending:true});
+    if (error) throw error;
+    learningVideos = data || [];
+    status.textContent = learningVideos.length + " video" + (learningVideos.length===1?"":"s");
+    renderLearningVideos();
+  } catch (e) {
+    status.textContent = "Error: " + (e.message||e);
+    list.innerHTML = '<tr><td colspan="3" class="muted">Could not load videos. Check the learning_videos table and RLS policies.</td></tr>';
+  }
+}
+
+const MODULE_LABELS = {1:"📋 Module 1", 2:"🚗 Module 2", 3:"🛣️ Module 3", 4:"⭕ Module 4", 5:"🅿️ Module 5"};
+
+function renderLearningVideos(){
+  const list = document.getElementById("video-list");
+  if (!list) return;
+  if (!learningVideos.length) {
+    list.innerHTML = '<tr><td colspan="3" class="muted">No videos yet. Use "Upload video" above.</td></tr>';
+    return;
+  }
+  list.innerHTML = learningVideos.map(v => {
+    const moduleNum = (v.storage_path.match(/^module-(\d)\//) || [])[1];
+    const moduleLabel = MODULE_LABELS[moduleNum] || "—";
+    return `<tr>
+      <td>${esc(v.title)}</td>
+      <td>${moduleLabel}</td>
+      <td><button type="button" class="btn-danger" onclick="deleteLearningVideo('${v.id}')">Del</button></td>
+    </tr>`;
+  }).join("");
+}
+
+async function learningVideoUpload(ev){
+  const file = (ev.target.files || [])[0];
+  ev.target.value = "";
+  if (!file) return;
+  const title = document.getElementById("video-title").value.trim();
+  const moduleNum = document.getElementById("video-module").value;
+  if (!title) { alert("Enter a title first"); return; }
+  const status = document.getElementById("video-status");
+  status.textContent = "Uploading " + file.name + "…";
+
+  try {
+    const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g,"");
+    const path = "module-" + moduleNum + "/" + Date.now() + "-" + Math.random().toString(36).slice(2,8) + "." + ext;
+
+    const { error: upErr } = await sb.storage.from("learning-videos").upload(path, file, { cacheControl:"3600", upsert:false, contentType: file.type || "video/mp4" });
+    if (upErr) throw upErr;
+
+    const nextOrder = learningVideos.length ? Math.max(...learningVideos.map(v=>v.sort_order||0)) + 1 : Number(moduleNum) * 10;
+    const { error: insErr } = await sb.from("learning_videos").insert({
+      title, description: "Module " + moduleNum, storage_path: path, sort_order: nextOrder
+    });
+    if (insErr) throw insErr;
+
+    document.getElementById("video-title").value = "";
+    await loadLearningVideos();
+  } catch (e) {
+    alert("Upload failed: " + (e.message || e));
+    status.textContent = "Upload failed";
+  }
+}
+
+async function deleteLearningVideo(id){
+  const item = learningVideos.find(v => v.id === id);
+  if (!item) return;
+  if (!confirm('Delete "' + item.title + '"? This removes it from every pupil\'s app immediately.')) return;
+  try {
+    if (item.storage_path) await sb.storage.from("learning-videos").remove([item.storage_path]);
+    const { error } = await sb.from("learning_videos").delete().eq("id", id);
+    if (error) throw error;
+    await loadLearningVideos();
+  } catch (e) {
+    alert("Delete failed: " + (e.message || e));
+  }
+}
 
 /* ---- Website photos editor (Supabase Storage + website_photos table) ---- */
 let websiteMode = "carousel";

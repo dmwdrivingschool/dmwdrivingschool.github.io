@@ -424,13 +424,8 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
 <footer>DMW Driving School · Secure Control Centre</footer>
 
 <script>
-// ⚠ TEST BRANCH ONLY — pointed at the sandbox project to prove out video
-// management + multi-tenant role gating before touching live. Swap back to
-// the live URL/key below before this ever gets deployed for real:
-//   SUPABASE_URL="https://cxcqmyxbpjueezapknim.supabase.co"
-//   SUPABASE_ANON="sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B"
-const SUPABASE_URL="https://cagtizurdqwjfncwgjei.supabase.co";
-const SUPABASE_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhZ3RpenVyZHF3amZuY3dnamVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcwMDQxODQsImV4cCI6MjEwMjU4MDE4NH0.L9E6V-geLaId4jvk3jY8TiVeadar8GaEC2RBkaG824Y";
+const SUPABASE_URL="https://cxcqmyxbpjueezapknim.supabase.co";
+const SUPABASE_ANON="sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
 
 // Role/video-access gating state — resolved once at login (see enterApp()).

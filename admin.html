@@ -1803,7 +1803,9 @@ async function openSettings(which){
       <h3 style="margin:1rem 0 .75rem">Driving schools</h3>
       <p class="muted" style="margin-bottom:.75rem">Only you (super admin) can create new driving schools or instructor logins.</p>
       <div id="schools-list">Loading…</div>
-      <div class="field" style="margin-top:1rem"><label>New driving school name</label><input id="new-school-name" placeholder="e.g. Acme Driving School"></div>
+      <div class="field" style="margin-top:1rem"><label>Driving school name</label><input id="new-school-name" placeholder="e.g. Acme Driving School"></div>
+      <div class="field"><label>Admin full name</label><input id="new-school-admin-name"></div>
+      <div class="field"><label>Admin email</label><input id="new-school-admin-email" type="email" placeholder="Sends them an invite, like a solo instructor"></div>
       <button class="btn btn-navy btn-sm" onclick="addSchool()">Add driving school</button>
 
       <h3 style="margin:1.5rem 0 .75rem">Instructors</h3>
@@ -1977,7 +1979,16 @@ async function loadTeamsPanel(){
     const toggleBtn = school
       ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="toggleSchoolAdmin('${i.id}',${!i.is_school_admin})">${i.is_school_admin?"Remove admin":"Make admin"}</button>`
       : "";
-    return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}<div class="muted">${esc(i.email||"")} · ${schoolLabel}</div></div>${toggleBtn}</div>`;
+    const soloBtn = school
+      ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="makeInstructorSolo('${i.id}','${esc(i.full_name||i.email).replace(/'/g,"&#39;")}')">Make solo</button>`
+      : "";
+    return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}<div class="muted">${esc(i.email||"")} · ${schoolLabel}</div></div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        ${toggleBtn}
+        ${soloBtn}
+        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editInstructor('${i.id}')">Edit</button>
+        <button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteInstructor('${i.id}','${esc(i.full_name||i.email).replace(/'/g,"&#39;")}')">Delete</button>
+      </div></div>`;
   }).join("") : '<p class="muted">No instructors yet.</p>';
 
   const select=document.getElementById("new-instr-school");
@@ -1987,14 +1998,64 @@ async function loadTeamsPanel(){
 
 async function addSchool(){
   const nameInput=document.getElementById("new-school-name");
+  const adminNameInput=document.getElementById("new-school-admin-name");
+  const adminEmailInput=document.getElementById("new-school-admin-email");
   const name=nameInput.value.trim();
+  const adminName=adminNameInput.value.trim();
+  const adminEmail=adminEmailInput.value.trim().toLowerCase();
   const err=document.getElementById("teams-err");
+  err.style.color="";
   err.textContent="";
   if(!name){ err.textContent="Enter a driving school name"; return; }
-  const {error}=await sb.from("schools").insert({name:name.toLowerCase().replace(/\s+/g,"-"), display_name:name});
+  if(!adminName||!adminEmail){ err.textContent="Enter the school admin's name and email"; return; }
+
+  const {data:school,error}=await sb.from("schools").insert({name:name.toLowerCase().replace(/\s+/g,"-"), display_name:name}).select("id").single();
   if(error){ err.textContent=error.message; return; }
-  nameInput.value="";
+
+  try{
+    const res=await manageAuthAdmin("create_instructor", {full_name:adminName, email:adminEmail, school_id:school.id});
+    const {error:adminError}=await sb.from("profiles").update({is_school_admin:true}).eq("id",res.user_id);
+    if(adminError) throw adminError;
+    nameInput.value=""; adminNameInput.value=""; adminEmailInput.value="";
+    err.style.color="#0a7a3d";
+    err.textContent="Driving school created — invite sent to "+adminEmail+" as school admin.";
+  }catch(e){
+    err.textContent="School created, but the admin invite failed: "+(e.message||"unknown error")+". Use the instructor form below to invite them and assign to this school instead.";
+  }
   await loadTeamsPanel();
+}
+
+async function editInstructor(instructorId){
+  const {data:instr,error:loadError}=await sb.from("profiles").select("id,full_name,phone,school_id").eq("id",instructorId).single();
+  const err=document.getElementById("teams-err");
+  err.style.color="";
+  err.textContent="";
+  if(loadError){ err.textContent=loadError.message; return; }
+
+  const newName=prompt("Full name:", instr.full_name||"");
+  if(newName===null) return;
+  const newPhone=prompt("Phone (leave blank for none):", instr.phone||"");
+  if(newPhone===null) return;
+
+  const {error}=await sb.from("profiles").update({
+    full_name: newName.trim(),
+    phone: newPhone.trim()||null
+  }).eq("id",instructorId);
+  if(error){ err.textContent=error.message; return; }
+  await loadTeamsPanel();
+}
+
+async function deleteInstructor(instructorId, name){
+  if(!confirm(`Delete ${name}'s instructor account? This only works if they have no pupils still assigned to them. Their login is permanently removed.`)) return;
+  const err=document.getElementById("teams-err");
+  err.style.color="";
+  err.textContent="";
+  try{
+    await manageAuthAdmin("delete_instructor", {instructor_id:instructorId});
+    await loadTeamsPanel();
+  }catch(e){
+    err.textContent=e.message||"Failed to delete instructor";
+  }
 }
 
 async function editSchool(schoolId, currentName){
@@ -2049,6 +2110,16 @@ async function toggleSchoolAdmin(instructorId, makeAdmin){
   const err=document.getElementById("teams-err");
   err.textContent="";
   const {error}=await sb.from("profiles").update({is_school_admin:makeAdmin}).eq("id",instructorId);
+  if(error){ err.textContent=error.message; return; }
+  await loadTeamsPanel();
+}
+
+async function makeInstructorSolo(instructorId, name){
+  if(!confirm(`Remove ${name} from their driving school and make them a standalone solo instructor? Their pupils, lessons and transactions stay with them — only the school link is removed.`)) return;
+  const err=document.getElementById("teams-err");
+  err.style.color="";
+  err.textContent="";
+  const {error}=await sb.from("profiles").update({school_id:null, is_school_admin:false}).eq("id",instructorId);
   if(error){ err.textContent=error.message; return; }
   await loadTeamsPanel();
 }

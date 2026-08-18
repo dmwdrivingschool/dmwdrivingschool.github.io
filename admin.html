@@ -402,6 +402,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
       <div class="panel">
         <h2>Settings</h2>
         <div class="settings-list" id="settings-menu">
+          <button type="button" id="settings-teams-btn" class="hidden" onclick="openSettings('teams')">Instructors &amp; driving schools</button>
           <button type="button" onclick="openSettings('reminders')">Reminders</button>
           <button type="button" onclick="openSettings('workinghours')">Working hours</button>
           <button type="button" onclick="openSettings('syllabus')">Progress syllabus</button>
@@ -559,6 +560,7 @@ async function enterApp(user,prof){
   await resolveVideoAccess(prof);
   document.querySelector('#main-nav button[data-tab="portal"]').classList.toggle("hidden", !canSeeVideosTab);
   document.getElementById("manage-videos-panel").classList.toggle("hidden", !isSuperAdminUser);
+  document.getElementById("settings-teams-btn").classList.toggle("hidden", !isSuperAdminUser);
   await refresh(); setInterval(refresh,30000);
 }
 async function lock(){await sb.auth.signOut(); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
@@ -1793,7 +1795,26 @@ async function openSettings(which){
   document.getElementById("settings-menu").classList.add("hidden");
   const panel=document.getElementById("settings-panel");
   panel.classList.remove("hidden");
-  if(which==="reminders"){
+  if(which==="teams"){
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Driving schools</h3>
+      <p class="muted" style="margin-bottom:.75rem">Only you (super admin) can create new driving schools or instructor logins.</p>
+      <div id="schools-list">Loading…</div>
+      <div class="field" style="margin-top:1rem"><label>New driving school name</label><input id="new-school-name" placeholder="e.g. Acme Driving School"></div>
+      <button class="btn btn-navy btn-sm" onclick="addSchool()">Add driving school</button>
+
+      <h3 style="margin:1.5rem 0 .75rem">Instructors</h3>
+      <div id="instructors-list">Loading…</div>
+      <div class="field" style="margin-top:1rem"><label>Full name</label><input id="new-instr-name"></div>
+      <div class="field"><label>Email</label><input id="new-instr-email" type="email"></div>
+      <div class="field"><label>Phone (optional)</label><input id="new-instr-phone"></div>
+      <div class="field"><label>Driving school</label>
+        <select id="new-instr-school"><option value="">— Solo instructor (no school) —</option></select>
+      </div>
+      <button class="btn btn-navy btn-sm" onclick="addInstructorGlobal()">Send invite</button>
+      <div class="err" id="teams-err" style="margin-top:.5rem"></div>`;
+    loadTeamsPanel();
+  } else if(which==="reminders"){
     const raw=JSON.parse(localStorage.getItem("dmw_admin_reminders")||'{"enabled":false,"hours":48,"message":"Looking forward to seeing you."}');
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Lesson reminders</h3>
@@ -1883,6 +1904,91 @@ async function openSettings(which){
       <button class="btn btn-navy btn-sm" onclick="localStorage.setItem('dmw_terms',JSON.stringify({url:document.getElementById('terms-url').value.trim()}));alert('Saved')">Save</button>`;
   }
 }
+
+/* Instructors & driving schools (super_admin only) */
+async function manageAuthAdmin(action, payload){
+  const {data, error} = await sb.functions.invoke("manage-auth", {body: Object.assign({action}, payload||{})});
+  if(error){
+    // supabase-js only surfaces a generic "non-2xx status code" here — the
+    // real reason is the JSON body the function returned, which has to be
+    // read separately off error.context (same fix as the app's authAdmin.ts).
+    let detail=null;
+    try{ if(error.context && error.context.json){ const body=await error.context.json(); if(body&&body.error) detail=body.error; } }catch(e){}
+    throw new Error(detail||error.message||"Request failed");
+  }
+  if(data&&data.error) throw new Error(data.error);
+  return data;
+}
+
+async function loadTeamsPanel(){
+  const [{data:schools}, {data:instructors}] = await Promise.all([
+    sb.from("schools").select("id,display_name,name").order("display_name"),
+    sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin").eq("role","instructor").order("full_name")
+  ]);
+  const schoolRows = schools||[];
+  const instrRows = instructors||[];
+
+  const schoolsList=document.getElementById("schools-list");
+  schoolsList.innerHTML = schoolRows.length ? schoolRows.map(s=>{
+    const count = instrRows.filter(i=>i.school_id===s.id).length;
+    return `<div class="list-row"><div><strong>${esc(s.display_name||s.name)}</strong><div class="muted">${count} instructor${count===1?"":"s"}</div></div></div>`;
+  }).join("") : '<p class="muted">No driving schools yet.</p>';
+
+  const instrList=document.getElementById("instructors-list");
+  instrList.innerHTML = instrRows.length ? instrRows.map(i=>{
+    const school = schoolRows.find(s=>s.id===i.school_id);
+    const schoolLabel = school ? esc(school.display_name||school.name) : "Solo";
+    const adminBadge = i.is_school_admin ? ' <span style="font-size:.7rem;font-weight:700;color:#0A4CA1">ADMIN</span>' : "";
+    const toggleBtn = school
+      ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="toggleSchoolAdmin('${i.id}',${!i.is_school_admin})">${i.is_school_admin?"Remove admin":"Make admin"}</button>`
+      : "";
+    return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}<div class="muted">${esc(i.email||"")} · ${schoolLabel}</div></div>${toggleBtn}</div>`;
+  }).join("") : '<p class="muted">No instructors yet.</p>';
+
+  const select=document.getElementById("new-instr-school");
+  select.innerHTML = '<option value="">— Solo instructor (no school) —</option>' +
+    schoolRows.map(s=>`<option value="${s.id}">${esc(s.display_name||s.name)}</option>`).join("");
+}
+
+async function addSchool(){
+  const nameInput=document.getElementById("new-school-name");
+  const name=nameInput.value.trim();
+  const err=document.getElementById("teams-err");
+  err.textContent="";
+  if(!name){ err.textContent="Enter a driving school name"; return; }
+  const {error}=await sb.from("schools").insert({name:name.toLowerCase().replace(/\s+/g,"-"), display_name:name});
+  if(error){ err.textContent=error.message; return; }
+  nameInput.value="";
+  await loadTeamsPanel();
+}
+
+async function addInstructorGlobal(){
+  const err=document.getElementById("teams-err");
+  err.textContent="";
+  const fullName=document.getElementById("new-instr-name").value.trim();
+  const email=document.getElementById("new-instr-email").value.trim().toLowerCase();
+  const phone=document.getElementById("new-instr-phone").value.trim();
+  const schoolId=document.getElementById("new-instr-school").value || null;
+  if(!fullName||!email){ err.textContent="Name and email are required"; return; }
+  try{
+    await manageAuthAdmin("create_instructor", {full_name:fullName, email, phone: phone||null, school_id: schoolId});
+    document.getElementById("new-instr-name").value="";
+    document.getElementById("new-instr-email").value="";
+    document.getElementById("new-instr-phone").value="";
+    await loadTeamsPanel();
+  }catch(e){
+    err.textContent=e.message||"Failed to add instructor";
+  }
+}
+
+async function toggleSchoolAdmin(instructorId, makeAdmin){
+  const err=document.getElementById("teams-err");
+  err.textContent="";
+  const {error}=await sb.from("profiles").update({is_school_admin:makeAdmin}).eq("id",instructorId);
+  if(error){ err.textContent=error.message; return; }
+  await loadTeamsPanel();
+}
+
 function saveReminders(){
   localStorage.setItem("dmw_admin_reminders", JSON.stringify({
     enabled: document.getElementById("rem-on").value==="1",

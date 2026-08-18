@@ -1926,15 +1926,27 @@ async function openSettings(which){
 
 /* Instructors & driving schools (super_admin only) */
 async function manageAuthAdmin(action, payload){
-  const {data, error} = await sb.functions.invoke("manage-auth", {body: Object.assign({action}, payload||{})});
-  if(error){
-    // supabase-js only surfaces a generic "non-2xx status code" here — the
-    // real reason is the JSON body the function returned, which has to be
-    // read separately off error.context (same fix as the app's authAdmin.ts).
-    let detail=null;
-    try{ if(error.context && error.context.json){ const body=await error.context.json(); if(body&&body.error) detail=body.error; } }catch(e){}
-    throw new Error(detail||error.message||"Request failed");
-  }
+  // Raw fetch instead of sb.functions.invoke() — that SDK call was
+  // somehow not getting the "action" field through correctly (edge
+  // function logs showed "Unknown action" even though the client code
+  // constructing the body was verified correct), likely a quirk of the
+  // unpinned @supabase/supabase-js@2 CDN build. Explicit JSON.stringify
+  // and headers here removes any ambiguity about what's actually sent.
+  const session=(await sb.auth.getSession()).data.session;
+  if(!session) throw new Error("Not signed in");
+  const bodyObj=Object.assign({action:action}, payload||{});
+  const res=await fetch(SUPABASE_URL+"/functions/v1/manage-auth",{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "apikey":SUPABASE_ANON,
+      "Authorization":"Bearer "+session.access_token
+    },
+    body:JSON.stringify(bodyObj)
+  });
+  let data=null;
+  try{ data=await res.json(); }catch(e){}
+  if(!res.ok) throw new Error((data&&data.error)||("Request failed ("+res.status+")"));
   if(data&&data.error) throw new Error(data.error);
   return data;
 }

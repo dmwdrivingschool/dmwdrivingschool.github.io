@@ -1931,7 +1931,11 @@ async function loadTeamsPanel(){
   const schoolsList=document.getElementById("schools-list");
   schoolsList.innerHTML = schoolRows.length ? schoolRows.map(s=>{
     const count = instrRows.filter(i=>i.school_id===s.id).length;
-    return `<div class="list-row"><div><strong>${esc(s.display_name||s.name)}</strong><div class="muted">${count} instructor${count===1?"":"s"}</div></div></div>`;
+    return `<div class="list-row"><div><strong>${esc(s.display_name||s.name)}</strong><div class="muted">${count} instructor${count===1?"":"s"}</div></div>
+      <div style="display:flex;gap:.4rem">
+        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editSchool('${s.id}','${esc(s.display_name||s.name).replace(/'/g,"&#39;")}')">Rename</button>
+        <button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteSchool('${s.id}')">Delete</button>
+      </div></div>`;
   }).join("") : '<p class="muted">No driving schools yet.</p>';
 
   const instrList=document.getElementById("instructors-list");
@@ -1962,6 +1966,32 @@ async function addSchool(){
   await loadTeamsPanel();
 }
 
+async function editSchool(schoolId, currentName){
+  const newName=prompt("Rename driving school:", currentName);
+  if(newName===null) return;
+  const trimmed=newName.trim();
+  if(!trimmed) return;
+  const err=document.getElementById("teams-err");
+  err.textContent="";
+  const {error}=await sb.from("schools").update({display_name:trimmed}).eq("id",schoolId);
+  if(error){ err.textContent=error.message; return; }
+  await loadTeamsPanel();
+}
+
+async function deleteSchool(schoolId){
+  if(!confirm("Delete this driving school? This only works if no instructors or pupils are still assigned to it.")) return;
+  const err=document.getElementById("teams-err");
+  err.textContent="";
+  const {error}=await sb.from("schools").delete().eq("id",schoolId);
+  if(error){
+    err.textContent = error.message.includes("foreign key")
+      ? "Can't delete — reassign or remove its instructors/pupils first."
+      : error.message;
+    return;
+  }
+  await loadTeamsPanel();
+}
+
 async function addInstructorGlobal(){
   const err=document.getElementById("teams-err");
   err.textContent="";
@@ -1975,8 +2005,11 @@ async function addInstructorGlobal(){
     document.getElementById("new-instr-name").value="";
     document.getElementById("new-instr-email").value="";
     document.getElementById("new-instr-phone").value="";
+    err.style.color="#0a7a3d";
+    err.textContent="Invite sent to "+email+".";
     await loadTeamsPanel();
   }catch(e){
+    err.style.color="";
     err.textContent=e.message||"Failed to add instructor";
   }
 }

@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Drive My Way Control Centre</title>
 <link rel="icon" type="image/png" href="drivemyway-favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2174,9 +2177,11 @@ function saveReflect(){
 async function saveBrand(){
   const err=document.getElementById("branding-err");
   err.textContent="";
+  if(!currentSchoolId){ err.textContent="No driving school on your account — nothing to save."; return; }
   const name=document.getElementById("br-name").value.trim();
-  const {error}=await sb.from("schools").update({display_name:name||null}).eq("id",currentSchoolId);
+  const {data,error}=await sb.from("schools").update({display_name:name||null}).eq("id",currentSchoolId).select("id");
   if(error){ err.textContent=error.message; return; }
+  if(!data||!data.length){ err.textContent="Save didn't match any school — try refreshing the page and signing in again."; return; }
   err.style.color="#0a7a3d";
   err.textContent="Saved — pupils will see this next time they visit the login screen.";
 }

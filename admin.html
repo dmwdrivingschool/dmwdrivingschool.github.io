@@ -433,7 +433,7 @@ const SUPABASE_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
 
 // Role/video-access gating state — resolved once at login (see enterApp()).
-let isSuperAdminUser=false, canSeeVideosTab=false, currentSchoolId=null;
+let isSuperAdminUser=false, canSeeVideosTab=false, currentSchoolId=null, brSoloLogoUrl=null;
 
 const INCOME_CATS=["Pupil Lesson","Pupil Test Fee","Bank Interest","Other"];
 // "Lesson Refund" added 15 Aug 2026 to match Total Drive's category list —
@@ -1894,9 +1894,25 @@ async function openSettings(which){
       <button class="btn btn-navy btn-sm" onclick="saveReflect()">Save</button>`;
   } else if(which==="branding"){
     if(!currentSchoolId){
+      const ownId=(await sb.auth.getUser()).data.user?.id;
+      const {data:prof}=await sb.from("profiles").select("logo_url,display_name").eq("id",ownId).maybeSingle();
+      brSoloLogoUrl = (prof&&prof.logo_url)||null;
       panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
         <h3 style="margin:1rem 0 .75rem">Branding</h3>
-        <p class="muted">You're not attached to a driving school, so there's no shared branding to set here.</p>`;
+        <p class="muted" style="margin-bottom:.75rem">This is what your pupils actually see on the app's login screen — not just cosmetic here.</p>
+        <div class="field"><label>Logo</label>
+          <div style="display:flex;align-items:center;gap:.75rem;margin-top:.3rem">
+            <div style="width:64px;height:64px;border:1px solid #ddd;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f8fafc">
+              ${brSoloLogoUrl ? `<img id="br-logo-preview" src="${esc(brSoloLogoUrl)}" style="width:100%;height:100%;object-fit:contain">` : `<span id="br-logo-preview" class="muted" style="font-size:.7rem">No logo</span>`}
+            </div>
+            <label class="btn btn-outline btn-sm" style="cursor:pointer">
+              Upload logo<input type="file" accept="image/*" id="br-logo-file" style="display:none" onchange="uploadInstructorLogo(this)">
+            </label>
+          </div>
+        </div>
+        <div class="field"><label>Display name</label><input id="br-name" value="${esc((prof&&prof.display_name)||"")}"></div>
+        <button class="btn btn-navy btn-sm" onclick="saveBrand()">Save</button>
+        <div class="err" id="branding-err" style="margin-top:.5rem"></div>`;
     } else {
       const {data:school} = await sb.from("schools").select("display_name,logo_url").eq("id",currentSchoolId).maybeSingle();
       panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
@@ -2260,11 +2276,21 @@ function saveReflect(){
 async function saveBrand(){
   const err=document.getElementById("branding-err");
   err.textContent="";
-  if(!currentSchoolId){ err.textContent="No driving school on your account — nothing to save."; return; }
   const name=document.getElementById("br-name").value.trim();
-  const {data,error}=await sb.from("schools").update({display_name:name||null}).eq("id",currentSchoolId).select("id");
-  if(error){ err.textContent=error.message; return; }
-  if(!data||!data.length){ err.textContent="Save didn't match any school — try refreshing the page and signing in again."; return; }
+  if(currentSchoolId){
+    const {data,error}=await sb.from("schools").update({display_name:name||null}).eq("id",currentSchoolId).select("id");
+    if(error){ err.textContent=error.message; return; }
+    if(!data||!data.length){ err.textContent="Save didn't match any school — try refreshing the page and signing in again."; return; }
+  } else {
+    const {error}=await sb.rpc("instructor_update_own_branding",{p_logo_url:brSoloLogoUrl, p_display_name:name||null});
+    if(error){ err.textContent=error.message; return; }
+    // instructor_update_own_branding only matches role='instructor' with no
+    // school — it silently no-ops for anyone else (e.g. a solo super_admin)
+    // instead of erroring, so confirm the write actually landed.
+    const ownId=(await sb.auth.getUser()).data.user?.id;
+    const {data:check}=await sb.from("profiles").select("display_name").eq("id",ownId).maybeSingle();
+    if((check&&check.display_name)!==(name||null)){ err.textContent="Save didn't apply — personal branding only works for solo instructor accounts, not super admins."; return; }
+  }
   err.style.color="#0a7a3d";
   err.textContent="Saved — pupils will see this next time they visit the login screen.";
 }
@@ -2282,6 +2308,31 @@ async function uploadSchoolLogo(input){
   const url=urlData&&urlData.publicUrl;
   const {error:dbErr}=await sb.from("schools").update({logo_url:url}).eq("id",currentSchoolId);
   if(dbErr){ err.textContent=dbErr.message; return; }
+  const preview=document.getElementById("br-logo-preview");
+  if(preview&&preview.tagName==="IMG") preview.src=url;
+  else if(preview){ preview.outerHTML=`<img id="br-logo-preview" src="${esc(url)}" style="width:100%;height:100%;object-fit:contain">`; }
+  err.style.color="#0a7a3d";
+  err.textContent="Logo updated.";
+}
+
+async function uploadInstructorLogo(input){
+  const file=input.files&&input.files[0];
+  if(!file) return;
+  const err=document.getElementById("branding-err");
+  err.textContent="";
+  const ownId=(await sb.auth.getUser()).data.user?.id;
+  const ext=(file.name.split(".").pop()||"png").toLowerCase();
+  const path=`instructor/${ownId}/logo-${Date.now()}.${ext}`;
+  const {error:upErr}=await sb.storage.from("branding-logos").upload(path,file,{upsert:true,contentType:file.type||"image/png"});
+  if(upErr){ err.textContent=upErr.message; return; }
+  const {data:urlData}=sb.storage.from("branding-logos").getPublicUrl(path);
+  const url=urlData&&urlData.publicUrl;
+  const name=document.getElementById("br-name").value.trim();
+  const {error:rpcErr}=await sb.rpc("instructor_update_own_branding",{p_logo_url:url, p_display_name:name||null});
+  if(rpcErr){ err.textContent=rpcErr.message; return; }
+  const {data:check}=await sb.from("profiles").select("logo_url").eq("id",ownId).maybeSingle();
+  if((check&&check.logo_url)!==url){ err.textContent="Upload didn't apply — personal branding only works for solo instructor accounts, not super admins."; return; }
+  brSoloLogoUrl=url;
   const preview=document.getElementById("br-logo-preview");
   if(preview&&preview.tagName==="IMG") preview.src=url;
   else if(preview){ preview.outerHTML=`<img id="br-logo-preview" src="${esc(url)}" style="width:100%;height:100%;object-fit:contain">`; }

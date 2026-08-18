@@ -1888,13 +1888,29 @@ async function openSettings(which){
       ${Object.entries(labels).map(([k,v])=>`<div class="field"><label>${esc(k)}</label><input data-rk="${k}" value="${esc(v)}"></div>`).join("")}
       <button class="btn btn-navy btn-sm" onclick="saveReflect()">Save</button>`;
   } else if(which==="branding"){
-    const theme=JSON.parse(localStorage.getItem("dmw_app_theme")||'{"primary":"#0A4CA1","schoolName":"DMW Driving School"}');
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
-      <h3 style="margin:1rem 0 .75rem">Branding</h3>
-      <div class="field"><label>School name</label><input id="br-name" value="${esc(theme.schoolName||"DMW Driving School")}"></div>
-      <div class="field"><label>Primary colour</label><input id="br-col" type="color" value="${theme.primary||"#0A4CA1"}"></div>
-      <button class="btn btn-navy btn-sm" onclick="saveBrand()">Save</button>
-      <p class="muted" style="margin-top:.75rem">Stored for this browser; logo stays on your website/app assets.</p>`;
+    if(!currentSchoolId){
+      panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+        <h3 style="margin:1rem 0 .75rem">Branding</h3>
+        <p class="muted">You're not attached to a driving school, so there's no shared branding to set here.</p>`;
+    } else {
+      const {data:school} = await sb.from("schools").select("display_name,logo_url").eq("id",currentSchoolId).maybeSingle();
+      panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+        <h3 style="margin:1rem 0 .75rem">Branding</h3>
+        <p class="muted" style="margin-bottom:.75rem">This is what your pupils actually see on the app's login screen — not just cosmetic here.</p>
+        <div class="field"><label>Logo</label>
+          <div style="display:flex;align-items:center;gap:.75rem;margin-top:.3rem">
+            <div style="width:64px;height:64px;border:1px solid #ddd;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f8fafc">
+              ${school&&school.logo_url ? `<img id="br-logo-preview" src="${esc(school.logo_url)}" style="width:100%;height:100%;object-fit:contain">` : `<span id="br-logo-preview" class="muted" style="font-size:.7rem">No logo</span>`}
+            </div>
+            <label class="btn btn-outline btn-sm" style="cursor:pointer">
+              Upload logo<input type="file" accept="image/*" id="br-logo-file" style="display:none" onchange="uploadSchoolLogo(this)">
+            </label>
+          </div>
+        </div>
+        <div class="field"><label>School name</label><input id="br-name" value="${esc((school&&school.display_name)||"")}"></div>
+        <button class="btn btn-navy btn-sm" onclick="saveBrand()">Save</button>
+        <div class="err" id="branding-err" style="margin-top:.5rem"></div>`;
+    }
   } else if(which==="terms"){
     const terms=JSON.parse(localStorage.getItem("dmw_terms")||'{"url":"https://www.dmwdrivingschool.co.uk/terms"}');
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
@@ -2155,11 +2171,34 @@ function saveReflect(){
   const o={}; document.querySelectorAll("#settings-panel [data-rk]").forEach(el=>{o[el.dataset.rk]=el.value});
   localStorage.setItem("dmw_reflect_labels", JSON.stringify(o)); alert("Saved");
 }
-function saveBrand(){
-  localStorage.setItem("dmw_app_theme", JSON.stringify({
-    schoolName: document.getElementById("br-name").value,
-    primary: document.getElementById("br-col").value
-  })); alert("Saved");
+async function saveBrand(){
+  const err=document.getElementById("branding-err");
+  err.textContent="";
+  const name=document.getElementById("br-name").value.trim();
+  const {error}=await sb.from("schools").update({display_name:name||null}).eq("id",currentSchoolId);
+  if(error){ err.textContent=error.message; return; }
+  err.style.color="#0a7a3d";
+  err.textContent="Saved — pupils will see this next time they visit the login screen.";
+}
+
+async function uploadSchoolLogo(input){
+  const file=input.files&&input.files[0];
+  if(!file) return;
+  const err=document.getElementById("branding-err");
+  err.textContent="";
+  const ext=(file.name.split(".").pop()||"png").toLowerCase();
+  const path=`school/${currentSchoolId}/logo-${Date.now()}.${ext}`;
+  const {error:upErr}=await sb.storage.from("branding-logos").upload(path,file,{upsert:true,contentType:file.type||"image/png"});
+  if(upErr){ err.textContent=upErr.message; return; }
+  const {data:urlData}=sb.storage.from("branding-logos").getPublicUrl(path);
+  const url=urlData&&urlData.publicUrl;
+  const {error:dbErr}=await sb.from("schools").update({logo_url:url}).eq("id",currentSchoolId);
+  if(dbErr){ err.textContent=dbErr.message; return; }
+  const preview=document.getElementById("br-logo-preview");
+  if(preview&&preview.tagName==="IMG") preview.src=url;
+  else if(preview){ preview.outerHTML=`<img id="br-logo-preview" src="${esc(url)}" style="width:100%;height:100%;object-fit:contain">`; }
+  err.style.color="#0a7a3d";
+  err.textContent="Logo updated.";
 }
 async function addRes(){
   const title=val("res-t"), url=val("res-u"); if(!title||!url) return alert("Title and URL required");

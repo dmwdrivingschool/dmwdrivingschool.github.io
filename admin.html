@@ -128,16 +128,41 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
 <body>
 <div id="gate">
   <h1>Drive My Way Control Centre</h1>
-  <p class="sub">Sign in with your instructor app account</p>
-  <input type="email" id="gate-email" placeholder="Email" autocomplete="username">
-  <input type="password" id="gate-pass" placeholder="Password" autocomplete="current-password">
-  <button class="btn btn-navy full" onclick="unlock()">Sign in</button>
-  <div class="err" id="gate-err"></div>
+  <div id="gate-signin">
+    <p class="sub">Sign in with your instructor app account</p>
+    <input type="email" id="gate-email" placeholder="Email" autocomplete="username">
+    <input type="password" id="gate-pass" placeholder="Password" autocomplete="current-password">
+    <button class="btn btn-navy full" onclick="unlock()">Sign in</button>
+    <div class="err" id="gate-err"></div>
+    <p style="text-align:center;margin-top:1rem;font-size:.85rem;color:var(--muted)">New here? <a href="#" onclick="showSignup();return false" style="color:var(--navy);font-weight:700">Start your free trial</a></p>
+  </div>
+  <div id="gate-signup" class="hidden">
+    <p class="sub">30 days free, then billed monthly</p>
+    <div id="signup-kind-picker" style="margin-bottom:1rem">
+      <button type="button" class="btn-outline full" style="display:block;width:100%;text-align:left;padding:.9rem 1rem;margin-bottom:.6rem" onclick="pickSignupKind('solo')">
+        <strong style="display:block">I'm a solo instructor</strong><span class="muted" style="font-size:.8rem">Just me, no driving school</span>
+      </button>
+      <button type="button" class="btn-outline full" style="display:block;width:100%;text-align:left;padding:.9rem 1rem" onclick="pickSignupKind('school')">
+        <strong style="display:block">I run a driving school</strong><span class="muted" style="font-size:.8rem">Manage multiple instructors</span>
+      </button>
+    </div>
+    <div id="signup-form-fields" class="hidden">
+      <p class="sub" id="signup-kind-label" style="margin-bottom:.7rem"></p>
+      <input type="text" id="signup-name" placeholder="Your name">
+      <input type="text" id="signup-school-name" class="hidden" placeholder="Driving school name">
+      <input type="email" id="signup-email" placeholder="Email" autocomplete="username">
+      <input type="password" id="signup-pass" placeholder="Password" autocomplete="new-password">
+      <button class="btn btn-navy full" onclick="submitSignup()" id="signup-submit-btn">Start free trial</button>
+      <div class="err" id="signup-err"></div>
+      <p class="muted" style="font-size:.75rem;text-align:center;margin-top:.6rem">Next you'll set up a Direct Debit for after your trial — nothing is charged for 30 days, cancel any time before then.</p>
+    </div>
+    <p style="text-align:center;margin-top:1rem;font-size:.85rem;color:var(--muted)"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">← Back to sign in</a></p>
+  </div>
 </div>
 
 <div id="app">
   <div class="top">
-    <div class="brand"><img src="image-1.jpg" alt="DMW" onerror="this.remove()"><span>Drive My Way Control Centre</span></div>
+    <div class="brand"><img src="drive-my-way-logo.png" alt="Drive My Way" onerror="this.remove()"><span>Drive My Way Control Centre</span></div>
     <div style="display:flex;gap:.5rem;align-items:center">
       <span id="who" style="color:#94a3b8;font-size:.8rem"></span>
       <button class="btn btn-gold btn-sm" onclick="lock()">Sign out</button>
@@ -153,7 +178,8 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
     <button data-tab="gaps">Gaps</button>
     <button data-tab="portal">Portal</button>
     <button data-tab="teams" id="nav-teams-btn" class="hidden">Teams</button>
-    <button data-tab="website">Website</button>
+    <button data-tab="billing" id="nav-billing-btn" class="hidden">Billing</button>
+    <button data-tab="website" id="nav-website-btn" class="hidden">Website</button>
     <button class="nav-right" data-tab="settings">Settings</button>
   </nav>
   <div class="main">
@@ -406,6 +432,10 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
       <div class="panel" id="teams-content">Loading…</div>
     </section>
 
+    <section id="tab-billing" class="hidden">
+      <div class="panel" id="billing-content">Loading…</div>
+    </section>
+
     <section id="tab-settings" class="hidden">
       <div class="panel">
         <h2>Settings</h2>
@@ -419,6 +449,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
           <button type="button" onclick="openSettings('reflect')">Reflective logs</button>
           <button type="button" onclick="openSettings('branding')">Branding</button>
           <button type="button" onclick="openSettings('terms')">School terms</button>
+          <button type="button" onclick="openSettings('enquiryWidget')">Your enquiry form</button>
         </div>
         <div id="settings-panel" class="hidden" style="margin-top:1rem"></div>
       </div>
@@ -548,6 +579,7 @@ function goTab(tab, pupilFilter){
   if(tab==="settings"){document.getElementById("settings-menu").classList.remove("hidden");document.getElementById("settings-panel").classList.add("hidden")}
   if(tab==="portal"){ loadActivity(); loadLearningVideos(); }
   if(tab==="teams"){ loadTeamsPanel(); }
+  if(tab==="billing"){ loadBillingPanel(); }
   if(tab==="website"){ websiteShow(websiteMode || "carousel"); }
 }
 
@@ -579,6 +611,13 @@ async function unlock(){
   if(lockMessage){
     await sb.auth.signOut(); err.textContent=lockMessage; err.style.display="block"; return;
   }
+  if(!prof){
+    // No profile yet — e.g. they confirmed their email on another device
+    // and are now signing in normally for the first time. Safety net
+    // finishes provisioning and continues into GoCardless setup.
+    await provisionIfNeededAndEnter(data.user);
+    return;
+  }
   enterApp(data.user,prof);
 }
 async function resolveVideoAccess(prof){
@@ -604,16 +643,129 @@ async function enterApp(user,prof){
   document.querySelector('#main-nav button[data-tab="portal"]').classList.toggle("hidden", !canSeeVideosTab);
   document.getElementById("manage-videos-panel").classList.toggle("hidden", !isSuperAdminUser);
   document.getElementById("nav-teams-btn").classList.toggle("hidden", !isSuperAdminUser && !isSchoolAdminUser);
+  document.getElementById("nav-billing-btn").classList.remove("hidden"); // everyone can see their own billing, not just admins
+  document.getElementById("nav-website-btn").classList.toggle("hidden", !isSuperAdminUser); // public website is your (platform admin's) tool only — never a driving school's
   await refresh(); setInterval(refresh,30000);
 }
 async function lock(){await sb.auth.signOut(); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
-sb.auth.getSession().then(({data})=>{
-  if(data.session){
-    sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.session.user.id).maybeSingle().then(({data:prof})=>{
-      if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin")return;
-      enterApp(data.session.user,prof);
+
+// --- Self-serve signup -------------------------------------------------
+
+let signupKind = null;
+
+function showSignup(){
+  document.getElementById("gate-signin").classList.add("hidden");
+  document.getElementById("gate-signup").classList.remove("hidden");
+}
+function showSignin(){
+  document.getElementById("gate-signup").classList.add("hidden");
+  document.getElementById("gate-signin").classList.remove("hidden");
+  document.getElementById("signup-kind-picker").classList.remove("hidden");
+  document.getElementById("signup-form-fields").classList.add("hidden");
+}
+function pickSignupKind(kind){
+  signupKind = kind;
+  document.getElementById("signup-kind-picker").classList.add("hidden");
+  document.getElementById("signup-form-fields").classList.remove("hidden");
+  document.getElementById("signup-kind-label").textContent = kind === "school" ? "Driving school" : "Solo instructor";
+  document.getElementById("signup-school-name").classList.toggle("hidden", kind !== "school");
+}
+
+async function submitSignup(){
+  const err = document.getElementById("signup-err");
+  err.textContent = "";
+  const name = document.getElementById("signup-name").value.trim();
+  const schoolName = document.getElementById("signup-school-name").value.trim();
+  const email = document.getElementById("signup-email").value.trim();
+  const password = document.getElementById("signup-pass").value;
+  if(!name){ err.textContent = "Enter your name"; return; }
+  if(signupKind === "school" && !schoolName){ err.textContent = "Enter your driving school name"; return; }
+  if(!email || !password){ err.textContent = "Enter your email and password"; return; }
+
+  const btn = document.getElementById("signup-submit-btn");
+  btn.disabled = true;
+  btn.textContent = "Setting up your account…";
+  try{
+    // Email confirmation is required on this project (deliberate choice —
+    // more secure against fake/typo emails than a fully frictionless
+    // signup). signUp() here returns a user but NO session until they
+    // click the confirmation link, so provisioning can't happen yet —
+    // that's what the safety net in provisionIfNeededAndEnter() is for,
+    // triggered once they return with a real session (whether via the
+    // email link or a normal sign-in afterward). Everything needed to
+    // finish provisioning is stashed in user_metadata now, since none of
+    // these form values survive to whenever they click that link.
+    const { data: signUpData, error: signUpError } = await sb.auth.signUp({
+      email, password,
+      options: {
+        data: {
+          role: "instructor",
+          signup_kind: signupKind,
+          full_name: name,
+          school_name: signupKind === "school" ? schoolName : null
+        },
+        emailRedirectTo: window.location.origin + window.location.pathname
+      }
     });
+    if(signUpError) throw signUpError;
+    if(!signUpData.user) throw new Error("Sign up did not return an account");
+
+    if(!signUpData.session){
+      document.getElementById("gate-signup").innerHTML =
+        '<p class="sub">Almost there</p>' +
+        '<p style="text-align:center;padding:1rem 0;line-height:1.5">We\'ve sent a confirmation link to <strong>' + email.replace(/[<>&]/g,"") + '</strong>. Click it, then come back here to finish setting up your Direct Debit.</p>' +
+        '<p style="text-align:center"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">← Back to sign in</a></p>';
+      return;
+    }
+
+    await provisionIfNeededAndEnter(signUpData.user);
+  }catch(e){
+    err.textContent = e.message || "Sign up failed";
+    btn.disabled = false;
+    btn.textContent = "Start free trial";
   }
+}
+
+/**
+ * Safety net for the email-confirmation gap: if this session's user has no
+ * profiles row yet but was created via self-serve signup (user_metadata.role
+ * === 'instructor'), finish provisioning now and continue straight into
+ * GoCardless mandate setup — the same continuation the direct-signup path
+ * would have done immediately, just delayed until they confirmed their
+ * email. Called from both the session-restore bootstrap (they clicked the
+ * email link, landed back here already signed in) and unlock() (they
+ * confirmed on another device, then came back and signed in normally).
+ * Falls through to enterApp() either way once a profile exists.
+ */
+async function provisionIfNeededAndEnter(user){
+  let { data: prof } = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id", user.id).maybeSingle();
+  if(!prof && user.user_metadata?.role === "instructor"){
+    const { error: provisionError } = await sb.rpc("provision_signup", {
+      p_kind: user.user_metadata?.signup_kind || "solo",
+      p_full_name: user.user_metadata?.full_name || user.email,
+      p_school_name: user.user_metadata?.school_name || null
+    });
+    if(!provisionError){
+      try{
+        const billingRes = await callFn("create-billing-request", {});
+        if(billingRes.authorisation_url){ window.location.href = billingRes.authorisation_url; return; }
+      }catch(billingErr){ /* fall through to entering the Control Centre directly */ }
+      const refetched = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id", user.id).maybeSingle();
+      prof = refetched.data;
+    }
+  }
+  enterApp(user, prof);
+}
+sb.auth.getSession().then(async ({data})=>{
+  if(!data.session) return;
+  const { data: prof } = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.session.user.id).maybeSingle();
+  if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin")return;
+  if(prof){ enterApp(data.session.user,prof); return; }
+  // No profile yet — either mid-signup (email link just confirmed) or a
+  // genuinely unrelated account. provisionIfNeededAndEnter() only acts on
+  // the former (checks user_metadata.role itself) and falls through to a
+  // normal (empty-profile) enterApp() for anything else.
+  await provisionIfNeededAndEnter(data.session.user);
 });
 
 function showBanner(msg){const b=document.getElementById("data-banner"); if(!msg){b.style.display="none";return} b.textContent=msg;b.style.display="block"}
@@ -1174,19 +1326,48 @@ async function savePupil(id){
 }
 function val(id){return document.getElementById(id).value.trim()}
 
-function loadEnquiries(){
+let schoolInstructorsCache=[];
+
+async function loadEnquiries(){
   const el=document.getElementById("enquiry-list");
   const rows=pupilsCache.filter(p=>p.status==="enquiry");
   if(!rows.length){el.innerHTML='<p class="muted">No open enquiries</p>';return}
-  el.innerHTML=rows.map(p=>`<div class="list-row">
-    <div><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
-    <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div>
-    <div class="muted">${esc(p.notes||"")}</div></div>
-    <div class="actions">
-      <button class="btn btn-navy btn-sm" onclick="setStatus('${p.id}','waiting')">Accept</button>
-      <button class="btn-outline" onclick="setStatus('${p.id}','inactive')">Decline</button>
-      <button class="btn-danger" onclick="removePupil('${p.id}')">Remove</button>
-    </div></div>`).join("");
+
+  // A school admin sees every enquiry in their school regardless of which
+  // instructor it's currently tagged to (RLS already scopes them that
+  // broadly) — so they need a way to hand it to whichever instructor
+  // should actually take it, not just accept/decline.
+  let assignRow = () => "";
+  if(isSchoolAdminUser && currentSchoolId){
+    const {data:instrs} = await sb.from("profiles").select("id,full_name,email").eq("role","instructor").eq("school_id",currentSchoolId).order("full_name");
+    schoolInstructorsCache = instrs||[];
+    assignRow = (p) => `<div class="field" style="margin:.5rem 0 0"><label>Assign to instructor</label>
+      <select onchange="assignEnquiryInstructor('${p.id}',this.value)">
+        <option value="" ${!p.instructor_id?"selected":""}>— Unassigned —</option>
+        ${schoolInstructorsCache.map(i=>`<option value="${i.id}" ${i.id===p.instructor_id?"selected":""}>${esc(i.full_name||i.email)}</option>`).join("")}
+      </select></div>`;
+  }
+
+  el.innerHTML=rows.map(p=>`<div class="list-row" style="flex-direction:column;align-items:stretch">
+    <div style="display:flex;justify-content:space-between;gap:.8rem;align-items:flex-start">
+      <div><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
+      <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div>
+      <div class="muted">${esc(p.notes||"")}</div></div>
+      <div class="actions">
+        <button class="btn btn-navy btn-sm" onclick="setStatus('${p.id}','waiting')">Accept</button>
+        <button class="btn-outline" onclick="setStatus('${p.id}','inactive')">Decline</button>
+        <button class="btn-danger" onclick="removePupil('${p.id}')">Remove</button>
+      </div>
+    </div>
+    ${assignRow(p)}
+  </div>`).join("");
+}
+async function assignEnquiryInstructor(pupilId, instructorId){
+  const value = instructorId || null;
+  const {error}=await sb.from("pupils").update({instructor_id:value}).eq("id",pupilId);
+  if(error){ alert(error.message); return; }
+  const p = pupilsCache.find(x=>x.id===pupilId);
+  if(p) p.instructor_id = value;
 }
 async function setStatus(id,status){const {error}=await sb.from("pupils").update({status}).eq("id",id); if(error)alert(error.message); else refresh()}
 async function removePupil(id){
@@ -1965,7 +2146,126 @@ async function openSettings(which){
       <p class="muted">Pupils must accept terms in the app. Agreement is timestamped on their profile.</p>
       <div class="field"><label>Terms URL</label><input id="terms-url" value="${esc(terms.url||"")}"></div>
       <button class="btn btn-navy btn-sm" onclick="localStorage.setItem('dmw_terms',JSON.stringify({url:document.getElementById('terms-url').value.trim()}));alert('Saved')">Save</button>`;
+  } else if(which==="enquiryWidget"){
+    const snippet = buildEnquirySnippet(currentUserId);
+    const schoolBlock = (isSchoolAdminUser && currentSchoolId) ? `
+      <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--line)">
+      <h3 style="margin:0 0 .75rem">School enquiry form</h3>
+      <p class="muted" style="margin-bottom:.75rem">Use this one instead if you want a general "enquire to our school" form — leads land unassigned in your Enquiries tab so you can hand each one to whichever instructor should take it, rather than always going to you.</p>
+      <textarea readonly rows="12" style="width:100%;font-family:var(--fm);font-size:.72rem;padding:.75rem;border:1.5px solid var(--line);border-radius:3px;background:#f8fafc" onclick="this.select()">${esc(buildSchoolEnquirySnippet(currentSchoolId))}</textarea>
+      <button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="copySchoolEnquirySnippet()">Copy embed code</button>
+      <div id="school-enquiry-widget-copied" class="muted" style="margin-top:.5rem;display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>` : "";
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Your enquiry form</h3>
+      <p class="muted" style="margin-bottom:.75rem">Paste this into your own website (most site builders have an "HTML" or "Embed" block) to add an enquiry form that sends leads straight to you — not anyone else on the platform.</p>
+      <textarea readonly rows="12" style="width:100%;font-family:var(--fm);font-size:.72rem;padding:.75rem;border:1.5px solid var(--line);border-radius:3px;background:#f8fafc" onclick="this.select()">${esc(snippet)}</textarea>
+      <button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="copyEnquirySnippet()">Copy embed code</button>
+      <div id="enquiry-widget-copied" class="muted" style="margin-top:.5rem;display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>
+      ${schoolBlock}`;
   }
+}
+
+/**
+ * Self-contained embed snippet (inline styles/script, no external
+ * dependencies) for this instructor's own enquiry form — drops into any
+ * external website's HTML/embed block. Posts straight to
+ * submit_website_enquiry with THIS instructor's own id (not the school's),
+ * so leads land on their account specifically, same as the mobile app's
+ * EnquiryWidgetView. Ported here since getting your own website embed code
+ * is desk-based account setup, not something you'd do mid-lesson on your
+ * phone — matches Branding/Billing/Teams already living in the Control
+ * Centre rather than the app.
+ */
+function buildEnquirySnippet(instructorId){
+  return `<!-- Drive My Way enquiry widget — paste into your website's HTML/embed block -->
+<div id="dmw-enquiry-widget" style="max-width:420px;font-family:system-ui,sans-serif">
+  <div id="dmw-enquiry-form">
+    <label style="display:block;font-size:13px;font-weight:600;margin:8px 0 4px">First name</label>
+    <input id="dmw-fn" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box" />
+    <label style="display:block;font-size:13px;font-weight:600;margin:8px 0 4px">Last name</label>
+    <input id="dmw-ln" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box" />
+    <label style="display:block;font-size:13px;font-weight:600;margin:8px 0 4px">Phone</label>
+    <input id="dmw-phone" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box" />
+    <label style="display:block;font-size:13px;font-weight:600;margin:8px 0 4px">Email</label>
+    <input id="dmw-email" type="email" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box" />
+    <label style="display:block;font-size:13px;font-weight:600;margin:8px 0 4px">Anything else?</label>
+    <textarea id="dmw-notes" rows="3" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box"></textarea>
+    <div id="dmw-err" style="color:#b91c1c;font-size:13px;margin-top:8px;display:none"></div>
+    <button id="dmw-submit" style="width:100%;margin-top:12px;padding:12px;background:#0A4CA1;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer">Send enquiry</button>
+  </div>
+  <div id="dmw-done" style="display:none;text-align:center;padding:20px 0">
+    <p style="font-weight:600">Thank you — your enquiry has been sent.</p>
+  </div>
+</div>
+<script>
+(function () {
+  var SUPABASE_URL = "${SUPABASE_URL}";
+  var SUPABASE_KEY = "${SUPABASE_ANON}";
+  var INSTRUCTOR_ID = "${instructorId}";
+  document.getElementById('dmw-submit').addEventListener('click', function () {
+    var err = document.getElementById('dmw-err');
+    err.style.display = 'none';
+    var fn = document.getElementById('dmw-fn').value.trim();
+    var ln = document.getElementById('dmw-ln').value.trim();
+    var email = document.getElementById('dmw-email').value.trim();
+    var phone = document.getElementById('dmw-phone').value.trim();
+    var notes = document.getElementById('dmw-notes').value.trim();
+    if (!fn || !ln || (!email && !phone)) {
+      err.textContent = 'Please enter your name and either an email or phone number.';
+      err.style.display = 'block';
+      return;
+    }
+    fetch(SUPABASE_URL + '/rest/v1/rpc/submit_website_enquiry', {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        payload: { first_name: fn, last_name: ln, email: email || null, phone: phone || null, notes: notes || null },
+        instructor_id: INSTRUCTOR_ID
+      })
+    }).then(function (res) {
+      if (!res.ok) throw new Error('submit failed');
+      document.getElementById('dmw-enquiry-form').style.display = 'none';
+      document.getElementById('dmw-done').style.display = 'block';
+    }).catch(function () {
+      err.textContent = 'Could not send right now — please try again or contact us directly.';
+      err.style.display = 'block';
+    });
+  });
+})();
+<\/script>`;
+}
+
+async function copyEnquirySnippet(){
+  const snippet = buildEnquirySnippet(currentUserId);
+  try{
+    await navigator.clipboard.writeText(snippet);
+    const done = document.getElementById("enquiry-widget-copied");
+    done.style.display = "block";
+    setTimeout(()=>{ done.style.display = "none"; }, 2000);
+  }catch(e){ /* clipboard API unavailable — the textarea above is still click-to-select */ }
+}
+
+/**
+ * School-wide variant of buildEnquirySnippet() — school admins only. Posts
+ * school_id instead of instructor_id, so submit_website_enquiry() lands the
+ * pupil row unassigned (instructor_id null) rather than pre-assigned to
+ * whoever generated the widget, ready for the admin to hand it to whichever
+ * instructor should take it from the Enquiries tab.
+ */
+function buildSchoolEnquirySnippet(schoolId){
+  return buildEnquirySnippet(currentUserId)
+    .replace('var INSTRUCTOR_ID = "' + currentUserId + '";', 'var SCHOOL_ID = "' + schoolId + '";')
+    .replace("instructor_id: INSTRUCTOR_ID", "school_id: SCHOOL_ID");
+}
+
+async function copySchoolEnquirySnippet(){
+  const snippet = buildSchoolEnquirySnippet(currentSchoolId);
+  try{
+    await navigator.clipboard.writeText(snippet);
+    const done = document.getElementById("school-enquiry-widget-copied");
+    done.style.display = "block";
+    setTimeout(()=>{ done.style.display = "none"; }, 2000);
+  }catch(e){ /* clipboard API unavailable — the textarea above is still click-to-select */ }
 }
 
 /* Instructors & driving schools (super_admin only) */
@@ -2159,7 +2459,7 @@ async function addSchool(){
 }
 
 async function editInstructor(instructorId){
-  const {data:instr,error:loadError}=await sb.from("profiles").select("id,full_name,phone,school_id").eq("id",instructorId).single();
+  const {data:instr,error:loadError}=await sb.from("profiles").select("id,full_name,phone,email,school_id").eq("id",instructorId).single();
   const err=document.getElementById("teams-err");
   err.style.color="";
   err.textContent="";
@@ -2169,12 +2469,26 @@ async function editInstructor(instructorId){
   if(newName===null) return;
   const newPhone=prompt("Phone (leave blank for none):", instr.phone||"");
   if(newPhone===null) return;
+  const newEmail=prompt("Email (this is also their login — changing it changes what they sign in with):", instr.email||"");
+  if(newEmail===null) return;
+  const emailTrimmed=newEmail.trim().toLowerCase();
+  if(!emailTrimmed){ err.textContent="Email can't be blank"; return; }
 
   const {error}=await sb.from("profiles").update({
     full_name: newName.trim(),
     phone: newPhone.trim()||null
   }).eq("id",instructorId);
   if(error){ err.textContent=error.message; return; }
+
+  if(emailTrimmed !== (instr.email||"").toLowerCase()){
+    try{
+      await manageAuthAdmin("update_instructor_email", { instructor_id: instructorId, email: emailTrimmed });
+    }catch(emailErr){
+      err.textContent = "Name/phone saved, but email update failed: " + (emailErr.message||"unknown error");
+      await loadTeamsPanel();
+      return;
+    }
+  }
   await loadTeamsPanel();
 }
 
@@ -2255,6 +2569,119 @@ async function makeInstructorSolo(instructorId, name){
   const {error}=await sb.from("profiles").update({school_id:null, is_school_admin:false}).eq("id",instructorId);
   if(error){ err.textContent=error.message; return; }
   await loadTeamsPanel();
+}
+
+// --- Billing (GoCardless subscription) -------------------------------
+
+async function callFn(name, payload){
+  // Same raw-fetch pattern as manageAuthAdmin() above, for the same reason
+  // (sb.functions.invoke() unreliable via the unpinned CDN build).
+  const session=(await sb.auth.getSession()).data.session;
+  if(!session) throw new Error("Not signed in");
+  const res=await fetch(SUPABASE_URL+"/functions/v1/"+name,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "apikey":SUPABASE_ANON,
+      "Authorization":"Bearer "+session.access_token
+    },
+    body:JSON.stringify(payload||{})
+  });
+  let data=null;
+  try{ data=await res.json(); }catch(e){}
+  if(!res.ok) throw new Error((data&&data.error)||("Request failed ("+res.status+")"));
+  if(data&&data.error) throw new Error(data.error);
+  return data;
+}
+
+const SEAT_PRICE_PENCE = 999; // £9.99 — kept in sync manually with the GoCardless price setup
+
+async function loadBillingPanel(){
+  const content=document.getElementById("billing-content");
+  if(isSuperAdminUser){
+    content.innerHTML = '<h2>Billing</h2><p class="muted">Platform admin — nothing to manage here for your own account.</p>';
+    return;
+  }
+  content.innerHTML = '<h2>Billing</h2><p class="muted">Loading…</p>';
+
+  const ownerType = currentSchoolId ? "school" : "instructor";
+  const ownerId = currentSchoolId || currentUserId;
+  const {data:sub} = await sb.from("subscriptions").select("plan,status,trial_ends_at,seats_purchased,gocardless_mandate_id").eq("owner_type",ownerType).eq("owner_id",ownerId).maybeSingle();
+
+  if(!sub){
+    content.innerHTML = '<h2>Billing</h2><p class="muted">No subscription on file — your account predates self-serve billing and isn\'t affected by it.</p>';
+    return;
+  }
+
+  let instructorCount = 1;
+  if(ownerType==="school"){
+    const {count} = await sb.from("profiles").select("id",{count:"exact",head:true}).eq("role","instructor").eq("school_id",ownerId);
+    instructorCount = count || 1;
+  }
+
+  const daysLeft = sub.trial_ends_at ? Math.ceil((new Date(sub.trial_ends_at).getTime()-Date.now())/86400000) : null;
+  let statusLine, statusChip;
+  if(sub.status==="trialing" && daysLeft!==null && daysLeft>=0){ statusLine=`Free trial — ${daysLeft} day${daysLeft===1?"":"s"} left`; statusChip='<span class="chip chip-wait">TRIAL</span>'; }
+  else if(sub.status==="trialing"){ statusLine="Trial ended"; statusChip='<span class="chip chip-bad">EXPIRED</span>'; }
+  else if(sub.status==="active"){ statusLine="Subscription active"; statusChip='<span class="chip chip-ok">ACTIVE</span>'; }
+  else if(sub.status==="past_due"){ statusLine="Payment failed"; statusChip='<span class="chip chip-bad">PAST DUE</span>'; }
+  else if(sub.status==="canceled"){ statusLine="Subscription cancelled"; statusChip='<span class="chip chip-bad">CANCELLED</span>'; }
+  else if(sub.status==="mandate_failed"){ statusLine="Direct Debit not confirmed"; statusChip='<span class="chip chip-bad">ACTION NEEDED</span>'; }
+  else { statusLine=sub.status; statusChip=""; }
+
+  const planLine = sub.plan==="solo" ? "Solo instructor — £11.99/month" : "Driving school — £12.99/month + £9.99/seat";
+
+  let mandateBtn = "";
+  if(!sub.gocardless_mandate_id || sub.status==="mandate_failed"){
+    mandateBtn = `<button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="startBillingRequest()">${sub.gocardless_mandate_id?"Re-authorise Direct Debit":"Finish setting up Direct Debit"}</button>`;
+  }
+
+  let seatsBlock = "";
+  if(sub.plan==="school"){
+    seatsBlock = `
+      <h3 style="margin:1.5rem 0 .75rem">Instructor seats</h3>
+      <p class="muted">${instructorCount} of ${sub.seats_purchased} seat${sub.seats_purchased===1?"":"s"} used</p>
+      <div style="display:flex;align-items:center;gap:.6rem;margin-top:.6rem">
+        <button class="btn-outline" onclick="changeSeats(-1,${sub.seats_purchased},${instructorCount})">−</button>
+        <span class="muted" style="font-family:var(--fm)">+£${(SEAT_PRICE_PENCE/100).toFixed(2)}/seat/month</span>
+        <button class="btn-outline" onclick="changeSeats(1,${sub.seats_purchased},${instructorCount})">+</button>
+      </div>`;
+  }
+
+  content.innerHTML = `
+    <h2>Billing</h2>
+    <div class="panel" style="border:none;padding:0">
+      <p>${statusChip} <strong style="margin-left:.4rem">${statusLine}</strong></p>
+      <p class="muted" style="margin-top:.3rem">${planLine}</p>
+      ${mandateBtn}
+      ${seatsBlock}
+      <div class="err" id="billing-err" style="margin-top:.75rem"></div>
+    </div>`;
+}
+
+async function startBillingRequest(){
+  const err=document.getElementById("billing-err");
+  err.textContent="";
+  try{
+    const res = await callFn("create-billing-request", {});
+    if(res.authorisation_url) window.location.href = res.authorisation_url;
+  }catch(e){
+    err.textContent = e.message||"Could not start payment setup";
+  }
+}
+
+async function changeSeats(delta, currentSeats, instructorCount){
+  const next = currentSeats + delta;
+  const err=document.getElementById("billing-err");
+  err.textContent="";
+  if(next < instructorCount){ err.textContent=`Can't reduce below your current ${instructorCount} instructors — remove one first.`; return; }
+  if(next < 1) return;
+  try{
+    await callFn("update-seat-quantity", {seats: next});
+    await loadBillingPanel();
+  }catch(e){
+    err.textContent = e.message||"Could not update seats";
+  }
 }
 
 function saveReminders(){

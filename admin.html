@@ -403,26 +403,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
     </section>
 
     <section id="tab-teams" class="hidden">
-      <div class="panel">
-        <h2>Driving schools</h2>
-        <p class="muted" style="margin-bottom:.75rem">Only you (super admin) can create new driving schools or instructor logins.</p>
-        <div id="schools-list">Loading…</div>
-        <div class="field" style="margin-top:1rem"><label>Driving school name</label><input id="new-school-name" placeholder="e.g. Acme Driving School"></div>
-        <div class="field"><label>Admin full name</label><input id="new-school-admin-name"></div>
-        <div class="field"><label>Admin email</label><input id="new-school-admin-email" type="email" placeholder="Sends them an invite, like a solo instructor"></div>
-        <button class="btn btn-navy btn-sm" onclick="addSchool()">Add driving school</button>
-
-        <h3 style="margin:1.5rem 0 .75rem">Instructors</h3>
-        <div id="instructors-list">Loading…</div>
-        <div class="field" style="margin-top:1rem"><label>Full name</label><input id="new-instr-name"></div>
-        <div class="field"><label>Email</label><input id="new-instr-email" type="email"></div>
-        <div class="field"><label>Phone (optional)</label><input id="new-instr-phone"></div>
-        <div class="field"><label>Driving school</label>
-          <select id="new-instr-school"><option value="">— Solo instructor (no school) —</option></select>
-        </div>
-        <button class="btn btn-navy btn-sm" onclick="addInstructorGlobal()">Send invite</button>
-        <div class="err" id="teams-err" style="margin-top:.5rem"></div>
-      </div>
+      <div class="panel" id="teams-content">Loading…</div>
     </section>
 
     <section id="tab-settings" class="hidden">
@@ -456,7 +437,7 @@ const SUPABASE_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
 
 // Role/video-access gating state — resolved once at login (see enterApp()).
-let isSuperAdminUser=false, canSeeVideosTab=false, currentSchoolId=null, brSoloLogoUrl=null;
+let isSuperAdminUser=false, isSchoolAdminUser=false, canSeeVideosTab=false, currentSchoolId=null, brSoloLogoUrl=null;
 
 const INCOME_CATS=["Pupil Lesson","Pupil Test Fee","Bank Interest","Other"];
 // "Lesson Refund" added 15 Aug 2026 to match Total Drive's category list —
@@ -561,14 +542,26 @@ async function unlock(){
   // promotes the existing instructor account to) wasn't accepted either.
   // Before this fix, the control centre would have locked Dale out of his
   // own login the moment migration 01 ran on live.
-  const {data:prof}=await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.user.id).maybeSingle();
+  const {data:prof}=await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin,locked_at,locked_reason").eq("id",data.user.id).maybeSingle();
   if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin"){
     await sb.auth.signOut(); err.textContent="Not an instructor account"; err.style.display="block"; return;
+  }
+  let lockMessage=null;
+  if(prof&&prof.school_id){
+    const {data:school}=await sb.from("schools").select("locked_at,locked_reason").eq("id",prof.school_id).maybeSingle();
+    if(school&&school.locked_at) lockMessage=school.locked_reason||"Your driving school's account has been locked. Please contact Drive My Way.";
+  }
+  if(!lockMessage&&prof&&prof.locked_at){
+    lockMessage=prof.locked_reason||(prof.school_id?"Your account has been locked. Please contact your driving school.":"Your account has been locked. Please contact Drive My Way.");
+  }
+  if(lockMessage){
+    await sb.auth.signOut(); err.textContent=lockMessage; err.style.display="block"; return;
   }
   enterApp(data.user,prof);
 }
 async function resolveVideoAccess(prof){
   isSuperAdminUser = prof?.role === "super_admin";
+  isSchoolAdminUser = !isSuperAdminUser && !!prof?.is_school_admin;
   currentSchoolId = prof?.school_id || null;
   if (isSuperAdminUser) { canSeeVideosTab = true; return; }
   canSeeVideosTab = false;
@@ -587,7 +580,7 @@ async function enterApp(user,prof){
   await resolveVideoAccess(prof);
   document.querySelector('#main-nav button[data-tab="portal"]').classList.toggle("hidden", !canSeeVideosTab);
   document.getElementById("manage-videos-panel").classList.toggle("hidden", !isSuperAdminUser);
-  document.getElementById("nav-teams-btn").classList.toggle("hidden", !isSuperAdminUser);
+  document.getElementById("nav-teams-btn").classList.toggle("hidden", !isSuperAdminUser && !isSchoolAdminUser);
   await refresh(); setInterval(refresh,30000);
 }
 async function lock(){await sb.auth.signOut(); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
@@ -1973,46 +1966,137 @@ async function manageAuthAdmin(action, payload){
 }
 
 async function loadTeamsPanel(){
-  const [{data:schools}, {data:instructors}] = await Promise.all([
-    sb.from("schools").select("id,display_name,name").order("display_name"),
-    sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin").eq("role","instructor").order("full_name")
-  ]);
-  const schoolRows = schools||[];
-  const instrRows = instructors||[];
+  const content=document.getElementById("teams-content");
+  if(isSuperAdminUser){
+    content.innerHTML=`
+      <h2>Driving schools</h2>
+      <p class="muted" style="margin-bottom:.75rem">Only you (super admin) can create new driving schools or instructor logins, or lock a whole school's access.</p>
+      <div id="schools-list">Loading…</div>
+      <div class="field" style="margin-top:1rem"><label>Driving school name</label><input id="new-school-name" placeholder="e.g. Acme Driving School"></div>
+      <div class="field"><label>Admin full name</label><input id="new-school-admin-name"></div>
+      <div class="field"><label>Admin email</label><input id="new-school-admin-email" type="email" placeholder="Sends them an invite, like a solo instructor"></div>
+      <button class="btn btn-navy btn-sm" onclick="addSchool()">Add driving school</button>
 
-  const schoolsList=document.getElementById("schools-list");
-  schoolsList.innerHTML = schoolRows.length ? schoolRows.map(s=>{
-    const count = instrRows.filter(i=>i.school_id===s.id).length;
-    return `<div class="list-row"><div><strong>${esc(s.display_name||s.name)}</strong><div class="muted">${count} instructor${count===1?"":"s"}</div></div>
-      <div style="display:flex;gap:.4rem">
-        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editSchool('${s.id}','${esc(s.display_name||s.name).replace(/'/g,"&#39;")}')">Rename</button>
-        <button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteSchool('${s.id}')">Delete</button>
-      </div></div>`;
-  }).join("") : '<p class="muted">No driving schools yet.</p>';
+      <h3 style="margin:1.5rem 0 .75rem">Instructors</h3>
+      <div id="instructors-list">Loading…</div>
+      <div class="field" style="margin-top:1rem"><label>Full name</label><input id="new-instr-name"></div>
+      <div class="field"><label>Email</label><input id="new-instr-email" type="email"></div>
+      <div class="field"><label>Phone (optional)</label><input id="new-instr-phone"></div>
+      <div class="field"><label>Driving school</label>
+        <select id="new-instr-school"><option value="">— Solo instructor (no school) —</option></select>
+      </div>
+      <button class="btn btn-navy btn-sm" onclick="addInstructorGlobal()">Send invite</button>
+      <div class="err" id="teams-err" style="margin-top:.5rem"></div>`;
 
-  const instrList=document.getElementById("instructors-list");
-  instrList.innerHTML = instrRows.length ? instrRows.map(i=>{
-    const school = schoolRows.find(s=>s.id===i.school_id);
-    const schoolLabel = school ? esc(school.display_name||school.name) : "Solo";
-    const adminBadge = i.is_school_admin ? ' <span style="font-size:.7rem;font-weight:700;color:#0A4CA1">ADMIN</span>' : "";
-    const toggleBtn = school
-      ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="toggleSchoolAdmin('${i.id}',${!i.is_school_admin})">${i.is_school_admin?"Remove admin":"Make admin"}</button>`
-      : "";
-    const soloBtn = school
-      ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="makeInstructorSolo('${i.id}','${esc(i.full_name||i.email).replace(/'/g,"&#39;")}')">Make solo</button>`
-      : "";
-    return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}<div class="muted">${esc(i.email||"")} · ${schoolLabel}</div></div>
-      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-        ${toggleBtn}
-        ${soloBtn}
-        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editInstructor('${i.id}')">Edit</button>
-        <button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteInstructor('${i.id}','${esc(i.full_name||i.email).replace(/'/g,"&#39;")}')">Delete</button>
-      </div></div>`;
-  }).join("") : '<p class="muted">No instructors yet.</p>';
+    const [{data:schools}, {data:instructors}] = await Promise.all([
+      sb.from("schools").select("id,display_name,name,locked_at").order("display_name"),
+      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at").eq("role","instructor").order("full_name")
+    ]);
+    const schoolRows = schools||[];
+    const instrRows = instructors||[];
 
-  const select=document.getElementById("new-instr-school");
-  select.innerHTML = '<option value="">— Solo instructor (no school) —</option>' +
-    schoolRows.map(s=>`<option value="${s.id}">${esc(s.display_name||s.name)}</option>`).join("");
+    const schoolsList=document.getElementById("schools-list");
+    schoolsList.innerHTML = schoolRows.length ? schoolRows.map(s=>{
+      const count = instrRows.filter(i=>i.school_id===s.id).length;
+      const nameEsc = esc(s.display_name||s.name).replace(/'/g,"&#39;");
+      const lockedBadge = s.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
+      const lockBtn = s.locked_at
+        ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockSchool('${s.id}','${nameEsc}')">Unlock</button>`
+        : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockSchool('${s.id}','${nameEsc}')">Lock</button>`;
+      return `<div class="list-row"><div><strong>${esc(s.display_name||s.name)}</strong>${lockedBadge}<div class="muted">${count} instructor${count===1?"":"s"}</div></div>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+          ${lockBtn}
+          <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editSchool('${s.id}','${nameEsc}')">Rename</button>
+          <button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteSchool('${s.id}')">Delete</button>
+        </div></div>`;
+    }).join("") : '<p class="muted">No driving schools yet.</p>';
+
+    const instrList=document.getElementById("instructors-list");
+    instrList.innerHTML = instrRows.length ? instrRows.map(i=>renderInstructorRow(i, schoolRows, true)).join("") : '<p class="muted">No instructors yet.</p>';
+
+    const select=document.getElementById("new-instr-school");
+    select.innerHTML = '<option value="">— Solo instructor (no school) —</option>' +
+      schoolRows.map(s=>`<option value="${s.id}">${esc(s.display_name||s.name)}</option>`).join("");
+  } else if(isSchoolAdminUser && currentSchoolId){
+    content.innerHTML=`
+      <h2>Your instructors</h2>
+      <p class="muted" style="margin-bottom:.75rem">Lock an instructor's access (e.g. non-payment) or edit their details. Only a super admin can create new instructor logins or delete accounts.</p>
+      <div id="instructors-list">Loading…</div>
+      <div class="err" id="teams-err" style="margin-top:.5rem"></div>`;
+
+    const {data:instructors} = await sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at").eq("role","instructor").eq("school_id",currentSchoolId).order("full_name");
+    const instrRows = instructors||[];
+    const instrList=document.getElementById("instructors-list");
+    instrList.innerHTML = instrRows.length ? instrRows.map(i=>renderInstructorRow(i, [], false)).join("") : '<p class="muted">No instructors yet.</p>';
+  } else {
+    content.innerHTML = '<p class="muted">Nothing to show here.</p>';
+  }
+}
+
+function renderInstructorRow(i, schoolRows, fullControls){
+  const school = schoolRows.find(s=>s.id===i.school_id);
+  const schoolLabel = school ? esc(school.display_name||school.name) : "Solo";
+  const nameEsc = esc(i.full_name||i.email).replace(/'/g,"&#39;");
+  const adminBadge = i.is_school_admin ? ' <span style="font-size:.7rem;font-weight:700;color:#0A4CA1">ADMIN</span>' : "";
+  const lockedBadge = i.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
+  const lockBtn = i.locked_at
+    ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockInstructor('${i.id}','${nameEsc}')">Unlock</button>`
+    : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockInstructor('${i.id}','${nameEsc}')">Lock</button>`;
+  const toggleBtn = fullControls && school
+    ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="toggleSchoolAdmin('${i.id}',${!i.is_school_admin})">${i.is_school_admin?"Remove admin":"Make admin"}</button>`
+    : "";
+  const soloBtn = fullControls && school
+    ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="makeInstructorSolo('${i.id}','${nameEsc}')">Make solo</button>`
+    : "";
+  const deleteBtn = fullControls
+    ? `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteInstructor('${i.id}','${nameEsc}')">Delete</button>`
+    : "";
+  return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}${lockedBadge}<div class="muted">${esc(i.email||"")}${fullControls?" · "+schoolLabel:""}</div></div>
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+      ${lockBtn}
+      ${toggleBtn}
+      ${soloBtn}
+      <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editInstructor('${i.id}')">Edit</button>
+      ${deleteBtn}
+    </div></div>`;
+}
+
+async function lockInstructor(instructorId, name){
+  const reason=prompt(`Lock ${name}'s account (they won't be able to sign in). Optional message to show them at login — leave blank for the default:`, "");
+  if(reason===null) return;
+  const err=document.getElementById("teams-err");
+  err.style.color=""; err.textContent="";
+  const {error}=await sb.from("profiles").update({locked_at:new Date().toISOString(), locked_reason:reason.trim()||null}).eq("id",instructorId);
+  if(error){ err.textContent=error.message; return; }
+  await loadTeamsPanel();
+}
+
+async function unlockInstructor(instructorId, name){
+  if(!confirm(`Unlock ${name}'s account?`)) return;
+  const err=document.getElementById("teams-err");
+  err.style.color=""; err.textContent="";
+  const {error}=await sb.from("profiles").update({locked_at:null, locked_reason:null}).eq("id",instructorId);
+  if(error){ err.textContent=error.message; return; }
+  await loadTeamsPanel();
+}
+
+async function lockSchool(schoolId, name){
+  const reason=prompt(`Lock ${name}'s account — this blocks every instructor in this school from signing in, not just the admin. Optional message to show them at login — leave blank for the default:`, "");
+  if(reason===null) return;
+  const err=document.getElementById("teams-err");
+  err.style.color=""; err.textContent="";
+  const {error}=await sb.from("schools").update({locked_at:new Date().toISOString(), locked_reason:reason.trim()||null}).eq("id",schoolId);
+  if(error){ err.textContent=error.message; return; }
+  await loadTeamsPanel();
+}
+
+async function unlockSchool(schoolId, name){
+  if(!confirm(`Unlock ${name}'s driving school account?`)) return;
+  const err=document.getElementById("teams-err");
+  err.style.color=""; err.textContent="";
+  const {error}=await sb.from("schools").update({locked_at:null, locked_reason:null}).eq("id",schoolId);
+  if(error){ err.textContent=error.message; return; }
+  await loadTeamsPanel();
 }
 
 async function addSchool(){

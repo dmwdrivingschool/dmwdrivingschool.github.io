@@ -411,6 +411,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--asphalt);color:#7
         <h2>Settings</h2>
         <div class="settings-list" id="settings-menu">
           <button type="button" onclick="openSettings('reminders')">Reminders</button>
+          <button type="button" onclick="openSettings('paycats')">Payment categories</button>
           <button type="button" onclick="openSettings('workinghours')">Working hours</button>
           <button type="button" onclick="openSettings('syllabus')">Progress syllabus</button>
           <button type="button" onclick="openSettings('diary')">Diary options</button>
@@ -437,18 +438,39 @@ const SUPABASE_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
 
 // Role/video-access gating state — resolved once at login (see enterApp()).
-let isSuperAdminUser=false, isSchoolAdminUser=false, canSeeVideosTab=false, currentSchoolId=null, brSoloLogoUrl=null;
+let isSuperAdminUser=false, isSchoolAdminUser=false, canSeeVideosTab=false, currentSchoolId=null, brSoloLogoUrl=null, currentUserId=null;
 
-const INCOME_CATS=["Pupil Lesson","Pupil Test Fee","Bank Interest","Other"];
+// Editable via Settings > Payment categories (app_settings id='finance_categories').
+// These are just the built-in defaults, used to seed that row the first time
+// and as a fallback if the fetch fails — loadFinanceCategories() below
+// reassigns both arrays in place once the real saved list is loaded.
+let INCOME_CATS=["Pupil Lesson","Pupil Test Fee","Bank Interest","Other"];
 // "Lesson Refund" added 15 Aug 2026 to match Total Drive's category list —
 // the app previously had no matching expense category for refunds at all.
-const EXPENSE_CATS=["Advertising","Bank Charges","Car Finance","Franchise / Car Rental","Fuel","Insurance","Lesson Refund","Miscellaneous","Motor Expenses","Office Expenses","Payment Service Fee","Printing & Stationery","Pupil Lesson","Pupil Test Fee","Square Payment Charge","Subscriptions","Telephone & Internet"];
+let EXPENSE_CATS=["Advertising","Bank Charges","Car Finance","Franchise / Car Rental","Fuel","Insurance","Lesson Refund","Miscellaneous","Motor Expenses","Office Expenses","Payment Service Fee","Printing & Stationery","Pupil Lesson","Pupil Test Fee","Square Payment Charge","Subscriptions","Telephone & Internet"];
+async function loadFinanceCategories(){
+  try{
+    // app_settings' real primary key is (owner_id, id) — every row is scoped
+    // to one instructor's account, so this must filter on owner_id too, not
+    // just id, now that more than one instructor's rows can share the same id.
+    const {data}=await sb.from("app_settings").select("value").eq("id","finance_categories").eq("owner_id",currentUserId).maybeSingle();
+    if(data && data.value){
+      if(Array.isArray(data.value.income) && data.value.income.length) INCOME_CATS=data.value.income;
+      if(Array.isArray(data.value.expense) && data.value.expense.length) EXPENSE_CATS=data.value.expense;
+    }
+  }catch(e){}
+}
+async function saveFinanceCategories(){
+  const {error}=await sb.from("app_settings").upsert({id:"finance_categories",owner_id:currentUserId,value:{income:INCOME_CATS,expense:EXPENSE_CATS},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+  if(error){ alert("Could not save: "+error.message); return false; }
+  return true;
+}
 
 let pupilsCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="active";
 let workingHours={start:"09:00",end:"20:00",days:{Monday:true,Tuesday:true,Wednesday:true,Thursday:true,Friday:true,Saturday:false,Sunday:false}};
 async function loadWorkingHours(){
   try{
-    const {data}=await sb.from("app_settings").select("value").eq("id","working_hours").maybeSingle();
+    const {data}=await sb.from("app_settings").select("value").eq("id","working_hours").eq("owner_id",currentUserId).maybeSingle();
     if(data&&data.value){
       const v=data.value;
       workingHours={
@@ -486,12 +508,12 @@ let syllabusItems=[
 // the defaults above only if the row doesn't exist yet or the fetch fails.
 async function loadSyllabus(){
   try{
-    const {data}=await sb.from("app_settings").select("value").eq("id","syllabus").maybeSingle();
+    const {data}=await sb.from("app_settings").select("value").eq("id","syllabus").eq("owner_id",currentUserId).maybeSingle();
     if(data && Array.isArray(data.value) && data.value.length) syllabusItems=data.value;
   }catch(e){}
 }
 async function saveSyllabus(){
-  const {error}=await sb.from("app_settings").upsert({id:"syllabus",value:syllabusItems,updated_at:new Date().toISOString()},{onConflict:"id"});
+  const {error}=await sb.from("app_settings").upsert({id:"syllabus",owner_id:currentUserId,value:syllabusItems,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
   if(error){ alert("Could not save: "+error.message); return false; }
   return true;
 }
@@ -574,6 +596,7 @@ async function resolveVideoAccess(prof){
   } catch (e) {}
 }
 async function enterApp(user,prof){
+  currentUserId=user.id;
   document.getElementById("gate").style.display="none";
   document.getElementById("app").style.display="block";
   document.getElementById("who").textContent=prof?.full_name||user.email||"";
@@ -596,7 +619,7 @@ sb.auth.getSession().then(({data})=>{
 function showBanner(msg){const b=document.getElementById("data-banner"); if(!msg){b.style.display="none";return} b.textContent=msg;b.style.display="block"}
 
 async function refresh(){
-  await Promise.all([loadPupils(),loadPayments(),loadTests(),loadWorkingHours(),loadSyllabus()]);
+  await Promise.all([loadPupils(),loadPayments(),loadTests(),loadWorkingHours(),loadSyllabus(),loadFinanceCategories()]);
   loadDash(); loadEnquiries(); loadGaps(); loadActivity();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   if(!document.getElementById("tab-pupils").classList.contains("hidden")) renderPupils();
@@ -1848,6 +1871,13 @@ async function openSettings(which){
         </div>
       </div>
       <button class="btn btn-navy btn-sm" onclick="saveWorkingHours()">Save</button>`;
+  } else if(which==="paycats"){
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Payment categories</h3>
+      <p class="muted" style="margin-bottom:1rem">These are the categories offered when adding a payment here or reviewed on Finance summary. Changes save immediately.</p>
+      <div id="paycats-lists"></div>
+      <div class="err" id="paycats-err" style="margin-top:.5rem"></div>`;
+    renderPayCats();
   } else if(which==="syllabus"){
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Progress syllabus</h3>
@@ -2241,11 +2271,63 @@ async function saveWorkingHours(){
   const days={};
   document.querySelectorAll("#settings-panel [data-wd]").forEach(el=>{days[el.dataset.wd]=el.checked});
   const payload={start,end,days};
-  const {error}=await sb.from("app_settings").upsert({id:"working_hours",value:payload,updated_at:new Date().toISOString()},{onConflict:"id"});
+  const {error}=await sb.from("app_settings").upsert({id:"working_hours",owner_id:currentUserId,value:payload,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
   if(error) return alert("Could not save: "+error.message);
   workingHours=payload;
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   alert("Saved — this now applies to the app's pupil availability screen, the website enquiry form, and your diary view here.");
+}
+
+// Payment categories editor — two flat lists (income/expense) stored as
+// {income:[...],expense:[...]} on app_settings id='finance_categories'.
+// Deleting a category here only removes it from the picker going forward —
+// existing transactions keep whatever category they already have, and
+// financeCategoryTable() already shows any non-standard category on its own
+// row, so nothing historical is lost or hidden.
+function renderPayCatsList(type){
+  const cats=type==="income"?INCOME_CATS:EXPENSE_CATS;
+  const label=type==="income"?"Income":"Expense";
+  return `<h4 style="margin:${type==="income"?"0":"1.25rem"} 0 .5rem">${label} categories</h4>
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem">
+      ${cats.length ? cats.map(c=>`<span style="display:inline-flex;align-items:center;gap:.35rem;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:.3rem .4rem .3rem .7rem;font-size:.8rem">
+        ${esc(c)}
+        <button type="button" title="Delete" onclick="payCatDelete('${type}','${esc(c).replace(/'/g,"&#39;")}')" style="border:none;background:#e2e8f0;color:#475569;width:18px;height:18px;border-radius:50%;line-height:1;cursor:pointer;font-size:.75rem">×</button>
+      </span>`).join("") : '<span class="muted" style="font-size:.85rem">No categories yet.</span>'}
+    </div>
+    <div style="display:flex;gap:.4rem">
+      <input id="paycat-new-${type}" placeholder="New ${label.toLowerCase()} category" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();payCatAdd('${type}')}">
+      <button type="button" class="btn-outline btn-sm" onclick="payCatAdd('${type}')">Add</button>
+    </div>`;
+}
+function renderPayCats(){
+  const el=document.getElementById("paycats-lists");
+  if(!el) return;
+  el.innerHTML=renderPayCatsList("income")+renderPayCatsList("expense");
+}
+async function payCatAdd(type){
+  const input=document.getElementById(`paycat-new-${type}`);
+  const name=(input.value||"").trim();
+  const err=document.getElementById("paycats-err");
+  err.textContent="";
+  if(!name) return;
+  const list=type==="income"?INCOME_CATS:EXPENSE_CATS;
+  if(list.some(c=>c.toLowerCase()===name.toLowerCase())){ err.textContent="That category already exists."; return; }
+  list.push(name);
+  const ok=await saveFinanceCategories();
+  if(!ok){ list.pop(); return; }
+  renderPayCats();
+  if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
+}
+async function payCatDelete(type,cat){
+  if(!confirm(`Remove "${cat}" from ${type} categories? Existing entries filed under it keep their category — this only affects what's offered going forward.`)) return;
+  const list=type==="income"?INCOME_CATS:EXPENSE_CATS;
+  const idx=list.indexOf(cat);
+  if(idx<0) return;
+  const removed=list.splice(idx,1)[0];
+  const ok=await saveFinanceCategories();
+  if(!ok){ list.splice(idx,0,removed); return; }
+  renderPayCats();
+  if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
 }
 
 // Progress syllabus editor — flat, drag-sortable list of {id,name,group}

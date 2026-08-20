@@ -2301,6 +2301,9 @@ async function loadTeamsPanel(){
     content.innerHTML=`
       <h2>Driving schools</h2>
       <p class="muted" style="margin-bottom:.75rem">Only you (super admin) can create new driving schools or instructor logins, or lock a whole school's access.</p>
+      <p style="margin-bottom:.75rem;padding:.6rem .8rem;border-radius:8px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;font-size:.9rem">
+        ⚠ Anyone you create or invite from here gets free access — no subscription row gets created for admin-invited accounts, so billing never applies to them.
+      </p>
       <div id="schools-list">Loading…</div>
       <div class="field" style="margin-top:1rem"><label>Driving school name</label><input id="new-school-name" placeholder="e.g. Acme Driving School"></div>
       <div class="field"><label>Admin full name</label><input id="new-school-admin-name"></div>

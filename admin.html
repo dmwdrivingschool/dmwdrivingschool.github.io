@@ -2854,11 +2854,12 @@ async function callFn(name, payload){
 }
 
 const SEAT_PRICE_PENCE = 999; // £9.99 — kept in sync manually with the GoCardless price setup
+const PLATFORM_EXPENSE_CATS = ["Hosting & infrastructure","GoCardless fees","Domain & DNS","Marketing","Software & tools","Legal & professional","Other"];
 
 async function loadBillingPanel(){
   const content=document.getElementById("billing-content");
   if(isSuperAdminUser){
-    content.innerHTML = '<h2>Billing</h2><p class="muted">Platform admin — nothing to manage here for your own account.</p>';
+    await loadSuperAdminBilling();
     return;
   }
   content.innerHTML = '<h2>Billing</h2><p class="muted">Loading…</p>';
@@ -2916,6 +2917,165 @@ async function loadBillingPanel(){
       ${seatsBlock}
       <div class="err" id="billing-err" style="margin-top:.75rem"></div>
     </div>`;
+}
+
+// --- Super-admin billing: all-accounts receipts view + DriveMyWay's own
+// income/expense tracker. Kept separate from the per-account panel above
+// since a super_admin manages everyone's billing, not their own. ---------
+
+async function loadSuperAdminBilling(){
+  const content=document.getElementById("billing-content");
+  content.innerHTML = `
+    <h2>Billing</h2>
+    <h3 style="margin-bottom:.5rem">All accounts</h3>
+    <div id="all-accounts-list" class="panel" style="border:none;padding:0">Loading…</div>
+
+    <h3 style="margin:2rem 0 .5rem">DriveMyWay income &amp; expenses</h3>
+    <p class="muted" style="margin-bottom:.75rem">Subscription revenue is logged automatically from GoCardless payments — add your own costs here.</p>
+    <div style="display:flex;gap:.6rem;margin-bottom:.75rem">
+      <button class="btn btn-navy btn-sm" onclick="openAddPlatformTx('income')">+ Income</button>
+      <button class="btn-outline" onclick="openAddPlatformTx('expense')">+ Expense</button>
+    </div>
+    <p id="platform-summary" class="muted"></p>
+    <div id="platform-tx-list" class="panel" style="border:none;padding:0">Loading…</div>`;
+
+  await Promise.all([loadAllAccountsBilling(), loadPlatformTransactions()]);
+}
+
+async function loadAllAccountsBilling(){
+  const el=document.getElementById("all-accounts-list");
+  const {data:subs} = await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased").order("created_at",{ascending:false});
+  const rows = subs||[];
+  const schoolIds = rows.filter(s=>s.owner_type==="school").map(s=>s.owner_id);
+  const instrIds = rows.filter(s=>s.owner_type==="instructor").map(s=>s.owner_id);
+  const [{data:schools}, {data:instrs}] = await Promise.all([
+    schoolIds.length ? sb.from("schools").select("id,display_name,name").in("id",schoolIds) : Promise.resolve({data:[]}),
+    instrIds.length ? sb.from("profiles").select("id,full_name,email").in("id",instrIds) : Promise.resolve({data:[]})
+  ]);
+  const schoolById = Object.fromEntries((schools||[]).map(s=>[s.id,s]));
+  const instrById = Object.fromEntries((instrs||[]).map(i=>[i.id,i]));
+
+  el.innerHTML = rows.length ? rows.map(s=>{
+    const name = s.owner_type==="school"
+      ? (schoolById[s.owner_id]?.display_name || schoolById[s.owner_id]?.name || "Unknown school")
+      : (instrById[s.owner_id]?.full_name || instrById[s.owner_id]?.email || "Unknown instructor");
+    const nameEsc = esc(name).replace(/'/g,"&#39;");
+    return `<div class="list-row"><div><strong>${esc(name)}</strong> ${renderStatusChip(s.status)}<div class="muted">${esc(s.plan)}${s.owner_type==="school"?" · "+s.seats_purchased+" seat"+(s.seats_purchased===1?"":"s"):""}</div></div>
+      <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showPaymentHistory('${s.id}','${nameEsc}')">Payment history</button>
+    </div>`;
+  }).join("") : '<p class="muted">No subscriptions yet.</p>';
+}
+
+async function showPaymentHistory(subscriptionId, name){
+  const {data:payments} = await sb.from("gocardless_payments").select("amount_pence,status,charge_date,created_at").eq("subscription_id",subscriptionId).order("charge_date",{ascending:false});
+  const rows = payments||[];
+  const list = rows.length ? rows.map(p=>{
+    const amt = "£"+(p.amount_pence/100).toFixed(2);
+    const date = p.charge_date ? new Date(p.charge_date).toLocaleDateString() : new Date(p.created_at).toLocaleDateString();
+    const chip = p.status==="confirmed" ? '<span class="chip chip-ok">Confirmed</span>' : '<span class="chip chip-bad">Failed</span>';
+    return `<div class="list-row"><div>${date}</div><div>${amt} ${chip}</div></div>`;
+  }).join("") : '<p class="muted">No payments recorded yet.</p>';
+  openModal(`<h3 style="margin:0 0 1rem">Payment history — ${esc(name)}</h3>${list}<button class="btn-outline" style="margin-top:1rem" onclick="closeModal()">Close</button>`);
+}
+
+function platformTxForm(type, existing){
+  const isExpense = type==="expense";
+  const catField = isExpense ? `<div class="field"><label>Category</label>
+      <select id="ptx-category">${PLATFORM_EXPENSE_CATS.map(c=>`<option ${existing&&existing.category===c?"selected":""}>${c}</option>`).join("")}</select>
+    </div>` : "";
+  const today = new Date().toISOString().slice(0,10);
+  return `
+    <div class="field"><label>Amount (£)</label><input id="ptx-amount" type="number" step="0.01" min="0" value="${existing?existing.amount:""}"></div>
+    <div class="field"><label>Date</label><input id="ptx-date" type="date" value="${existing?existing.transaction_date:today}"></div>
+    ${catField}
+    <div class="field"><label>Description</label><input id="ptx-desc" value="${existing?esc(existing.description||""):""}"></div>
+    <div class="field"><label>Payment method (optional)</label><input id="ptx-method" value="${existing?esc(existing.payment_method||""):""}"></div>
+    <div class="field"><label>Notes (optional)</label><textarea id="ptx-notes">${existing?esc(existing.notes||""):""}</textarea></div>`;
+}
+
+function openAddPlatformTx(type){
+  openModal(`<h3 style="margin:0 0 1rem">Add ${type==="income"?"income":"expense"}</h3>
+    ${platformTxForm(type)}
+    <button class="btn btn-navy btn-sm" onclick="savePlatformTx('${type}')">Save</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
+    <div class="err" id="ptx-err" style="margin-top:.5rem"></div>`);
+}
+
+async function openEditPlatformTx(id){
+  const {data:t} = await sb.from("platform_transactions").select("*").eq("id",id).single();
+  if(!t) return;
+  openModal(`<h3 style="margin:0 0 1rem">Edit ${t.type}</h3>
+    ${platformTxForm(t.type, t)}
+    <button class="btn btn-navy btn-sm" onclick="updatePlatformTx('${id}','${t.type}')">Save</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
+    <button class="btn-danger" style="margin-left:.5rem" onclick="deletePlatformTx('${id}')">Delete</button>
+    <div class="err" id="ptx-err" style="margin-top:.5rem"></div>`);
+}
+
+function readPlatformTxForm(type, err){
+  const amount = parseFloat(document.getElementById("ptx-amount").value);
+  const date = document.getElementById("ptx-date").value;
+  if(!amount || amount<=0){ err.textContent="Enter a valid amount"; return null; }
+  if(!date){ err.textContent="Enter a date"; return null; }
+  return {
+    amount,
+    transaction_date: date,
+    category: type==="expense" ? document.getElementById("ptx-category").value : "Other",
+    description: document.getElementById("ptx-desc").value.trim() || null,
+    payment_method: document.getElementById("ptx-method").value.trim() || null,
+    notes: document.getElementById("ptx-notes").value.trim() || null
+  };
+}
+
+async function savePlatformTx(type){
+  const err=document.getElementById("ptx-err");
+  const fields = readPlatformTxForm(type, err);
+  if(!fields) return;
+  const {error} = await sb.from("platform_transactions").insert({type, created_by:currentUserId, ...fields});
+  if(error){ err.textContent=error.message; return; }
+  closeModal();
+  await loadPlatformTransactions();
+}
+
+async function updatePlatformTx(id, type){
+  const err=document.getElementById("ptx-err");
+  const fields = readPlatformTxForm(type, err);
+  if(!fields) return;
+  const {error} = await sb.from("platform_transactions").update(fields).eq("id",id);
+  if(error){ err.textContent=error.message; return; }
+  closeModal();
+  await loadPlatformTransactions();
+}
+
+async function deletePlatformTx(id){
+  if(!confirm("Delete this entry?")) return;
+  await sb.from("platform_transactions").delete().eq("id",id);
+  closeModal();
+  await loadPlatformTransactions();
+}
+
+async function loadPlatformTransactions(){
+  const el=document.getElementById("platform-tx-list");
+  const summaryEl=document.getElementById("platform-summary");
+  const {data:txs} = await sb.from("platform_transactions").select("*").order("transaction_date",{ascending:false}).limit(200);
+  const rows = txs||[];
+  const income = rows.filter(t=>t.type==="income").reduce((sum,t)=>sum+Number(t.amount),0);
+  const expense = rows.filter(t=>t.type==="expense").reduce((sum,t)=>sum+Number(t.amount),0);
+  summaryEl.textContent = `Income: £${income.toFixed(2)} · Expenses: £${expense.toFixed(2)} · Net: £${(income-expense).toFixed(2)}`;
+
+  el.innerHTML = rows.length ? rows.map(t=>{
+    const amtColor = t.type==="income" ? "#166534" : "#9c2b2b";
+    const sign = t.type==="income" ? "+" : "−";
+    const auto = !!t.gocardless_payment_id;
+    const actions = auto
+      ? '<span class="muted" style="font-size:.72rem">Auto</span>'
+      : `<button class="btn-outline" style="font-size:.72rem;padding:.25rem .5rem" onclick="openEditPlatformTx('${t.id}')">Edit</button>`;
+    return `<div class="list-row"><div><strong>${esc(t.category||t.type)}</strong><div class="muted">${esc(t.description||"")}${t.transaction_date?" · "+new Date(t.transaction_date).toLocaleDateString():""}</div></div>
+      <div style="display:flex;align-items:center;gap:.6rem">
+        <span style="color:${amtColor};font-weight:700;font-family:var(--fm)">${sign}£${Number(t.amount).toFixed(2)}</span>
+        ${actions}
+      </div></div>`;
+  }).join("") : '<p class="muted">No entries yet.</p>';
 }
 
 async function startBillingRequest(){

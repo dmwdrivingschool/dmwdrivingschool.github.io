@@ -1327,6 +1327,24 @@ async function savePupil(id){
 function val(id){return document.getElementById(id).value.trim()}
 
 let schoolInstructorsCache=[];
+let subsByOwnerCache={};
+let schoolsCache=[];
+
+/** Small status chip for a subscription row — reused across Teams rows and
+ * the instructor/school detail panels, matching the Billing tab's existing
+ * chip classes. */
+function renderStatusChip(status){
+  const map={
+    pdi_free:["PDI","chip-info"],
+    trialing:["Trial","chip-wait"],
+    active:["Active","chip-ok"],
+    past_due:["Past due","chip-bad"],
+    mandate_failed:["Mandate failed","chip-bad"],
+    canceled:["Cancelled","chip-bad"]
+  };
+  const [label,cls]=map[status]||[status,"chip-info"];
+  return `<span class="chip ${cls}">${esc(label)}</span>`;
+}
 
 async function loadEnquiries(){
   const el=document.getElementById("enquiry-list");
@@ -2318,26 +2336,45 @@ async function loadTeamsPanel(){
       <div class="field"><label>Driving school</label>
         <select id="new-instr-school"><option value="">— Solo instructor (no school) —</option></select>
       </div>
+      <div class="field" style="display:flex;align-items:center;gap:.5rem">
+        <input type="checkbox" id="new-instr-pdi" style="width:auto">
+        <label style="margin:0;text-transform:none;font-weight:600;font-size:.85rem;color:var(--text)">This is a PDI (free while training)</label>
+      </div>
       <button class="btn btn-navy btn-sm" onclick="addInstructorGlobal()">Send invite</button>
       <div class="err" id="teams-err" style="margin-top:.5rem"></div>`;
 
     const [{data:schools}, {data:instructors}] = await Promise.all([
       sb.from("schools").select("id,display_name,name,locked_at").order("display_name"),
-      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at").eq("role","instructor").order("full_name")
+      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at").eq("role","instructor").order("full_name")
     ]);
     const schoolRows = schools||[];
     const instrRows = instructors||[];
+    const instrIds = instrRows.map(i=>i.id);
+    const {data:instrSubs} = instrIds.length
+      ? await sb.from("subscriptions").select("owner_id,plan,status").eq("owner_type","instructor").in("owner_id",instrIds)
+      : {data:[]};
+    subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
+    schoolsCache = schoolRows;
+
+    const schoolIds = schoolRows.map(s=>s.id);
+    const {data:schoolSubs} = schoolIds.length
+      ? await sb.from("subscriptions").select("owner_id,plan,status").eq("owner_type","school").in("owner_id",schoolIds)
+      : {data:[]};
+    const schoolSubsByOwner = Object.fromEntries((schoolSubs||[]).map(s=>[s.owner_id,s]));
 
     const schoolsList=document.getElementById("schools-list");
     schoolsList.innerHTML = schoolRows.length ? schoolRows.map(s=>{
       const count = instrRows.filter(i=>i.school_id===s.id).length;
       const nameEsc = esc(s.display_name||s.name).replace(/'/g,"&#39;");
       const lockedBadge = s.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
+      const sub = schoolSubsByOwner[s.id];
+      const statusChip = sub ? renderStatusChip(sub.status) : "";
       const lockBtn = s.locked_at
         ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockSchool('${s.id}','${nameEsc}')">Unlock</button>`
         : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockSchool('${s.id}','${nameEsc}')">Lock</button>`;
-      return `<div class="list-row"><div><strong>${esc(s.display_name||s.name)}</strong>${lockedBadge}<div class="muted">${count} instructor${count===1?"":"s"}</div></div>
+      return `<div class="list-row"><div><strong>${esc(s.display_name||s.name)}</strong>${lockedBadge} ${statusChip}<div class="muted">${count} instructor${count===1?"":"s"}</div></div>
         <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+          <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showSchoolDetail('${s.id}')">Details</button>
           ${lockBtn}
           <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editSchool('${s.id}','${nameEsc}')">Rename</button>
           <button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteSchool('${s.id}')">Delete</button>
@@ -2357,8 +2394,13 @@ async function loadTeamsPanel(){
       <div id="instructors-list">Loading…</div>
       <div class="err" id="teams-err" style="margin-top:.5rem"></div>`;
 
-    const {data:instructors} = await sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at").eq("role","instructor").eq("school_id",currentSchoolId).order("full_name");
+    const {data:instructors} = await sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at").eq("role","instructor").eq("school_id",currentSchoolId).order("full_name");
     const instrRows = instructors||[];
+    const instrIds = instrRows.map(i=>i.id);
+    const {data:instrSubs} = instrIds.length
+      ? await sb.from("subscriptions").select("owner_id,plan,status").eq("owner_type","instructor").in("owner_id",instrIds)
+      : {data:[]};
+    subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
     const instrList=document.getElementById("instructors-list");
     instrList.innerHTML = instrRows.length ? instrRows.map(i=>renderInstructorRow(i, [], false)).join("") : '<p class="muted">No instructors yet.</p>';
   } else {
@@ -2372,23 +2414,38 @@ function renderInstructorRow(i, schoolRows, fullControls){
   const nameEsc = esc(i.full_name||i.email).replace(/'/g,"&#39;");
   const adminBadge = i.is_school_admin ? ' <span style="font-size:.7rem;font-weight:700;color:#0A4CA1">ADMIN</span>' : "";
   const lockedBadge = i.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
+  const sub = subsByOwnerCache[i.id];
+  const statusChip = sub ? renderStatusChip(sub.status) : "";
   const lockBtn = i.locked_at
     ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockInstructor('${i.id}','${nameEsc}')">Unlock</button>`
     : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockInstructor('${i.id}','${nameEsc}')">Lock</button>`;
   const toggleBtn = fullControls && school
     ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="toggleSchoolAdmin('${i.id}',${!i.is_school_admin})">${i.is_school_admin?"Remove admin":"Make admin"}</button>`
     : "";
-  const soloBtn = fullControls && school
-    ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="makeInstructorSolo('${i.id}','${nameEsc}')">Make solo</button>`
-    : "";
+  // Billing-transition buttons — superadmin only. A PDI or a school-seat
+  // instructor can be moved to their own solo subscription; a PDI can also
+  // stay at their school as a paid seat; a solo-paying instructor can join
+  // a school's seats instead.
+  let billingBtns = "";
+  if(fullControls){
+    if(sub && sub.plan==="pdi"){
+      billingBtns = `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','solo','${nameEsc}')">Convert to solo</button>
+        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','school_seat','${nameEsc}')">Keep at school (paid)</button>`;
+    } else if(school){
+      billingBtns = `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','solo','${nameEsc}')">Convert to solo</button>`;
+    } else if(sub && sub.plan==="solo"){
+      billingBtns = `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','school_seat','${nameEsc}')">Move to a school</button>`;
+    }
+  }
   const deleteBtn = fullControls
     ? `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteInstructor('${i.id}','${nameEsc}')">Delete</button>`
     : "";
-  return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}${lockedBadge}<div class="muted">${esc(i.email||"")}${fullControls?" · "+schoolLabel:""}</div></div>
+  return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}${lockedBadge} ${statusChip}<div class="muted">${esc(i.email||"")}${fullControls?" · "+schoolLabel:""}</div></div>
     <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+      <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showInstructorDetail('${i.id}')">Details</button>
       ${lockBtn}
       ${toggleBtn}
-      ${soloBtn}
+      ${billingBtns}
       <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editInstructor('${i.id}')">Edit</button>
       ${deleteBtn}
     </div></div>`;
@@ -2541,12 +2598,15 @@ async function addInstructorGlobal(){
   const email=document.getElementById("new-instr-email").value.trim().toLowerCase();
   const phone=document.getElementById("new-instr-phone").value.trim();
   const schoolId=document.getElementById("new-instr-school").value || null;
+  const isPdi=document.getElementById("new-instr-pdi").checked;
   if(!fullName||!email){ err.textContent="Name and email are required"; return; }
+  if(isPdi && !schoolId){ err.textContent="PDI accounts must be linked to a driving school"; return; }
   try{
-    await manageAuthAdmin("create_instructor", {full_name:fullName, email, phone: phone||null, school_id: schoolId});
+    await manageAuthAdmin("create_instructor", {full_name:fullName, email, phone: phone||null, school_id: schoolId, is_pdi: isPdi});
     document.getElementById("new-instr-name").value="";
     document.getElementById("new-instr-email").value="";
     document.getElementById("new-instr-phone").value="";
+    document.getElementById("new-instr-pdi").checked=false;
     err.style.color="#0a7a3d";
     err.textContent="Invite sent to "+email+".";
     await loadTeamsPanel();
@@ -2564,14 +2624,133 @@ async function toggleSchoolAdmin(instructorId, makeAdmin){
   await loadTeamsPanel();
 }
 
-async function makeInstructorSolo(instructorId, name){
-  if(!confirm(`Remove ${name} from their driving school and make them a standalone solo instructor? Their pupils, lessons and transactions stay with them — only the school link is removed.`)) return;
+async function setInstructorBilling(instructorId, mode, name){
   const err=document.getElementById("teams-err");
   err.style.color="";
   err.textContent="";
-  const {error}=await sb.from("profiles").update({school_id:null, is_school_admin:false}).eq("id",instructorId);
-  if(error){ err.textContent=error.message; return; }
-  await loadTeamsPanel();
+  if(mode==="solo"){
+    if(!confirm(`Convert ${name} to their own solo subscription? They'll set up a fresh Direct Debit next time they open Billing, and are removed from their school's seats.`)) return;
+    try{
+      await manageAuthAdmin("set_instructor_billing", {instructor_id:instructorId, mode:"solo"});
+      await loadTeamsPanel();
+    }catch(e){ err.textContent=e.message||"Failed to update billing"; }
+    return;
+  }
+  if(!schoolsCache.length){ err.textContent="No driving schools to move them to yet."; return; }
+  openModal(`<h3 style="margin:0 0 1rem">Move ${esc(name)} to a school</h3>
+    <div class="field"><label>Driving school</label>
+      <select id="billing-school-select">${schoolsCache.map(s=>`<option value="${s.id}">${esc(s.display_name||s.name)}</option>`).join("")}</select>
+    </div>
+    <p class="muted" style="margin-bottom:1rem">If the school already has a live Direct Debit, their monthly amount updates automatically to include this seat.</p>
+    <button class="btn btn-navy btn-sm" onclick="confirmSetInstructorBillingSchool('${instructorId}')">Confirm</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
+    <div class="err" id="billing-modal-err" style="margin-top:.5rem"></div>`);
+}
+
+async function confirmSetInstructorBillingSchool(instructorId){
+  const schoolId=document.getElementById("billing-school-select").value;
+  const errEl=document.getElementById("billing-modal-err");
+  try{
+    await manageAuthAdmin("set_instructor_billing", {instructor_id:instructorId, mode:"school_seat", school_id:schoolId});
+    closeModal();
+    await loadTeamsPanel();
+  }catch(e){ errEl.textContent=e.message||"Failed to update billing"; }
+}
+
+async function recordManualPayment(ownerType, ownerId){
+  const note = prompt("Note (e.g. \"Bank transfer 21 Aug\" or \"Card taken over the phone\"):");
+  if(note===null) return;
+  try{
+    await manageAuthAdmin("record_manual_payment", {owner_type:ownerType, owner_id:ownerId, note});
+    closeModal();
+    await loadTeamsPanel();
+  }catch(e){ alert(e.message||"Failed to record payment"); }
+}
+
+function daysAgo(dateStr){
+  if(!dateStr) return null;
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if(days < 1) return "today";
+  if(days < 30) return `${days} day${days===1?"":"s"} ago`;
+  const months = Math.floor(days/30);
+  return `${months} month${months===1?"":"s"} ago`;
+}
+
+async function showInstructorDetail(instructorId){
+  const {data:i} = await sb.from("profiles").select("id,full_name,email,phone,address_line1,address_line2,city,postcode,school_id,is_school_admin,created_at").eq("id",instructorId).single();
+  const {data:sub} = await sb.from("subscriptions").select("plan,status,trial_ends_at,current_period_end,past_due_since,manual_payment_note,seats_purchased").eq("owner_type","instructor").eq("owner_id",instructorId).maybeSingle();
+  const school = schoolsCache.find(s=>s.id===i.school_id);
+  const addressLines = [i.address_line1, i.address_line2, i.city, i.postcode].filter(Boolean);
+  const address = addressLines.length ? esc(addressLines.join(", ")) : "Not provided yet";
+
+  let billingBlock = "";
+  if(sub){
+    let extra = "";
+    if(sub.status==="past_due" && sub.past_due_since){
+      const graceEnds = new Date(new Date(sub.past_due_since).getTime() + 7*24*60*60*1000);
+      const daysLeft = Math.ceil((graceEnds.getTime()-Date.now())/86400000);
+      extra = `<p class="muted">Grace period: ${daysLeft>0?daysLeft+" day"+(daysLeft===1?"":"s")+" left":"expired"}</p>
+        <button class="btn btn-navy btn-sm" onclick="recordManualPayment('instructor','${instructorId}')">Record manual payment</button>`;
+    } else if(sub.manual_payment_note){
+      extra = `<p class="muted">Last manual payment note: ${esc(sub.manual_payment_note)}</p>`;
+    }
+    billingBlock = `<div class="field"><label>Billing</label>
+      <p>${renderStatusChip(sub.status)} ${esc(sub.plan)}</p>
+      ${sub.trial_ends_at?`<p class="muted">Trial ends: ${new Date(sub.trial_ends_at).toLocaleDateString()}</p>`:""}
+      ${sub.current_period_end?`<p class="muted">Current period ends: ${new Date(sub.current_period_end).toLocaleDateString()}</p>`:""}
+      ${extra}
+    </div>`;
+  } else {
+    billingBlock = `<div class="field"><label>Billing</label><p class="muted">No billing (grandfathered)</p></div>`;
+  }
+
+  openModal(`<h3 style="margin:0 0 1rem">${esc(i.full_name||i.email)}</h3>
+    <div class="field"><label>Contact</label>
+      <p>${esc(i.email||"")}${i.phone?" · "+esc(i.phone):""}</p>
+      <p class="muted">${address}</p>
+    </div>
+    <div class="field"><label>School</label><p>${school?esc(school.display_name||school.name):"Solo"}${i.is_school_admin?" (admin)":""}</p></div>
+    <div class="field"><label>Signed up</label><p>${daysAgo(i.created_at)||"—"}</p></div>
+    ${billingBlock}
+    <button class="btn-outline" onclick="closeModal()">Close</button>`);
+}
+
+async function showSchoolDetail(schoolId){
+  const {data:s} = await sb.from("schools").select("id,display_name,name,address_line1,address_line2,city,postcode,created_at").eq("id",schoolId).single();
+  const {data:sub} = await sb.from("subscriptions").select("plan,status,trial_ends_at,current_period_end,past_due_since,manual_payment_note,seats_purchased").eq("owner_type","school").eq("owner_id",schoolId).maybeSingle();
+  const {data:admins} = await sb.from("profiles").select("full_name,email,phone").eq("school_id",schoolId).eq("is_school_admin",true);
+  const addressLines = [s.address_line1, s.address_line2, s.city, s.postcode].filter(Boolean);
+  const address = addressLines.length ? esc(addressLines.join(", ")) : "Not provided yet";
+
+  let billingBlock = "";
+  if(sub){
+    let extra = "";
+    if(sub.status==="past_due" && sub.past_due_since){
+      const graceEnds = new Date(new Date(sub.past_due_since).getTime() + 7*24*60*60*1000);
+      const daysLeft = Math.ceil((graceEnds.getTime()-Date.now())/86400000);
+      extra = `<p class="muted">Grace period: ${daysLeft>0?daysLeft+" day"+(daysLeft===1?"":"s")+" left":"expired"}</p>
+        <button class="btn btn-navy btn-sm" onclick="recordManualPayment('school','${schoolId}')">Record manual payment</button>`;
+    } else if(sub.manual_payment_note){
+      extra = `<p class="muted">Last manual payment note: ${esc(sub.manual_payment_note)}</p>`;
+    }
+    billingBlock = `<div class="field"><label>Billing</label>
+      <p>${renderStatusChip(sub.status)} ${sub.seats_purchased} seat${sub.seats_purchased===1?"":"s"}</p>
+      ${sub.trial_ends_at?`<p class="muted">Trial ends: ${new Date(sub.trial_ends_at).toLocaleDateString()}</p>`:""}
+      ${sub.current_period_end?`<p class="muted">Current period ends: ${new Date(sub.current_period_end).toLocaleDateString()}</p>`:""}
+      ${extra}
+    </div>`;
+  } else {
+    billingBlock = `<div class="field"><label>Billing</label><p class="muted">No billing (grandfathered)</p></div>`;
+  }
+
+  const adminLines = (admins||[]).map(a=>`<p>${esc(a.full_name||a.email)} — ${esc(a.email||"")}${a.phone?" · "+esc(a.phone):""}</p>`).join("") || '<p class="muted">No admin set</p>';
+
+  openModal(`<h3 style="margin:0 0 1rem">${esc(s.display_name||s.name)}</h3>
+    <div class="field"><label>Address</label><p class="muted">${address}</p></div>
+    <div class="field"><label>Admin contact</label>${adminLines}</div>
+    <div class="field"><label>Signed up</label><p>${daysAgo(s.created_at)||"—"}</p></div>
+    ${billingBlock}
+    <button class="btn-outline" onclick="closeModal()">Close</button>`);
 }
 
 // --- Billing (GoCardless subscription) -------------------------------

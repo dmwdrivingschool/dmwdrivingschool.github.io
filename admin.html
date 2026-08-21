@@ -2932,6 +2932,22 @@ async function loadSuperAdminBilling(){
 
     <h3 style="margin:2rem 0 .5rem">DriveMyWay income &amp; expenses</h3>
     <p class="muted" style="margin-bottom:.75rem">Subscription revenue is logged automatically from GoCardless payments — add your own costs here.</p>
+    <div class="filters">
+      <div class="field"><label>Period</label>
+        <select id="ptx-period" onchange="onPtxPeriodChange()">
+          <option value="this_tax">This tax year</option>
+          <option value="last_tax">Last tax year</option>
+          <option value="this_month">This month</option>
+          <option value="last_month">Last month</option>
+          <option value="custom">Custom dates</option>
+          <option value="all">All time</option>
+        </select>
+      </div>
+      <div class="field" id="ptx-from-wrap" style="display:none"><label>From</label><input type="date" id="ptx-from"></div>
+      <div class="field" id="ptx-to-wrap" style="display:none"><label>To</label><input type="date" id="ptx-to"></div>
+      <button class="btn btn-navy btn-sm" onclick="renderPlatformTransactions()">Apply</button>
+      <button class="btn-outline" onclick="exportPlatformTxCsv()">Export CSV</button>
+    </div>
     <div style="display:flex;gap:.6rem;margin-bottom:.75rem">
       <button class="btn btn-navy btn-sm" onclick="openAddPlatformTx('income')">+ Income</button>
       <button class="btn-outline" onclick="openAddPlatformTx('expense')">+ Expense</button>
@@ -3054,14 +3070,48 @@ async function deletePlatformTx(id){
   await loadPlatformTransactions();
 }
 
+let platformTxCache = [];
+
+// Same period options/logic as the Finances panel's fin-period filter
+// (taxYearBounds() etc, already defined above) — kept as separate
+// ptx-prefixed elements/functions since #fin-* ids stay in the DOM
+// (just hidden) whenever the Billing tab is active.
+function onPtxPeriodChange(){
+  const c=document.getElementById("ptx-period").value==="custom";
+  document.getElementById("ptx-from-wrap").style.display=c?"block":"none";
+  document.getElementById("ptx-to-wrap").style.display=c?"block":"none";
+}
+function getPtxRange(){
+  const p=document.getElementById("ptx-period").value; const now=new Date();
+  if(p==="all") return {from:null,to:null};
+  if(p==="this_tax") return taxYearBounds(0);
+  if(p==="last_tax") return taxYearBounds(-1);
+  if(p==="this_month") return {from:now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01",to:now.toISOString().slice(0,10)};
+  if(p==="last_month"){const d=new Date(now.getFullYear(),now.getMonth()-1,1);const e=new Date(now.getFullYear(),now.getMonth(),0);return{from:d.toISOString().slice(0,10),to:e.toISOString().slice(0,10)}}
+  return {from:document.getElementById("ptx-from").value||null,to:document.getElementById("ptx-to").value||null};
+}
+function filteredPlatformTx(){
+  const {from,to}=getPtxRange();
+  return (platformTxCache||[]).filter(t=>{
+    const d=t.transaction_date||"";
+    if(from&&d&&d<from)return false; if(to&&d&&d>to)return false; return true;
+  });
+}
+
 async function loadPlatformTransactions(){
+  const {data:txs} = await sb.from("platform_transactions").select("*").order("transaction_date",{ascending:false});
+  platformTxCache = txs||[];
+  renderPlatformTransactions();
+}
+
+function renderPlatformTransactions(){
   const el=document.getElementById("platform-tx-list");
   const summaryEl=document.getElementById("platform-summary");
-  const {data:txs} = await sb.from("platform_transactions").select("*").order("transaction_date",{ascending:false}).limit(200);
-  const rows = txs||[];
+  const rows = filteredPlatformTx();
   const income = rows.filter(t=>t.type==="income").reduce((sum,t)=>sum+Number(t.amount),0);
   const expense = rows.filter(t=>t.type==="expense").reduce((sum,t)=>sum+Number(t.amount),0);
-  summaryEl.textContent = `Income: £${income.toFixed(2)} · Expenses: £${expense.toFixed(2)} · Net: £${(income-expense).toFixed(2)}`;
+  const {from,to} = getPtxRange();
+  summaryEl.textContent = `${from||"all"} → ${to||"all"} · Income: £${income.toFixed(2)} · Expenses: £${expense.toFixed(2)} · Net: £${(income-expense).toFixed(2)}`;
 
   el.innerHTML = rows.length ? rows.map(t=>{
     const amtColor = t.type==="income" ? "#166534" : "#9c2b2b";
@@ -3075,7 +3125,17 @@ async function loadPlatformTransactions(){
         <span style="color:${amtColor};font-weight:700;font-family:var(--fm)">${sign}£${Number(t.amount).toFixed(2)}</span>
         ${actions}
       </div></div>`;
-  }).join("") : '<p class="muted">No entries yet.</p>';
+  }).join("") : '<p class="muted">No entries in this period.</p>';
+}
+
+function exportPlatformTxCsv(){
+  const rows=filteredPlatformTx(); const {from,to}=getPtxRange();
+  const lines=["date,type,category,amount,description,method,notes"];
+  rows.forEach(t=>{
+    lines.push([t.transaction_date||"",t.type||"",t.category||"",t.amount??"",(t.description||"").replace(/,/g,";"),t.payment_method||"",(t.notes||"").replace(/,/g,";")].join(","));
+  });
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));
+  a.download=`drivemyway-income-expenses_${from||"all"}_${to||"all"}.csv`; a.click();
 }
 
 async function startBillingRequest(){

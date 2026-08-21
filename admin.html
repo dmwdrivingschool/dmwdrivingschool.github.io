@@ -2519,36 +2519,47 @@ async function addSchool(){
 }
 
 async function editInstructor(instructorId){
+  // A single form in the existing modal, not three sequential prompt()
+  // dialogs — browsers throttle/suppress rapid repeated native prompts
+  // (Chrome offers "prevent this page from creating additional dialogs"
+  // after the first one or two), which silently made phone/email
+  // uneditable in practice even though the code behind them worked fine.
   const {data:instr,error:loadError}=await sb.from("profiles").select("id,full_name,phone,email,school_id").eq("id",instructorId).single();
-  const err=document.getElementById("teams-err");
-  err.style.color="";
-  err.textContent="";
-  if(loadError){ err.textContent=loadError.message; return; }
+  if(loadError){ alert(loadError.message); return; }
 
-  const newName=prompt("Full name:", instr.full_name||"");
-  if(newName===null) return;
-  const newPhone=prompt("Phone (leave blank for none):", instr.phone||"");
-  if(newPhone===null) return;
-  const newEmail=prompt("Email (this is also their login — changing it changes what they sign in with):", instr.email||"");
-  if(newEmail===null) return;
-  const emailTrimmed=newEmail.trim().toLowerCase();
-  if(!emailTrimmed){ err.textContent="Email can't be blank"; return; }
+  openModal(`<h3 style="margin:0 0 1rem">Edit instructor</h3>
+    <div class="field"><label>Full name</label><input id="edit-instr-name" value="${esc(instr.full_name||"")}"></div>
+    <div class="field"><label>Phone</label><input id="edit-instr-phone" value="${esc(instr.phone||"")}"></div>
+    <div class="field"><label>Email</label><input id="edit-instr-email" type="email" value="${esc(instr.email||"")}">
+      <p class="muted" style="margin-top:.3rem">This is also their login — changing it changes what they sign in with. Useful if they're locked out and need a new email.</p>
+    </div>
+    <button class="btn btn-navy btn-sm" onclick="confirmEditInstructor('${instructorId}','${esc(instr.email||"").replace(/'/g,"&#39;")}')">Save</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
+    <div class="err" id="edit-instr-err" style="margin-top:.5rem"></div>`);
+}
+
+async function confirmEditInstructor(instructorId, originalEmail){
+  const errEl=document.getElementById("edit-instr-err");
+  const newName=document.getElementById("edit-instr-name").value.trim();
+  const newPhone=document.getElementById("edit-instr-phone").value.trim();
+  const emailTrimmed=document.getElementById("edit-instr-email").value.trim().toLowerCase();
+  if(!emailTrimmed){ errEl.textContent="Email can't be blank"; return; }
 
   const {error}=await sb.from("profiles").update({
-    full_name: newName.trim(),
-    phone: newPhone.trim()||null
+    full_name: newName,
+    phone: newPhone||null
   }).eq("id",instructorId);
-  if(error){ err.textContent=error.message; return; }
+  if(error){ errEl.textContent=error.message; return; }
 
-  if(emailTrimmed !== (instr.email||"").toLowerCase()){
+  if(emailTrimmed !== originalEmail.toLowerCase()){
     try{
       await manageAuthAdmin("update_instructor_email", { instructor_id: instructorId, email: emailTrimmed });
     }catch(emailErr){
-      err.textContent = "Name/phone saved, but email update failed: " + (emailErr.message||"unknown error");
-      await loadTeamsPanel();
+      errEl.textContent = "Name/phone saved, but email update failed: " + (emailErr.message||"unknown error");
       return;
     }
   }
+  closeModal();
   await loadTeamsPanel();
 }
 

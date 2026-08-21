@@ -646,8 +646,74 @@ async function enterApp(user,prof){
   document.getElementById("nav-billing-btn").classList.remove("hidden"); // everyone can see their own billing, not just admins
   document.getElementById("nav-website-btn").classList.toggle("hidden", !isSuperAdminUser); // public website is your (platform admin's) tool only — never a driving school's
   await refresh(); setInterval(refresh,30000);
+  checkProfileCompletion();
 }
 async function lock(){await sb.auth.signOut(); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
+
+// --- Complete your profile (address + ADI/PDI badge number) ------------
+// Shares the exact same tables/fields as the app's own copy of this
+// prompt (src/components/CompleteProfileModal.tsx) — whichever side it's
+// filled in on, the other stops asking, since both just read fresh data.
+// Never shown to super_admin (platform account, not a real instructor).
+
+let profileCompletionDismissed = false;
+
+async function checkProfileCompletion(){
+  if(isSuperAdminUser || profileCompletionDismissed) return;
+  const {data:own} = await sb.from("profiles").select("address_line1,address_line2,city,postcode,adi_badge_number").eq("id",currentUserId).maybeSingle();
+  let addressSource = own;
+  if(currentSchoolId){
+    const {data:school} = await sb.from("schools").select("address_line1,address_line2,city,postcode").eq("id",currentSchoolId).maybeSingle();
+    addressSource = school;
+  }
+  const needsProfile = !addressSource?.address_line1 || !own?.adi_badge_number;
+  if(needsProfile) showCompleteProfileModal(addressSource, own?.adi_badge_number);
+}
+
+function showCompleteProfileModal(address, adiBadgeNumber){
+  address = address || {};
+  openModal(`<h3 style="margin:0 0 1rem">Complete your profile</h3>
+    <p class="muted" style="margin-bottom:1rem">A couple of things missing from your account — takes a minute to add.</p>
+    <div class="field"><label>Address line 1</label><input id="cp-address1" value="${esc(address.address_line1||"")}"></div>
+    <div class="field"><label>Address line 2 (optional)</label><input id="cp-address2" value="${esc(address.address_line2||"")}"></div>
+    <div class="field"><label>City</label><input id="cp-city" value="${esc(address.city||"")}"></div>
+    <div class="field"><label>Postcode</label><input id="cp-postcode" value="${esc(address.postcode||"")}"></div>
+    <div class="field"><label>ADI/PDI badge number (optional)</label><input id="cp-adi" value="${esc(adiBadgeNumber||"")}"></div>
+    <button class="btn btn-navy btn-sm" onclick="saveCompleteProfile()">Save</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="dismissCompleteProfile()">Later</button>
+    <div class="err" id="cp-err" style="margin-top:.5rem"></div>`);
+}
+
+function dismissCompleteProfile(){
+  profileCompletionDismissed = true;
+  closeModal();
+}
+
+async function saveCompleteProfile(){
+  const errEl=document.getElementById("cp-err");
+  const address1=document.getElementById("cp-address1").value.trim();
+  const address2=document.getElementById("cp-address2").value.trim();
+  const city=document.getElementById("cp-city").value.trim();
+  const postcode=document.getElementById("cp-postcode").value.trim();
+  const adi=document.getElementById("cp-adi").value.trim();
+  if(!address1||!postcode){ errEl.textContent="Address line 1 and postcode are required"; return; }
+
+  const table = currentSchoolId ? "schools" : "profiles";
+  const id = currentSchoolId || currentUserId;
+  const {error} = await sb.from(table).update({
+    address_line1: address1,
+    address_line2: address2||null,
+    city: city||null,
+    postcode
+  }).eq("id", id);
+  if(error){ errEl.textContent=error.message; return; }
+
+  const {error:adiError} = await sb.from("profiles").update({adi_badge_number: adi||null}).eq("id", currentUserId);
+  if(adiError){ errEl.textContent=adiError.message; return; }
+
+  profileCompletionDismissed = true;
+  closeModal();
+}
 
 // --- Self-serve signup -------------------------------------------------
 

@@ -2952,7 +2952,7 @@ async function loadSuperAdminBilling(){
       <button class="btn btn-navy btn-sm" onclick="openAddPlatformTx('income')">+ Income</button>
       <button class="btn-outline" onclick="openAddPlatformTx('expense')">+ Expense</button>
     </div>
-    <p id="platform-summary" class="muted"></p>
+    <div id="platform-summary"></div>
     <div id="platform-tx-list" class="panel" style="border:none;padding:0">Loading…</div>`;
 
   await Promise.all([loadAllAccountsBilling(), loadPlatformTransactions()]);
@@ -3110,8 +3110,18 @@ function renderPlatformTransactions(){
   const rows = filteredPlatformTx();
   const income = rows.filter(t=>t.type==="income").reduce((sum,t)=>sum+Number(t.amount),0);
   const expense = rows.filter(t=>t.type==="expense").reduce((sum,t)=>sum+Number(t.amount),0);
+  const profit = income - expense;
   const {from,to} = getPtxRange();
-  summaryEl.textContent = `${from||"all"} → ${to||"all"} · Income: £${income.toFixed(2)} · Expenses: £${expense.toFixed(2)} · Net: £${(income-expense).toFixed(2)}`;
+  summaryEl.innerHTML = `<p class="muted" style="margin-bottom:.75rem">${from||"all"} → ${to||"all"} · ${rows.length} entries</p>
+    <div class="metric-row" style="margin-bottom:1rem">
+      <div class="metric"><div class="v good">£${income.toFixed(2)}</div><div class="l">Income</div></div>
+      <div class="metric"><div class="v bad">£${expense.toFixed(2)}</div><div class="l">Expenses</div></div>
+      <div class="metric"><div class="v">£${profit.toFixed(2)}</div><div class="l">Profit</div></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--asphalt);color:#fff;border-radius:3px;padding:.85rem 1rem;margin-bottom:1rem">
+      <span style="font-family:var(--fb);text-transform:uppercase;font-size:.72rem;letter-spacing:.05em;font-weight:700">Profit</span>
+      <span style="font-family:var(--fm);font-size:1.05rem;font-weight:700">£${profit.toFixed(2)}</span>
+    </div>`;
 
   el.innerHTML = rows.length ? rows.map(t=>{
     const amtColor = t.type==="income" ? "#166534" : "#9c2b2b";

@@ -251,15 +251,33 @@
             <div id="dmw-err" style="color:#b91c1c;font-size:13px;margin-top:8px;display:none"></div>
             <button id="dmw-submit" style="width:100%;margin-top:12px;padding:12px;background:#2ecc71;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:1.05em;">🚗 Check Availability</button>
           </div>
-          <div id="dmw-done" style="display:none;text-align:center;padding:20px 0">
-            <p style="font-weight:600">Thank you — your enquiry has been sent.</p>
+          <div id="dmw-done" style="display:none;padding:20px 0">
+            <p style="font-weight:700;text-align:center;margin:0 0 14px 0">Thank you — your enquiry has been sent.</p>
+            <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-left:4px solid #059669;border-radius:8px;padding:12px;font-size:13px;color:#065f46;margin-bottom:14px">
+              <strong>Set up the DMW pupil app now</strong><br>
+              You'll see your status there while you're on the waiting list; full access opens once you're accepted.
+            </div>
+            <label style="display:block;font-size:13px;font-weight:600;margin:8px 0 4px">Email</label>
+            <input id="dmw-signup-email" type="email" readonly style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;background:#f8fafc" />
+            <div id="dmw-signup-err" style="color:#b91c1c;font-size:13px;margin-top:8px;display:none"></div>
+            <div id="dmw-signup-ok" style="background:#ecfdf5;border:1px solid #a7f3d0;border-left:4px solid #059669;border-radius:8px;padding:12px;font-size:13px;color:#065f46;margin-top:10px;display:none"></div>
+            <button id="dmw-signup-btn" style="width:100%;margin-top:12px;padding:12px;background:#0A4CA1;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer">Send me a password link</button>
+            <p style="font-size:12px;color:#64748b;text-align:center;margin:6px 0 14px 0">We'll email you a secure link to set up your app password — no need to think one up now.</p>
+            <a href="https://drivemyway.co.uk" target="_blank" rel="noopener" style="display:block;text-align:center;padding:14px 18px;background:#0A4CA1;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">📱 Open / install the DMW app</a>
           </div>
         </div>
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
         <script>
         (function () {
           var SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
           var SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4Y3FteXhicGp1ZWV6YXBrbmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUxNzAsImV4cCI6MjEwMTY4MTE3MH0.Qk46wzUGpDHlsqGvsImE9HdrrosL3ERKVbxDUsP4A30";
           var INSTRUCTOR_ID = "94029bf9-8e62-47bf-b6d5-10d99f2ca7a3";
+          var APP_CHANGE_PASSWORD_URL = "https://app.dmwdrivingschool.co.uk/change-password";
+          var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+          var enquiryEmail = "";
+          var enquiryFirstName = "";
+          var enquiryLastName = "";
+
           document.getElementById('dmw-submit').addEventListener('click', function () {
             var err = document.getElementById('dmw-err');
             err.style.display = 'none';
@@ -282,11 +300,75 @@
               })
             }).then(function (res) {
               if (!res.ok) throw new Error('submit failed');
+              enquiryEmail = email;
+              enquiryFirstName = fn;
+              enquiryLastName = ln;
               document.getElementById('dmw-enquiry-form').style.display = 'none';
               document.getElementById('dmw-done').style.display = 'block';
+              document.getElementById('dmw-signup-email').value = email;
             }).catch(function () {
               err.textContent = 'Could not send right now — please try again or contact us directly.';
               err.style.display = 'block';
+            });
+          });
+
+          document.getElementById('dmw-signup-btn').addEventListener('click', function () {
+            var errEl = document.getElementById('dmw-signup-err');
+            var okEl = document.getElementById('dmw-signup-ok');
+            errEl.style.display = 'none';
+            okEl.style.display = 'none';
+            var email = (document.getElementById('dmw-signup-email').value || enquiryEmail || '').trim();
+            if (!email) {
+              errEl.textContent = 'Email is required.';
+              errEl.style.display = 'block';
+              return;
+            }
+            var btn = document.getElementById('dmw-signup-btn');
+            btn.disabled = true;
+            var randomPassword = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) +
+                                  (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
+
+            sb.auth.signUp({
+              email: email,
+              password: randomPassword,
+              options: { data: { full_name: (enquiryFirstName + ' ' + enquiryLastName).trim(), role: 'pupil' } }
+            }).then(function (result) {
+              var signUpError = result.error;
+              var signUpData = result.data;
+              var accountReady = !signUpError && signUpData && signUpData.user && signUpData.user.id;
+              var chain = Promise.resolve();
+
+              if (accountReady) {
+                var userId = signUpData.user.id;
+                chain = sb.from('profiles').upsert({
+                  id: userId, role: 'pupil', email: email, full_name: (enquiryFirstName + ' ' + enquiryLastName).trim()
+                }).then(function () {
+                  return sb.rpc('pupil_link_profile_on_signup');
+                }).catch(function () {});
+              } else if (signUpError) {
+                var msg = signUpError.message || '';
+                if (/already|registered|exists/i.test(msg)) {
+                  accountReady = true;
+                } else {
+                  errEl.textContent = 'Could not set up your login right now (' + msg + '). You can still open the app — your instructor can set this up for you.';
+                  errEl.style.display = 'block';
+                  btn.disabled = false;
+                  return;
+                }
+              }
+
+              chain.then(function () {
+                if (!accountReady) return;
+                return sb.auth.resetPasswordForEmail(email, { redirectTo: APP_CHANGE_PASSWORD_URL });
+              }).then(function () {
+                okEl.innerHTML = 'Check your email at <strong>' + email.replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }) + '</strong> — we\'ve sent you a secure link to set up your password.';
+                okEl.style.display = 'block';
+                btn.textContent = 'Link sent ✓';
+              });
+            }).catch(function (e) {
+              errEl.textContent = 'Could not send the login link right now. You can still open the app — your instructor can set this up for you.';
+              errEl.style.display = 'block';
+              btn.disabled = false;
             });
           });
         })();

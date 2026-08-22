@@ -2186,7 +2186,7 @@ async function openSettings(which){
   } else if(which==="branding"){
     if(!currentSchoolId){
       const ownId=(await sb.auth.getUser()).data.user?.id;
-      const {data:prof}=await sb.from("profiles").select("logo_url,display_name").eq("id",ownId).maybeSingle();
+      const {data:prof}=await sb.from("profiles").select("logo_url,display_name,pupil_messages").eq("id",ownId).maybeSingle();
       brSoloLogoUrl = (prof&&prof.logo_url)||null;
       panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
         <h3 style="margin:1rem 0 .75rem">Branding</h3>
@@ -2202,10 +2202,11 @@ async function openSettings(which){
           </div>
         </div>
         <div class="field"><label>Display name</label><input id="br-name" value="${esc((prof&&prof.display_name)||"")}"></div>
+        ${pupilMessageFieldsHtml(prof&&prof.pupil_messages)}
         <button class="btn btn-navy btn-sm" onclick="saveBrand()">Save</button>
         <div class="err" id="branding-err" style="margin-top:.5rem"></div>`;
     } else {
-      const {data:school} = await sb.from("schools").select("display_name,logo_url").eq("id",currentSchoolId).maybeSingle();
+      const {data:school} = await sb.from("schools").select("display_name,logo_url,pupil_messages").eq("id",currentSchoolId).maybeSingle();
       panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
         <h3 style="margin:1rem 0 .75rem">Branding</h3>
         <p class="muted" style="margin-bottom:.75rem">This is what your pupils actually see on the app's login screen — not just cosmetic here.</p>
@@ -2220,6 +2221,7 @@ async function openSettings(which){
           </div>
         </div>
         <div class="field"><label>School name</label><input id="br-name" value="${esc((school&&school.display_name)||"")}"></div>
+        ${pupilMessageFieldsHtml(school&&school.pupil_messages)}
         <button class="btn btn-navy btn-sm" onclick="saveBrand()">Save</button>
         <div class="err" id="branding-err" style="margin-top:.5rem"></div>`;
     }
@@ -3358,16 +3360,58 @@ function saveReflect(){
   const o={}; document.querySelectorAll("#settings-panel [data-rk]").forEach(el=>{o[el.dataset.rk]=el.value});
   localStorage.setItem("dmw_reflect_labels", JSON.stringify(o)); alert("Saved");
 }
+// Kept in sync with DEFAULT_PUPIL_MESSAGES in dmw-app's PupilHome.tsx — these
+// are the exact fallback strings pupils see until a school/instructor
+// customises them. {schoolName} is replaced with the real display name.
+const PUPIL_MESSAGE_FIELDS=[
+  {key:"enquiry_pending",label:"Enquiry pending (pupil is on the enquiry list)",
+    default:"At this time {schoolName} may not have been able to look at your enquiry yet — for example if they are on a lesson."},
+  {key:"declined",label:"Enquiry declined",
+    default:"Unfortunately we won't be able to help you at this time.\n\nDue to GDPR your details will be deleted from our system. You're welcome to enquire again at a later date if your circumstances change.\n\nThank you for your interest in {schoolName}."},
+  {key:"removed",label:"Account removed by instructor",
+    default:"Your record with {schoolName} has been removed by your instructor.\n\nIf you believe this is a mistake, please contact {schoolName} as soon as possible."},
+  {key:"inactive_status",label:"Inactive account — status line",
+    default:"You are currently marked as inactive with {schoolName}, so the app is not available for booking or lessons."},
+  {key:"inactive_contact",label:"Inactive account — contact line",
+    default:"Please contact {schoolName} if you would like to continue lessons or have any questions."},
+  {key:"remove_confirm",label:"\"Remove from waiting list\" confirmation",
+    default:"Remove yourself from the waiting list?\n\nThis will permanently delete all your details from {schoolName} (GDPR). This cannot be undone."},
+  {key:"remove_error",label:"Remove-from-waiting-list error",
+    default:"Could not remove you. Please contact {schoolName}."},
+];
+
+function pupilMessageFieldsHtml(existing){
+  const vals=existing||{};
+  return `<div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid #e5e7eb">
+    <h4 style="margin:0 0 .35rem">Pupil messages</h4>
+    <p class="muted" style="margin-bottom:.75rem">What pupils read on the enquiry/waiting-list/inactive screens. Use <code>{schoolName}</code> anywhere you want your name inserted. Leave blank to use the default wording.</p>
+    ${PUPIL_MESSAGE_FIELDS.map(f=>`<div class="field">
+      <label>${esc(f.label)}</label>
+      <textarea data-pmk="${f.key}" rows="3" placeholder="${esc(f.default)}" style="width:100%;padding:.5rem;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit">${esc(vals[f.key]||"")}</textarea>
+    </div>`).join("")}
+  </div>`;
+}
+
+function collectPupilMessages(){
+  const out={};
+  document.querySelectorAll("[data-pmk]").forEach(el=>{
+    const v=el.value.trim();
+    if(v) out[el.getAttribute("data-pmk")]=v;
+  });
+  return Object.keys(out).length ? out : null;
+}
+
 async function saveBrand(){
   const err=document.getElementById("branding-err");
   err.textContent="";
   const name=document.getElementById("br-name").value.trim();
+  const pupilMessages=collectPupilMessages();
   if(currentSchoolId){
-    const {data,error}=await sb.from("schools").update({display_name:name||null}).eq("id",currentSchoolId).select("id");
+    const {data,error}=await sb.from("schools").update({display_name:name||null, pupil_messages:pupilMessages}).eq("id",currentSchoolId).select("id");
     if(error){ err.textContent=error.message; return; }
     if(!data||!data.length){ err.textContent="Save didn't match any school — try refreshing the page and signing in again."; return; }
   } else {
-    const {error}=await sb.rpc("instructor_update_own_branding",{p_logo_url:brSoloLogoUrl, p_display_name:name||null});
+    const {error}=await sb.rpc("instructor_update_own_branding",{p_logo_url:brSoloLogoUrl, p_display_name:name||null, p_pupil_messages:pupilMessages});
     if(error){ err.textContent=error.message; return; }
     // instructor_update_own_branding only matches role='instructor' with no
     // school — it silently no-ops for anyone else (e.g. a solo super_admin)

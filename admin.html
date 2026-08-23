@@ -698,18 +698,31 @@ async function saveCompleteProfile(){
   const adi=document.getElementById("cp-adi").value.trim();
   if(!address1||!postcode){ errEl.textContent="Address line 1 and postcode are required"; return; }
 
-  const table = currentSchoolId ? "schools" : "profiles";
-  const id = currentSchoolId || currentUserId;
-  const {error} = await sb.from(table).update({
-    address_line1: address1,
-    address_line2: address2||null,
-    city: city||null,
-    postcode
-  }).eq("id", id);
-  if(error){ errEl.textContent=error.message; return; }
-
-  const {error:adiError} = await sb.from("profiles").update({adi_badge_number: adi||null}).eq("id", currentUserId);
-  if(adiError){ errEl.textContent=adiError.message; return; }
+  // School address is a direct update (school admins have an RLS policy on
+  // their own schools row). Anything on the profiles row goes through the
+  // instructor_update_own_profile RPC — a plain instructor has no policy
+  // allowing a direct UPDATE there, and Supabase silently updates 0 rows
+  // rather than erroring, which is how this used to "save" nothing and
+  // re-prompt every login. Same fix as the app's CompleteProfileModal.
+  if(currentSchoolId){
+    const {error} = await sb.from("schools").update({
+      address_line1: address1,
+      address_line2: address2||null,
+      city: city||null,
+      postcode
+    }).eq("id", currentSchoolId);
+    if(error){ errEl.textContent=error.message; return; }
+  }
+  const {error:rpcError} = await sb.rpc("instructor_update_own_profile", {
+    p_full_name: null,
+    p_phone: null,
+    p_adi_badge_number: adi||"",
+    p_address_line1: address1,
+    p_address_line2: address2||"",
+    p_city: city||"",
+    p_postcode: postcode
+  });
+  if(rpcError){ errEl.textContent=rpcError.message; return; }
 
   profileCompletionDismissed = true;
   closeModal();

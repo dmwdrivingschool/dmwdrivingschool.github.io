@@ -660,6 +660,11 @@ let profileCompletionDismissed = false;
 
 async function checkProfileCompletion(){
   if(isSuperAdminUser || profileCompletionDismissed) return;
+  // Once per account, ever — the optional ADI badge kept needsProfile true
+  // after an address save, so this re-prompted on every login. Same fix as
+  // the app's CompleteProfileModal: everything stays editable in Settings.
+  const shownKey = "dmw_profile_prompt_shown_" + currentUserId;
+  try { if(localStorage.getItem(shownKey) === "1") return; } catch(e){}
   const {data:own} = await sb.from("profiles").select("address_line1,address_line2,city,postcode,adi_badge_number").eq("id",currentUserId).maybeSingle();
   let addressSource = own;
   if(currentSchoolId){
@@ -667,7 +672,10 @@ async function checkProfileCompletion(){
     addressSource = school;
   }
   const needsProfile = !addressSource?.address_line1 || !own?.adi_badge_number;
-  if(needsProfile) showCompleteProfileModal(addressSource, own?.adi_badge_number);
+  if(needsProfile){
+    try { localStorage.setItem(shownKey, "1"); } catch(e){}
+    showCompleteProfileModal(addressSource, own?.adi_badge_number);
+  }
 }
 
 function showCompleteProfileModal(address, adiBadgeNumber){

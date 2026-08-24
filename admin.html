@@ -200,7 +200,14 @@ document.addEventListener("DOMContentLoaded",()=>{
     <input type="password" id="gate-pass" placeholder="Password" autocomplete="current-password">
     <button class="btn btn-navy full" onclick="unlock()">Sign in</button>
     <div class="err" id="gate-err"></div>
-    <p style="text-align:center;margin-top:1rem;font-size:.85rem;color:var(--muted)">New here? <a href="#" onclick="showSignup();return false" style="color:var(--navy);font-weight:700">Start your free trial</a></p>
+    <p style="text-align:center;margin-top:.8rem;font-size:.85rem"><a href="#" onclick="forgotPassword();return false" style="color:var(--navy);font-weight:600">Forgot password?</a></p>
+    <p style="text-align:center;margin-top:.6rem;font-size:.85rem;color:var(--muted)">New here? <a href="#" onclick="showSignup();return false" style="color:var(--navy);font-weight:700">Start your free trial</a></p>
+  </div>
+  <div id="gate-recovery" class="hidden">
+    <p class="sub">Choose a new password for your account</p>
+    <input type="password" id="gate-newpass" placeholder="New password" autocomplete="new-password">
+    <button class="btn btn-navy full" onclick="saveNewPassword()">Set new password</button>
+    <div class="err" id="recovery-err"></div>
   </div>
   <div id="gate-signup" class="hidden">
     <p class="sub">30 days free, then billed monthly</p>
@@ -720,6 +727,39 @@ async function enterApp(user,prof){
 }
 async function lock(){await sb.auth.signOut(); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
 
+// --- Forgot password ---------------------------------------------------
+// Same pattern as the app's login: confirm before sending (no stray reset
+// emails from a mis-tap), link comes back to this page, where the
+// PASSWORD_RECOVERY session shows the set-new-password form instead of
+// dropping straight into the app.
+async function forgotPassword(){
+  const err=document.getElementById("gate-err"); err.style.display="none";
+  const email=(document.getElementById("gate-email").value||"").trim();
+  if(!email){err.textContent="Type your email above first, then tap Forgot password";err.style.display="block";return}
+  if(!confirm(`Send a password reset link to ${email}?`)) return;
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:"https://web.drivemyway.co.uk/admin.html"});
+  if(error){err.textContent=error.message;err.style.display="block";return}
+  alert("Reset link sent — check your email (and spam). The link brings you back here to set a new password.");
+}
+let pendingRecovery=/type=recovery/.test(location.hash);
+function showRecoveryForm(){
+  document.getElementById("app").style.display="none";
+  document.getElementById("gate").style.display="block";
+  document.getElementById("gate-signin").classList.add("hidden");
+  document.getElementById("gate-signup").classList.add("hidden");
+  document.getElementById("gate-recovery").classList.remove("hidden");
+}
+async function saveNewPassword(){
+  const p=document.getElementById("gate-newpass").value;
+  const err=document.getElementById("recovery-err"); err.style.display="none";
+  if(!p||p.length<8){err.textContent="Password must be at least 8 characters";err.style.display="block";return}
+  const {error}=await sb.auth.updateUser({password:p});
+  if(error){err.textContent=error.message;err.style.display="block";return}
+  alert("Password updated — signing you in.");
+  location.href=location.pathname; // clean URL; the saved session enters the app on reload
+}
+sb.auth.onAuthStateChange((event)=>{ if(event==="PASSWORD_RECOVERY"){ pendingRecovery=true; showRecoveryForm(); } });
+
 // --- Complete your profile (address + ADI/PDI badge number) ------------
 // Shares the exact same tables/fields as the app's own copy of this
 // prompt (src/components/CompleteProfileModal.tsx) — whichever side it's
@@ -915,6 +955,7 @@ async function provisionIfNeededAndEnter(user){
 }
 sb.auth.getSession().then(async ({data})=>{
   if(!data.session) return;
+  if(pendingRecovery){ showRecoveryForm(); return; }
   const { data: prof } = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.session.user.id).maybeSingle();
   if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin")return;
   if(prof){ enterApp(data.session.user,prof); return; }

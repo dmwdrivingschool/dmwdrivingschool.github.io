@@ -111,6 +111,9 @@
         <label>Email *</label>
         <input id="email" type="email" required autocomplete="email">
         <div class="field-err" id="err-email">Please enter a valid email address</div>
+        <label>Date of birth *</label>
+        <input id="dob" type="date" required autocomplete="bday">
+        <div class="field-err" id="err-dob">Please enter your date of birth</div>
         <div class="row">
           <button type="button" class="btn btn-primary" onclick="go(2)">Next — availability</button>
         </div>
@@ -119,7 +122,11 @@
       <!-- PAGE 2 -->
       <div class="page" id="p2">
         <p class="sub">Tap the times you can do lessons around any other commitments such as work or education. This can be updated later in the app if required.</p>
+        <p class="sub" style="background:#fffaf0;border-left:3px solid #dd6b20;padding:8px 10px;border-radius:0 6px 6px 0;color:#7b341e">
+          If you can't see a day or time that works for you here, unfortunately we're unable to accommodate you at this time.
+        </p>
         <div id="avail"></div>
+        <div class="field-err" id="err-avail" style="margin-top:6px">Please select at least one day and time you're available</div>
         <div class="row">
           <button type="button" class="btn btn-ghost" onclick="go(1)">Back</button>
           <button type="button" class="btn btn-primary" onclick="go(3)">Next — summary</button>
@@ -274,6 +281,7 @@
       if (n === 2 && !validate1()) return;
       if (n === 3) {
         if (!validate1()) return;
+        if (!validateAvailability()) return;
         renderSummary();
       }
       document.querySelectorAll(".page").forEach(p => p.classList.remove("on"));
@@ -284,8 +292,16 @@
       window.scrollTo(0, 0);
     }
 
+    function validateAvailability() {
+      const any = DAYS.some(d => (availability[d] || []).length > 0);
+      const err = document.getElementById("err-avail");
+      if (err) err.style.display = any ? "none" : "block";
+      if (!any) showErr("Please select at least one day and time you're available.");
+      return any;
+    }
+
     function validate1() {
-      const need = ["fn","ln","a1","pc","phone","email"];
+      const need = ["fn","ln","a1","pc","phone","email","dob"];
       let ok = true;
       let firstBad = null;
       need.forEach(id => {
@@ -406,6 +422,7 @@
         last_name: val("ln"),
         phone: val("phone"),
         email: enquiryEmail || null,
+        dob: val("dob") || null,
         address_line1: val("a1"),
         address_line2: val("a2") || null,
         city: val("city") || null,

@@ -582,6 +582,12 @@
           email,
           password: randomPassword,
           options: {
+            // "Confirm email" is ON in Supabase, so the FIRST email a new
+            // account receives is the confirmation email. Point its link at
+            // the app's change-password page: confirming signs them in and
+            // drops them straight onto "set your password" — one email, one
+            // click. (Without this it bounced to the website homepage.)
+            emailRedirectTo: APP_URL + "/change-password",
             data: {
               full_name: (enquiryFirstName || "") + " " + (enquiryLastName || ""),
               role: "pupil"
@@ -622,17 +628,25 @@
           }
         }
 
-        // Never sends the random password above — the pupil sets their own
-        // via this link. accountReady guards against emailing a "reset"
-        // link for an email with no account at all, which Supabase would
-        // otherwise accept silently (by design) without actually sending
-        // anything — exactly the trap the instructor-side reset button
-        // used to fall into.
-        if (accountReady) {
+        // Two cases, one email each:
+        // - Brand-new account: Supabase has already sent the CONFIRMATION
+        //   email (Confirm email is ON); its link signs them in and lands
+        //   on the app's set-password page. Calling resetPasswordForEmail
+        //   too would fail ("email not confirmed") — the very bug where
+        //   this screen showed a red error despite an email arriving.
+        // - Existing account: no confirmation email goes out, so send the
+        //   normal password-reset link instead.
+        const isNewAccount = !signUpError && signUpData && signUpData.user &&
+          (!signUpData.user.identities || signUpData.user.identities.length > 0) &&
+          !signUpData.user.email_confirmed_at;
+        if (accountReady && !isNewAccount) {
           await sb.auth.resetPasswordForEmail(email, { redirectTo: APP_URL + "/change-password" });
         }
 
-        okEl.innerHTML = "Check your email at <strong>" + escapeHtml(email) + "</strong> — we've sent you a secure link to set up your password.";
+        okEl.innerHTML = "Check your email at <strong>" + escapeHtml(email) + "</strong> — " +
+          (isNewAccount
+            ? "confirm your email address and you'll be taken straight to set your app password."
+            : "we've sent you a secure link to set up your password.");
         okEl.style.display = "block";
         btn.textContent = "Link sent ✓";
       } catch (e) {

@@ -150,8 +150,10 @@
       <p style="text-align:center">Your enquiry has been sent. I’ll be in touch as soon as I can.</p>
 
       <div class="success-note" id="signup-box">
-        <strong>Set up the DMW pupil app now</strong><br>
-        While you’re on the waiting list you’ll see a short status message there; full access opens when I accept you.
+        <strong>What happens next</strong><br>
+        1. We're emailing you a secure link right now — use it to set your app password (check spam if it doesn't appear in a few minutes).<br>
+        2. Sign in to the Drive My Way app at <strong>app.drivemyway.co.uk</strong>.<br>
+        3. The app shows the live status of your enquiry — you'll see there as soon as it's been reviewed and accepted, and you'll get updates and messages from your instructor in the same place.
       </div>
 
       <label>Email</label>
@@ -161,12 +163,12 @@
       <div class="success-note" id="signup-ok" style="display:none"></div>
 
       <button type="button" class="btn btn-primary" id="signup-btn" onclick="sendLoginLink()" style="width:100%; margin-bottom:4px;">
-        Send me a password link
+        Resend password link
       </button>
-      <p class="hint" style="text-align:center; margin-top:0;">We’ll email you a secure link to set up your app password — no need to think one up now.</p>
+      <p class="hint" style="text-align:center; margin-top:0;">The password email is sent automatically — use this button only if it hasn't arrived.</p>
 
-      <a class="install-link" id="app-link" href="https://app.dmwdrivingschool.co.uk" target="_blank" rel="noopener">
-        📱 Open / install the DMW app
+      <a class="install-link" id="app-link" href="https://app.drivemyway.co.uk" target="_blank" rel="noopener">
+        📱 Open the Drive My Way app
       </a>
       <p class="hint" style="margin-top:10px; text-align:center;">
         On iPhone: open in Safari → Share → Add to Home Screen.<br>
@@ -350,6 +352,7 @@
         ["Name", val("fn") + " " + val("ln")],
         ["Address", [val("a1"), val("a2"), val("city"), val("pc")].filter(Boolean).join(", ")],
         ["Phone", val("phone")],
+        ["Date of birth", val("dob")],
         ["Email", val("email") || "—"],
         ["Availability", availText],
       ].map(([k, v]) => '<div class="summary-line"><strong>' + k + '</strong> ' + escapeHtml(v) + '</div>').join("");
@@ -532,6 +535,9 @@
         document.getElementById("done").style.display = "block";
         document.getElementById("signup-email").value = enquiryEmail;
         window.scrollTo(0, 0);
+        // Auto-send the app password-link email — no tap needed. The
+        // button stays as a manual resend if the email doesn't arrive.
+        if (enquiryEmail) { try { sendLoginLink(); } catch (_) {} }
       } catch (e) {
         console.error(e);
         const msg = (e && e.message) ? String(e.message) : "";

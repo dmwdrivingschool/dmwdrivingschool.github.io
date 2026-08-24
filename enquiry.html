@@ -452,11 +452,13 @@
                 last_name: body.last_name,
                 phone: body.phone,
                 email: body.email,
+                dob: body.dob || val("dob") || null,
                 address_line1: body.address_line1,
                 address_line2: body.address_line2,
                 city: body.city,
                 postcode: body.postcode,
                 preferred_gearbox: body.preferred_gearbox,
+                availability: body.availability || availability,
                 notes: body.notes
               }
             })
@@ -471,6 +473,18 @@
             }
           } else {
             lastErr = rpcText;
+            // Server-side validation speaks human ("Please fill in…") —
+            // show it as-is and stop, rather than falling through to the
+            // legacy direct-insert path (blocked by RLS since the security
+            // hardening) whose error would mask the real reason.
+            try {
+              const em = JSON.parse(rpcText);
+              if (em && em.message && /please/i.test(em.message)) {
+                showErr(em.message);
+                btn.disabled = false;
+                return;
+              }
+            } catch (_) {}
           }
         } catch (rpcErr) {
           console.warn("rpc enquiry", rpcErr);

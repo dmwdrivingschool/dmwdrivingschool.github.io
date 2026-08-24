@@ -84,6 +84,8 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .d-head strong{font-size:.95rem;font-weight:700;letter-spacing:-.01em}
 .d-nav{min-width:2.2rem;text-align:center;font-size:1rem;line-height:1}
 .d-scroll{overflow:auto;max-height:calc(100vh - 220px);background:#fff;border-radius:0 0 16px 16px}
+/* On a proper monitor let the diary break out of the 1120px page column */
+@media(min-width:1200px){#tab-diary{width:min(96vw,1680px);margin-inline:calc((100% - min(96vw,1680px))/2)}}
 .d-days{display:grid;grid-template-columns:40px repeat(7,minmax(0,1fr));position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid #cbd5e1}
 .d-dayh{padding:.4rem 2px;text-align:center;border-right:1px solid #f1f5f9;background:#fff}
 .d-dayh .dow{font-size:.63rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-family:var(--fb)}
@@ -100,6 +102,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .d-block{position:absolute;left:2px;right:2px;border-radius:6px;color:#fff;padding:2px 5px;overflow:hidden;z-index:1;box-shadow:0 1px 2px rgba(0,0,0,.12);cursor:pointer;line-height:1.15}
 .d-block .nm{font-weight:700;font-size:.72rem;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;font-family:var(--fb)}
 .d-block .tm{font-size:.63rem;opacity:.95;font-family:var(--fm);font-weight:600;margin-top:1px}
+.d-allday{position:absolute;left:2px;right:2px;height:24px;line-height:18px;border-radius:6px;background:#e2e8f0;border:1px dashed #94a3b8;color:#334155;font-size:.68rem;font-weight:700;padding:2px 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;z-index:2}
 .d-block.cancelled{background:#dc2626!important;text-decoration:line-through;opacity:.95}
 .d-block.away{background:#475569!important}
 .d-block.gap{background:#3b82f6!important}
@@ -1503,10 +1506,18 @@ async function removePupil(id){
 
 function shiftWeek(n){weekStart=new Date(weekStart); weekStart.setDate(weekStart.getDate()+n*7); renderDiary()}
 async function renderDiary(){
-  const HOUR_H=48;
   const [whS]=String(workingHours.start||"09:00").split(":").map(Number);
-  const [whE]=String(workingHours.end||"20:00").split(":").map(Number);
+  const [whE,whEM]=String(workingHours.end||"20:00").split(":").map(Number);
   const START_H=Math.min(6,whS-1), END_H=Math.max(22,whE+1);
+  // Focus window = working hours ± 1h. Hour rows scale to fill the window
+  // height — the Control Centre is used on a PC, so the whole working day
+  // should be visible without scrolling. 48px stays the floor so smaller
+  // laptop screens never get more cramped than before.
+  const focusStart=Math.max(START_H,whS-1);
+  const focusEnd=Math.min(END_H,(whEM>0?whE+1:whE)+1);
+  const headerH=46; // sticky day-header row inside the scroll box
+  const availH=Math.max(400,window.innerHeight-240);
+  const HOUR_H=Math.max(48,Math.floor((availH-headerH)/Math.max(1,focusEnd-focusStart)));
   const hours=[]; for(let h=START_H;h<=END_H;h++) hours.push(h);
   const gridH=hours.length*HOUR_H;
   const end=new Date(weekStart); end.setDate(end.getDate()+7);
@@ -1548,8 +1559,21 @@ async function renderDiary(){
     hours.forEach((h,idx)=>{
       cols+=`<div class="d-hour-line" style="top:${idx*HOUR_H}px;height:${HOUR_H}px"><div class="half"></div></div>`;
     });
+    let allDayIdx=0;
     dayLessons.forEach(l=>{
       const s=new Date(Math.max(new Date(l.start_time),dayStart)), e=new Date(Math.min(new Date(l.end_time),dayEnd));
+      // A segment covering (almost) the whole day — pupil holidays and
+      // all-day Away/Appointment blocks — draws as a slim banner at the
+      // top of the column instead of a full-height wall that buries the
+      // real lessons. Same click behaviour as any away block.
+      if((e-s)>=20*3600e3 && (l.lesson_type==="student_away"||l.lesson_type==="private"||l.title==="Away")){
+        const label=l.lesson_type==="student_away"
+          ? `${esc(l.pupil?l.pupil.first_name:"Pupil")} — holiday`
+          : esc(l.title||"Away");
+        cols+=`<div class="d-allday" style="top:${2+allDayIdx*28}px" title="${label} (all day)" data-lesson-id="${l.id||""}" data-pupil-id="" data-away="1" onclick="onDiaryBlockClick(this)">${label}</div>`;
+        allDayIdx++;
+        return;
+      }
       const startMin=s.getHours()*60+s.getMinutes();
       const dur=Math.max(20,(e-s)/60000);
       // Clamp to the visible grid: all-day Away segments run 00:00–24:00,
@@ -1583,11 +1607,6 @@ async function renderDiary(){
     `<div class="d-scroll" id="diary-scroll">${head}<div class="d-body">${times}${cols}</div></div>`;
 
   // Focus the visible viewport on working hours ± 1 hour (scroll for the rest)
-  const [wsH]=String(workingHours.start||"09:00").split(":").map(Number);
-  const [weH,weM]=String(workingHours.end||"20:00").split(":").map(Number);
-  const focusStart=Math.max(START_H,wsH-1);
-  const focusEnd=Math.min(END_H,(weM>0?weH+1:weH)+1);
-  const headerH=46; // approx height of the sticky day-header row inside the scroll box
   const focusPx=(focusEnd-focusStart)*HOUR_H+headerH;
   const sc=document.getElementById("diary-scroll");
   if(sc){

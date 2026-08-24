@@ -133,7 +133,61 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
     .st-50 { background: #eab308; color: #1e293b; }
     .st-100 { background: #22c55e; }
 
+/* ---- dark mode (toggle in the top bar, saved per browser) ---- */
+[data-theme="dark"]{--ink:#e2e8f0;--navy:#3b82f6;--deep:#2563eb;--bg:#0b1120;--card:#182234;--text:#e2e8f0;--muted:#94a3b8;--line:#2c3a52;--ok:#34d399;--bad:#fb7185;--soft:#1e3a5f;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.5)}
+[data-theme="dark"] .top,[data-theme="dark"] .nav,[data-theme="dark"] footer{background:#101a2c;border-color:var(--line)}
+[data-theme="dark"] .nav button:hover{background:#24304a;color:#e2e8f0}
+[data-theme="dark"] .btn-outline{background:transparent;color:#cbd5e1;border-color:var(--line)}
+[data-theme="dark"] .btn-outline:hover{background:#1e3a5f;color:#93c5fd;border-color:#3b82f6}
+[data-theme="dark"] .btn-gold{background:#24304a;color:#cbd5e1}
+[data-theme="dark"] .btn-danger{background:#3f1d2b;color:#fda4af}
+[data-theme="dark"] .metric,[data-theme="dark"] .matrix-head,[data-theme="dark"] .matrix-drawer{background:#131d30}
+[data-theme="dark"] .matrix-head:hover{background:#24304a}
+[data-theme="dark"] .matrix-table,[data-theme="dark"] .matrix-table td.vname{background:#182234}
+[data-theme="dark"] .matrix-table th{background:#131d30}
+[data-theme="dark"] .matrix-table th,[data-theme="dark"] .matrix-table td{border-color:#2c3a52}
+[data-theme="dark"] .tabs-sub{background:#101a2c}
+[data-theme="dark"] .tabs-sub button.on{background:#2c3a52;color:#93c5fd;box-shadow:none}
+[data-theme="dark"] th,[data-theme="dark"] td{border-color:#243048}
+[data-theme="dark"] tbody tr:hover td{background:#1e2a40}
+[data-theme="dark"] .field input,[data-theme="dark"] .field select,[data-theme="dark"] .field textarea,[data-theme="dark"] #gate input{background:#101a2c;color:#e2e8f0;border-color:var(--line)}
+[data-theme="dark"] .field label{color:#94a3b8}
+[data-theme="dark"] .list-row{border-color:#243048}
+[data-theme="dark"] .chip-ok{background:#064e3b;color:#6ee7b7}
+[data-theme="dark"] .chip-bad{background:#4c0519;color:#fda4af}
+[data-theme="dark"] .chip-wait{background:#451a03;color:#fcd34d}
+[data-theme="dark"] .chip-info{background:#172554;color:#93c5fd}
+[data-theme="dark"] .bar{background:#2c3a52}
+[data-theme="dark"] .banner{background:#2d2308;border-color:#713f12;color:#fcd34d}
+[data-theme="dark"] .modal-box,[data-theme="dark"] .settings-list button{background:#182234;color:#e2e8f0}
+[data-theme="dark"] .settings-list button{border-color:#243048}
+[data-theme="dark"] .settings-list button:hover{background:#1e2a40}
+[data-theme="dark"] .d-head,[data-theme="dark"] .d-scroll,[data-theme="dark"] .d-days,[data-theme="dark"] .d-dayh{background:#182234;border-color:#2c3a52}
+[data-theme="dark"] .d-dayh .dow{color:#94a3b8}
+[data-theme="dark"] .d-dayh .dom{color:#e2e8f0}
+[data-theme="dark"] .d-dayh.today{background:#1e3a5f}
+[data-theme="dark"] .d-times{background:#131d30;border-color:#2c3a52}
+[data-theme="dark"] .d-hour-line{border-color:#243048}
+[data-theme="dark"] .d-hour-line .half{border-color:#1c2740}
+[data-theme="dark"] .d-hour-line .lbl{color:#94a3b8}
+[data-theme="dark"] .d-col{border-color:#243048}
+[data-theme="dark"] .d-col.today{background:rgba(30,58,95,.35)}
+[data-theme="dark"] .d-allday{background:#24304a;border-color:#475569;color:#cbd5e1}
 </style>
+<script>
+// Apply the saved theme before first paint to avoid a light flash.
+document.documentElement.dataset.theme=localStorage.getItem("dmw_cc_theme")||"light";
+function toggleTheme(){
+  const next=document.documentElement.dataset.theme==="dark"?"light":"dark";
+  document.documentElement.dataset.theme=next;
+  localStorage.setItem("dmw_cc_theme",next);
+  const b=document.getElementById("theme-toggle"); if(b) b.textContent=next==="dark"?"☀️":"🌙";
+}
+document.addEventListener("DOMContentLoaded",()=>{
+  const b=document.getElementById("theme-toggle");
+  if(b) b.textContent=document.documentElement.dataset.theme==="dark"?"☀️":"🌙";
+});
+</script>
 
 </head>
 <body>
@@ -177,6 +231,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
     <div class="brand"><img src="drive-my-way-logo.png" alt="Drive My Way" onerror="this.remove()"><span>Drive My Way Control Centre</span></div>
     <div style="display:flex;gap:.5rem;align-items:center">
       <span id="who" style="color:#64748b;font-size:.8rem"></span>
+      <button class="btn-outline" id="theme-toggle" onclick="toggleTheme()" title="Light / dark mode" style="font-size:1rem;line-height:1;padding:.4rem .6rem">🌙</button>
       <button class="btn btn-gold btn-sm" onclick="lock()">Sign out</button>
     </div>
   </div>

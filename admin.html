@@ -21,7 +21,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);min-height:100
 #gate h1{font-family:var(--fd);font-weight:800;font-size:1.4rem;letter-spacing:-.02em;color:var(--ink);text-align:center;margin-bottom:.4rem}
 #gate .sub{color:var(--muted);font-size:.9rem;margin-bottom:1.5rem;text-align:center;line-height:1.45}
 #gate input{width:100%;padding:.85rem 1rem;border:1.5px solid var(--line);border-radius:12px;font-size:1rem;margin-bottom:.7rem;font-family:var(--fb);transition:border-color .15s,box-shadow .15s;background:#f8fafc}
-#gate input:focus{outline:none;border-color:var(--navy);background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+#gate input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
 .btn{border:none;border-radius:10px;font-weight:600;cursor:pointer;padding:.72rem 1.15rem;font-size:.88rem;font-family:var(--fb);transition:transform .08s,filter .15s,background .15s}
 .btn:hover{filter:brightness(1.06)}
 .btn:active{transform:translateY(1px)}
@@ -133,62 +133,47 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
     .st-50 { background: #eab308; color: #1e293b; }
     .st-100 { background: #22c55e; }
 
-/* ---- dark mode (toggle in the top bar, saved per browser) ---- */
-[data-theme="dark"]{--ink:#e2e8f0;--navy:#3b82f6;--deep:#2563eb;--bg:#0b1120;--card:#182234;--text:#e2e8f0;--muted:#94a3b8;--line:#2c3a52;--ok:#34d399;--bad:#fb7185;--soft:#1e3a5f;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.5)}
-[data-theme="dark"] .top,[data-theme="dark"] .nav,[data-theme="dark"] footer{background:#101a2c;border-color:var(--line)}
-[data-theme="dark"] .nav button:hover{background:#24304a;color:#e2e8f0}
-[data-theme="dark"] .btn-outline{background:transparent;color:#cbd5e1;border-color:var(--line)}
-[data-theme="dark"] .btn-outline:hover{background:#1e3a5f;color:#93c5fd;border-color:#3b82f6}
-[data-theme="dark"] .btn-gold{background:#24304a;color:#cbd5e1}
-[data-theme="dark"] .btn-danger{background:#3f1d2b;color:#fda4af}
-[data-theme="dark"] .metric,[data-theme="dark"] .matrix-head,[data-theme="dark"] .matrix-drawer{background:#131d30}
-[data-theme="dark"] .matrix-head:hover{background:#24304a}
-[data-theme="dark"] .matrix-table,[data-theme="dark"] .matrix-table td.vname{background:#182234}
-[data-theme="dark"] .matrix-table th{background:#131d30}
-[data-theme="dark"] .matrix-table th,[data-theme="dark"] .matrix-table td{border-color:#2c3a52}
-[data-theme="dark"] .tabs-sub{background:#101a2c}
-[data-theme="dark"] .tabs-sub button.on{background:#2c3a52;color:#93c5fd;box-shadow:none}
-[data-theme="dark"] th,[data-theme="dark"] td{border-color:#243048}
-[data-theme="dark"] tbody tr:hover td{background:#1e2a40}
-[data-theme="dark"] .field input,[data-theme="dark"] .field select,[data-theme="dark"] .field textarea,[data-theme="dark"] #gate input{background:#101a2c;color:#e2e8f0;border-color:var(--line)}
-[data-theme="dark"] .field label{color:#94a3b8}
-[data-theme="dark"] .list-row{border-color:#243048}
-[data-theme="dark"] .chip-ok{background:#064e3b;color:#6ee7b7}
-[data-theme="dark"] .chip-bad{background:#4c0519;color:#fda4af}
-[data-theme="dark"] .chip-wait{background:#451a03;color:#fcd34d}
-[data-theme="dark"] .chip-info{background:#172554;color:#93c5fd}
-[data-theme="dark"] .bar{background:#2c3a52}
-[data-theme="dark"] .banner{background:#2d2308;border-color:#713f12;color:#fcd34d}
-[data-theme="dark"] .modal-box,[data-theme="dark"] .settings-list button{background:#182234;color:#e2e8f0}
-[data-theme="dark"] .settings-list button{border-color:#243048}
-[data-theme="dark"] .settings-list button:hover{background:#1e2a40}
-[data-theme="dark"] .d-head,[data-theme="dark"] .d-scroll,[data-theme="dark"] .d-days,[data-theme="dark"] .d-dayh{background:#182234;border-color:#2c3a52}
-[data-theme="dark"] .d-dayh .dow{color:#94a3b8}
-[data-theme="dark"] .d-dayh .dom{color:#e2e8f0}
-[data-theme="dark"] .d-dayh.today{background:#1e3a5f}
-[data-theme="dark"] .d-times{background:#131d30;border-color:#2c3a52}
-[data-theme="dark"] .d-hour-line{border-color:#243048}
-[data-theme="dark"] .d-hour-line .half{border-color:#1c2740}
-[data-theme="dark"] .d-hour-line .lbl{color:#94a3b8}
-[data-theme="dark"] .d-col{border-color:#243048}
-[data-theme="dark"] .d-col.today{background:rgba(30,58,95,.35)}
-[data-theme="dark"] .d-allday{background:#24304a;border-color:#475569;color:#cbd5e1}
+/* ---- dark theme (the only theme) ---- */
+:root{--surface-2:#1f2b47;--ink:#e2e8f0;--navy:#3b82f6;--deep:#2563eb;--bg:#151f36;--card:#202c47;--text:#e2e8f0;--muted:#94a3b8;--line:#364763;--ok:#34d399;--bad:#fb7185;--soft:#234569;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.5)}
+.top,.nav,footer{background:#1a2540;border-color:var(--line)}
+.nav button:hover{background:#2c3a58;color:#e2e8f0}
+.btn-outline{background:transparent;color:#cbd5e1;border-color:var(--line)}
+.btn-outline:hover{background:#234569;color:#93c5fd;border-color:#3b82f6}
+.btn-gold{background:#2c3a58;color:#cbd5e1}
+.btn-danger{background:#3f1d2b;color:#fda4af}
+.metric,.matrix-head,.matrix-drawer{background:#1c2742}
+.matrix-head:hover{background:#2c3a58}
+.matrix-table,.matrix-table td.vname{background:#202c47;color:var(--text)}
+.matrix-table th{background:#1c2742}
+.matrix-table th,.matrix-table td{border-color:#364763}
+.tabs-sub{background:#1a2540}
+.tabs-sub button.on{background:#364763;color:#93c5fd;box-shadow:none}
+th,td{border-color:#2d3b58}
+tbody tr:hover td{background:#273450}
+.field input,.field select,.field textarea,#gate input{background:#1a2540;color:#e2e8f0;border-color:var(--line)}
+.field label{color:#94a3b8}
+.list-row{border-color:#2d3b58}
+.chip-ok{background:#064e3b;color:#6ee7b7}
+.chip-bad{background:#4c0519;color:#fda4af}
+.chip-wait{background:#451a03;color:#fcd34d}
+.chip-info{background:#172554;color:#93c5fd}
+.bar{background:#364763}
+.banner{background:#2d2308;border-color:#713f12;color:#fcd34d}
+.modal-box,.settings-list button{background:#202c47;color:#e2e8f0}
+.settings-list button{border-color:#2d3b58}
+.settings-list button:hover{background:#273450}
+.d-head,.d-scroll,.d-days,.d-dayh{background:#202c47;border-color:#364763}
+.d-dayh .dow{color:#94a3b8}
+.d-dayh .dom{color:#e2e8f0}
+.d-dayh.today{background:#234569}
+.d-times{background:#1c2742;border-color:#364763}
+.d-hour-line{border-color:#2d3b58}
+.d-hour-line .half{border-color:#253251}
+.d-hour-line .lbl{color:#94a3b8}
+.d-col{border-color:#2d3b58}
+.d-col.today{background:rgba(30,58,95,.35)}
+.d-allday{background:#2c3a58;border-color:#475569;color:#cbd5e1}
 </style>
-<script>
-// Apply the saved theme before first paint to avoid a light flash.
-document.documentElement.dataset.theme=localStorage.getItem("dmw_cc_theme")||"light";
-function toggleTheme(){
-  const next=document.documentElement.dataset.theme==="dark"?"light":"dark";
-  document.documentElement.dataset.theme=next;
-  localStorage.setItem("dmw_cc_theme",next);
-  const b=document.getElementById("theme-toggle"); if(b) b.textContent=next==="dark"?"☀️":"🌙";
-}
-document.addEventListener("DOMContentLoaded",()=>{
-  const b=document.getElementById("theme-toggle");
-  if(b) b.textContent=document.documentElement.dataset.theme==="dark"?"☀️":"🌙";
-});
-</script>
-
 </head>
 <body>
 <div id="gate">
@@ -238,7 +223,6 @@ document.addEventListener("DOMContentLoaded",()=>{
     <div class="brand"><img src="drive-my-way-logo.png" alt="Drive My Way" onerror="this.remove()"><span>Drive My Way Control Centre</span></div>
     <div style="display:flex;gap:.5rem;align-items:center">
       <span id="who" style="color:#64748b;font-size:.8rem"></span>
-      <button class="btn-outline" id="theme-toggle" onclick="toggleTheme()" title="Light / dark mode" style="font-size:1rem;line-height:1;padding:.4rem .6rem">🌙</button>
       <button class="btn btn-gold btn-sm" onclick="lock()">Sign out</button>
     </div>
   </div>
@@ -1411,7 +1395,7 @@ function renderPupilProgress(){
   const totalScore=syllabusItems.reduce((s,t)=>s+(progress[t.id]||0),0);
   const pct=Math.round((totalScore/(syllabusItems.length*5))*100)||0;
   let html=`<div style="margin-bottom:1rem"><div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.3rem"><strong>Syllabus</strong><span class="muted">${pct}% Completed</span></div>
-    <div style="height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#10b981"></div></div></div>
+    <div style="height:8px;background:var(--line);border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#10b981"></div></div></div>
     <p class="muted" style="margin-bottom:1rem">Tap a level dot to set it — same as tapping it in the app. Tap the filled dot again to clear back to "Not started".</p>`;
   groups.forEach(g=>{
     const topics=syllabusItems.filter(t=>t.group===g);
@@ -1443,7 +1427,7 @@ async function setPupilProgress(topicId,clickedLevel,currentLevel){
 function renderPupilReflect(){
   const {logs}=pupilDetail;
   if(!logs.length) return '<p class="muted">No reflective logs yet</p>';
-  return logs.map(l=>`<div style="background:#fff;border:1px solid var(--line);border-radius:3px;padding:.8rem;margin-bottom:.6rem">
+  return logs.map(l=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:3px;padding:.8rem;margin-bottom:.6rem">
     <div class="muted" style="font-size:.75rem;margin-bottom:.4rem">${l.log_date?new Date(l.log_date+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""}</div>
     ${l.session_goal?row("Session goal",l.session_goal):""}
     ${l.achieved?row("Achieved",l.achieved):""}
@@ -1457,7 +1441,7 @@ function renderPupilReflect(){
 function renderPupilTests(){
   const {tests}=pupilDetail;
   if(!tests.length) return '<p class="muted">No test results recorded</p>';
-  return tests.map(t=>`<div style="background:#fff;border:1px solid var(--line);border-radius:3px;padding:.8rem;margin-bottom:.6rem">
+  return tests.map(t=>`<div style="background:var(--card);border:1px solid var(--line);border-radius:3px;padding:.8rem;margin-bottom:.6rem">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
       <strong>Practical test</strong>
       <span class="chip ${t.result==="pass"?"chip-ok":t.result==="fail"?"chip-bad":"chip-info"}">${esc(t.result||"tbc")}</span>
@@ -2066,7 +2050,7 @@ function financeCategoryTable(rows,standardCats,label,isExp){
   }).join("");
   return `<table><thead><tr><th>${esc(label)}</th><th style="text-align:right">Qty</th><th style="text-align:right">Amount</th></tr></thead>
     <tbody>${body}</tbody>
-    <tfoot><tr style="background:#eef1f5;font-weight:700"><td>Total ${esc(label)}</td><td style="text-align:right">${rows.length}</td><td style="text-align:right">£${total.toFixed(2)}</td></tr></tfoot></table>`;
+    <tfoot><tr style="background:var(--soft);font-weight:700"><td>Total ${esc(label)}</td><td style="text-align:right">${rows.length}</td><td style="text-align:right">£${total.toFixed(2)}</td></tr></tfoot></table>`;
 }
 // Clicking a category row in the Summary tab opens every entry filed under
 // that exact category (within the currently-selected date range), each with
@@ -2398,7 +2382,7 @@ async function openSettings(which){
         <p class="muted" style="margin-bottom:.75rem">This is what your pupils actually see on the app's login screen — not just cosmetic here.</p>
         <div class="field"><label>Logo</label>
           <div style="display:flex;align-items:center;gap:.75rem;margin-top:.3rem">
-            <div style="width:64px;height:64px;border:1px solid #ddd;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f8fafc">
+            <div style="width:64px;height:64px;border:1px solid #ddd;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--surface-2)">
               ${brSoloLogoUrl ? `<img id="br-logo-preview" src="${esc(brSoloLogoUrl)}" style="width:100%;height:100%;object-fit:contain">` : `<span id="br-logo-preview" class="muted" style="font-size:.7rem">No logo</span>`}
             </div>
             <label class="btn btn-outline btn-sm" style="cursor:pointer">
@@ -2417,7 +2401,7 @@ async function openSettings(which){
         <p class="muted" style="margin-bottom:.75rem">This is what your pupils actually see on the app's login screen — not just cosmetic here.</p>
         <div class="field"><label>Logo</label>
           <div style="display:flex;align-items:center;gap:.75rem;margin-top:.3rem">
-            <div style="width:64px;height:64px;border:1px solid #ddd;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f8fafc">
+            <div style="width:64px;height:64px;border:1px solid #ddd;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--surface-2)">
               ${school&&school.logo_url ? `<img id="br-logo-preview" src="${esc(school.logo_url)}" style="width:100%;height:100%;object-fit:contain">` : `<span id="br-logo-preview" class="muted" style="font-size:.7rem">No logo</span>`}
             </div>
             <label class="btn btn-outline btn-sm" style="cursor:pointer">
@@ -2443,13 +2427,13 @@ async function openSettings(which){
       <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--line)">
       <h3 style="margin:0 0 .75rem">School enquiry form</h3>
       <p class="muted" style="margin-bottom:.75rem">Use this one instead if you want a general "enquire to our school" form — leads land unassigned in your Enquiries tab so you can hand each one to whichever instructor should take it, rather than always going to you.</p>
-      <textarea readonly rows="12" style="width:100%;font-family:var(--fm);font-size:.72rem;padding:.75rem;border:1.5px solid var(--line);border-radius:3px;background:#f8fafc" onclick="this.select()">${esc(buildSchoolEnquirySnippet(currentSchoolId))}</textarea>
+      <textarea readonly rows="12" style="width:100%;font-family:var(--fm);font-size:.72rem;padding:.75rem;border:1.5px solid var(--line);border-radius:3px;background:var(--surface-2);color:var(--text)" onclick="this.select()">${esc(buildSchoolEnquirySnippet(currentSchoolId))}</textarea>
       <button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="copySchoolEnquirySnippet()">Copy embed code</button>
       <div id="school-enquiry-widget-copied" class="muted" style="margin-top:.5rem;display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>` : "";
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Your enquiry form</h3>
       <p class="muted" style="margin-bottom:.75rem">Paste this into your own website (most site builders have an "HTML" or "Embed" block) to add an enquiry form that sends leads straight to you — not anyone else on the platform.</p>
-      <textarea readonly rows="12" style="width:100%;font-family:var(--fm);font-size:.72rem;padding:.75rem;border:1.5px solid var(--line);border-radius:3px;background:#f8fafc" onclick="this.select()">${esc(snippet)}</textarea>
+      <textarea readonly rows="12" style="width:100%;font-family:var(--fm);font-size:.72rem;padding:.75rem;border:1.5px solid var(--line);border-radius:3px;background:var(--surface-2);color:var(--text)" onclick="this.select()">${esc(snippet)}</textarea>
       <button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="copyEnquirySnippet()">Copy embed code</button>
       <div id="enquiry-widget-copied" class="muted" style="margin-top:.5rem;display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>
       ${schoolBlock}`;
@@ -2592,7 +2576,7 @@ async function loadTeamsPanel(){
     content.innerHTML=`
       <h2>Driving schools</h2>
       <p class="muted" style="margin-bottom:.75rem">Only you (super admin) can create new driving schools or instructor logins, or lock a whole school's access.</p>
-      <p style="margin-bottom:.75rem;padding:.6rem .8rem;border-radius:8px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;font-size:.9rem">
+      <p style="margin-bottom:.75rem;padding:.6rem .8rem;border-radius:8px;background:#2d2308;border:1px solid #713f12;color:#fcd34d;font-size:.9rem">
         ⚠ Anyone you create or invite from here gets free access — no subscription row gets created for admin-invited accounts, so billing never applies to them.
       </p>
       <div id="schools-list">Loading…</div>
@@ -3412,9 +3396,9 @@ function renderPayCatsList(type){
   const label=type==="income"?"Income":"Expense";
   return `<h4 style="margin:${type==="income"?"0":"1.25rem"} 0 .5rem">${label} categories</h4>
     <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.6rem">
-      ${cats.length ? cats.map(c=>`<span style="display:inline-flex;align-items:center;gap:.35rem;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:.3rem .4rem .3rem .7rem;font-size:.8rem">
+      ${cats.length ? cats.map(c=>`<span style="display:inline-flex;align-items:center;gap:.35rem;background:#2c3a58;border:1px solid #435473;border-radius:20px;padding:.3rem .4rem .3rem .7rem;font-size:.8rem">
         ${esc(c)}
-        <button type="button" title="Delete" onclick="payCatDelete('${type}','${esc(c).replace(/'/g,"&#39;")}')" style="border:none;background:#e2e8f0;color:#475569;width:18px;height:18px;border-radius:50%;line-height:1;cursor:pointer;font-size:.75rem">×</button>
+        <button type="button" title="Delete" onclick="payCatDelete('${type}','${esc(c).replace(/'/g,"&#39;")}')" style="border:none;background:#435473;color:#cbd5e1;width:18px;height:18px;border-radius:50%;line-height:1;cursor:pointer;font-size:.75rem">×</button>
       </span>`).join("") : '<span class="muted" style="font-size:.85rem">No categories yet.</span>'}
     </div>
     <div style="display:flex;gap:.4rem">
@@ -3469,7 +3453,7 @@ function renderSyllabusList(){
       html+=`<div class="muted" style="font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;margin:${idx===0?"0":"1rem"} 0 .35rem">${esc(t.group)}</div>`;
       lastGroup=t.group;
     }
-    html+=`<div class="syllabus-row" draggable="true" data-id="${t.id}" style="display:flex;align-items:center;gap:.5rem;background:#fff;border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;margin-bottom:.4rem;cursor:grab">
+    html+=`<div class="syllabus-row" draggable="true" data-id="${t.id}" style="display:flex;align-items:center;gap:.5rem;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;margin-bottom:.4rem;cursor:grab">
       <span style="color:#94a3b8;font-size:1rem;line-height:1" title="Drag to reorder">⠿</span>
       <input value="${esc(t.name)}" onchange="syllabusFieldChanged('${t.id}','name',this.value)" style="flex:1;min-width:0;border:1px solid var(--line);border-radius:6px;padding:.35rem .5rem;font-size:.85rem">
       <input value="${esc(t.group)}" list="syllabus-groups-dl" onchange="syllabusFieldChanged('${t.id}','group',this.value)" style="width:9.5rem;border:1px solid var(--line);border-radius:6px;padding:.35rem .5rem;font-size:.85rem">
@@ -3861,7 +3845,7 @@ function renderWebsiteGrid(){
         <input type="checkbox" ${selected ? "checked" : ""} onclick="websiteToggleSelect('${item.id}',event)" style="width:16px;height:16px;accent-color:#0A4CA1">
       </label>
       <div style="position:absolute;top:8px;right:8px;z-index:2;background:rgba(15,23,42,.75);color:#fff;font-size:.7rem;font-weight:700;border-radius:6px;padding:2px 6px;pointer-events:none">${idx + 1}</div>
-      <div style="aspect-ratio:3/4;background:#f1f5f9;position:relative" onclick="websiteToggleSelect('${item.id}')">
+      <div style="aspect-ratio:3/4;background:var(--surface-2);position:relative" onclick="websiteToggleSelect('${item.id}')">
         <img src="${esc(src)}" alt="" style="width:100%;height:100%;object-fit:cover;pointer-events:none" loading="lazy"
              onerror="this.style.opacity=.3" draggable="false">
       </div>

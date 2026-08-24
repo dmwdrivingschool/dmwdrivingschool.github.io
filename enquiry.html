@@ -628,23 +628,31 @@
           }
         }
 
-        // Two cases, one email each:
-        // - Brand-new account: Supabase has already sent the CONFIRMATION
-        //   email (Confirm email is ON); its link signs them in and lands
-        //   on the app's set-password page. Calling resetPasswordForEmail
-        //   too would fail ("email not confirmed") — the very bug where
-        //   this screen showed a red error despite an email arriving.
-        // - Existing account: no confirmation email goes out, so send the
-        //   normal password-reset link instead.
+        // Three cases, one email each (Confirm email is ON in Supabase):
+        // - Brand-new account: signUp already sent the CONFIRMATION email;
+        //   its link signs them in and lands on the app's set-password
+        //   page. Sending a reset too would fail ("email not confirmed").
+        // - Existing CONFIRMED account: send the normal reset link.
+        // - Existing UNCONFIRMED account (e.g. they enquired before but
+        //   never clicked the link): signUp returns a fake success with no
+        //   email, and a reset is refused — RESEND the confirmation email.
         const isNewAccount = !signUpError && signUpData && signUpData.user &&
-          (!signUpData.user.identities || signUpData.user.identities.length > 0) &&
+          signUpData.user.identities && signUpData.user.identities.length > 0 &&
           !signUpData.user.email_confirmed_at;
+        let sentConfirmation = isNewAccount;
         if (accountReady && !isNewAccount) {
-          await sb.auth.resetPasswordForEmail(email, { redirectTo: APP_URL + "/change-password" });
+          const { error: resetErr } = await sb.auth.resetPasswordForEmail(email, { redirectTo: APP_URL + "/change-password" });
+          if (resetErr && /not confirmed|confirm/i.test(resetErr.message || "")) {
+            const { error: resendErr } = await sb.auth.resend({ type: "signup", email: email, options: { emailRedirectTo: APP_URL + "/change-password" } });
+            if (resendErr) throw resendErr;
+            sentConfirmation = true;
+          } else if (resetErr) {
+            throw resetErr;
+          }
         }
 
         okEl.innerHTML = "Check your email at <strong>" + escapeHtml(email) + "</strong> — " +
-          (isNewAccount
+          (sentConfirmation
             ? "confirm your email address and you'll be taken straight to set your app password."
             : "we've sent you a secure link to set up your password.");
         okEl.style.display = "block";

@@ -2175,12 +2175,16 @@ async function savePayment(){
   }
   if(document.getElementById("pay-amt").value===""||isNaN(amount)) return alert("Amount is required (enter 0 for a free lesson/entry)");
   if(!date) return alert("Date is required");
-  const payload={type, category:cat, amount, transaction_date:date, payment_method:method, notes, pupil_id:pupilId};
+  // RLS requires instructor_id = auth.uid() whenever pupil_id is null (any
+  // expense, or income not tied to a lesson) — pupil-linked rows are covered
+  // by can_access_pupil() instead, so instructor_id doesn't matter there.
+  const ownId=pupilId?null:(await sb.auth.getUser()).data.user?.id;
+  const payload={type, category:cat, amount, transaction_date:date, payment_method:method, notes, pupil_id:pupilId, instructor_id:ownId};
   let error;
   if(id) ({error}=await sb.from("transactions").update(payload).eq("id",id));
   else ({error}=await sb.from("transactions").insert(payload));
   if(error){
-    const p2={type, amount, transaction_date:date, payment_method:method, notes:[cat,notes].filter(Boolean).join(" · "), pupil_id:pupilId};
+    const p2={type, amount, transaction_date:date, payment_method:method, notes:[cat,notes].filter(Boolean).join(" · "), pupil_id:pupilId, instructor_id:ownId};
     if(id) ({error}=await sb.from("transactions").update(p2).eq("id",id));
     else ({error}=await sb.from("transactions").insert(p2));
   }
@@ -2230,6 +2234,7 @@ async function importCsv(ev){
   const lines=text.split(/\r?\n/).filter(Boolean);
   if(lines.length<2) return alert("Empty CSV");
   const header=lines[0].toLowerCase().split(",").map(h=>h.trim());
+  const ownId=(await sb.auth.getUser()).data.user?.id;
   let ok=0, fail=0;
   for(let i=1;i<lines.length;i++){
     const cols=lines[i].split(",").map(c=>c.trim());
@@ -2244,7 +2249,8 @@ async function importCsv(ev){
       amount,
       transaction_date: (get("date")||get("transaction")||new Date().toISOString().slice(0,10)).slice(0,10),
       payment_method: get("method")||"Other",
-      notes: get("notes")||get("name")||null
+      notes: get("notes")||get("name")||null,
+      instructor_id: ownId
     };
     const {error}=await sb.from("transactions").insert(payload);
     if(error) fail++; else ok++;

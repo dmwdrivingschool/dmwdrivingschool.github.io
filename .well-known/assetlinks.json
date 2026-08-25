@@ -1,0 +1,22 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls", "delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "uk.co.dmwdrivingschool.instructor",
+      "sha256_cert_fingerprints": ["53:B3:A0:0E:CC:E1:04:BE:D9:62:FE:3C:2C:FE:50:14:8C:1B:66:06:B9:43:34:28:68:F7:ED:6C:A5:FB:55:50"]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": { "namespace": "web", "site": "https://app.drivemyway.co.uk" }
+  },
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": { "namespace": "web", "site": "https://app.dmwdrivingschool.co.uk" }
+  },
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": { "namespace": "web", "site": "https://web.drivemyway.co.uk" }
+  }
+]

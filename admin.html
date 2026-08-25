@@ -3086,7 +3086,7 @@ async function loadBillingPanel(){
   else if(sub.status==="mandate_failed"){ statusLine="Direct Debit not confirmed"; statusChip='<span class="chip chip-bad">ACTION NEEDED</span>'; }
   else { statusLine=sub.status; statusChip=""; }
 
-  const planLine = sub.plan==="solo" ? "Solo instructor — £11.99/month" : "Driving school — £12.99/month + £9.99/seat";
+  const planLine = sub.plan==="solo" ? "Solo instructor — £11.99/month" : "Driving school — £13.99/month + £9.99/seat";
 
   let mandateBtn = "";
   if(!sub.gocardless_mandate_id || sub.status==="mandate_failed"){

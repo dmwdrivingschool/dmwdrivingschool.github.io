@@ -1275,10 +1275,41 @@ function pupilEditLesson(id){
       </label>
     </div>
     <p class="muted" style="margin-bottom:.75rem">Payment status isn't edited here — same as the app, it's only ever set by an actual payment, not by editing the lesson.</p>
+    ${l.status==="cancelled" ? `<button type="button" class="btn btn-navy btn-sm" style="width:100%;margin-bottom:.75rem" onclick="convertLessonToGap('${l.id}')">Convert to gap</button>` : ""}
     <div class="actions">
       <button class="btn btn-navy btn-sm" onclick="savePupilLesson('${l.id}')">Save</button>
       <button class="btn-outline" onclick="renderPupilModal()">Cancel</button>
     </div>`);
+}
+// For a lesson that's ALREADY cancelled (by the pupil, or cancelled
+// earlier without converting) — creates the gap and broadcasts it
+// directly, same one-tap action as the app. The cancelled lesson itself
+// is left completely untouched.
+async function convertLessonToGap(id){
+  const l=pupilDetail.lessons.find(x=>x.id===id);
+  if(!l) return;
+  if(!confirm("Create a gap at this time and let active pupils book it? The cancelled lesson itself is unaffected.")) return;
+  const session=(await sb.auth.getSession()).data.session;
+  const {error:insErr}=await sb.from("lessons").insert({
+    lesson_type:"gap", title:"Gap",
+    start_time:l.start_time, end_time:l.end_time,
+    status:"booked", payment_status:"unpaid",
+    pupil_id:null, instructor_id:session?.user?.id||null,
+    gearbox:l.gearbox||"manual"
+  });
+  if(insErr) return alert(insErr.message);
+  const thisPupilId=pupilDetail.p.id;
+  const {data:activePupils}=await sb.from("pupils").select("id").eq("status","active");
+  const others=(activePupils||[]).filter(p=>p.id!==thisPupilId);
+  if(others.length){
+    const start=new Date(l.start_time);
+    const durationMins=Math.round((new Date(l.end_time)-start)/60000);
+    const when=start.toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+    const body=`Gap available: ${when} (${durationMins} mins). Open the app and tap Book on this slot if you want it.`;
+    await sb.from("messages").insert(others.map(p=>({pupil_id:p.id, body, direction:"broadcast", subject:"Gap available"})));
+  }
+  await refreshPupilDetail();
+  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
 }
 async function savePupilLesson(id){
   const dateStr=val("pl-date");

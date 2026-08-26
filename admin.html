@@ -393,8 +393,7 @@ tbody tr:hover td{background:#334263}
           on in the app's Settings.
         </p>
         <div id="manage-videos-controls" style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end;margin-bottom:1rem">
-          <div class="field" style="min-width:200px;margin-bottom:0"><label>Title</label><input id="video-title" placeholder="e.g. Emergency Stop"></div>
-          <div class="field" style="min-width:220px;margin-bottom:0"><label>Module</label>
+          <div class="field" style="min-width:220px;margin-bottom:0"><label>Default module</label>
             <select id="video-module">
               <option value="1">📋 Module 1: Preparing &amp; Junctions</option>
               <option value="2">🚗 Module 2: Everyday Driving</option>
@@ -404,8 +403,8 @@ tbody tr:hover td{background:#334263}
             </select>
           </div>
           <label class="btn btn-navy btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
-            📤 Upload video
-            <input type="file" id="video-file" accept="video/mp4,video/quicktime,video/webm" hidden onchange="learningVideoUpload(event)">
+            📤 Upload video(s)
+            <input type="file" id="video-file" accept="video/mp4,video/quicktime,video/webm" multiple hidden onchange="learningVideoFilesChosen(event)">
           </label>
           <button type="button" class="btn-outline" onclick="loadLearningVideos()">↻ Refresh</button>
           <span class="muted" id="video-status">Loading…</span>
@@ -3754,35 +3753,80 @@ async function saveLearningVideoEdit(id){
   await loadLearningVideos();
 }
 
-async function learningVideoUpload(ev){
-  const file = (ev.target.files || [])[0];
+// Batch upload: pick any number of files at once, each gets a title guessed
+// from its filename (editable) and a module (defaults to whatever's picked
+// above, also editable per file) — reviewed in one screen before anything
+// actually uploads.
+let pendingVideoUploads = [];
+
+function filenameToTitle(name){
+  return name
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function learningVideoFilesChosen(ev){
+  const files = Array.from(ev.target.files || []);
   ev.target.value = "";
-  if (!file) return;
-  const title = document.getElementById("video-title").value.trim();
-  const moduleNum = document.getElementById("video-module").value;
-  if (!title) { alert("Enter a title first"); return; }
-  const status = document.getElementById("video-status");
-  status.textContent = "Uploading " + file.name + "…";
+  if (!files.length) return;
+  const defaultModule = document.getElementById("video-module").value;
+  pendingVideoUploads = files.map(f => ({ file: f, title: filenameToTitle(f.name), module: defaultModule }));
+  renderVideoUploadReview();
+}
 
-  try {
-    const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g,"");
-    const path = "module-" + moduleNum + "/" + Date.now() + "-" + Math.random().toString(36).slice(2,8) + "." + ext;
+function renderVideoUploadReview(){
+  const rows = pendingVideoUploads.map((u, i) => `
+    <div class="two" style="align-items:end;margin-bottom:.6rem">
+      <div class="field" style="margin-bottom:0"><label>Title</label><input data-idx="${i}" class="vu-title" value="${esc(u.title)}"></div>
+      <div class="field" style="margin-bottom:0"><label>Module</label>
+        <select data-idx="${i}" class="vu-module">
+          ${Object.entries(MODULE_LABELS).map(([n,label]) => `<option value="${n}" ${String(u.module)===n?"selected":""}>${label}</option>`).join("")}
+        </select>
+      </div>
+    </div>`).join("");
+  openModal(`<h2 style="margin-bottom:1rem">Upload ${pendingVideoUploads.length} video${pendingVideoUploads.length===1?"":"s"}</h2>
+    <div id="vu-rows" style="max-height:55vh;overflow-y:auto">${rows}</div>
+    <p class="muted" id="vu-progress" style="margin-top:.75rem"></p>
+    <div class="actions" style="margin-top:1rem">
+      <button class="btn btn-navy btn-sm" onclick="submitVideoUploadBatch()">Upload all</button>
+      <button class="btn-outline" onclick="pendingVideoUploads=[];closeModal()">Cancel</button>
+    </div>`);
+}
 
-    const { error: upErr } = await sb.storage.from("learning-videos").upload(path, file, { cacheControl:"3600", upsert:false, contentType: file.type || "video/mp4" });
-    if (upErr) throw upErr;
+async function submitVideoUploadBatch(){
+  document.querySelectorAll(".vu-title").forEach(inp => { pendingVideoUploads[Number(inp.dataset.idx)].title = inp.value.trim(); });
+  document.querySelectorAll(".vu-module").forEach(sel => { pendingVideoUploads[Number(sel.dataset.idx)].module = sel.value; });
+  if (pendingVideoUploads.some(u => !u.title)) { alert("Every video needs a title"); return; }
 
-    const nextOrder = learningVideos.length ? Math.max(...learningVideos.map(v=>v.sort_order||0)) + 1 : Number(moduleNum) * 10;
-    const { error: insErr } = await sb.from("learning_videos").insert({
-      title, description: "Module " + moduleNum, storage_path: path, module: Number(moduleNum), sort_order: nextOrder
-    });
-    if (insErr) throw insErr;
-
-    document.getElementById("video-title").value = "";
-    await loadLearningVideos();
-  } catch (e) {
-    alert("Upload failed: " + (e.message || e));
-    status.textContent = "Upload failed";
+  const progress = document.getElementById("vu-progress");
+  let runningMax = learningVideos.length ? Math.max(...learningVideos.map(v=>v.sort_order||0)) : 0;
+  let ok = 0;
+  const failed = [];
+  for (let i = 0; i < pendingVideoUploads.length; i++){
+    const u = pendingVideoUploads[i];
+    if (progress) progress.textContent = `Uploading ${i+1} of ${pendingVideoUploads.length}: ${u.title}…`;
+    try {
+      const ext = (u.file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g,"");
+      const path = "module-" + u.module + "/" + Date.now() + "-" + Math.random().toString(36).slice(2,8) + "." + ext;
+      const { error: upErr } = await sb.storage.from("learning-videos").upload(path, u.file, { cacheControl:"3600", upsert:false, contentType: u.file.type || "video/mp4" });
+      if (upErr) throw upErr;
+      runningMax = Math.max(runningMax + 1, Number(u.module) * 10);
+      const { error: insErr } = await sb.from("learning_videos").insert({
+        title: u.title, description: "Module " + u.module, storage_path: path, module: Number(u.module), sort_order: runningMax
+      });
+      if (insErr) throw insErr;
+      ok++;
+    } catch (e) {
+      failed.push(u.title + ": " + (e.message || e));
+    }
   }
+  pendingVideoUploads = [];
+  closeModal();
+  await loadLearningVideos();
+  if (failed.length) alert(`Uploaded ${ok} of ${ok + failed.length}. Failed:\n\n` + failed.join("\n"));
 }
 
 async function deleteLearningVideo(id){

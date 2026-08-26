@@ -412,7 +412,7 @@ tbody tr:hover td{background:#334263}
         </div>
         <table>
           <thead><tr><th>Title</th><th>Module</th><th></th></tr></thead>
-          <tbody id="video-list">Loading…</tbody>
+          <tbody id="video-list"><tr><td colspan="3" class="muted">Loading…</td></tr></tbody>
         </table>
       </div>
       <div class="panel" style="margin-bottom:1rem">
@@ -3687,7 +3687,7 @@ async function loadLearningVideos(){
   if (!status || !list) return;
   status.textContent = "Loading…";
   try {
-    const { data, error } = await sb.from("learning_videos").select("id,title,description,storage_path,sort_order").order("sort_order",{ascending:true});
+    const { data, error } = await sb.from("learning_videos").select("id,title,description,storage_path,module,sort_order").order("sort_order",{ascending:true});
     if (error) throw error;
     learningVideos = data || [];
     status.textContent = learningVideos.length + " video" + (learningVideos.length===1?"":"s");
@@ -3708,14 +3708,50 @@ function renderLearningVideos(){
     return;
   }
   list.innerHTML = learningVideos.map(v => {
-    const moduleNum = (v.storage_path.match(/^module-(\d)\//) || [])[1];
+    // Fall back to the storage path prefix only for older rows from before
+    // the `module` column existed — new rows always have it set directly.
+    const moduleNum = v.module || (v.storage_path.match(/^module-(\d)\//) || [])[1];
     const moduleLabel = MODULE_LABELS[moduleNum] || "—";
     return `<tr>
       <td>${esc(v.title)}</td>
       <td>${moduleLabel}</td>
-      <td><button type="button" class="btn-danger" onclick="deleteLearningVideo('${v.id}')">Del</button></td>
+      <td class="actions">
+        <button type="button" class="btn-outline" onclick="editLearningVideo('${v.id}')">Edit</button>
+        <button type="button" class="btn-danger" onclick="deleteLearningVideo('${v.id}')">Del</button>
+      </td>
     </tr>`;
   }).join("");
+}
+
+// Renaming or moving a video to a different module — the module lives in
+// its own column (backfilled from the old path-based scheme), so this only
+// ever updates the row, never the underlying file in storage.
+function editLearningVideo(id){
+  const v = learningVideos.find(x => x.id === id);
+  if (!v) return;
+  const moduleNum = v.module || (v.storage_path.match(/^module-(\d)\//) || [])[1] || 1;
+  openModal(`<h2 style="margin-bottom:1rem">Edit video</h2>
+    <div class="field"><label>Title</label><input id="ev-title" value="${esc(v.title)}"></div>
+    <div class="field"><label>Module</label>
+      <select id="ev-module">
+        ${Object.entries(MODULE_LABELS).map(([n,label]) => `<option value="${n}" ${String(moduleNum)===n?"selected":""}>${label}</option>`).join("")}
+      </select>
+    </div>
+    <div class="actions">
+      <button class="btn btn-navy btn-sm" onclick="saveLearningVideoEdit('${v.id}')">Save</button>
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveLearningVideoEdit(id){
+  const title = val("ev-title").trim();
+  const moduleNum = Number(val("ev-module"));
+  if (!title) { alert("Title is required"); return; }
+  const { error } = await sb.from("learning_videos").update({
+    title, module: moduleNum, description: "Module " + moduleNum
+  }).eq("id", id);
+  if (error) { alert("Could not save: " + error.message); return; }
+  closeModal();
+  await loadLearningVideos();
 }
 
 async function learningVideoUpload(ev){
@@ -3737,7 +3773,7 @@ async function learningVideoUpload(ev){
 
     const nextOrder = learningVideos.length ? Math.max(...learningVideos.map(v=>v.sort_order||0)) + 1 : Number(moduleNum) * 10;
     const { error: insErr } = await sb.from("learning_videos").insert({
-      title, description: "Module " + moduleNum, storage_path: path, sort_order: nextOrder
+      title, description: "Module " + moduleNum, storage_path: path, module: Number(moduleNum), sort_order: nextOrder
     });
     if (insErr) throw insErr;
 

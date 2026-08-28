@@ -1815,6 +1815,17 @@ async function endAwayBlock(lessonId){
   renderDiary();
 }
 
+// Mirrors src/lib/testCancellation.ts (the app) — DVSA-style "clear working
+// days" notice, Dale's policy being 10. Walking back (clearDays+1) weekdays
+// lands on the right day: the cancel day itself isn't one of the "days
+// between" it and the test, so it takes one extra step back.
+function lastCancellableDate(testDate, clearDays){
+  const isWeekday=d=>{const day=d.getDay(); return day!==0 && day!==6};
+  const d=new Date(testDate); d.setHours(0,0,0,0);
+  let remaining=clearDays+1;
+  while(remaining>0){ d.setDate(d.getDate()-1); if(isWeekday(d)) remaining--; }
+  return d;
+}
 function showTests(mode,btn){
   if(btn){btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));btn.classList.add("on")}
   lastTestsMode=mode;
@@ -1822,12 +1833,19 @@ function showTests(mode,btn){
   const list=testsCache.filter(t=>mode==="future"?(t.test_date||"")>=now:(t.test_date||"")<now);
   const el=document.getElementById("test-list");
   if(!list.length){el.innerHTML='<p class="muted">None</p>';return}
-  el.innerHTML="<table><thead><tr><th>Pupil</th><th>Date</th><th>Result</th></tr></thead><tbody>"+
+  const cancelHeader=mode==="future" ? "<th>Cancel by</th>" : "";
+  el.innerHTML="<table><thead><tr><th>Pupil</th><th>Date</th><th>Result</th>"+cancelHeader+"</tr></thead><tbody>"+
     list.map(t=>{
       const name=t.pupil?`${t.pupil.first_name} ${t.pupil.last_name}`:"–";
       const res=t.result||"tbc";
       const chip=res==="pass"?"chip-ok":res==="fail"?"chip-bad":"chip-wait";
-      return `<tr style="cursor:pointer" onclick="showTestModal('${t.id}')" title="Click to see the full result"><td>${esc(name)}</td><td>${fmt(t.test_date)}</td><td><span class="chip ${chip}">${esc(res)}</span></td></tr>`;
+      let cancelCell="";
+      if(mode==="future"){
+        const showDeadline=(!t.result||t.result==="tbc") && new Date(t.test_date)>new Date();
+        const deadline=showDeadline ? lastCancellableDate(new Date(t.test_date),10).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "–";
+        cancelCell=`<td style="color:#f0b95e">${deadline}</td>`;
+      }
+      return `<tr style="cursor:pointer" onclick="showTestModal('${t.id}')" title="Click to see the full result"><td>${esc(name)}</td><td>${fmt(t.test_date)}</td><td><span class="chip ${chip}">${esc(res)}</span></td>${cancelCell}</tr>`;
     }).join("")+"</tbody></table>";
 }
 let lastTestsMode="future";

@@ -4204,17 +4204,23 @@ async function saveNewPupil(){
 }
 
 
-const MODULE_VIDEOS = {
-  m1: ["Approaching Junctions Turning Left","Emerging From An Open Junction Turning Left","Approaching Junctions Turning Right","Emerging From a Closed Junction Turning Right","Emerging From a Stop Junction","Emerging From a One-Way Street Turning Right","Approaching Junctions Turning Right – Giveway","Approaching Long Protected Junctions Turning Rights","Approaching Protected Junctions Turning Right"],
-  m2: ["Level Crossings","Meeting Traffic","Following Distance Dry Weather Driving Conditions","Following Distance Wet Weather Driving Conditions","Slip Road Onto Dual Carriageway","Road Position Left Hand Bend","Road Position Right Hand Bend","Satellite Navigation"],
-  m3: ["Introduction Into Crossroads","Turning Right Offside to Offside","Turning Right Nearside to Nearside","Turning Right Using Local Knowledge","Turning Right At Crossroads But Unsure of Location","Unmarked Crossroads","Emerging From Crossroads Turning Right With Eye Contact","Traffic Lights Driving Ahead (With Junction Box)","Traffic Lights Turning Left (With Junction Box)","Traffic Lights Turning Right (With Junction Box)"],
-  m4: ["Introduction To Roundabouts","Turning Left First Exit","Following Road Ahead 2nd Exit","Following Road Ahead 2nd Exit Right Hand Lane","Turning Right With Multiple Lanes","Turning Right At Roundabouts But Exiting The Right Lane","Blocking At Roundabouts","Blockers","Mini Roundabouts Following Road Ahead","Mini Roundabouts Turning Right 3rd Exit"],
-  m5: ["Queues Of Traffic, Leaving A Gap","Turn In The Road","Reversing Left Into Side Road","Reverse Parallel Park","Bay Park 90 Degrees","Bay Park 45 Degrees","Pull Up Safety On The Right","Emergency Stop","Controlled Stop Move Off At Angle","Hill Start"]
-};
-
 async function loadVideoProgress(){
   const mounts = ["m1","m2","m3","m4","m5"];
   mounts.forEach(m=>{ const el=document.getElementById("matrix-"+m); if(el) el.innerHTML="Loading…"; });
+
+  // Video topics come from whatever's actually uploaded (learning_videos),
+  // never a fixed list — upload a video and its title appears here as a
+  // topic; delete it and the row goes too. This used to be a hardcoded
+  // MODULE_VIDEOS object left over from before the upload feature existed,
+  // which kept showing old topic names for videos that no longer existed.
+  let moduleVideos = { m1: [], m2: [], m3: [], m4: [], m5: [] };
+  try {
+    const { data: vids } = await sb.from("learning_videos").select("title,module,sort_order").order("sort_order",{ascending:true});
+    (vids||[]).forEach(v=>{
+      const key = "m"+v.module;
+      if(moduleVideos[key]) moduleVideos[key].push(v.title);
+    });
+  } catch(e){}
 
   // Learners for columns: pupils with email/status
   let learners = [];
@@ -4258,6 +4264,7 @@ async function loadVideoProgress(){
   }
 
   function buildGrid(videoArray){
+    if(!videoArray.length) return '<p class="muted">No videos in this module yet — upload one above to see it here.</p>';
     let html=`<table class="matrix-table"><thead><tr><th>Video topic</th>`;
     learners.forEach(l=>{ html+=`<th title="${esc(l.key)}">${esc(l.label.split(" ")[0]||l.label)}</th>`; });
     html+=`</tr></thead><tbody>`;
@@ -4270,11 +4277,11 @@ async function loadVideoProgress(){
     return html;
   }
 
-  document.getElementById("matrix-m1").innerHTML = buildGrid(MODULE_VIDEOS.m1);
-  document.getElementById("matrix-m2").innerHTML = buildGrid(MODULE_VIDEOS.m2);
-  document.getElementById("matrix-m3").innerHTML = buildGrid(MODULE_VIDEOS.m3);
-  document.getElementById("matrix-m4").innerHTML = buildGrid(MODULE_VIDEOS.m4);
-  document.getElementById("matrix-m5").innerHTML = buildGrid(MODULE_VIDEOS.m5);
+  document.getElementById("matrix-m1").innerHTML = buildGrid(moduleVideos.m1);
+  document.getElementById("matrix-m2").innerHTML = buildGrid(moduleVideos.m2);
+  document.getElementById("matrix-m3").innerHTML = buildGrid(moduleVideos.m3);
+  document.getElementById("matrix-m4").innerHTML = buildGrid(moduleVideos.m4);
+  document.getElementById("matrix-m5").innerHTML = buildGrid(moduleVideos.m5);
 
   // Fill activity filter
   const sel=document.getElementById("pupil-log-filter");

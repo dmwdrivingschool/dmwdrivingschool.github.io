@@ -368,6 +368,11 @@ tbody tr:hover td{background:#334263}
               <div style="display:flex;gap:.5rem"><input id="pay-hrs" type="number" step="0.25" min="0" placeholder="Hours" style="flex:1"><input id="pay-mins" type="number" step="1" min="0" placeholder="Mins" style="flex:1"></div>
             </div>
             <div class="field"><label>Notes</label><input id="pay-notes"></div>
+            <div class="field" id="pay-receipt-wrap">
+              <label>Receipt photo</label>
+              <input id="pay-receipt" type="file" accept="image/*" onchange="onReceiptFileChosen(event)">
+              <div id="pay-receipt-preview" style="margin-top:.5rem"></div>
+            </div>
           </div>
           <input type="hidden" id="pay-edit-id">
           <input type="hidden" id="pay-edit-old-hrs">
@@ -2035,6 +2040,27 @@ function onPayCatChange(){
   const show=type==="income"&&isLessonCat(cat);
   document.getElementById("pay-pupil-wrap").style.display=show?"block":"none";
   document.getElementById("pay-hours-wrap").style.display=show?"block":"none";
+  document.getElementById("pay-receipt-wrap").style.display=type==="expense"?"block":"none";
+}
+let pendingReceiptFile=null, pendingReceiptExistingPath=null;
+function resetReceiptField(){
+  pendingReceiptFile=null;
+  pendingReceiptExistingPath=null;
+  document.getElementById("pay-receipt").value="";
+  document.getElementById("pay-receipt-preview").innerHTML="";
+}
+function onReceiptFileChosen(ev){
+  const f=ev.target.files[0];
+  if(!f) return;
+  pendingReceiptFile=f;
+  pendingReceiptExistingPath=null;
+  document.getElementById("pay-receipt-preview").innerHTML=
+    `<img src="${URL.createObjectURL(f)}" style="max-width:100%;max-height:10rem;border-radius:.75rem;border:1px solid var(--border,#3a4a6b)">`;
+}
+async function viewReceipt(path){
+  const {data,error}=await sb.storage.from("receipts").createSignedUrl(path,3600);
+  if(error) return alert(error.message);
+  window.open(data.signedUrl,"_blank");
 }
 function applyFinance(){
   const on=document.querySelector("#tab-finance .tabs-sub button.on");
@@ -2150,6 +2176,7 @@ function startAddPayForCategory(cat,isExp){
   document.getElementById("pay-pupil").value="";
   document.getElementById("pay-hrs").value="";
   document.getElementById("pay-mins").value="";
+  resetReceiptField();
   onPayCatChange();
 }
 function tablePay(rows,inModal){
@@ -2160,9 +2187,11 @@ function tablePay(rows,inModal){
     rows.map(r=>{
       const pupil=r.pupil?`${r.pupil.first_name} ${r.pupil.last_name}`:"";
       const detail=pupil||r.category||r.type||r.notes||"";
+      const receiptBtn=r.receipt_url?`<button class="btn-outline" onclick="viewReceipt('${String(r.receipt_url).replace(/'/g,"&#39;")}')" title="View receipt">🧾</button>`:"";
       return `<tr><td>${esc(r.transaction_date||"")}</td><td>${esc(detail)}</td>
         <td>£${Number(r.amount||0).toFixed(2)}</td><td>${esc(r.payment_method||"–")}</td>
         <td class="actions">
+          ${receiptBtn}
           <button class="btn-outline" onclick='${editCall}${JSON.stringify(r).replace(/'/g,"&#39;")})'>Edit</button>
           <button class="btn-danger" onclick="${delCall}${r.id}')">Del</button>
         </td></tr>`;
@@ -2186,6 +2215,12 @@ function startEditPay(r){
   document.getElementById("pay-edit-old-hrs").value=oldHrs||"";
   document.getElementById("pay-hrs").value="";
   document.getElementById("pay-mins").value="";
+  resetReceiptField();
+  if(r.receipt_url){
+    pendingReceiptExistingPath=r.receipt_url;
+    document.getElementById("pay-receipt-preview").innerHTML=
+      `<button type="button" class="btn-outline" onclick="viewReceipt('${r.receipt_url.replace(/'/g,"&#39;")}')">View attached receipt</button>`;
+  }
   onPayCatChange();
 }
 function hoursFromTxDescription(desc){
@@ -2227,12 +2262,29 @@ async function savePayment(){
   // expense, or income not tied to a lesson) — pupil-linked rows are covered
   // by can_access_pupil() instead, so instructor_id doesn't matter there.
   const ownId=pupilId?null:(await sb.auth.getUser()).data.user?.id;
+  let receiptUrl=pendingReceiptExistingPath;
+  if(type==="expense"&&pendingReceiptFile){
+    const ext=pendingReceiptFile.name.split(".").pop()||"jpg";
+    // Path prefixed with the uploader's own id — receipts is a private
+    // bucket, mirrors the app's upload path so storage RLS (keyed on the
+    // top-level folder matching auth.uid()) allows it.
+    const path=`${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const {error:upErr}=await sb.storage.from("receipts").upload(path,pendingReceiptFile,{cacheControl:"3600",upsert:false});
+    if(upErr){
+      console.warn("Receipt upload failed:",upErr.message);
+      notes=(notes?notes+" | ":"")+"(receipt upload failed)";
+    } else {
+      receiptUrl=path;
+    }
+  }
   const payload={type, category:cat, amount, transaction_date:date, payment_method:method, notes, pupil_id:pupilId, instructor_id:ownId};
+  if(receiptUrl) payload.receipt_url=receiptUrl;
   let error;
   if(id) ({error}=await sb.from("transactions").update(payload).eq("id",id));
   else ({error}=await sb.from("transactions").insert(payload));
   if(error){
     const p2={type, amount, transaction_date:date, payment_method:method, notes:[cat,notes].filter(Boolean).join(" · "), pupil_id:pupilId, instructor_id:ownId};
+    if(receiptUrl) p2.receipt_url=receiptUrl;
     if(id) ({error}=await sb.from("transactions").update(p2).eq("id",id));
     else ({error}=await sb.from("transactions").insert(p2));
   }
@@ -2253,6 +2305,7 @@ async function savePayment(){
   document.getElementById("pay-hrs").value="";
   document.getElementById("pay-mins").value="";
   document.getElementById("pay-pupil").value="";
+  resetReceiptField();
   await loadPupils(); await loadPayments(); applyFinance(); alert("Saved");
 }
 async function delPay(id){

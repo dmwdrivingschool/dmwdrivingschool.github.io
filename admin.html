@@ -3892,11 +3892,13 @@ function renderLearningVideos(){
     list.innerHTML = '<tr><td colspan="3" class="muted">No videos yet. Use "Upload video" above.</td></tr>';
     return;
   }
-  list.innerHTML = learningVideos.map(v => {
+  function moduleNumOf(v){
     // Fall back to the storage path prefix only for older rows from before
     // the `module` column existed — new rows always have it set directly.
-    const moduleNum = v.module || (v.storage_path.match(/^module-(\d)\//) || [])[1];
-    const moduleLabel = MODULE_LABELS[moduleNum] || "—";
+    return v.module || Number((v.storage_path.match(/^module-(\d)\//) || [])[1]) || null;
+  }
+  function videoRow(v){
+    const moduleLabel = MODULE_LABELS[moduleNumOf(v)] || "—";
     return `<tr>
       <td>${esc(v.title)}</td>
       <td>${moduleLabel}</td>
@@ -3905,7 +3907,22 @@ function renderLearningVideos(){
         <button type="button" class="btn-danger" onclick="deleteLearningVideo('${v.id}')">Del</button>
       </td>
     </tr>`;
-  }).join("");
+  }
+  // Grouped by module (same list/order as "Manage modules") instead of one
+  // flat list — a section header per module, then that module's videos in
+  // their existing order. Anything with an unknown/missing module (deleted
+  // module, or a pre-module-column legacy row) still shows, under "Other".
+  const known = new Set(VIDEO_MODULES.map(m=>m.num));
+  const groups = VIDEO_MODULES
+    .map(m => ({ label: m.label, videos: learningVideos.filter(v => moduleNumOf(v) === m.num) }))
+    .filter(g => g.videos.length);
+  const rest = learningVideos.filter(v => !known.has(moduleNumOf(v)));
+  if (rest.length) groups.push({ label: "Other", videos: rest });
+
+  list.innerHTML = groups.map(g => `
+    <tr><td colspan="3" style="background:var(--surface-2,rgba(255,255,255,.04));font-weight:700;font-size:.8rem;letter-spacing:.02em;padding:.5rem .75rem">${esc(g.label)}</td></tr>
+    ${g.videos.map(videoRow).join("")}
+  `).join("");
 }
 
 // Renaming or moving a video to a different module — the module lives in

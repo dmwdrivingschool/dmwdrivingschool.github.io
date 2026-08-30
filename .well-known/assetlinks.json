@@ -4,7 +4,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "uk.co.dmwdrivingschool.instructor",
-      "sha256_cert_fingerprints": ["53:B3:A0:0E:CC:E1:04:BE:D9:62:FE:3C:2C:FE:50:14:8C:1B:66:06:B9:43:34:28:68:F7:ED:6C:A5:FB:55:50"]
+      "sha256_cert_fingerprints": ["3A:83:A9:69:8C:C0:CA:85:7F:85:6D:06:D6:28:1A:F5:5F:42:1F:57:AB:75:D2:6C:BB:50:C1:04:F9:79:23:44"]
     }
   },
   {

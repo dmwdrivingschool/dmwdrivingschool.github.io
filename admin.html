@@ -399,19 +399,14 @@ tbody tr:hover td{background:#334263}
         </p>
         <div id="manage-videos-controls" style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end;margin-bottom:1rem">
           <div class="field" style="min-width:220px;margin-bottom:0"><label>Default module</label>
-            <select id="video-module">
-              <option value="1">📋 Module 1: Preparing &amp; Junctions</option>
-              <option value="2">🚗 Module 2: Everyday Driving</option>
-              <option value="3">🛣️ Module 3: Crossroads</option>
-              <option value="4">⭕ Module 4: Roundabouts</option>
-              <option value="5">🅿️ Module 5: Manoeuvres &amp; Exercises</option>
-            </select>
+            <select id="video-module"></select>
           </div>
           <label class="btn btn-navy btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
             📤 Upload video(s)
             <input type="file" id="video-file" accept="video/mp4,video/quicktime,video/webm" multiple hidden onchange="learningVideoFilesChosen(event)">
           </label>
           <button type="button" class="btn-outline" onclick="loadLearningVideos()">↻ Refresh</button>
+          <button type="button" class="btn-outline" onclick="openModuleManager()">⚙️ Manage modules</button>
           <span class="muted" id="video-status">Loading…</span>
         </div>
         <table>
@@ -425,28 +420,7 @@ tbody tr:hover td{background:#334263}
           Pupils sign into the portal with the <strong>same email &amp; password</strong> as the app.
           Grid shows 0% / Start / 50% / 100% from the portal activity log (same as your original control panel).
         </p>
-        <div class="matrix-outer" id="video-matrices">
-          <div class="matrix-card open">
-            <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">📋 Module 1: Preparing &amp; Junctions <span>▼</span></div>
-            <div class="matrix-drawer" id="matrix-m1">Loading…</div>
-          </div>
-          <div class="matrix-card">
-            <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">🚗 Module 2: Everyday Driving <span>▼</span></div>
-            <div class="matrix-drawer" id="matrix-m2">Loading…</div>
-          </div>
-          <div class="matrix-card">
-            <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">🛣️ Module 3: Crossroads <span>▼</span></div>
-            <div class="matrix-drawer" id="matrix-m3">Loading…</div>
-          </div>
-          <div class="matrix-card">
-            <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">⭕ Module 4: Roundabouts <span>▼</span></div>
-            <div class="matrix-drawer" id="matrix-m4">Loading…</div>
-          </div>
-          <div class="matrix-card">
-            <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">🅿️ Module 5: Manoeuvres &amp; Exercises <span>▼</span></div>
-            <div class="matrix-drawer" id="matrix-m5">Loading…</div>
-          </div>
-        </div>
+        <div class="matrix-outer" id="video-matrices"></div>
       </div>
       <div class="panel">
         <h2>Live activity feed</h2>
@@ -642,7 +616,7 @@ function goTab(tab, pupilFilter){
   if(tab==="finance"){fillCats(); applyFinance()}
   if(tab==="tests") showTests("future");
   if(tab==="settings"){document.getElementById("settings-menu").classList.remove("hidden");document.getElementById("settings-panel").classList.add("hidden")}
-  if(tab==="portal"){ loadActivity(); loadLearningVideos(); }
+  if(tab==="portal"){ loadVideoModules().then(()=>{ loadActivity(); loadLearningVideos(); }); }
   if(tab==="teams"){ loadTeamsPanel(); }
   if(tab==="billing"){ loadBillingPanel(); }
   if(tab==="website"){ websiteShow(websiteMode || "carousel"); }
@@ -3782,6 +3756,118 @@ function closeModal(){document.getElementById("modal").classList.add("hidden")}
    image. */
 let learningVideos = [];
 
+// Learning video modules — used to be a fixed 5-module list hardcoded in
+// both the HTML and here as MODULE_LABELS. Now editable (add/rename/
+// delete) and persisted on app_settings id='learning_video_modules', with
+// the original 5 as the fallback default for anyone who's never saved a
+// custom list. MODULE_LABELS stays around as a derived {num: label} lookup
+// since it's referenced all over this file — rebuildModuleLabels() keeps
+// it in sync whenever VIDEO_MODULES changes.
+let VIDEO_MODULES = [
+  {num:1, label:"📋 Module 1: Preparing & Junctions"},
+  {num:2, label:"🚗 Module 2: Everyday Driving"},
+  {num:3, label:"🛣️ Module 3: Crossroads"},
+  {num:4, label:"⭕ Module 4: Roundabouts"},
+  {num:5, label:"🅿️ Module 5: Manoeuvres & Exercises"},
+];
+let MODULE_LABELS = {};
+function rebuildModuleLabels(){
+  MODULE_LABELS = {};
+  VIDEO_MODULES.forEach(m=>{ MODULE_LABELS[m.num] = m.label; });
+}
+rebuildModuleLabels();
+
+async function loadVideoModules(){
+  try{
+    const {data} = await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","learning_video_modules").maybeSingle();
+    if(data && Array.isArray(data.value) && data.value.length){
+      VIDEO_MODULES = data.value.slice().sort((a,b)=>a.num-b.num);
+    }
+  }catch(e){}
+  rebuildModuleLabels();
+  const sel=document.getElementById("video-module");
+  if(sel) sel.innerHTML = renderModuleSelectOptions();
+  renderMatrixShells();
+}
+async function saveVideoModules(){
+  const {error} = await sb.from("app_settings").upsert(
+    {id:"learning_video_modules", owner_id:currentUserId, value:VIDEO_MODULES, updated_at:new Date().toISOString()},
+    {onConflict:"owner_id,id"}
+  );
+  if(error){ alert("Could not save: "+error.message); return false; }
+  rebuildModuleLabels();
+  return true;
+}
+function renderModuleSelectOptions(){
+  return VIDEO_MODULES.map(m=>`<option value="${m.num}">${esc(m.label)}</option>`).join("");
+}
+function renderMatrixShells(){
+  const el=document.getElementById("video-matrices");
+  if(!el) return;
+  el.innerHTML = VIDEO_MODULES.map((m,i)=>`<div class="matrix-card ${i===0?"open":""}">
+    <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">${esc(m.label)} <span>▼</span></div>
+    <div class="matrix-drawer" id="matrix-m${m.num}">Loading…</div>
+  </div>`).join("") || '<p class="muted">No modules yet — add one above.</p>';
+}
+
+function openModuleManager(){
+  const rows = VIDEO_MODULES.map(m=>`
+    <div style="display:flex;gap:.4rem;align-items:center;margin-bottom:.5rem">
+      <input value="${esc(m.label)}" data-num="${m.num}" class="mod-label-input" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:.4rem .6rem;background:var(--card)">
+      <button type="button" class="btn-outline btn-sm" onclick="moduleRenameSave(${m.num})">Save</button>
+      <button type="button" class="btn-danger btn-sm" onclick="moduleDelete(${m.num})">Delete</button>
+    </div>`).join("") || '<p class="muted">No modules yet.</p>';
+  openModal(`<h2 style="margin-bottom:1rem">Manage modules</h2>
+    <div id="module-manager-rows">${rows}</div>
+    <div style="display:flex;gap:.4rem;margin-top:1rem;border-top:1px solid var(--line);padding-top:1rem">
+      <input id="new-module-label" placeholder="New module name, e.g. Module 6: Motorway Driving" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:.4rem .6rem;background:var(--card)" onkeydown="if(event.key==='Enter'){event.preventDefault();moduleAdd()}">
+      <button type="button" class="btn btn-navy btn-sm" onclick="moduleAdd()">+ Add module</button>
+    </div>
+    <div class="actions" style="margin-top:1rem"><button class="btn-outline" onclick="closeModal()">Close</button></div>`);
+}
+async function moduleRefreshUI(){
+  const sel=document.getElementById("video-module");
+  if(sel) sel.innerHTML = renderModuleSelectOptions();
+  renderMatrixShells();
+  await loadVideoProgress();
+  renderLearningVideos();
+}
+async function moduleAdd(){
+  const label = val("new-module-label");
+  if(!label) return;
+  const nextNum = VIDEO_MODULES.length ? Math.max(...VIDEO_MODULES.map(m=>m.num))+1 : 1;
+  VIDEO_MODULES.push({num:nextNum, label});
+  const ok = await saveVideoModules();
+  if(!ok){ VIDEO_MODULES.pop(); return; }
+  await moduleRefreshUI();
+  openModuleManager();
+}
+async function moduleRenameSave(num){
+  const input = document.querySelector(`.mod-label-input[data-num="${num}"]`);
+  const newLabel = (input.value||"").trim();
+  if(!newLabel){ alert("Name can't be empty"); return; }
+  const m = VIDEO_MODULES.find(x=>x.num===num);
+  if(!m) return;
+  const old = m.label;
+  m.label = newLabel;
+  const ok = await saveVideoModules();
+  if(!ok){ m.label = old; return; }
+  await moduleRefreshUI();
+}
+async function moduleDelete(num){
+  const inUse = learningVideos.some(v=>Number(v.module)===num);
+  if(inUse){ alert("This module still has videos assigned to it. Move or delete those videos first, then delete the module."); return; }
+  const m = VIDEO_MODULES.find(x=>x.num===num);
+  if(!m) return;
+  if(!confirm(`Delete "${m.label}"? This can't be undone.`)) return;
+  const idx = VIDEO_MODULES.indexOf(m);
+  VIDEO_MODULES.splice(idx,1);
+  const ok = await saveVideoModules();
+  if(!ok){ VIDEO_MODULES.splice(idx,0,m); return; }
+  await moduleRefreshUI();
+  openModuleManager();
+}
+
 async function loadLearningVideos(){
   const status = document.getElementById("video-status");
   const list = document.getElementById("video-list");
@@ -3798,8 +3884,6 @@ async function loadLearningVideos(){
     list.innerHTML = '<tr><td colspan="3" class="muted">Could not load videos. Check the learning_videos table and RLS policies.</td></tr>';
   }
 }
-
-const MODULE_LABELS = {1:"📋 Module 1", 2:"🚗 Module 2", 3:"🛣️ Module 3", 4:"⭕ Module 4", 5:"🅿️ Module 5"};
 
 function renderLearningVideos(){
   const list = document.getElementById("video-list");
@@ -4258,7 +4342,8 @@ async function saveNewPupil(){
 
 
 async function loadVideoProgress(){
-  const mounts = ["m1","m2","m3","m4","m5"];
+  renderMatrixShells();
+  const mounts = VIDEO_MODULES.map(m=>"m"+m.num);
   mounts.forEach(m=>{ const el=document.getElementById("matrix-"+m); if(el) el.innerHTML="Loading…"; });
 
   // Video topics come from whatever's actually uploaded (learning_videos),
@@ -4266,7 +4351,7 @@ async function loadVideoProgress(){
   // topic; delete it and the row goes too. This used to be a hardcoded
   // MODULE_VIDEOS object left over from before the upload feature existed,
   // which kept showing old topic names for videos that no longer existed.
-  let moduleVideos = { m1: [], m2: [], m3: [], m4: [], m5: [] };
+  let moduleVideos = {}; mounts.forEach(k=>{ moduleVideos[k]=[]; });
   try {
     const { data: vids } = await sb.from("learning_videos").select("title,module,sort_order").order("sort_order",{ascending:true});
     (vids||[]).forEach(v=>{
@@ -4330,11 +4415,10 @@ async function loadVideoProgress(){
     return html;
   }
 
-  document.getElementById("matrix-m1").innerHTML = buildGrid(moduleVideos.m1);
-  document.getElementById("matrix-m2").innerHTML = buildGrid(moduleVideos.m2);
-  document.getElementById("matrix-m3").innerHTML = buildGrid(moduleVideos.m3);
-  document.getElementById("matrix-m4").innerHTML = buildGrid(moduleVideos.m4);
-  document.getElementById("matrix-m5").innerHTML = buildGrid(moduleVideos.m5);
+  mounts.forEach(m=>{
+    const el=document.getElementById("matrix-"+m);
+    if(el) el.innerHTML = buildGrid(moduleVideos[m]);
+  });
 
   // Fill activity filter
   const sel=document.getElementById("pupil-log-filter");

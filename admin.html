@@ -2711,14 +2711,14 @@ async function loadTeamsPanel(){
     const instrRows = instructors||[];
     const instrIds = instrRows.map(i=>i.id);
     const {data:instrSubs} = instrIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status").eq("owner_type","instructor").in("owner_id",instrIds)
+      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon").eq("owner_type","instructor").in("owner_id",instrIds)
       : {data:[]};
     subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
     schoolsCache = schoolRows;
 
     const schoolIds = schoolRows.map(s=>s.id);
     const {data:schoolSubs} = schoolIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status").eq("owner_type","school").in("owner_id",schoolIds)
+      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon").eq("owner_type","school").in("owner_id",schoolIds)
       : {data:[]};
     const schoolSubsByOwner = Object.fromEntries((schoolSubs||[]).map(s=>[s.owner_id,s]));
 
@@ -2737,6 +2737,7 @@ async function loadTeamsPanel(){
         : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockSchool('${s.id}','${nameEsc}')">Lock</button>`;
       return `<div class="list-row"><div><strong>${esc(s.display_name||s.name)}</strong>${lockedBadge} ${statusChip}<div class="muted">${count} instructor${count===1?"":"s"}</div></div>
         <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
+          ${sub ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setPlanAddon(${!sub.videos_addon},'school','${s.id}')">${sub.videos_addon?"Premium → Basic":"Basic → Premium"}</button>` : ""}
           ${renderVideosOverrideSelect('school', s.id)}
           <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showSchoolDetail('${s.id}')">Details</button>
           ${lockBtn}
@@ -2762,7 +2763,7 @@ async function loadTeamsPanel(){
     const instrRows = instructors||[];
     const instrIds = instrRows.map(i=>i.id);
     const {data:instrSubs} = instrIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status").eq("owner_type","instructor").in("owner_id",instrIds)
+      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon").eq("owner_type","instructor").in("owner_id",instrIds)
       : {data:[]};
     subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
     const instrList=document.getElementById("instructors-list");
@@ -2805,10 +2806,15 @@ function renderInstructorRow(i, schoolRows, fullControls){
     ? `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteInstructor('${i.id}','${nameEsc}')">Delete</button>`
     : "";
   // Videos control only for SOLO instructors — school members inherit
-  // their school's setting (shown on the school row above).
+  // their school's setting (shown on the school row above). Same for the
+  // Basic/Premium plan switch: a school seat's plan is the school's.
   const videosSelect = fullControls && !school ? renderVideosOverrideSelect('instructor', i.id) : "";
+  const planBtn = fullControls && !school && sub && sub.plan !== 'pdi'
+    ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setPlanAddon(${!sub.videos_addon},'instructor','${i.id}')">${sub.videos_addon?"Premium → Basic":"Basic → Premium"}</button>`
+    : "";
   return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}${lockedBadge} ${statusChip}<div class="muted">${esc(i.email||"")}${fullControls?" · "+schoolLabel:""}</div></div>
     <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
+      ${planBtn}
       ${videosSelect}
       <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showInstructorDetail('${i.id}')">Details</button>
       ${lockBtn}
@@ -3168,7 +3174,7 @@ async function loadBillingPanel(){
 
   const ownerType = currentSchoolId ? "school" : "instructor";
   const ownerId = currentSchoolId || currentUserId;
-  const {data:sub} = await sb.from("subscriptions").select("plan,status,trial_ends_at,seats_purchased,gocardless_mandate_id").eq("owner_type",ownerType).eq("owner_id",ownerId).maybeSingle();
+  const {data:sub} = await sb.from("subscriptions").select("plan,status,trial_ends_at,seats_purchased,gocardless_mandate_id,videos_addon").eq("owner_type",ownerType).eq("owner_id",ownerId).maybeSingle();
 
   if(!sub){
     content.innerHTML = '<h2>Billing</h2><p class="muted">No subscription on file — your account predates self-serve billing and isn\'t affected by it.</p>';
@@ -3210,15 +3216,45 @@ async function loadBillingPanel(){
       </div>`;
   }
 
+  // Basic <-> Premium (Learning Videos) switch — the only place plans are
+  // changed; the mobile app deliberately has no billing controls beyond
+  // the lock-out screen.
+  const premiumBlock = `
+    <h3 style="margin:1.5rem 0 .5rem">Plan</h3>
+    <p class="muted">${sub.videos_addon
+      ? "Premium — Learning Videos included (+£2/month" + (sub.plan==="school" ? " on the base and on every seat" : "") + ")"
+      : "Basic — Learning Videos not included"}</p>
+    <button class="btn-outline btn-sm" style="margin-top:.5rem" onclick="setPlanAddon(${!sub.videos_addon})">
+      ${sub.videos_addon ? "Switch to Basic" : "Upgrade to Premium (+£2/mo)"}
+    </button>`;
+
   content.innerHTML = `
     <h2>Billing</h2>
     <div class="panel" style="border:none;padding:0">
       <p>${statusChip} <strong style="margin-left:.4rem">${statusLine}</strong></p>
       <p class="muted" style="margin-top:.3rem">${planLine}</p>
       ${mandateBtn}
+      ${premiumBlock}
       ${seatsBlock}
       <div class="err" id="billing-err" style="margin-top:.75rem"></div>
     </div>`;
+}
+
+// Switch Basic <-> Premium. Without an explicit owner it acts on the
+// caller's own subscription; the super-admin Teams rows pass owner_type/
+// owner_id to change any account. The Direct Debit amount updates
+// automatically via set-videos-addon; pupil video access follows through
+// the billing sync trigger (unless a manual Teams override is in place).
+async function setPlanAddon(enabled, ownerType, ownerId){
+  const upMsg = "Upgrade to Premium? Learning Videos switch on for pupils, and the monthly Direct Debit increases by £2 (per seat too, for a school).";
+  const downMsg = "Switch to Basic? Learning Videos are removed from pupils, and the monthly Direct Debit decreases accordingly.";
+  if(!confirm(enabled ? upMsg : downMsg)) return;
+  const body = { enabled };
+  if(ownerType && ownerId){ body.owner_type = ownerType; body.owner_id = ownerId; }
+  const {data, error} = await sb.functions.invoke("set-videos-addon", { body });
+  const msg = error?.message || data?.error;
+  if(msg){ alert("Could not change plan: " + msg); return; }
+  if(ownerType){ await loadTeamsPanel(); } else { await loadBillingPanel(); }
 }
 
 // --- Super-admin billing: all-accounts receipts view + DriveMyWay's own

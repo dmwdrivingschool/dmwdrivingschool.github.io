@@ -249,7 +249,7 @@ tbody tr:hover td{background:#334263}
     <button data-tab="teams" id="nav-teams-btn" class="hidden">Teams</button>
     <button data-tab="billing" id="nav-billing-btn" class="hidden">Billing</button>
     <button data-tab="website" id="nav-website-btn" class="hidden">Website</button>
-    <button class="nav-right" data-tab="settings">Settings</button>
+
   </nav>
   <div class="main">
     <div class="banner" id="data-banner"></div>
@@ -2426,7 +2426,7 @@ async function openSettings(which){
   panel.classList.remove("hidden");
   if(which==="reminders"){
     const raw=JSON.parse(localStorage.getItem("dmw_admin_reminders")||'{"enabled":false,"hours":48,"message":"Looking forward to seeing you."}');
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Lesson reminders</h3>
       <p class="muted">These settings are used by the instructor app reminder helper (in-app). Full push needs extra setup later.</p>
       <div class="field"><label>Status</label>
@@ -2444,7 +2444,7 @@ async function openSettings(which){
   } else if(which==="workinghours"){
     const d=workingHours.days;
     const dayRow=(key,label)=>`<label style="display:flex;align-items:center;gap:.4rem;font-weight:600;font-size:.85rem"><input type="checkbox" data-wd="${key}" ${d[key]?"checked":""}> ${label}</label>`;
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Working hours</h3>
       <p class="muted" style="margin-bottom:1rem">Controls what pupils can select on "My availability" in the app, the enquiry form on the website, and how your diary here is focused by default.</p>
       <div class="two">
@@ -2458,14 +2458,14 @@ async function openSettings(which){
       </div>
       <button class="btn btn-navy btn-sm" onclick="saveWorkingHours()">Save</button>`;
   } else if(which==="paycats"){
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Payment categories</h3>
       <p class="muted" style="margin-bottom:1rem">These are the categories offered when adding a payment here or reviewed on Finance summary. Changes save immediately.</p>
       <div id="paycats-lists"></div>
       <div class="err" id="paycats-err" style="margin-top:.5rem"></div>`;
     renderPayCats();
   } else if(which==="syllabus"){
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Progress syllabus</h3>
       <p class="muted" style="margin-bottom:1rem">These topics appear on every pupil's Progress tab — here, in your instructor app, and in the pupil's own app. <strong>Drag and drop</strong> to reorder (or use ↑ / ↓). Changes save immediately.</p>
       <datalist id="syllabus-groups-dl"></datalist>
@@ -2476,7 +2476,7 @@ async function openSettings(which){
     renderSyllabusList();
   } else if(which==="diary"){
     const view=localStorage.getItem("dmw_diary_view")||"week";
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Diary options</h3>
       <div class="field"><label>Default view (app)</label>
         <select id="dv"><option value="day" ${view==="day"?"selected":""}>Day</option>
@@ -2487,7 +2487,7 @@ async function openSettings(which){
   } else if(which==="resources"){
     const {data}=await sb.from("resources").select("*").order("sort_order");
     const rows=data||[];
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Resources</h3>
       <div id="res-list">${rows.map(r=>`<div class="list-row"><div><strong>${esc(r.title)}</strong><div class="muted">${esc(r.url)}</div></div>
         <button class="btn-danger" onclick="delRes('${r.id}')">Del</button></div>`).join("")||'<p class="muted">None yet</p>'}</div>
@@ -2500,7 +2500,7 @@ async function openSettings(which){
       developed:"What I feel I have developed today", improving:"What I wish to keep improving at",
       how_develop:"How I will develop that", aim_next:"Aim for next session"
     }, JSON.parse(localStorage.getItem("dmw_reflect_labels")||"{}"));
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Reflective log questions</h3>
       ${Object.entries(labels).map(([k,v])=>`<div class="field"><label>${esc(k)}</label><input data-rk="${k}" value="${esc(v)}"></div>`).join("")}
       <button class="btn btn-navy btn-sm" onclick="saveReflect()">Save</button>`;
@@ -2509,7 +2509,7 @@ async function openSettings(which){
       const ownId=(await sb.auth.getUser()).data.user?.id;
       const {data:prof}=await sb.from("profiles").select("logo_url,display_name,pupil_messages").eq("id",ownId).maybeSingle();
       brSoloLogoUrl = (prof&&prof.logo_url)||null;
-      panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
         <h3 style="margin:1rem 0 .75rem">Branding</h3>
         <p class="muted" style="margin-bottom:.75rem">This is what your pupils actually see on the app's login screen — not just cosmetic here.</p>
         <div class="field"><label>Logo</label>
@@ -2528,7 +2528,7 @@ async function openSettings(which){
         <div class="err" id="branding-err" style="margin-top:.5rem"></div>`;
     } else {
       const {data:school} = await sb.from("schools").select("display_name,logo_url,pupil_messages").eq("id",currentSchoolId).maybeSingle();
-      panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
         <h3 style="margin:1rem 0 .75rem">Branding</h3>
         <p class="muted" style="margin-bottom:.75rem">This is what your pupils actually see on the app's login screen — not just cosmetic here.</p>
         <div class="field"><label>Logo</label>
@@ -2548,7 +2548,7 @@ async function openSettings(which){
     }
   } else if(which==="terms"){
     const terms=JSON.parse(localStorage.getItem("dmw_terms")||'{"url":"https://www.dmwdrivingschool.co.uk/terms"}');
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">School terms</h3>
       <p class="muted">Pupils must accept terms in the app. Agreement is timestamped on their profile.</p>
       <div class="field"><label>Terms URL</label><input id="terms-url" value="${esc(terms.url||"")}"></div>
@@ -2562,7 +2562,7 @@ async function openSettings(which){
       <textarea readonly rows="12" style="width:100%;font-family:var(--fm);font-size:.72rem;padding:.75rem;border:1.5px solid var(--line);border-radius:3px;background:var(--surface-2);color:var(--text)" onclick="this.select()">${esc(buildSchoolEnquirySnippet(currentSchoolId))}</textarea>
       <button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="copySchoolEnquirySnippet()">Copy embed code</button>
       <div id="school-enquiry-widget-copied" class="muted" style="margin-top:.5rem;display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>` : "";
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Your enquiry form</h3>
       <p class="muted" style="margin-bottom:.75rem">Paste this into your own website (most site builders have an "HTML" or "Embed" block) to add an enquiry form that sends leads straight to you — not anyone else on the platform. It's the full three-step form: details, availability (built from your Working hours), then a summary.</p>
       <div class="field" style="max-width:340px"><label>Gearbox message shown on the form</label>
@@ -2582,7 +2582,7 @@ async function openSettings(which){
       if(sel && data && data.value && data.value.mode) sel.value=data.value.mode;
     });
   } else if(which==="importExport"){
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Export pupils</h3>
       <p class="muted" style="margin-bottom:.75rem">Download all your pupils as a CSV spreadsheet — a backup, or for moving to/from other software.</p>
       <button class="btn btn-navy btn-sm" onclick="exportPupilsCsv()">Download CSV</button>

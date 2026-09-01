@@ -202,8 +202,14 @@ tbody tr:hover td{background:#334263}
   <div id="gate-recovery" class="hidden">
     <p class="sub">Choose a new password for your account</p>
     <input type="password" id="gate-newpass" placeholder="New password" autocomplete="new-password">
+    <input type="password" id="gate-newpass-confirm" placeholder="Confirm new password" autocomplete="new-password" style="margin-top:.5rem">
     <button class="btn btn-navy full" onclick="saveNewPassword()">Set new password</button>
     <div class="err" id="recovery-err"></div>
+    <div id="recovery-done" class="hidden" style="text-align:center;padding:1rem 0">
+      <p style="font-weight:700;margin-bottom:.5rem">Password changed.</p>
+      <p class="muted" style="margin-bottom:1rem">Sign in below with your new password.</p>
+      <button class="btn btn-navy full" onclick="location.href=location.pathname">Go to sign in</button>
+    </div>
   </div>
   <div id="gate-signup" class="hidden">
     <p class="sub">30 days free, then billed monthly</p>
@@ -738,12 +744,21 @@ function showRecoveryForm(){
 }
 async function saveNewPassword(){
   const p=document.getElementById("gate-newpass").value;
+  const p2=document.getElementById("gate-newpass-confirm").value;
   const err=document.getElementById("recovery-err"); err.style.display="none";
   if(!p||p.length<8){err.textContent="Password must be at least 8 characters";err.style.display="block";return}
+  if(p!==p2){err.textContent="Passwords do not match";err.style.display="block";return}
   const {error}=await sb.auth.updateUser({password:p});
   if(error){err.textContent=error.message;err.style.display="block";return}
-  alert("Password updated — signing you in.");
-  location.href=location.pathname; // clean URL; the saved session enters the app on reload
+  // Sign back out rather than dropping straight into the dashboard — a
+  // password reset should land you at sign-in with your NEW password, not
+  // silently confirm the old session was still valid (Dale: "which i dont
+  // want"). Same UX as the app's own change-password screen.
+  await sb.auth.signOut();
+  document.getElementById("gate-newpass").classList.add("hidden");
+  document.getElementById("gate-newpass-confirm").classList.add("hidden");
+  document.querySelector('#gate-recovery button[onclick="saveNewPassword()"]').classList.add("hidden");
+  document.getElementById("recovery-done").classList.remove("hidden");
 }
 sb.auth.onAuthStateChange((event)=>{ if(event==="PASSWORD_RECOVERY"){ pendingRecovery=true; showRecoveryForm(); } });
 

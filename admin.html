@@ -1527,9 +1527,9 @@ function renderVideosOverrideSelect(ownerType, ownerId){
   const effective = !!pf.videos_enabled;
   return `<select title="Learning videos access" onchange="setVideosOverride('${ownerType}','${ownerId}',this.value)"
       style="font-size:.75rem;padding:.3rem .4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:${effective?"#15803d":"inherit"}">
-    <option value="sub" ${cur==="sub"?"selected":""}>🎥 Subscription${cur==="sub"?` (${effective?"on":"off"})`:""}</option>
-    <option value="on" ${cur==="on"?"selected":""}>🎥 Forced ON</option>
-    <option value="off" ${cur==="off"?"selected":""}>🎥 Forced OFF</option>
+    <option value="sub" ${cur==="sub"?"selected":""}>Video access: subscription${cur==="sub"?` (${effective?"on":"off"})`:""}</option>
+    <option value="on" ${cur==="on"?"selected":""}>Video access: ON</option>
+    <option value="off" ${cur==="off"?"selected":""}>Video access: OFF</option>
   </select>`;
 }
 

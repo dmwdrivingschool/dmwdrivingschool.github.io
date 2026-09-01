@@ -485,6 +485,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('branding')">Branding</button>
           <button type="button" onclick="openSettings('terms')">School terms</button>
           <button type="button" onclick="openSettings('enquiryWidget')">Your enquiry form</button>
+          <button type="button" onclick="openSettings('importExport')">Import / export pupils</button>
         </div>
         <div id="settings-panel" class="hidden" style="margin-top:1rem"></div>
       </div>
@@ -2552,7 +2553,162 @@ async function openSettings(which){
       const sel=document.getElementById("enquiry-gearbox");
       if(sel && data && data.value && data.value.mode) sel.value=data.value.mode;
     });
+  } else if(which==="importExport"){
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('settings')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Export pupils</h3>
+      <p class="muted" style="margin-bottom:.75rem">Download all your pupils as a CSV spreadsheet — a backup, or for moving to/from other software.</p>
+      <button class="btn btn-navy btn-sm" onclick="exportPupilsCsv()">Download CSV</button>
+
+      <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--line)">
+      <h3 style="margin:0 0 .75rem">Import pupils</h3>
+      <p class="muted" style="margin-bottom:.75rem">
+        Switching from another app? Export your pupils there as a CSV and upload it here. Columns are matched by
+        name (First name, Last name, Email, Phone, Date of birth, Address line 1/2, City, Postcode, Status,
+        Licence number, Gearbox, Credit hours, Notes — extra columns are ignored). Pupils whose email already
+        exists are skipped, so it's safe to re-run.
+      </p>
+      <label class="btn btn-navy btn-sm" style="cursor:pointer;display:inline-block">
+        📥 Choose CSV file
+        <input type="file" accept=".csv,text/csv" hidden onchange="importPupilsCsv(event)">
+      </label>
+      <div class="muted" id="import-status" style="margin-top:.75rem;white-space:pre-line"></div>`;
   }
+}
+
+// --- Pupil CSV import/export -------------------------------------------
+
+const PUPIL_CSV_COLS = ["first_name","last_name","email","phone","date_of_birth","address_line1","address_line2","city","postcode","status","licence_type","licence_number","preferred_gearbox","credit_hours","notes"];
+
+function csvCell(v){
+  const s = v == null ? "" : String(v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+
+async function exportPupilsCsv(){
+  const {data, error} = await sb.from("pupils").select(PUPIL_CSV_COLS.join(",")).order("first_name");
+  if(error){ alert("Could not export: "+error.message); return; }
+  const rows = [PUPIL_CSV_COLS.join(",")].concat((data||[]).map(p=>PUPIL_CSV_COLS.map(c=>csvCell(p[c])).join(",")));
+  const blob = new Blob(["﻿"+rows.join("\r\n")], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "pupils-"+new Date().toISOString().slice(0,10)+".csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/** Minimal CSV parser that handles quoted cells, escaped quotes and CRLF. */
+function parseCsv(text){
+  const rows=[]; let row=[], cell="", inQ=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(inQ){
+      if(ch==='"'){ if(text[i+1]==='"'){ cell+='"'; i++; } else inQ=false; }
+      else cell+=ch;
+    } else if(ch==='"'){ inQ=true; }
+    else if(ch===','){ row.push(cell); cell=""; }
+    else if(ch==='\n'||ch==='\r'){
+      if(ch==='\r'&&text[i+1]==='\n') i++;
+      row.push(cell); cell="";
+      if(row.length>1||row[0]!=="") rows.push(row);
+      row=[];
+    } else cell+=ch;
+  }
+  row.push(cell);
+  if(row.length>1||row[0]!=="") rows.push(row);
+  return rows;
+}
+
+// Flexible header matching so exports from other apps line up without
+// hand-editing: "Mobile"/"mobile number" -> phone, "DOB" -> date_of_birth…
+function pupilHeaderKey(h){
+  const n = String(h||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+  const map = {
+    firstname:"first_name", forename:"first_name", givenname:"first_name",
+    lastname:"last_name", surname:"last_name", familyname:"last_name",
+    email:"email", emailaddress:"email",
+    phone:"phone", mobile:"phone", mobilenumber:"phone", phonenumber:"phone", tel:"phone", telephone:"phone",
+    dateofbirth:"date_of_birth", dob:"date_of_birth", birthdate:"date_of_birth",
+    addressline1:"address_line1", address1:"address_line1", address:"address_line1", street:"address_line1",
+    addressline2:"address_line2", address2:"address_line2",
+    city:"city", citytown:"city", town:"city",
+    postcode:"postcode", postalcode:"postcode", zip:"postcode",
+    status:"status",
+    licencetype:"licence_type", licensetype:"licence_type",
+    licencenumber:"licence_number", licensenumber:"licence_number", licence:"licence_number", license:"licence_number",
+    preferredgearbox:"preferred_gearbox", gearbox:"preferred_gearbox", transmission:"preferred_gearbox",
+    credithours:"credit_hours", credit:"credit_hours", hoursremaining:"credit_hours",
+    notes:"notes", note:"notes", comments:"notes",
+  };
+  return map[n] || null;
+}
+
+function normalisePupilDate(v){
+  const s = String(v||"").trim();
+  if(!s) return null;
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  if(m){
+    const yy = m[3].length===2 ? (Number(m[3])>30?"19":"20")+m[3] : m[3];
+    return yy+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0");
+  }
+  return null;
+}
+
+async function importPupilsCsv(ev){
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = "";
+  if(!file) return;
+  const status = document.getElementById("import-status");
+  status.textContent = "Reading file…";
+  const text = await file.text();
+  const rows = parseCsv(text);
+  if(rows.length < 2){ status.textContent = "That file has no data rows."; return; }
+
+  const headerKeys = rows[0].map(pupilHeaderKey);
+  if(headerKeys.indexOf("first_name") < 0){
+    status.textContent = "Couldn't find a First name column — check the header row and try again.";
+    return;
+  }
+
+  const {data:existing} = await sb.from("pupils").select("email");
+  const existingEmails = new Set((existing||[]).map(p=>String(p.email||"").toLowerCase()).filter(Boolean));
+
+  const VALID_STATUS = ["enquiry","waiting","active","inactive","passed"];
+  let imported=0, skipped=0, failed=0;
+  const errors=[];
+
+  for(let r=1;r<rows.length;r++){
+    const rec={};
+    rows[r].forEach((cellVal,i)=>{ const k=headerKeys[i]; if(k) rec[k]=String(cellVal).trim(); });
+    if(!rec.first_name){ continue; }
+    const email = (rec.email||"").toLowerCase() || null;
+    if(email && existingEmails.has(email)){ skipped++; continue; }
+    const payload = {
+      instructor_id: currentUserId,
+      school_id: currentSchoolId || null,
+      first_name: rec.first_name,
+      last_name: rec.last_name || "",
+      email,
+      phone: rec.phone || null,
+      date_of_birth: normalisePupilDate(rec.date_of_birth),
+      address_line1: rec.address_line1 || null,
+      address_line2: rec.address_line2 || null,
+      city: rec.city || null,
+      postcode: rec.postcode || null,
+      status: VALID_STATUS.indexOf((rec.status||"").toLowerCase())>=0 ? rec.status.toLowerCase() : "waiting",
+      licence_type: ["provisional","full","international"].indexOf((rec.licence_type||"").toLowerCase())>=0 ? rec.licence_type.toLowerCase() : "provisional",
+      licence_number: rec.licence_number || null,
+      preferred_gearbox: /auto/i.test(rec.preferred_gearbox||"") ? "automatic" : "manual",
+      credit_hours: Number(rec.credit_hours)>0 ? Number(rec.credit_hours) : 0,
+      notes: rec.notes || null,
+    };
+    const {error} = await sb.from("pupils").insert(payload);
+    if(error){ failed++; if(errors.length<5) errors.push("Row "+(r+1)+": "+error.message); }
+    else { imported++; if(email) existingEmails.add(email); }
+    status.textContent = "Importing… "+(imported+skipped+failed)+" of "+(rows.length-1);
+  }
+
+  status.textContent = "Done — "+imported+" imported, "+skipped+" skipped (email already exists)"+(failed?", "+failed+" failed:\n"+errors.join("\n"):".");
 }
 
 async function saveEnquiryGearbox(mode){

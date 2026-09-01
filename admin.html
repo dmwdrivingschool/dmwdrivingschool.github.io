@@ -119,6 +119,17 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .settings-list button:hover{background:#f8fafc}
 
     .matrix-outer { margin-bottom: 1.25rem; }
+    .dash-settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: .7rem; }
+    .dash-setting {
+      display: flex; align-items: flex-start; gap: .65rem; text-align: left;
+      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+      padding: .85rem .9rem; cursor: pointer; transition: transform .12s, border-color .12s;
+      font: inherit; color: var(--text);
+    }
+    .dash-setting:hover { transform: translateY(-2px); border-color: #0A4CA1; }
+    .dash-setting .ico { font-size: 1.3rem; line-height: 1.2; }
+    .dash-setting strong { display: block; font-size: .88rem; margin-bottom: .15rem; }
+    .dash-setting span { font-size: .76rem; color: var(--muted, #64748b); line-height: 1.35; }
     .matrix-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: .75rem; }
     .matrix-head { background: #f8fafc; color: var(--ink); padding: .85rem 1rem; font-weight: 600; font-family: var(--fd); font-size: .9rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background .15s; }
     .matrix-head:hover { background: #f1f5f9; }
@@ -266,6 +277,23 @@ tbody tr:hover td{background:#334263}
           <div class="muted">Active pupils with a future lesson</div>
           <div class="bar"><i id="bar-booked" style="width:0%"></i></div>
           <div class="muted" id="booked-label" style="margin-top:.35rem"></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:1rem">
+        <h2 style="margin-bottom:.75rem">Settings &amp; tools</h2>
+        <div class="dash-settings-grid">
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('reminders')"><span class="ico">⏰</span><div><strong>Reminders</strong><span>Lesson reminder timing for pupils</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('paycats')"><span class="ico">💷</span><div><strong>Payment categories</strong><span>Income &amp; expense categories</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('workinghours')"><span class="ico">🕘</span><div><strong>Working hours</strong><span>Days &amp; times you teach — drives the enquiry form</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('syllabus')"><span class="ico">🎓</span><div><strong>Progress syllabus</strong><span>The topics you track pupil progress against</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('diary')"><span class="ico">📅</span><div><strong>Diary options</strong><span>How your diary is displayed</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('resources')"><span class="ico">📚</span><div><strong>Resources</strong><span>The links pupils see in their app</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('reflect')"><span class="ico">📝</span><div><strong>Reflective logs</strong><span>Wording of the reflective log questions</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('branding')"><span class="ico">🎨</span><div><strong>Branding</strong><span>Your logo &amp; school name in the pupil app</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('terms')"><span class="ico">📄</span><div><strong>School terms</strong><span>The terms pupils accept at first login</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('enquiryWidget')"><span class="ico">🧲</span><div><strong>Your enquiry form</strong><span>Website embed code &amp; gearbox message</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('importExport')"><span class="ico">📇</span><div><strong>Import / export pupils</strong><span>CSV backup, or switch over from another app</span></div></button>
         </div>
       </div>
     </section>
@@ -2658,7 +2686,10 @@ async function importPupilsCsv(ev){
   const file = ev.target.files && ev.target.files[0];
   ev.target.value = "";
   if(!file) return;
-  const status = document.getElementById("import-status");
+  // Callable from BOTH the Settings panel (has #import-status) and the
+  // Pupils tab button (doesn't) — fall back to a no-op status + final alert.
+  const statusEl = document.getElementById("import-status");
+  const status = statusEl ? statusEl : { set textContent(v){}, get textContent(){ return ""; } };
   status.textContent = "Reading file…";
   const text = await file.text();
   const rows = parseCsv(text);
@@ -2708,7 +2739,11 @@ async function importPupilsCsv(ev){
     status.textContent = "Importing… "+(imported+skipped+failed)+" of "+(rows.length-1);
   }
 
-  status.textContent = "Done — "+imported+" imported, "+skipped+" skipped (email already exists)"+(failed?", "+failed+" failed:\n"+errors.join("\n"):".");
+  const summary = "Done — "+imported+" imported, "+skipped+" skipped (email already exists)"+(failed?", "+failed+" failed:\n"+errors.join("\n"):".");
+  status.textContent = summary;
+  if(!statusEl) alert("Pupil import: "+summary);
+  // Refresh whatever pupil UI is on screen.
+  try{ await loadPupils(); renderPupils(); loadDash(); }catch(e){}
 }
 
 async function saveEnquiryGearbox(mode){
@@ -5035,65 +5070,10 @@ async function loadActivity(){
 }
 
 
-async function importPupilsCsv(ev){
-  const file=ev.target.files[0]; if(!file)return;
-  const text=await file.text();
-  const lines=text.split(/\r?\n/).filter(l=>l.trim());
-  if(lines.length<2){alert("Empty CSV"); ev.target.value=""; return}
-  // parse header
-  const split=(line)=>{
-    const out=[]; let cur="", q=false;
-    for(let i=0;i<line.length;i++){
-      const c=line[i];
-      if(c==='"'){q=!q;continue}
-      if(c===","&&!q){out.push(cur.trim());cur="";continue}
-      cur+=c;
-    }
-    out.push(cur.trim()); return out;
-  };
-  const header=split(lines[0]).map(h=>h.toLowerCase().replace(/\s+/g,"_").replace(/[^a-z0-9_]/g,""));
-  const idx=(...names)=>{
-    for(const n of names){const i=header.findIndex(h=>h===n||h.includes(n)); if(i>=0)return i}
-    return -1;
-  };
-  const iFn=idx("first_name","firstname","first","forename");
-  const iLn=idx("last_name","lastname","last","surname");
-  const iPhone=idx("phone","mobile","tel","telephone");
-  const iEmail=idx("email","e_mail");
-  const iA1=idx("address_line1","address1","address","street");
-  const iA2=idx("address_line2","address2");
-  const iCity=idx("city","town");
-  const iPc=idx("postcode","post_code","zip");
-  const iStatus=idx("status");
-  if(iFn<0&&iLn<0){alert("Need first_name / last_name columns"); ev.target.value=""; return}
-  let ok=0, fail=0, errors=[];
-  for(let r=1;r<lines.length;r++){
-    const cols=split(lines[r]);
-    if(!cols.some(c=>c)) continue;
-    const first=(iFn>=0?cols[iFn]:""||"").trim();
-    const last=(iLn>=0?cols[iLn]:""||"").trim();
-    if(!first&&!last) continue;
-    let status=(iStatus>=0?cols[iStatus]:"active"||"active").trim().toLowerCase();
-    if(!["active","waiting","passed","inactive","enquiry"].includes(status)) status="active";
-    const payload={
-      first_name: first||last,
-      last_name: last||first,
-      phone: iPhone>=0&&cols[iPhone]?cols[iPhone].trim():null,
-      email: iEmail>=0&&cols[iEmail]?cols[iEmail].trim().toLowerCase():null,
-      address_line1: iA1>=0&&cols[iA1]?cols[iA1].trim():null,
-      address_line2: iA2>=0&&cols[iA2]?cols[iA2].trim():null,
-      city: iCity>=0&&cols[iCity]?cols[iCity].trim():null,
-      postcode: iPc>=0&&cols[iPc]?cols[iPc].trim():null,
-      status
-    };
-    const {error}=await sb.from("pupils").insert(payload);
-    if(error){fail++; if(errors.length<5) errors.push(error.message)}
-    else ok++;
-  }
-  ev.target.value="";
-  await loadPupils(); renderPupils(); loadDash();
-  alert("Pupils import: "+ok+" saved, "+fail+" failed"+(errors.length?"\\n"+errors.join("\\n"):""));
-}
+// (The old duplicate importPupilsCsv that lived here was removed — the
+// richer importer defined with the Settings "Import / export pupils"
+// panel handles both entry points now: email dedupe, flexible headers,
+// date normalisation, per-row errors, and instructor_id set properly.)
 function downloadPupilTemplate(){
   const lines=[
     "first_name,last_name,phone,email,address_line1,address_line2,city,postcode,status",

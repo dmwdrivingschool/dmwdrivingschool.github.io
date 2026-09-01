@@ -2755,7 +2755,17 @@ function buildEnquirySnippet(instructorId, schoolId){
     #dmw-enquiry-widget .dmw-note{font-size:12px;color:#64748b;margin:6px 0}
     #dmw-enquiry-widget .dmw-warn{font-size:12px;color:#7b341e;background:#fffaf0;border-left:3px solid #dd6b20;padding:8px 10px;border-radius:0 6px 6px 0;margin:6px 0}
     #dmw-enquiry-widget .dmw-sum{font-size:13px;margin:4px 0}
+    #dmw-enquiry-widget h2{font-size:1.35rem;color:#062F63;margin:0 0 4px}
+    #dmw-enquiry-widget .dmw-sub{color:#64748b;font-size:.9rem;margin:0 0 14px}
+    #dmw-enquiry-widget .dmw-steps{display:flex;gap:6px;margin-bottom:16px}
+    #dmw-enquiry-widget .dmw-steps i{flex:1;height:4px;border-radius:99px;background:#e2e8f0}
+    #dmw-enquiry-widget .dmw-steps i.on{background:#0A4CA1}
+    #dmw-enquiry-widget input.dmw-invalid{border-color:#ef4444;background:#fef2f2}
   </style>
+
+  <h2>Enquiry</h2>
+  <p class="dmw-sub">Takes about a minute — three short steps.</p>
+  <div class="dmw-steps"><i class="on" id="dmw-s1"></i><i id="dmw-s2"></i><i id="dmw-s3"></i></div>
 
   <div id="dmw-p1">
     <div id="dmw-gearbox-warn" class="dmw-warn" style="display:none"></div>
@@ -2897,14 +2907,22 @@ function buildEnquirySnippet(instructorId, schoolId){
 
   function show(page) {
     ["dmw-p1","dmw-p2","dmw-p3"].forEach(function (id, i) { el(id).style.display = i === page - 1 ? "block" : "none"; });
+    ["dmw-s1","dmw-s2","dmw-s3"].forEach(function (id, i) { el(id).className = i < page ? "on" : ""; });
     try { el("dmw-enquiry-widget").scrollIntoView({ block: "start" }); } catch (e) {}
   }
 
   el("dmw-next1").addEventListener("click", function () {
     var err = el("dmw-err1");
     err.style.display = "none";
-    if (!val("dmw-fn") || !val("dmw-ln") || !val("dmw-phone") || !val("dmw-email") || !el("dmw-dob").value || !val("dmw-a1") || !val("dmw-pc")) {
-      err.textContent = "Please fill in every field marked * before continuing.";
+    var required = ["dmw-fn","dmw-ln","dmw-phone","dmw-email","dmw-dob","dmw-a1","dmw-pc"];
+    var missing = false;
+    required.forEach(function (id) {
+      var bad = !el(id).value.trim();
+      el(id).classList.toggle("dmw-invalid", bad);
+      if (bad) missing = true;
+    });
+    if (missing) {
+      err.textContent = "Please fill in the highlighted required fields.";
       err.style.display = "block";
       return;
     }

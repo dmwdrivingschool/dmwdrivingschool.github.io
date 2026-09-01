@@ -1516,6 +1516,32 @@ function val(id){return document.getElementById(id).value.trim()}
 let schoolInstructorsCache=[];
 let subsByOwnerCache={};
 let schoolsCache=[];
+// premium_features rows keyed "type:id" — videos_enabled (effective) +
+// videos_override (null = follows the paid add-on, 'on'/'off' = forced).
+let videoFeaturesCache={};
+
+// Compact three-way control shown on Teams rows (super admin only).
+function renderVideosOverrideSelect(ownerType, ownerId){
+  const pf = videoFeaturesCache[ownerType+":"+ownerId] || {};
+  const cur = pf.videos_override || "sub";
+  const effective = !!pf.videos_enabled;
+  return `<select title="Learning videos access" onchange="setVideosOverride('${ownerType}','${ownerId}',this.value)"
+      style="font-size:.75rem;padding:.3rem .4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:${effective?"#15803d":"inherit"}">
+    <option value="sub" ${cur==="sub"?"selected":""}>🎥 Subscription${cur==="sub"?` (${effective?"on":"off"})`:""}</option>
+    <option value="on" ${cur==="on"?"selected":""}>🎥 Forced ON</option>
+    <option value="off" ${cur==="off"?"selected":""}>🎥 Forced OFF</option>
+  </select>`;
+}
+
+async function setVideosOverride(ownerType, ownerId, val){
+  const err=document.getElementById("teams-err");
+  if(err){ err.style.color=""; err.textContent=""; }
+  const {error}=await sb.rpc("admin_set_videos_override",{
+    p_owner_type: ownerType, p_owner_id: ownerId, p_override: val==="sub" ? null : val,
+  });
+  if(error){ if(err) err.textContent=error.message; return; }
+  await loadTeamsPanel();
+}
 
 /** Small status chip for a subscription row — reused across Teams rows and
  * the instructor/school detail panels, matching the Billing tab's existing
@@ -2696,6 +2722,9 @@ async function loadTeamsPanel(){
       : {data:[]};
     const schoolSubsByOwner = Object.fromEntries((schoolSubs||[]).map(s=>[s.owner_id,s]));
 
+    const {data:pfRows} = await sb.from("premium_features").select("owner_type,owner_id,videos_enabled,videos_override");
+    videoFeaturesCache = Object.fromEntries((pfRows||[]).map(r=>[r.owner_type+":"+r.owner_id, r]));
+
     const schoolsList=document.getElementById("schools-list");
     schoolsList.innerHTML = schoolRows.length ? schoolRows.map(s=>{
       const count = instrRows.filter(i=>i.school_id===s.id).length;
@@ -2707,7 +2736,8 @@ async function loadTeamsPanel(){
         ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockSchool('${s.id}','${nameEsc}')">Unlock</button>`
         : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockSchool('${s.id}','${nameEsc}')">Lock</button>`;
       return `<div class="list-row"><div><strong>${esc(s.display_name||s.name)}</strong>${lockedBadge} ${statusChip}<div class="muted">${count} instructor${count===1?"":"s"}</div></div>
-        <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
+          ${renderVideosOverrideSelect('school', s.id)}
           <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showSchoolDetail('${s.id}')">Details</button>
           ${lockBtn}
           <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editSchool('${s.id}','${nameEsc}')">Rename</button>
@@ -2774,8 +2804,12 @@ function renderInstructorRow(i, schoolRows, fullControls){
   const deleteBtn = fullControls
     ? `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteInstructor('${i.id}','${nameEsc}')">Delete</button>`
     : "";
+  // Videos control only for SOLO instructors — school members inherit
+  // their school's setting (shown on the school row above).
+  const videosSelect = fullControls && !school ? renderVideosOverrideSelect('instructor', i.id) : "";
   return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}${lockedBadge} ${statusChip}<div class="muted">${esc(i.email||"")}${fullControls?" · "+schoolLabel:""}</div></div>
-    <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
+      ${videosSelect}
       <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showInstructorDetail('${i.id}')">Details</button>
       ${lockBtn}
       ${toggleBtn}

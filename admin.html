@@ -409,10 +409,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" class="btn-outline" onclick="openModuleManager()">⚙️ Manage modules</button>
           <span class="muted" id="video-status">Loading…</span>
         </div>
-        <table>
-          <thead><tr><th>Title</th><th>Module</th><th></th></tr></thead>
-          <tbody id="video-list"><tr><td colspan="3" class="muted">Loading…</td></tr></tbody>
-        </table>
+        <div id="video-groups"><p class="muted">Loading…</p></div>
       </div>
       <div class="panel" style="margin-bottom:1rem">
         <h2>Video watch progress</h2>
@@ -3763,11 +3760,11 @@ let learningVideos = [];
 // since it's referenced all over this file — rebuildModuleLabels() keeps
 // it in sync whenever VIDEO_MODULES changes.
 let VIDEO_MODULES = [
-  {num:1, label:"📋 Module 1: Preparing & Junctions"},
-  {num:2, label:"🚗 Module 2: Everyday Driving"},
-  {num:3, label:"🛣️ Module 3: Crossroads"},
-  {num:4, label:"⭕ Module 4: Roundabouts"},
-  {num:5, label:"🅿️ Module 5: Manoeuvres & Exercises"},
+  {num:1, label:"📋 Preparing & Junctions"},
+  {num:2, label:"🚗 Everyday Driving"},
+  {num:3, label:"🛣️ Crossroads"},
+  {num:4, label:"⭕ Roundabouts"},
+  {num:5, label:"🅿️ Manoeuvres & Exercises"},
 ];
 let MODULE_LABELS = {};
 function rebuildModuleLabels(){
@@ -3775,6 +3772,13 @@ function rebuildModuleLabels(){
   VIDEO_MODULES.forEach(m=>{ MODULE_LABELS[m.num] = m.label; });
 }
 rebuildModuleLabels();
+// Display-time strip of any "Module N:" prefix still stored in a saved
+// custom module list (the defaults no longer carry one) — the stored label
+// is left untouched so Manage modules still edits exactly what's saved.
+function cleanModuleLabel(label){
+  const cleaned = String(label||"").replace(/module\s*\d+\s*[:\-–—]*\s*/i,"").trim();
+  return cleaned || label;
+}
 
 async function loadVideoModules(){
   try{
@@ -3798,13 +3802,13 @@ async function saveVideoModules(){
   return true;
 }
 function renderModuleSelectOptions(){
-  return VIDEO_MODULES.map(m=>`<option value="${m.num}">${esc(m.label)}</option>`).join("");
+  return VIDEO_MODULES.map(m=>`<option value="${m.num}">${esc(cleanModuleLabel(m.label))}</option>`).join("");
 }
 function renderMatrixShells(){
   const el=document.getElementById("video-matrices");
   if(!el) return;
   el.innerHTML = VIDEO_MODULES.map((m,i)=>`<div class="matrix-card ${i===0?"open":""}">
-    <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">${esc(m.label)} <span>▼</span></div>
+    <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">${esc(cleanModuleLabel(m.label))} <span>▼</span></div>
     <div class="matrix-drawer" id="matrix-m${m.num}">Loading…</div>
   </div>`).join("") || '<p class="muted">No modules yet — add one above.</p>';
 }
@@ -3819,7 +3823,7 @@ function openModuleManager(){
   openModal(`<h2 style="margin-bottom:1rem">Manage modules</h2>
     <div id="module-manager-rows">${rows}</div>
     <div style="display:flex;gap:.4rem;margin-top:1rem;border-top:1px solid var(--line);padding-top:1rem">
-      <input id="new-module-label" placeholder="New module name, e.g. Module 6: Motorway Driving" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:.4rem .6rem;background:var(--card)" onkeydown="if(event.key==='Enter'){event.preventDefault();moduleAdd()}">
+      <input id="new-module-label" placeholder="New module name, e.g. Motorway Driving" style="flex:1;border:1px solid var(--line);border-radius:6px;padding:.4rem .6rem;background:var(--card)" onkeydown="if(event.key==='Enter'){event.preventDefault();moduleAdd()}">
       <button type="button" class="btn btn-navy btn-sm" onclick="moduleAdd()">+ Add module</button>
     </div>
     <div class="actions" style="margin-top:1rem"><button class="btn-outline" onclick="closeModal()">Close</button></div>`);
@@ -3869,7 +3873,7 @@ async function moduleDelete(num){
 
 async function loadLearningVideos(){
   const status = document.getElementById("video-status");
-  const list = document.getElementById("video-list");
+  const list = document.getElementById("video-groups");
   if (!status || !list) return;
   status.textContent = "Loading…";
   try {
@@ -3880,48 +3884,90 @@ async function loadLearningVideos(){
     renderLearningVideos();
   } catch (e) {
     status.textContent = "Error: " + (e.message||e);
-    list.innerHTML = '<tr><td colspan="3" class="muted">Could not load videos. Check the learning_videos table and RLS policies.</td></tr>';
+    list.innerHTML = '<p class="muted">Could not load videos. Check the learning_videos table and RLS policies.</p>';
   }
 }
 
+function videoModuleNumOf(v){
+  // Fall back to the storage path prefix only for older rows from before
+  // the `module` column existed — new rows always have it set directly.
+  return v.module || Number((v.storage_path.match(/^module-(\d)\//) || [])[1]) || null;
+}
+
 function renderLearningVideos(){
-  const list = document.getElementById("video-list");
+  const list = document.getElementById("video-groups");
   if (!list) return;
   if (!learningVideos.length) {
-    list.innerHTML = '<tr><td colspan="3" class="muted">No videos yet. Use "Upload video" above.</td></tr>';
+    list.innerHTML = '<p class="muted">No videos yet. Use "Upload video" above.</p>';
     return;
   }
-  function moduleNumOf(v){
-    // Fall back to the storage path prefix only for older rows from before
-    // the `module` column existed — new rows always have it set directly.
-    return v.module || Number((v.storage_path.match(/^module-(\d)\//) || [])[1]) || null;
-  }
-  function videoRow(v){
-    const moduleLabel = MODULE_LABELS[moduleNumOf(v)] || "—";
+  // Keep whichever groups the user already had open across re-renders
+  // (reordering/editing re-renders the whole list).
+  const openKeys = new Set(Array.from(list.querySelectorAll(".video-group-card.open")).map(el => el.dataset.key));
+  const hadCards = !!list.querySelector(".video-group-card");
+
+  // Grouped by module (same list/order as "Manage modules"), one
+  // collapsible card per module. Anything with an unknown/missing module
+  // (deleted module, or a pre-module-column legacy row) still shows,
+  // under "Other".
+  const known = new Set(VIDEO_MODULES.map(m=>m.num));
+  const groups = VIDEO_MODULES
+    .map(m => ({ key: "m"+m.num, label: cleanModuleLabel(m.label), videos: learningVideos.filter(v => videoModuleNumOf(v) === m.num) }))
+    .filter(g => g.videos.length);
+  const rest = learningVideos.filter(v => !known.has(videoModuleNumOf(v)));
+  if (rest.length) groups.push({ key: "other", label: "Other", videos: rest });
+
+  function videoRow(v, idx, count){
     return `<tr>
       <td>${esc(v.title)}</td>
-      <td>${moduleLabel}</td>
-      <td class="actions">
+      <td class="actions" style="white-space:nowrap">
+        <button type="button" class="btn-outline btn-sm" onclick="moveLearningVideo('${v.id}',-1)" ${idx===0?"disabled":""} title="Move up">↑</button>
+        <button type="button" class="btn-outline btn-sm" onclick="moveLearningVideo('${v.id}',1)" ${idx===count-1?"disabled":""} title="Move down">↓</button>
         <button type="button" class="btn-outline" onclick="editLearningVideo('${v.id}')">Edit</button>
         <button type="button" class="btn-danger" onclick="deleteLearningVideo('${v.id}')">Del</button>
       </td>
     </tr>`;
   }
-  // Grouped by module (same list/order as "Manage modules") instead of one
-  // flat list — a section header per module, then that module's videos in
-  // their existing order. Anything with an unknown/missing module (deleted
-  // module, or a pre-module-column legacy row) still shows, under "Other".
-  const known = new Set(VIDEO_MODULES.map(m=>m.num));
-  const groups = VIDEO_MODULES
-    .map(m => ({ label: m.label, videos: learningVideos.filter(v => moduleNumOf(v) === m.num) }))
-    .filter(g => g.videos.length);
-  const rest = learningVideos.filter(v => !known.has(moduleNumOf(v)));
-  if (rest.length) groups.push({ label: "Other", videos: rest });
 
-  list.innerHTML = groups.map(g => `
-    <tr><td colspan="3" style="background:var(--surface-2,rgba(255,255,255,.04));font-weight:700;font-size:.8rem;letter-spacing:.02em;padding:.5rem .75rem">${esc(g.label)}</td></tr>
-    ${g.videos.map(videoRow).join("")}
-  `).join("");
+  list.innerHTML = groups.map((g,i) => {
+    // First render: open the first group, like the watch-progress cards.
+    const open = hadCards ? openKeys.has(g.key) : i === 0;
+    return `<div class="matrix-card video-group-card ${open?"open":""}" data-key="${g.key}">
+      <div class="matrix-head" onclick="this.parentElement.classList.toggle('open')">
+        ${esc(g.label)} <span style="font-weight:400;color:var(--muted,#64748b);margin-left:auto;margin-right:.5rem">${g.videos.length} video${g.videos.length===1?"":"s"}</span> <span>▼</span>
+      </div>
+      <div class="matrix-drawer">
+        <table style="margin:0">
+          <tbody>${g.videos.map((v,idx)=>videoRow(v,idx,g.videos.length)).join("")}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// Reorder within a module: rewrite the whole group's sort_order as a clean
+// ascending run (they can start out null/tied from old uploads), with the
+// moved video swapped one place. Pupils see the same order — their app
+// sorts by sort_order globally, then groups by module, so only the order
+// WITHIN each module matters.
+async function moveLearningVideo(id, dir){
+  const v = learningVideos.find(x => x.id === id);
+  if (!v) return;
+  const num = videoModuleNumOf(v);
+  const group = learningVideos.filter(x => videoModuleNumOf(x) === num);
+  const idx = group.indexOf(v);
+  const swapWith = idx + dir;
+  if (swapWith < 0 || swapWith >= group.length) return;
+  [group[idx], group[swapWith]] = [group[swapWith], group[idx]];
+  const base = Math.min(...group.map(x => Number(x.sort_order) || 0).filter(n => n > 0), (num||99) * 10);
+  const updates = group
+    .map((x, i) => ({ id: x.id, next: base + i }))
+    .filter(u => { const cur = learningVideos.find(x => x.id === u.id); return Number(cur.sort_order) !== u.next; });
+  for (const u of updates){
+    const { error } = await sb.from("learning_videos").update({ sort_order: u.next }).eq("id", u.id);
+    if (error) { alert("Could not reorder: " + error.message); return; }
+  }
+  await loadLearningVideos();
 }
 
 // Renaming or moving a video to a different module — the module lives in
@@ -3935,7 +3981,7 @@ function editLearningVideo(id){
     <div class="field"><label>Title</label><input id="ev-title" value="${esc(v.title)}"></div>
     <div class="field"><label>Module</label>
       <select id="ev-module">
-        ${Object.entries(MODULE_LABELS).map(([n,label]) => `<option value="${n}" ${String(moduleNum)===n?"selected":""}>${label}</option>`).join("")}
+        ${Object.entries(MODULE_LABELS).map(([n,label]) => `<option value="${n}" ${String(moduleNum)===n?"selected":""}>${esc(cleanModuleLabel(label))}</option>`).join("")}
       </select>
     </div>
     <div class="actions">
@@ -3948,7 +3994,9 @@ async function saveLearningVideoEdit(id){
   const moduleNum = Number(val("ev-module"));
   if (!title) { alert("Title is required"); return; }
   const { error } = await sb.from("learning_videos").update({
-    title, module: moduleNum, description: "Module " + moduleNum
+    // description deliberately cleared — it used to be auto-set to
+    // "Module N", which the pupil app then showed under every video title.
+    title, module: moduleNum, description: null
   }).eq("id", id);
   if (error) { alert("Could not save: " + error.message); return; }
   closeModal();
@@ -4017,7 +4065,7 @@ async function submitVideoUploadBatch(){
       if (upErr) throw upErr;
       runningMax = Math.max(runningMax + 1, Number(u.module) * 10);
       const { error: insErr } = await sb.from("learning_videos").insert({
-        title: u.title, description: "Module " + u.module, storage_path: path, module: Number(u.module), sort_order: runningMax
+        title: u.title, description: null, storage_path: path, module: Number(u.module), sort_order: runningMax
       });
       if (insErr) throw insErr;
       ok++;

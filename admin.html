@@ -668,7 +668,7 @@ async function unlock(){
   // own login the moment migration 01 ran on live.
   const {data:prof}=await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin,locked_at,locked_reason").eq("id",data.user.id).maybeSingle();
   if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin"){
-    await sb.auth.signOut(); err.textContent="Not an instructor account"; err.style.display="block"; return;
+    await sb.auth.signOut({scope:"local"}); err.textContent="Not an instructor account"; err.style.display="block"; return;
   }
   let lockMessage=null;
   if(prof&&prof.school_id){
@@ -679,7 +679,7 @@ async function unlock(){
     lockMessage=prof.locked_reason||(prof.school_id?"Your account has been locked. Please contact your driving school.":"Your account has been locked. Please contact Drive My Way.");
   }
   if(lockMessage){
-    await sb.auth.signOut(); err.textContent=lockMessage; err.style.display="block"; return;
+    await sb.auth.signOut({scope:"local"}); err.textContent=lockMessage; err.style.display="block"; return;
   }
   if(!prof){
     // No profile yet — e.g. they confirmed their email on another device
@@ -718,7 +718,7 @@ async function enterApp(user,prof){
   await refresh(); setInterval(refresh,30000);
   checkProfileCompletion();
 }
-async function lock(){await sb.auth.signOut(); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
+async function lock(){await sb.auth.signOut({scope:"local"}); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
 
 // --- Forgot password ---------------------------------------------------
 // Same pattern as the app's login: confirm before sending (no stray reset

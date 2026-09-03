@@ -5039,10 +5039,11 @@ async function loadTheoryProgress(){
       const bestMock = mocks.length ? mocks.reduce((best,a)=> a.score>best.score?a:best, mocks[0]) : null;
       const categoriesDone = new Set(mine.filter(a=>a.mode==="practice").map(a=>a.category)).size;
       const lastAt = mine.length ? mine[0].created_at : null; // already sorted desc
-      return {label, bestMock, categoriesDone, lastAt, any: mine.length>0};
-    }).filter(r=>r.any);
-    if(!rows.length){ el.innerHTML = '<p class="muted">No theory practice activity yet.</p>'; return; }
-    rows.sort((a,b)=> (b.lastAt||"").localeCompare(a.lastAt||""));
+      return {label, bestMock, categoriesDone, lastAt};
+    });
+    if(!rows.length){ el.innerHTML = '<p class="muted">No learners found. Add pupils (with email) or wait for portal activity.</p>'; return; }
+    // Pupils with activity first (most recent first), then everyone else alphabetically.
+    rows.sort((a,b)=> a.lastAt && b.lastAt ? b.lastAt.localeCompare(a.lastAt) : a.lastAt ? -1 : b.lastAt ? 1 : a.label.localeCompare(b.label));
     el.innerHTML = `<table style="margin:0">
       <thead><tr><th>Pupil</th><th>Best mock test</th><th>Categories practised</th><th>Last activity</th></tr></thead>
       <tbody>${rows.map(r=>`<tr>

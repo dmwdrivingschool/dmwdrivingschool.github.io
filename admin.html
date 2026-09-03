@@ -252,6 +252,7 @@ tbody tr:hover td{background:#334263}
     <button data-tab="finance">Finances</button>
     <button data-tab="gaps">Gaps</button>
     <button data-tab="portal">Learning Videos</button>
+    <button data-tab="theory" id="nav-theory-btn" class="hidden">Theory</button>
     <button data-tab="teams" id="nav-teams-btn" class="hidden">Teams</button>
     <button data-tab="billing" id="nav-billing-btn" class="hidden">Billing</button>
     <button data-tab="website" id="nav-website-btn" class="hidden">Website</button>
@@ -464,7 +465,18 @@ tbody tr:hover td{background:#334263}
       </div>
     </section>
 
-    
+    <section id="tab-theory" class="hidden">
+      <div class="panel">
+        <h2>Theory progress</h2>
+        <p class="muted" style="margin-bottom:.75rem">
+          Who's using Theory Practice and how they're getting on — best mock test score (pass mark 43/50), and how
+          many of the 14 topics they've practised.
+        </p>
+        <div id="theory-progress-table"><p class="muted">Loading…</p></div>
+      </div>
+    </section>
+
+
     <section id="tab-website" class="hidden">
       <div class="panel">
         <h2>Website photos</h2>
@@ -539,7 +551,7 @@ const SUPABASE_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
 
 // Role/video-access gating state — resolved once at login (see enterApp()).
-let isSuperAdminUser=false, isSchoolAdminUser=false, canSeeVideosTab=false, currentSchoolId=null, brSoloLogoUrl=null, currentUserId=null;
+let isSuperAdminUser=false, isSchoolAdminUser=false, canSeeVideosTab=false, canSeeTheoryTab=false, currentSchoolId=null, brSoloLogoUrl=null, currentUserId=null;
 
 // Editable via Settings > Payment categories (app_settings id='finance_categories').
 // These are just the built-in defaults, used to seed that row the first time
@@ -648,6 +660,7 @@ function goTab(tab, pupilFilter){
   if(tab==="tests") showTests("future");
   if(tab==="settings"){document.getElementById("settings-menu").classList.remove("hidden");document.getElementById("settings-panel").classList.add("hidden")}
   if(tab==="portal"){ loadVideoModules().then(()=>{ loadActivity(); loadLearningVideos(); }); }
+  if(tab==="theory"){ loadTheoryProgress(); }
   if(tab==="teams"){ loadTeamsPanel(); }
   if(tab==="billing"){ loadBillingPanel(); }
   if(tab==="website"){ websiteShow(websiteMode || "carousel"); }
@@ -694,14 +707,16 @@ async function resolveVideoAccess(prof){
   isSuperAdminUser = prof?.role === "super_admin";
   isSchoolAdminUser = !isSuperAdminUser && !!prof?.is_school_admin;
   currentSchoolId = prof?.school_id || null;
-  if (isSuperAdminUser) { canSeeVideosTab = true; return; }
+  if (isSuperAdminUser) { canSeeVideosTab = true; canSeeTheoryTab = true; return; }
   canSeeVideosTab = false;
+  canSeeTheoryTab = false;
   try {
     const ownerType = currentSchoolId ? "school" : "instructor";
     const ownerId = currentSchoolId || (await sb.auth.getUser()).data.user?.id;
     if (!ownerId) return;
-    const { data } = await sb.from("premium_features").select("videos_enabled").eq("owner_type", ownerType).eq("owner_id", ownerId).maybeSingle();
+    const { data } = await sb.from("premium_features").select("videos_enabled,theory_enabled").eq("owner_type", ownerType).eq("owner_id", ownerId).maybeSingle();
     canSeeVideosTab = !!(data && data.videos_enabled);
+    canSeeTheoryTab = !!(data && data.theory_enabled);
   } catch (e) {}
 }
 async function enterApp(user,prof){
@@ -711,6 +726,7 @@ async function enterApp(user,prof){
   document.getElementById("who").textContent=prof?.full_name||user.email||"";
   await resolveVideoAccess(prof);
   document.querySelector('#main-nav button[data-tab="portal"]').classList.toggle("hidden", !canSeeVideosTab);
+  document.getElementById("nav-theory-btn").classList.toggle("hidden", !canSeeTheoryTab);
   document.getElementById("manage-videos-panel").classList.toggle("hidden", !isSuperAdminUser);
   document.getElementById("nav-teams-btn").classList.toggle("hidden", !isSuperAdminUser && !isSchoolAdminUser);
   document.getElementById("nav-billing-btn").classList.remove("hidden"); // everyone can see their own billing, not just admins
@@ -1563,6 +1579,10 @@ let schoolsCache=[];
 // premium_features rows keyed "type:id" — videos_enabled (effective) +
 // videos_override (null = follows the paid add-on, 'on'/'off' = forced).
 let videoFeaturesCache={};
+// Same shape as videoFeaturesCache but for theory_enabled/theory_override —
+// a separate flag so Theory access can be toggled independently of Video
+// access, even though both follow the same paid add-on by default.
+let theoryFeaturesCache={};
 
 // Compact three-way control shown on Teams rows (super admin only).
 function renderVideosOverrideSelect(ownerType, ownerId){
@@ -1581,6 +1601,29 @@ async function setVideosOverride(ownerType, ownerId, val){
   const err=document.getElementById("teams-err");
   if(err){ err.style.color=""; err.textContent=""; }
   const {error}=await sb.rpc("admin_set_videos_override",{
+    p_owner_type: ownerType, p_owner_id: ownerId, p_override: val==="sub" ? null : val,
+  });
+  if(error){ if(err) err.textContent=error.message; return; }
+  await loadTeamsPanel();
+}
+
+// Same three-way control as Video access, but for Theory Practice.
+function renderTheoryOverrideSelect(ownerType, ownerId){
+  const pf = theoryFeaturesCache[ownerType+":"+ownerId] || {};
+  const cur = pf.theory_override || "sub";
+  const effective = !!pf.theory_enabled;
+  return `<select title="Theory practice access" onchange="setTheoryOverride('${ownerType}','${ownerId}',this.value)"
+      style="font-size:.75rem;padding:.3rem .4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:${effective?"#15803d":"inherit"}">
+    <option value="sub" ${cur==="sub"?"selected":""}>Theory access: subscription${cur==="sub"?` (${effective?"on":"off"})`:""}</option>
+    <option value="on" ${cur==="on"?"selected":""}>Theory access: ON</option>
+    <option value="off" ${cur==="off"?"selected":""}>Theory access: OFF</option>
+  </select>`;
+}
+
+async function setTheoryOverride(ownerType, ownerId, val){
+  const err=document.getElementById("teams-err");
+  if(err){ err.style.color=""; err.textContent=""; }
+  const {error}=await sb.rpc("admin_set_theory_override",{
     p_owner_type: ownerType, p_owner_id: ownerId, p_override: val==="sub" ? null : val,
   });
   if(error){ if(err) err.textContent=error.message; return; }
@@ -3221,8 +3264,9 @@ async function loadTeamsPanel(){
       : {data:[]};
     const schoolSubsByOwner = Object.fromEntries((schoolSubs||[]).map(s=>[s.owner_id,s]));
 
-    const {data:pfRows} = await sb.from("premium_features").select("owner_type,owner_id,videos_enabled,videos_override");
+    const {data:pfRows} = await sb.from("premium_features").select("owner_type,owner_id,videos_enabled,videos_override,theory_enabled,theory_override");
     videoFeaturesCache = Object.fromEntries((pfRows||[]).map(r=>[r.owner_type+":"+r.owner_id, r]));
+    theoryFeaturesCache = videoFeaturesCache;
 
     const schoolsList=document.getElementById("schools-list");
     schoolsList.innerHTML = schoolRows.length ? schoolRows.map(s=>{
@@ -3238,6 +3282,7 @@ async function loadTeamsPanel(){
         <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
           ${sub ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setPlanAddon(${!sub.videos_addon},'school','${s.id}')">${sub.videos_addon?"Premium → Basic":"Basic → Premium"}</button>` : ""}
           ${renderVideosOverrideSelect('school', s.id)}
+          ${renderTheoryOverrideSelect('school', s.id)}
           <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showSchoolDetail('${s.id}')">Details</button>
           ${lockBtn}
           <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editSchool('${s.id}','${nameEsc}')">Rename</button>
@@ -3308,6 +3353,7 @@ function renderInstructorRow(i, schoolRows, fullControls){
   // their school's setting (shown on the school row above). Same for the
   // Basic/Premium plan switch: a school seat's plan is the school's.
   const videosSelect = fullControls && !school ? renderVideosOverrideSelect('instructor', i.id) : "";
+  const theorySelect = fullControls && !school ? renderTheoryOverrideSelect('instructor', i.id) : "";
   const planBtn = fullControls && !school && sub && sub.plan !== 'pdi'
     ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setPlanAddon(${!sub.videos_addon},'instructor','${i.id}')">${sub.videos_addon?"Premium → Basic":"Basic → Premium"}</button>`
     : "";
@@ -3315,6 +3361,7 @@ function renderInstructorRow(i, schoolRows, fullControls){
     <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
       ${planBtn}
       ${videosSelect}
+      ${theorySelect}
       <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showInstructorDetail('${i.id}')">Details</button>
       ${lockBtn}
       ${toggleBtn}
@@ -4973,6 +5020,42 @@ async function saveNewPupil(){
   else { closeModal(); await loadPupils(); renderPupils(); loadDash(); }
 }
 
+
+async function loadTheoryProgress(){
+  const el = document.getElementById("theory-progress-table");
+  if(!el) return;
+  el.innerHTML = "Loading…";
+  try {
+    const [{data:pupils, error:pErr}, {data:attempts, error:aErr}] = await Promise.all([
+      sb.from("pupils").select("id,first_name,last_name,email,portal_username,status").in("status",["active","waiting","passed"]),
+      sb.from("theory_attempts").select("pupil_id,mode,category,score,total,passed,created_at").order("created_at",{ascending:false}),
+    ]);
+    if(pErr) throw pErr;
+    if(aErr) throw aErr;
+    const rows = (pupils||[]).map(p=>{
+      const label = ((p.first_name||"")+" "+(p.last_name||"")).trim() || p.email || p.portal_username || "Pupil";
+      const mine = (attempts||[]).filter(a=>a.pupil_id===p.id);
+      const mocks = mine.filter(a=>a.mode==="mock");
+      const bestMock = mocks.length ? mocks.reduce((best,a)=> a.score>best.score?a:best, mocks[0]) : null;
+      const categoriesDone = new Set(mine.filter(a=>a.mode==="practice").map(a=>a.category)).size;
+      const lastAt = mine.length ? mine[0].created_at : null; // already sorted desc
+      return {label, bestMock, categoriesDone, lastAt, any: mine.length>0};
+    }).filter(r=>r.any);
+    if(!rows.length){ el.innerHTML = '<p class="muted">No theory practice activity yet.</p>'; return; }
+    rows.sort((a,b)=> (b.lastAt||"").localeCompare(a.lastAt||""));
+    el.innerHTML = `<table style="margin:0">
+      <thead><tr><th>Pupil</th><th>Best mock test</th><th>Categories practised</th><th>Last activity</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td>${esc(r.label)}</td>
+        <td>${r.bestMock ? `${r.bestMock.score}/${r.bestMock.total} <span class="status-pill ${r.bestMock.passed?"st-100":"st-50"}">${r.bestMock.passed?"Pass":"Below pass mark"}</span>` : '<span class="muted">Not attempted</span>'}</td>
+        <td>${r.categoriesDone} / 14</td>
+        <td>${r.lastAt ? new Date(r.lastAt).toLocaleDateString() : ""}</td>
+      </tr>`).join("")}</tbody>
+    </table>`;
+  } catch(e){
+    el.innerHTML = '<p class="muted">Could not load theory progress: '+(e.message||e)+'</p>';
+  }
+}
 
 async function loadVideoProgress(){
   renderMatrixShells();

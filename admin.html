@@ -227,6 +227,10 @@ tbody tr:hover td{background:#334263}
       <input type="text" id="signup-school-name" class="hidden" placeholder="Driving school name">
       <input type="email" id="signup-email" placeholder="Email" autocomplete="username">
       <input type="password" id="signup-pass" placeholder="Password" autocomplete="new-password">
+      <label style="display:flex;align-items:flex-start;gap:.5rem;margin:.8rem 0;padding:.7rem .8rem;border:1px solid var(--border,#ddd);border-radius:.5rem;cursor:pointer">
+        <input type="checkbox" id="signup-video-addon" style="margin-top:.2rem">
+        <span><strong style="display:block">Add Learning Videos & Theory Practice</strong><span class="muted" style="font-size:.8rem">+£2/month<span id="signup-addon-seat-note" class="hidden"> on the base and on every seat</span> — pupils get video lessons and theory test practice. You can turn this on or off later too.</span></span>
+      </label>
       <button class="btn btn-navy full" onclick="submitSignup()" id="signup-submit-btn">Start free trial</button>
       <div class="err" id="signup-err"></div>
       <p class="muted" style="font-size:.75rem;text-align:center;margin-top:.6rem">Next you'll set up a Direct Debit for after your trial — nothing is charged for 30 days, cancel any time before then.</p>
@@ -877,6 +881,7 @@ function showSignin(){
   document.getElementById("gate-signin").classList.remove("hidden");
   document.getElementById("signup-kind-picker").classList.remove("hidden");
   document.getElementById("signup-form-fields").classList.add("hidden");
+  document.getElementById("signup-video-addon").checked = false;
 }
 function pickSignupKind(kind){
   signupKind = kind;
@@ -884,6 +889,7 @@ function pickSignupKind(kind){
   document.getElementById("signup-form-fields").classList.remove("hidden");
   document.getElementById("signup-kind-label").textContent = kind === "school" ? "Driving school" : "Solo instructor";
   document.getElementById("signup-school-name").classList.toggle("hidden", kind !== "school");
+  document.getElementById("signup-addon-seat-note").classList.toggle("hidden", kind !== "school");
 }
 
 async function submitSignup(){
@@ -893,6 +899,7 @@ async function submitSignup(){
   const schoolName = document.getElementById("signup-school-name").value.trim();
   const email = document.getElementById("signup-email").value.trim();
   const password = document.getElementById("signup-pass").value;
+  const videoAddon = document.getElementById("signup-video-addon").checked;
   if(!name){ err.textContent = "Enter your name"; return; }
   if(signupKind === "school" && !schoolName){ err.textContent = "Enter your driving school name"; return; }
   if(!email || !password){ err.textContent = "Enter your email and password"; return; }
@@ -917,7 +924,8 @@ async function submitSignup(){
           role: "instructor",
           signup_kind: signupKind,
           full_name: name,
-          school_name: signupKind === "school" ? schoolName : null
+          school_name: signupKind === "school" ? schoolName : null,
+          video_addon: videoAddon
         },
         emailRedirectTo: window.location.origin + window.location.pathname
       }
@@ -958,7 +966,8 @@ async function provisionIfNeededAndEnter(user){
     const { error: provisionError } = await sb.rpc("provision_signup", {
       p_kind: user.user_metadata?.signup_kind || "solo",
       p_full_name: user.user_metadata?.full_name || user.email,
-      p_school_name: user.user_metadata?.school_name || null
+      p_school_name: user.user_metadata?.school_name || null,
+      p_video_addon: !!user.user_metadata?.video_addon
     });
     if(!provisionError){
       try{

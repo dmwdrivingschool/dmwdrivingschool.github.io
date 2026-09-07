@@ -337,8 +337,14 @@ tbody tr:hover td{background:#334263}
         <div class="d-head">
           <button class="btn-outline d-nav" onclick="shiftWeek(-1)">‹</button>
           <strong id="week-label"></strong>
-          <div style="display:flex;gap:.4rem;align-items:center">
+          <label style="display:flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:normal;white-space:nowrap">
+            <input type="checkbox" id="diary-hide-cancelled" onchange="toggleDiaryHideCancelled(this.checked)"> Hide cancelled
+          </label>
+          <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
             <button class="btn-outline d-nav" onclick="shiftWeek(1)">›</button>
+            <button class="btn-outline btn-sm" onclick="openLessonSwap()">Swap</button>
+            <button class="btn-outline btn-sm" onclick="openDiaryGap()">+ Gap</button>
+            <button class="btn-outline btn-sm" onclick="openAwayModal()">+ Holiday</button>
             <button class="btn btn-navy btn-sm" onclick="openDiaryAddLesson()">+ Add</button>
           </div>
         </div>
@@ -584,6 +590,24 @@ async function saveFinanceCategories(){
 }
 
 let pupilsCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="active";
+// Diary parity with the app (src/pages/Diary.tsx) — hide-cancelled toggle,
+// the currently-rendered week's lessons (so block clicks can look up the
+// full row without a second fetch), and lesson-swap picker state.
+let diaryHideCancelled=localStorage.getItem("dmw_diary_hide_cancelled")==="1";
+let diaryLessonsCache=[];
+let swapLessonsCache={a:[],b:[]};
+function toggleDiaryHideCancelled(v){
+  diaryHideCancelled=v;
+  localStorage.setItem("dmw_diary_hide_cancelled",v?"1":"0");
+  renderDiary();
+}
+// Mirrors src/lib/pushNotifications.ts triggerMessagePush() — every message
+// insert in the app also fires this; admin.html inserted messages without
+// it before, so pupils never got a push for anything sent from here.
+async function triggerMsgPush(messageId){
+  if(!messageId) return;
+  try{ await sb.functions.invoke("send-push",{body:{message_id:messageId}}); }catch(e){}
+}
 let workingHours={start:"09:00",end:"20:00",days:{Monday:true,Tuesday:true,Wednesday:true,Thursday:true,Friday:true,Saturday:false,Sunday:false}};
 async function loadWorkingHours(){
   try{
@@ -1731,13 +1755,16 @@ async function renderDiary(){
   document.getElementById("week-label").textContent=
     weekStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+
     new Date(end-1).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  const hideCb=document.getElementById("diary-hide-cancelled");
+  if(hideCb) hideCb.checked=diaryHideCancelled;
   // Overlap query, not start-within-week: the app's multi-day Away blocks
   // (and anything else spanning midnight) start before the week or before a
   // given day but still cover it — start_time-only filtering hid them here
   // while the app showed them.
   const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)")
     .lt("start_time",end.toISOString()).gt("end_time",weekStart.toISOString()).order("start_time");
-  const list=lessons||[];
+  diaryLessonsCache=lessons||[];
+  const list=diaryHideCancelled ? diaryLessonsCache.filter(l=>l.status!=="cancelled") : diaryLessonsCache;
   const today=new Date(); today.setHours(0,0,0,0);
 
   let head='<div class="d-days"><div></div>';
@@ -1827,16 +1854,12 @@ async function onDiaryBlockClick(el){
   const lessonId=el.getAttribute("data-lesson-id")||"";
   const isAway=el.getAttribute("data-away")==="1";
 
-  if(isAway && lessonId){
-    openModal(`<h2 style="margin-bottom:1rem">Away / private block</h2>
-      <p class="muted" style="margin-bottom:1rem">Remove this block from the diary?</p>
-      <div class="actions">
-        <button class="btn btn-navy btn-sm" onclick="endAwayBlock('${lessonId}')">Remove from diary</button>
-        <button class="btn-outline" onclick="closeModal()">Cancel</button>
-      </div>`);
-    return;
-  }
-
+  // Matches the app's Diary.tsx click routing exactly: a pupil-linked
+  // lesson always goes to the pupil's profile (same there too — the app
+  // doesn't edit pupil lessons inline from the diary either), an
+  // Away/Appointment block opens its own editor, and anything else (gaps,
+  // private/other blocks with no pupil) opens the general edit-lesson
+  // modal — previously all three of these just offered "remove".
   if(pupilId){
     let p=pupilsCache.find(x=>x.id===pupilId);
     if(!p){
@@ -1846,15 +1869,9 @@ async function onDiaryBlockClick(el){
     if(p){ showPupil(p); return; }
   }
 
-  // gap or unknown – offer delete
-  if(lessonId){
-    openModal(`<h2 style="margin-bottom:1rem">Diary block</h2>
-      <p class="muted" style="margin-bottom:1rem">No pupil linked. You can remove this block.</p>
-      <div class="actions">
-        <button class="btn btn-navy btn-sm" onclick="endAwayBlock('${lessonId}')">Remove</button>
-        <button class="btn-outline" onclick="closeModal()">Cancel</button>
-      </div>`);
-  }
+  if(isAway && lessonId){ openAwayModal(lessonId); return; }
+
+  if(lessonId) openDiaryEditLesson(lessonId);
 }
 
 // The diary was view-only on web — the app could add lessons but here you
@@ -1908,6 +1925,344 @@ async function endAwayBlock(lessonId){
   if(!confirm("Remove this block from the diary?")) return;
   const {error}=await sb.from("lessons").delete().eq("id", lessonId);
   if(error){ alert("Could not remove: "+error.message); return; }
+  closeModal();
+  renderDiary();
+}
+
+// ===========================================================================
+// Away / Appointment editor — mirrors src/components/AwayModal.tsx. Create
+// (openAwayModal() from the toolbar, no id) and edit (openAwayModal(id) from
+// a diary block click) share this one form, same as the app.
+// ===========================================================================
+function openAwayModal(editingId){
+  const editing = editingId ? diaryLessonsCache.find(l=>l.id===editingId) : null;
+  const today=new Date().toISOString().slice(0,10);
+  let startDate=today, endDate=today, allDay=true, startTime="09:00", endTime="17:00",
+      notes="", kind="away", visibleToPupil=true, doNotDelete=false;
+  if(editing){
+    const s=new Date(editing.start_time), e=new Date(editing.end_time);
+    const isFullDay = s.getHours()===0 && s.getMinutes()===0 && e.getHours()===23 && e.getMinutes()>=59;
+    startDate=s.toISOString().slice(0,10); endDate=e.toISOString().slice(0,10);
+    allDay=isFullDay;
+    startTime=String(s.getHours()).padStart(2,"0")+":"+String(s.getMinutes()).padStart(2,"0");
+    endTime=String(e.getHours()).padStart(2,"0")+":"+String(e.getMinutes()).padStart(2,"0");
+    notes=editing.notes||"";
+    kind=editing.title==="Appointment"?"appointment":"away";
+    visibleToPupil=editing.visible_to_pupil!==false;
+    doNotDelete=!!editing.do_not_delete;
+  }
+  openModal(`<h2 style="margin-bottom:1rem">${editing?"Edit":"Add"} Holiday / Appointment</h2>
+    <div class="field" style="margin-bottom:.75rem">
+      <label>Type</label>
+      <div style="display:flex;gap:.5rem">
+        <button type="button" id="am-kind-away" class="${kind==="away"?"btn btn-navy":"btn-outline"} btn-sm" style="flex:1" onclick="setAwayKind('away')">Holiday</button>
+        <button type="button" id="am-kind-appt" class="${kind==="appointment"?"btn btn-navy":"btn-outline"} btn-sm" style="flex:1" onclick="setAwayKind('appointment')">Appointment</button>
+      </div>
+      <p class="muted" style="margin-top:.4rem" id="am-kind-hint">${kind==="away"?"Shown on the pupil app as instructor holiday / unavailable.":"Only on your diary by default — pupils won't see this unless you turn on visibility below."}</p>
+    </div>
+    <div id="am-appt-options" style="display:${kind==="appointment"?"":"none"};border:1px solid var(--line);border-radius:8px;padding:.7rem;margin-bottom:.75rem;background:var(--card)">
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.5rem">
+        <span>Show to pupils</span><input type="checkbox" id="am-visible" ${visibleToPupil?"checked":""}>
+      </label>
+      <p class="muted" style="margin-bottom:.5rem">When on, pupils see this appointment's date and time under "Instructor away" — never your notes, which always stay private.</p>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;border-top:1px solid var(--line);padding-top:.5rem">
+        <span>Do not delete when past</span><input type="checkbox" id="am-donotdelete" ${doNotDelete?"checked":""}>
+      </label>
+      <p class="muted" style="margin-top:.3rem">Past holidays/appointments are removed automatically the day after they end. Tick this to keep it permanently.</p>
+    </div>
+    <div class="two">
+      <div class="field"><label>Start date</label><input type="date" id="am-start-date" value="${startDate}" onchange="if(val('am-end-date')<this.value) document.getElementById('am-end-date').value=this.value"></div>
+      <div class="field"><label>End date</label><input type="date" id="am-end-date" value="${endDate}" min="${startDate}"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:.5rem;margin:.5rem 0">
+      <input type="checkbox" id="am-allday" ${allDay?"checked":""} onchange="document.getElementById('am-times').style.display=this.checked?'none':''"> All day
+    </label>
+    <div id="am-times" class="two" style="display:${allDay?"none":""}">
+      <div class="field"><label>Start</label><input type="time" id="am-start-time" value="${startTime}"></div>
+      <div class="field"><label>End</label><input type="time" id="am-end-time" value="${endTime}"></div>
+    </div>
+    <div class="field" style="margin-top:.5rem"><label>Private notes</label><textarea id="am-notes" rows="3">${esc(notes)}</textarea></div>
+    <div class="actions" style="margin-top:.75rem">
+      <button class="btn btn-navy btn-sm" onclick="saveAwayModal(${editing?`'${editing.id}'`:"null"})">Save</button>
+      ${editing?`<button class="btn-danger btn-sm" onclick="endAwayBlock('${editing.id}')">Delete</button>`:""}
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+function setAwayKind(kind){
+  document.getElementById("am-kind-away").className=kind==="away"?"btn btn-navy btn-sm":"btn-outline btn-sm";
+  document.getElementById("am-kind-appt").className=kind==="appointment"?"btn btn-navy btn-sm":"btn-outline btn-sm";
+  document.getElementById("am-appt-options").style.display=kind==="appointment"?"":"none";
+  document.getElementById("am-kind-hint").textContent=kind==="away"
+    ? "Shown on the pupil app as instructor holiday / unavailable."
+    : "Only on your diary by default — pupils won't see this unless you turn on visibility below.";
+  document.getElementById("am-kind-away").setAttribute("data-kind-active",kind==="away"?"1":"0");
+  document.getElementById("am-kind-appt").setAttribute("data-kind-active",kind==="appointment"?"1":"0");
+}
+async function saveAwayModal(editingId){
+  const kindAway=document.getElementById("am-kind-away").getAttribute("data-kind-active");
+  // Fallback: if the buttons were never toggled, className still tells us
+  // which one is "active" (btn-navy vs btn-outline).
+  const kind = kindAway==="1" ? "away" : kindAway==="0" ? "appointment"
+    : (document.getElementById("am-kind-away").className.includes("btn-navy") ? "away" : "appointment");
+  const startDate=val("am-start-date"), endDate=val("am-end-date")||startDate;
+  const allDay=document.getElementById("am-allday").checked;
+  const startTime=val("am-start-time")||"09:00", endTime=val("am-end-time")||"17:00";
+  const notes=val("am-notes")||null;
+  const start = allDay ? new Date(`${startDate}T00:00:00`) : new Date(`${startDate}T${startTime}:00`);
+  const end = allDay ? new Date(`${endDate}T23:59:00`) : new Date(`${endDate}T${endTime}:00`);
+  const title = kind==="away" ? "Away" : "Appointment";
+  const visibleToPupil = kind==="appointment" ? !!document.getElementById("am-visible").checked : true;
+  const doNotDelete = kind==="appointment" ? !!document.getElementById("am-donotdelete").checked : false;
+  const session=(await sb.auth.getSession()).data.session;
+  const payload={
+    lesson_type:"private", title, start_time:start.toISOString(), end_time:end.toISOString(),
+    status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:session?.user?.id||null,
+    notes, gearbox:"manual", visible_to_pupil:visibleToPupil, do_not_delete:doNotDelete
+  };
+  const {error}= editingId
+    ? await sb.from("lessons").update(payload).eq("id",editingId)
+    : await sb.from("lessons").insert(payload);
+  if(error) return alert(error.message);
+  closeModal();
+  renderDiary();
+}
+
+// ===========================================================================
+// Gap creation — mirrors src/components/GapModal.tsx (create only; editing
+// an existing gap goes through the general edit-lesson modal below, same
+// split as the app).
+// ===========================================================================
+function openDiaryGap(){
+  const today=new Date().toISOString().slice(0,10);
+  openModal(`<h2 style="margin-bottom:1rem">Add Gap</h2>
+    <div class="two">
+      <div class="field"><label>Start date</label><input type="date" id="gp-start-date" value="${today}" onchange="if(val('gp-end-date')<this.value) document.getElementById('gp-end-date').value=this.value"></div>
+      <div class="field"><label>End date</label><input type="date" id="gp-end-date" value="${today}" min="${today}"></div>
+    </div>
+    <div class="two">
+      <div class="field"><label>Start</label><input type="time" id="gp-start-time" value="10:00"></div>
+      <div class="field"><label>Duration (mins)</label><input type="number" id="gp-duration" value="60"></div>
+    </div>
+    <div class="field"><label>Gearbox</label>
+      <select id="gp-gearbox"><option value="manual">Manual</option><option value="automatic">Automatic</option></select>
+    </div>
+    <label style="display:flex;align-items:center;gap:.5rem;margin:.5rem 0">
+      <input type="checkbox" id="gp-notify" checked onchange="document.getElementById('gp-sendto-wrap').style.display=this.checked?'':'none'"> Notify pupils
+    </label>
+    <div id="gp-sendto-wrap">
+      <select id="gp-sendto" onchange="document.getElementById('gp-select-wrap').style.display=this.value==='select'?'':'none'">
+        <option value="active">Active pupils</option>
+        <option value="waiting">Waiting pupils</option>
+        <option value="both">Active &amp; waiting</option>
+        <option value="select">Select pupils</option>
+      </select>
+      <div id="gp-select-wrap" style="display:none;max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin-top:.5rem">
+        ${pupilsCache.map(p=>`<label style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem"><input type="checkbox" class="gp-pupil-cb" value="${p.id}"> ${esc(p.first_name)} ${esc(p.last_name)}</label>`).join("")}
+      </div>
+    </div>
+    <div class="actions" style="margin-top:.75rem">
+      <button class="btn btn-navy btn-sm" onclick="saveDiaryGap()">Create gap</button>
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveDiaryGap(){
+  const startDate=val("gp-start-date"); if(!startDate) return alert("Start date is required");
+  const endDate=val("gp-end-date")||startDate;
+  const startTime=val("gp-start-time")||"10:00";
+  const duration=Number(val("gp-duration"))||60;
+  const gearbox=document.getElementById("gp-gearbox").value;
+  const start=new Date(`${startDate}T${startTime}:00`);
+  const end=(endDate && endDate!==startDate) ? new Date(`${endDate}T${startTime}:00`) : new Date(start.getTime()+duration*60000);
+  const session=(await sb.auth.getSession()).data.session;
+  const {error}=await sb.from("lessons").insert({
+    lesson_type:"gap", title:"Gap", start_time:start.toISOString(), end_time:end.toISOString(),
+    status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:session?.user?.id||null, gearbox
+  });
+  if(error) return alert(error.message);
+
+  if(document.getElementById("gp-notify").checked){
+    const sendTo=document.getElementById("gp-sendto").value;
+    let targets=pupilsCache;
+    if(sendTo==="active") targets=pupilsCache.filter(p=>p.status==="active");
+    else if(sendTo==="waiting") targets=pupilsCache.filter(p=>p.status==="waiting");
+    else if(sendTo==="both") targets=pupilsCache.filter(p=>p.status==="active"||p.status==="waiting");
+    else{
+      const selected=[...document.querySelectorAll(".gp-pupil-cb:checked")].map(el=>el.value);
+      targets=pupilsCache.filter(p=>selected.includes(p.id));
+    }
+    const when=start.toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+    const body=`Gap available: ${when} (${duration} mins, ${gearbox}). Open the app and tap Book on this slot if you want it.`;
+    if(targets.length){
+      const {data:inserted}=await sb.from("messages").insert(targets.map(p=>({pupil_id:p.id, body, direction:"broadcast", subject:"Gap available"}))).select("id");
+      for(const r of (inserted||[])) triggerMsgPush(r.id);
+    }
+  }
+  closeModal();
+  renderDiary();
+}
+
+// ===========================================================================
+// Lesson swap — mirrors src/components/LessonSwapModal.tsx. Swaps only the
+// TIME between two pupils' lessons; each keeps its own duration/type/notes.
+// ===========================================================================
+const SWAP_NOT_SWAPPABLE=["gap","lesson_offer","student_away","driving_test"];
+function openLessonSwap(){
+  swapLessonsCache={a:[],b:[]};
+  const active=pupilsCache.filter(p=>p.status==="active").sort((a,b)=>(a.first_name||"").localeCompare(b.first_name||""));
+  const opts=active.map(p=>`<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`).join("");
+  openModal(`<h2 style="margin-bottom:1rem">Lesson swap</h2>
+    <p class="muted" style="margin-bottom:.75rem">Pick a pupil and lesson on each side — their appointment times swap, each lesson keeps its own length and details.</p>
+    <div class="field"><label>Pupil A</label><select id="sw-pupil-a" onchange="loadSwapLessons('a')"><option value="">Select…</option>${opts}</select></div>
+    <div id="sw-lessons-a" style="margin:.5rem 0 1rem"></div>
+    <div class="field"><label>Pupil B</label><select id="sw-pupil-b" onchange="loadSwapLessons('b')"><option value="">Select…</option>${opts}</select></div>
+    <div id="sw-lessons-b" style="margin:.5rem 0 1rem"></div>
+    <div class="actions">
+      <button class="btn btn-navy btn-sm" onclick="doLessonSwap()">Swap</button>
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function loadSwapLessons(side){
+  const pupilId=val("sw-pupil-"+side);
+  const wrap=document.getElementById("sw-lessons-"+side);
+  if(!pupilId){ wrap.innerHTML=""; swapLessonsCache[side]=[]; return; }
+  wrap.innerHTML='<p class="muted">Loading…</p>';
+  const {data}=await sb.from("lessons").select("id,start_time,end_time,lesson_type,title")
+    .eq("pupil_id",pupilId).neq("status","cancelled")
+    .not("lesson_type","in",`(${SWAP_NOT_SWAPPABLE.join(",")})`)
+    .gte("start_time",new Date().toISOString()).order("start_time").limit(30);
+  swapLessonsCache[side]=data||[];
+  if(!data || !data.length){ wrap.innerHTML='<p class="muted">No upcoming lessons to swap</p>'; return; }
+  wrap.innerHTML=`<div style="border:1px solid var(--line);border-radius:8px;max-height:160px;overflow-y:auto">${data.map(l=>{
+    const when=new Date(l.start_time).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+    const type=esc((l.title||l.lesson_type||"").replace(/_/g," "));
+    return `<label style="display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;border-bottom:1px solid var(--line)">
+      <input type="radio" name="sw-lesson-${side}" value="${l.id}">
+      <span><strong>${when}</strong><br><span class="muted" style="font-size:.8rem;text-transform:capitalize">${type}</span></span>
+    </label>`;
+  }).join("")}</div>`;
+}
+async function doLessonSwap(){
+  const pupilAId=val("sw-pupil-a"), pupilBId=val("sw-pupil-b");
+  if(!pupilAId||!pupilBId||pupilAId===pupilBId) return alert("Pick a different pupil on each side");
+  const lessonAEl=document.querySelector('input[name="sw-lesson-a"]:checked');
+  const lessonBEl=document.querySelector('input[name="sw-lesson-b"]:checked');
+  if(!lessonAEl||!lessonBEl) return alert("Pick a lesson on each side");
+  const lessonA=(swapLessonsCache.a||[]).find(l=>l.id===lessonAEl.value);
+  const lessonB=(swapLessonsCache.b||[]).find(l=>l.id===lessonBEl.value);
+  if(!lessonA||!lessonB) return;
+  try{
+    const durA=new Date(lessonA.end_time)-new Date(lessonA.start_time);
+    const durB=new Date(lessonB.end_time)-new Date(lessonB.start_time);
+    const newAStart=lessonB.start_time, newAEnd=new Date(new Date(newAStart).getTime()+durA).toISOString();
+    const newBStart=lessonA.start_time, newBEnd=new Date(new Date(newBStart).getTime()+durB).toISOString();
+    let {error}=await sb.from("lessons").update({start_time:newAStart,end_time:newAEnd}).eq("id",lessonA.id);
+    if(error) throw error;
+    ({error}=await sb.from("lessons").update({start_time:newBStart,end_time:newBEnd}).eq("id",lessonB.id));
+    if(error) throw error;
+    async function notify(pupilId,newStart){
+      const when=new Date(newStart).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
+      const time=new Date(newStart).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+      const {data:msg}=await sb.from("messages").insert({
+        pupil_id:pupilId, direction:"outbound", subject:"Lesson time changed",
+        body:`Your lesson has been swapped with another pupil's slot — it's now on ${when} at ${time}.`,
+        delivered_at:new Date().toISOString()
+      }).select("id").maybeSingle();
+      if(msg?.id) triggerMsgPush(msg.id);
+    }
+    await notify(pupilAId,newAStart);
+    await notify(pupilBId,newBStart);
+    closeModal();
+    renderDiary();
+  }catch(e){ alert(e.message||"Could not swap these lessons"); }
+}
+
+// ===========================================================================
+// General edit-lesson modal for diary blocks with no linked pupil (gaps,
+// stray private/other rows) — mirrors src/components/EditLessonModal.tsx's
+// non-pupil path. Same fields/behaviour as the existing pupil-profile
+// lesson editor (pupilEditLesson) but sourced from diaryLessonsCache and
+// refreshing the diary instead of the pupil modal.
+// ===========================================================================
+function openDiaryEditLesson(id){
+  const l=diaryLessonsCache.find(x=>x.id===id);
+  if(!l) return alert("Could not find this diary entry — try refreshing.");
+  const s=new Date(l.start_time), e=new Date(l.end_time);
+  const dateStr=s.toISOString().slice(0,10);
+  const startStr=String(s.getHours()).padStart(2,"0")+":"+String(s.getMinutes()).padStart(2,"0");
+  const endStr=String(e.getHours()).padStart(2,"0")+":"+String(e.getMinutes()).padStart(2,"0");
+  openModal(`<h2 style="margin-bottom:1rem">Edit diary entry</h2>
+    <div class="two">
+      <div class="field"><label>Date</label><input type="date" id="dl2-date" value="${dateStr}"></div>
+      <div class="field"><label>Type</label>
+        <select id="dl2-type">${LESSON_TYPES.map(t=>`<option value="${t}" ${l.lesson_type===t?"selected":""}>${t.replace(/_/g," ")}</option>`).join("")}</select>
+      </div>
+      <div class="field"><label>Start time</label><input type="time" id="dl2-start" value="${startStr}"></div>
+      <div class="field"><label>End time</label><input type="time" id="dl2-end" value="${endStr}"></div>
+      <div class="field"><label>Status</label>
+        <select id="dl2-status" onchange="document.getElementById('dl2-charged-wrap').style.display=(this.value==='cancelled')?'':'none'">${["booked","delivered","cancelled"].map(s2=>`<option value="${s2}" ${l.status===s2?"selected":""}>${s2}</option>`).join("")}</select>
+      </div>
+    </div>
+    <div id="dl2-charged-wrap" style="display:${l.status==="cancelled"?"":"none"};margin-bottom:.75rem">
+      <label style="display:flex;align-items:center;gap:.5rem;font-weight:normal">
+        <input type="checkbox" id="dl2-charged" ${l.charged?"checked":""}>
+        Lesson charged (counts as used hours toward Credit, same as delivered)
+      </label>
+    </div>
+    ${l.status==="cancelled" ? `<button type="button" class="btn btn-navy btn-sm" style="width:100%;margin-bottom:.75rem" onclick="convertDiaryLessonToGap('${l.id}')">Convert to gap</button>` : ""}
+    <div class="actions">
+      <button class="btn btn-navy btn-sm" onclick="saveDiaryEditLesson('${l.id}')">Save</button>
+      <button class="btn-danger btn-sm" onclick="deleteDiaryLesson('${l.id}')">Delete</button>
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveDiaryEditLesson(id){
+  const dateStr=val("dl2-date"); if(!dateStr) return alert("Date is required");
+  const start=new Date(`${dateStr}T${val("dl2-start")||"09:00"}:00`);
+  const end=new Date(`${dateStr}T${val("dl2-end")||"10:00"}:00`);
+  const newStatus=document.getElementById("dl2-status").value;
+  const payload={
+    start_time:start.toISOString(), end_time:end.toISOString(),
+    lesson_type:document.getElementById("dl2-type").value,
+    status:newStatus,
+    charged:newStatus==="cancelled"?!!document.getElementById("dl2-charged").checked:false
+  };
+  const {error}=await sb.from("lessons").update(payload).eq("id",id);
+  if(error) return alert(error.message);
+  closeModal();
+  renderDiary();
+}
+async function convertDiaryLessonToGap(id){
+  const l=diaryLessonsCache.find(x=>x.id===id);
+  if(!l) return;
+  if(!confirm("Create a gap at this time and let active pupils book it? The cancelled lesson itself is unaffected.")) return;
+  const session=(await sb.auth.getSession()).data.session;
+  const {error:insErr}=await sb.from("lessons").insert({
+    lesson_type:"gap", title:"Gap", start_time:l.start_time, end_time:l.end_time,
+    status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:session?.user?.id||null,
+    gearbox:l.gearbox||"manual"
+  });
+  if(insErr) return alert(insErr.message);
+  const thisPupilId=l.pupil_id;
+  const {data:activePupils}=await sb.from("pupils").select("id").eq("status","active");
+  const others=(activePupils||[]).filter(p=>p.id!==thisPupilId);
+  if(others.length){
+    const start=new Date(l.start_time);
+    const durationMins=Math.round((new Date(l.end_time)-start)/60000);
+    const when=start.toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+    const body=`Gap available: ${when} (${durationMins} mins). Open the app and tap Book on this slot if you want it.`;
+    const {data:inserted}=await sb.from("messages").insert(others.map(p=>({pupil_id:p.id, body, direction:"broadcast", subject:"Gap available"}))).select("id");
+    for(const r of (inserted||[])) triggerMsgPush(r.id);
+  }
+  closeModal();
+  renderDiary();
+}
+async function deleteDiaryLesson(id){
+  if(!confirm("Permanently delete this lesson?")) return;
+  const l=diaryLessonsCache.find(x=>x.id===id);
+  const pupilId=l?l.pupil_id:null, startTime=l?l.start_time:null;
+  const {error}=await sb.from("lessons").delete().eq("id",id);
+  if(error) return alert(error.message);
+  if(pupilId && startTime) await deleteReflectiveLogForDate(pupilId,startTime);
   closeModal();
   renderDiary();
 }

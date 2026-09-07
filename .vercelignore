@@ -1,0 +1,11 @@
+# The ~50 topic-video .mp4 files at the repo root are served to portal.html
+# straight from raw.githubusercontent.com (GITHUB_RAW_BASE) — nothing on the
+# Vercel deployment itself ever reads them from its own domain. Every commit
+# to this repo (many per day — this repo also carries admin.html/Control
+# Centre) was still re-uploading all ~450MB of them into a brand new
+# deployment each time, and Vercel's Hobby-plan storage quota counts every
+# retained deployment's output, not just the live one — that's what pushed
+# the team over its 10GB storage limit. Excluding them here doesn't touch
+# git (they stay tracked, GitHub raw keeps serving them), it just stops
+# Vercel from carrying dead weight it was never using.
+*.mp4

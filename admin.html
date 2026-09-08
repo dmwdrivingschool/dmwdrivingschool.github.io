@@ -3672,8 +3672,15 @@ async function loadTeamsPanel(){
   } else if(isSchoolAdminUser && currentSchoolId){
     content.innerHTML=`
       <h2>Your instructors</h2>
-      <p class="muted" style="margin-bottom:.75rem">Lock an instructor's access (e.g. non-payment) or edit their details. Only a super admin can create new instructor logins or delete accounts.</p>
+      <p class="muted" style="margin-bottom:.75rem">Lock an instructor's access (e.g. non-payment) or edit their details. Only a super admin can delete an instructor account.</p>
       <div id="instructors-list">Loading…</div>
+
+      <h3 style="margin:1.5rem 0 .75rem">Add an instructor</h3>
+      <p class="muted" style="margin-bottom:.75rem">Uses one of your paid seats — buy more in Billing first if you're at your limit.</p>
+      <div class="field"><label>Full name</label><input id="new-instr-name"></div>
+      <div class="field"><label>Email</label><input id="new-instr-email" type="email"></div>
+      <div class="field"><label>Phone (optional)</label><input id="new-instr-phone"></div>
+      <button class="btn btn-navy btn-sm" onclick="addInstructorSchool()">Send invite</button>
       <div class="err" id="teams-err" style="margin-top:.5rem"></div>`;
 
     const {data:instructors} = await sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at").eq("role","instructor").eq("school_id",currentSchoolId).order("full_name");
@@ -3911,6 +3918,36 @@ async function addInstructorGlobal(){
     document.getElementById("new-instr-email").value="";
     document.getElementById("new-instr-phone").value="";
     document.getElementById("new-instr-pdi").checked=false;
+    err.style.color="#0a7a3d";
+    err.textContent="Invite sent to "+email+".";
+    await loadTeamsPanel();
+  }catch(e){
+    err.style.color="";
+    err.textContent=e.message||"Failed to add instructor";
+  }
+}
+
+// School-admin self-serve equivalent of addInstructorGlobal() above — the
+// Teams panel had no way for a school admin to add their own instructors at
+// all (only super_admin had a "Send invite" form; a school admin's view was
+// lock/edit-only), even though manage-auth's create_instructor already
+// fully supports it server-side (school-scoped, seat-capped). No school_id
+// or is_pdi here: the edge function defaults school_id to the caller's own
+// school, and a school admin self-serve inviting into a paid seat is never
+// a PDI (that's a super-admin-only billing transition, see
+// setInstructorBilling).
+async function addInstructorSchool(){
+  const err=document.getElementById("teams-err");
+  err.textContent="";
+  const fullName=document.getElementById("new-instr-name").value.trim();
+  const email=document.getElementById("new-instr-email").value.trim().toLowerCase();
+  const phone=document.getElementById("new-instr-phone").value.trim();
+  if(!fullName||!email){ err.textContent="Name and email are required"; return; }
+  try{
+    await manageAuthAdmin("create_instructor", {full_name:fullName, email, phone: phone||null});
+    document.getElementById("new-instr-name").value="";
+    document.getElementById("new-instr-email").value="";
+    document.getElementById("new-instr-phone").value="";
     err.style.color="#0a7a3d";
     err.textContent="Invite sent to "+email+".";
     await loadTeamsPanel();

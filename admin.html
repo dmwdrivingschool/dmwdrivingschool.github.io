@@ -4130,7 +4130,7 @@ async function loadBillingPanel(){
 
   const ownerType = currentSchoolId ? "school" : "instructor";
   const ownerId = currentSchoolId || currentUserId;
-  const {data:sub} = await sb.from("subscriptions").select("plan,status,trial_ends_at,seats_purchased,gocardless_mandate_id,videos_addon").eq("owner_type",ownerType).eq("owner_id",ownerId).maybeSingle();
+  const {data:sub} = await sb.from("subscriptions").select("plan,status,trial_ends_at,seats_purchased,gocardless_mandate_id,videos_addon,cancel_at_period_end,current_period_end,canceled_at,resume_requested_at,resume_request_note").eq("owner_type",ownerType).eq("owner_id",ownerId).maybeSingle();
 
   if(!sub){
     content.innerHTML = '<h2>Billing</h2><p class="muted">No subscription on file — your account predates self-serve billing and isn\'t affected by it.</p>';
@@ -4152,6 +4152,16 @@ async function loadBillingPanel(){
   else if(sub.status==="canceled"){ statusLine="Subscription cancelled"; statusChip='<span class="chip chip-bad">CANCELLED</span>'; }
   else if(sub.status==="mandate_failed"){ statusLine="Direct Debit not confirmed"; statusChip='<span class="chip chip-bad">ACTION NEEDED</span>'; }
   else { statusLine=sub.status; statusChip=""; }
+
+  // Cancelled but not finished: they keep the app until the end of what
+  // they've paid for (or the rest of the trial), so that date is the thing
+  // worth saying — not the word "cancelled" on its own.
+  const accessEndsAt = (sub.status==="trialing"||sub.status==="mandate_failed") ? sub.trial_ends_at : sub.current_period_end;
+  const accessEndsText = accessEndsAt ? new Date(accessEndsAt).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : null;
+  if(sub.cancel_at_period_end){
+    statusLine = accessEndsText ? `Cancelled — access until ${accessEndsText}` : "Cancelled";
+    statusChip = '<span class="chip chip-wait">CANCELLING</span>';
+  }
 
   const planLine = sub.plan==="solo" ? "Solo instructor — £11.99/month" : "Driving school — £13.99/month + £9.99/seat";
 
@@ -4184,6 +4194,30 @@ async function loadBillingPanel(){
       ${sub.videos_addon ? "Switch to Basic" : "Upgrade to Premium (+£2/mo)"}
     </button>`;
 
+  // Cancel / resume. Deliberately at the bottom, plainly worded and not
+  // hidden away — see the Terms: cancel any time, keep what you've paid for.
+  // An invitation from us to come back. It only ever appears here for them
+  // to accept — nothing restarts their Direct Debit without this click.
+  const resumeInvite = (sub.cancel_at_period_end && sub.resume_requested_at)
+    ? `<div class="panel" style="margin:1rem 0;border-left:4px solid var(--navy,#0A4CA1)">
+         <strong>Restart your subscription?</strong>
+         <p class="muted" style="margin-top:.4rem">${sub.resume_request_note?esc(sub.resume_request_note):"We'd love to have you back. Nothing is charged unless you accept — and never for time you've already paid for."}</p>
+         <div class="actions" style="margin-top:.75rem">
+           <button class="btn btn-navy btn-sm" onclick="resumeSubscription()">Yes, restart it</button>
+           <button class="btn-outline" onclick="declineResume()">No thanks</button>
+         </div>
+       </div>`
+    : "";
+
+  const cancelBlock = sub.cancel_at_period_end
+    ? `<h3 style="margin:1.5rem 0 .5rem">Subscription cancelled</h3>
+       <p class="muted">No further payments will be taken.${accessEndsText?` Your access stays on until <strong>${accessEndsText}</strong>.`:""} Changed your mind? You can pick up where you left off — you won't be charged for time you've already paid for.</p>
+       ${resumeInvite}
+       <button class="btn btn-navy btn-sm" style="margin-top:.6rem" onclick="resumeSubscription()">Resume my subscription</button>`
+    : `<h3 style="margin:1.5rem 0 .5rem">Cancel</h3>
+       <p class="muted">Cancel any time. You keep full access until the end of the period you've already paid for${sub.status==="trialing"?" — and your free trial still runs its full length":""}.</p>
+       <button class="btn-outline" style="margin-top:.6rem" onclick="openCancelSubscription('${esc(planLine).replace(/'/g,"&#39;")}','${accessEndsText?esc(accessEndsText).replace(/'/g,"&#39;"):""}',${sub.status==="trialing"?"true":"false"})">Cancel subscription</button>`;
+
   content.innerHTML = `
     <h2>Billing</h2>
     <div class="panel" style="border:none;padding:0">
@@ -4192,8 +4226,112 @@ async function loadBillingPanel(){
       ${mandateBtn}
       ${premiumBlock}
       ${seatsBlock}
+      ${cancelBlock}
       <div class="err" id="billing-err" style="margin-top:.75rem"></div>
     </div>`;
+}
+
+// Why-are-you-leaving capture plus one save step. The reason is stored on
+// the subscription row and pushed to the super admin, so a cancellation is
+// still the start of a conversation rather than just a lost customer.
+const CANCEL_REASONS = [
+  "Too expensive",
+  "Not using it enough",
+  "Missing a feature I need",
+  "Moving to another system",
+  "Stopping instructing / closing the school",
+  "Something went wrong / too many problems",
+  "Other"
+];
+
+function openCancelSubscription(planLine, accessEndsText, isTrial){
+  openModal(`
+    <h3 style="margin:0 0 .75rem">Cancel subscription</h3>
+    <p class="muted" style="margin-bottom:.75rem">
+      ${accessEndsText
+        ? (isTrial
+            ? `Your free trial still runs to <strong>${accessEndsText}</strong> — cancelling now just means you're never charged.`
+            : `You've paid up to <strong>${accessEndsText}</strong>, so the app keeps working until then. Nothing further will be collected.`)
+        : "Nothing further will be collected, and you keep your remaining access."}
+    </p>
+    <div class="field"><label>Why are you leaving?</label>
+      <select id="cancel-reason">${CANCEL_REASONS.map(r=>`<option>${esc(r)}</option>`).join("")}</select>
+    </div>
+    <div class="field"><label>Anything you'd want us to fix? (optional)</label>
+      <textarea id="cancel-feedback" rows="3" placeholder="It genuinely helps — Dale reads these."></textarea>
+    </div>
+    <p class="muted" style="margin:.25rem 0 .75rem">Would you rather talk it through first? Email <a href="mailto:admin@drivemyway.co.uk">admin@drivemyway.co.uk</a> — happy to help before you go.</p>
+    <div class="err" id="cancel-err"></div>
+    <div class="actions" style="margin-top:1rem">
+      <button class="btn-outline" onclick="closeModal()">Keep my subscription</button>
+      <button class="btn btn-danger" id="cancel-confirm-btn" onclick="doCancelSubscription()">Cancel subscription</button>
+    </div>`);
+}
+
+async function doCancelSubscription(ownerType, ownerId){
+  const err=document.getElementById("cancel-err");
+  const btn=document.getElementById("cancel-confirm-btn");
+  if(err) err.textContent="";
+  if(btn){ btn.disabled=true; btn.textContent="Cancelling…"; }
+  const body={ action:"cancel", reason: val("cancel-reason"), feedback: val("cancel-feedback") };
+  if(ownerType && ownerId){ body.owner_type=ownerType; body.owner_id=ownerId; }
+  const {data,error} = await sb.functions.invoke("manage-subscription",{ body });
+  const msg = error?.message || data?.error;
+  if(msg){
+    if(btn){ btn.disabled=false; btn.textContent="Cancel subscription"; }
+    if(err) err.textContent = msg; else alert("Could not cancel: "+msg);
+    return;
+  }
+  closeModal();
+  const until = data?.access_ends_at ? new Date(data.access_ends_at).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : null;
+  alert(until ? `Cancelled. No further payments will be taken, and access continues until ${until}.` : "Cancelled. No further payments will be taken.");
+  if(isSuperAdminUser) await loadBillingPanel(); else await loadBillingPanel();
+}
+
+// Restart billing after a cancellation — for "we talked, they're staying".
+// Only the account holder can do this: it sets up a live Direct Debit
+// again, which is their call, not ours. A super admin sends
+// requestResumeSubscription() instead and waits for them to accept.
+async function resumeSubscription(){
+  if(!confirm("Resume this subscription? Billing restarts from the next payment date — no charge for time already paid for.")) return;
+  const body={ action:"resume" };
+  const {data,error} = await sb.functions.invoke("manage-subscription",{ body });
+  const msg = error?.message || data?.error;
+  if(data?.needs_mandate){
+    alert("The Direct Debit for this account has been cancelled at the bank, so billing can't just restart — they'll need to set up a new Direct Debit from their own Billing tab.");
+    return;
+  }
+  if(msg){ alert("Could not resume: "+msg); return; }
+  const next = data?.next_payment_date ? new Date(data.next_payment_date).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : null;
+  alert(next ? `Subscription resumed. Next payment ${next}.` : "Subscription resumed.");
+  await loadBillingPanel();
+}
+
+async function declineResume(){
+  const {data,error} = await sb.functions.invoke("manage-subscription",{ body:{ action:"decline_resume" } });
+  const msg = error?.message || data?.error;
+  if(msg){ alert("Could not update: "+msg); return; }
+  await loadBillingPanel();
+}
+
+// Super admin: invite a cancelled account back. Records the invitation and
+// notifies them — it can't restart their Direct Debit, only they can.
+async function requestResumeSubscription(ownerType, ownerId, name){
+  const note = prompt(`Ask ${name} to restart their subscription?\n\nThey'll see this message in their Billing tab and get a notification. Nothing is charged unless they accept.\n\nMessage (optional):`, "");
+  if(note===null) return;
+  const {data,error} = await sb.functions.invoke("manage-subscription",{ body:{ action:"request_resume", owner_type:ownerType, owner_id:ownerId, note } });
+  const msg = error?.message || data?.error;
+  if(msg){ alert("Could not send: "+msg); return; }
+  alert(`Sent. ${name} will see it next time they open the Control Centre.`);
+  await loadAllAccountsBilling();
+}
+
+// Super admin: cancel on someone's behalf (phone/email request).
+async function superAdminCancel(ownerType, ownerId, name){
+  if(!confirm(`Cancel ${name}'s subscription?\n\nGoCardless billing stops immediately. They keep access until the end of the period they've already paid for.`)) return;
+  openCancelSubscription("", "", false);
+  const btn=document.getElementById("cancel-confirm-btn");
+  if(btn) btn.setAttribute("onclick", `doCancelSubscription('${ownerType}','${ownerId}')`);
 }
 
 // Switch Basic <-> Premium. Without an explicit owner it acts on the
@@ -4254,7 +4392,7 @@ async function loadSuperAdminBilling(){
 
 async function loadAllAccountsBilling(){
   const el=document.getElementById("all-accounts-list");
-  const {data:subs} = await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased").order("created_at",{ascending:false});
+  const {data:subs} = await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,cancel_at_period_end,trial_ends_at,current_period_end,cancel_reason").order("created_at",{ascending:false});
   const rows = subs||[];
   const schoolIds = rows.filter(s=>s.owner_type==="school").map(s=>s.owner_id);
   const instrIds = rows.filter(s=>s.owner_type==="instructor").map(s=>s.owner_id);
@@ -4270,8 +4408,21 @@ async function loadAllAccountsBilling(){
       ? (schoolById[s.owner_id]?.display_name || schoolById[s.owner_id]?.name || "Unknown school")
       : (instrById[s.owner_id]?.full_name || instrById[s.owner_id]?.email || "Unknown instructor");
     const nameEsc = esc(name).replace(/'/g,"&#39;");
-    return `<div class="list-row"><div><strong>${esc(name)}</strong> ${renderStatusChip(s.status)}<div class="muted">${esc(s.plan)}${s.owner_type==="school"?" · "+s.seats_purchased+" seat"+(s.seats_purchased===1?"":"s"):""}</div></div>
-      <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showPaymentHistory('${s.id}','${nameEsc}')">Payment history</button>
+    // Cancelled accounts get an invite-back button instead of a cancel
+    // one; the invite only asks, it can't restart their Direct Debit.
+    const endsAt = (s.status==="trialing"||s.status==="mandate_failed") ? s.trial_ends_at : s.current_period_end;
+    const endsText = endsAt ? new Date(endsAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : null;
+    const cancelNote = s.cancel_at_period_end
+      ? `<div class="muted">Cancelled${endsText?` · access to ${endsText}`:""}${s.cancel_reason?` · ${esc(s.cancel_reason)}`:""}</div>`
+      : "";
+    const subBtn = s.cancel_at_period_end
+      ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="requestResumeSubscription('${s.owner_type}','${s.owner_id}','${nameEsc}')">Ask to resume</button>`
+      : `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="superAdminCancel('${s.owner_type}','${s.owner_id}','${nameEsc}')">Cancel</button>`;
+    return `<div class="list-row"><div><strong>${esc(name)}</strong> ${s.cancel_at_period_end?'<span class="chip chip-wait">CANCELLING</span>':renderStatusChip(s.status)}<div class="muted">${esc(s.plan)}${s.owner_type==="school"?" · "+s.seats_purchased+" seat"+(s.seats_purchased===1?"":"s"):""}</div>${cancelNote}</div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showPaymentHistory('${s.id}','${nameEsc}')">Payment history</button>
+        ${subBtn}
+      </div>
     </div>`;
   }).join("") : '<p class="muted">No subscriptions yet.</p>';
 }

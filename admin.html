@@ -3871,8 +3871,53 @@ async function deleteInstructor(instructorId, name){
   try{
     await manageAuthAdmin("delete_instructor", {instructor_id:instructorId});
     await loadTeamsPanel();
+    await offerSeatReduction();
   }catch(e){
     err.textContent=e.message||"Failed to delete instructor";
+  }
+}
+
+// £13.99 base + £9.99 per extra seat, +£2 per seat on Premium — same sum
+// the GoCardless subscription is built from (see gocardless-webhook).
+const SCHOOL_BASE_PENCE = 1399;
+const VIDEO_ADDON_PENCE = 200;
+function schoolMonthlyPence(seats, videosAddon){
+  const addon = videosAddon ? VIDEO_ADDON_PENCE : 0;
+  return SCHOOL_BASE_PENCE + addon + (SEAT_PRICE_PENCE + addon) * Math.max(0, seats - 1);
+}
+const gbp = pence => "£" + (pence/100).toFixed(2);
+
+/**
+ * Removing an instructor doesn't free the seat they occupied — the school
+ * would quietly keep paying £9.99/month for an empty one until somebody
+ * noticed. Offer the reduction right here, with the actual money on it.
+ * Deliberately a question, not automatic: a school replacing someone will
+ * want to hold the seat.
+ */
+async function offerSeatReduction(){
+  if(!currentSchoolId) return;
+  const {data:sub} = await sb.from("subscriptions")
+    .select("seats_purchased,videos_addon,status,cancel_at_period_end")
+    .eq("owner_type","school").eq("owner_id",currentSchoolId).maybeSingle();
+  if(!sub || sub.cancel_at_period_end) return;
+  const {count} = await sb.from("profiles").select("id",{count:"exact",head:true})
+    .eq("role","instructor").eq("school_id",currentSchoolId);
+  const instructors = count || 0;
+  const spare = sub.seats_purchased - instructors;
+  if(spare < 1) return;
+  const next = Math.max(1, instructors);
+  const now = schoolMonthlyPence(sub.seats_purchased, sub.videos_addon);
+  const then = schoolMonthlyPence(next, sub.videos_addon);
+  if(then >= now) return;
+  const msg = `You now have ${instructors} instructor${instructors===1?"":"s"} but are paying for ${sub.seats_purchased} seat${sub.seats_purchased===1?"":"s"}.\n\n`
+    + `Also drop to ${next} seat${next===1?"":"s"}? Your monthly payment goes from ${gbp(now)} to ${gbp(then)}.\n\n`
+    + `The change applies from your next payment. Choose Cancel to keep the seat open for a replacement.`;
+  if(!confirm(msg)) return;
+  try{
+    await callFn("update-seat-quantity", {seats: next});
+    alert(`Done — you're now paying for ${next} seat${next===1?"":"s"} (${gbp(then)}/month from your next payment).`);
+  }catch(e){
+    alert("Could not update seats: " + (e.message||"unknown error"));
   }
 }
 
@@ -4172,8 +4217,25 @@ async function loadBillingPanel(){
 
   let seatsBlock = "";
   if(sub.plan==="school"){
+    // Paying for seats nobody sits in is the easiest billing complaint to
+    // avoid, so say it plainly with the money attached rather than leaving
+    // them to spot it on a bank statement months later.
+    const spare = sub.seats_purchased - instructorCount;
+    let unusedBanner = "";
+    if(spare > 0 && !sub.cancel_at_period_end){
+      const nextSeats = Math.max(1, instructorCount);
+      const saving = schoolMonthlyPence(sub.seats_purchased, sub.videos_addon) - schoolMonthlyPence(nextSeats, sub.videos_addon);
+      if(saving > 0){
+        unusedBanner = `<div class="panel" style="margin:.75rem 0;border-left:4px solid #f1c40f">
+          <strong>You're paying for ${spare} unused seat${spare===1?"":"s"}.</strong>
+          <p class="muted" style="margin-top:.4rem">${instructorCount} instructor${instructorCount===1?"":"s"} on ${sub.seats_purchased} seats. Dropping to ${nextSeats} would save ${gbp(saving)} a month from your next payment.</p>
+          <button class="btn btn-navy btn-sm" style="margin-top:.6rem" onclick="reduceToUsedSeats(${nextSeats})">Drop to ${nextSeats} seat${nextSeats===1?"":"s"}</button>
+        </div>`;
+      }
+    }
     seatsBlock = `
       <h3 style="margin:1.5rem 0 .75rem">Instructor seats</h3>
+      ${unusedBanner}
       <p class="muted">${instructorCount} of ${sub.seats_purchased} seat${sub.seats_purchased===1?"":"s"} used</p>
       <div style="display:flex;align-items:center;gap:.6rem;margin-top:.6rem">
         <button class="btn-outline" onclick="changeSeats(-1,${sub.seats_purchased},${instructorCount})">−</button>
@@ -4601,6 +4663,18 @@ async function startBillingRequest(){
     if(res.authorisation_url) window.location.href = res.authorisation_url;
   }catch(e){
     err.textContent = e.message||"Could not start payment setup";
+  }
+}
+
+// One-click version of the − button for the unused-seat banner.
+async function reduceToUsedSeats(seats){
+  const err=document.getElementById("billing-err");
+  if(err) err.textContent="";
+  try{
+    await callFn("update-seat-quantity", {seats});
+    await loadBillingPanel();
+  }catch(e){
+    if(err) err.textContent = e.message||"Could not update seats"; else alert(e.message||"Could not update seats");
   }
 }
 

@@ -985,6 +985,36 @@ async function submitSignup(){
  * confirmed on another device, then came back and signed in normally).
  * Falls through to enterApp() either way once a profile exists.
  */
+/**
+ * A trial without a Direct Debit is free access with nothing attached to it,
+ * and nothing used to ask for one after signup — the mandate step only ran on
+ * the single path where a profile did not exist yet, so signing in any other
+ * way skipped it entirely. This runs on every entry: if the account has a
+ * subscription with no mandate, it goes to GoCardless before the dashboard.
+ * Returns true if it is redirecting, so callers stop what they are doing.
+ */
+async function requireMandateOrRedirect(user){
+  try{
+    const { data: prof } = await sb.from("profiles").select("role,school_id").eq("id", user.id).maybeSingle();
+    if(!prof || (prof.role !== "instructor")) return false;
+    const ownerType = prof.school_id ? "school" : "instructor";
+    const ownerId = prof.school_id || user.id;
+    const { data: sub } = await sb.from("subscriptions")
+      .select("status,gocardless_mandate_id")
+      .eq("owner_type", ownerType).eq("owner_id", ownerId).maybeSingle();
+    // No subscription row = an account from before self-serve billing. Leave alone.
+    if(!sub || sub.gocardless_mandate_id) return false;
+    if(sub.status !== "trialing" && sub.status !== "mandate_failed") return false;
+    const res = await callFn("create-billing-request", {});
+    if(res && res.authorisation_url){ window.location.href = res.authorisation_url; return true; }
+    return false;
+  }catch(e){
+    alert("We could not start your Direct Debit setup: " + (e.message || "unknown error") +
+          String.fromCharCode(10,10) + "You can try again from the Billing tab.");
+    return false;
+  }
+}
+
 async function provisionIfNeededAndEnter(user){
   let { data: prof } = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id", user.id).maybeSingle();
   if(!prof && user.user_metadata?.role === "instructor"){
@@ -998,7 +1028,13 @@ async function provisionIfNeededAndEnter(user){
       try{
         const billingRes = await callFn("create-billing-request", {});
         if(billingRes.authorisation_url){ window.location.href = billingRes.authorisation_url; return; }
-      }catch(billingErr){ /* fall through to entering the Control Centre directly */ }
+      }catch(billingErr){
+        // Was a bare swallow. That turned a GoCardless credentials error
+        // into a silent no-op: the user landed in the Control Centre with
+        // no mandate, no message, and no idea anything had failed.
+        alert('We could not start your Direct Debit setup: ' + (billingErr.message || 'unknown error') +
+              String.fromCharCode(10,10) + 'You can try again from the Billing tab.');
+      }
       const refetched = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id", user.id).maybeSingle();
       prof = refetched.data;
     }
@@ -1010,7 +1046,10 @@ sb.auth.getSession().then(async ({data})=>{
   if(pendingRecovery){ showRecoveryForm(); return; }
   const { data: prof } = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.session.user.id).maybeSingle();
   if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin")return;
-  if(prof){ enterApp(data.session.user,prof); return; }
+  if(prof){
+    if(await requireMandateOrRedirect(data.session.user)) return;
+    enterApp(data.session.user,prof); return;
+  }
   // No profile yet — either mid-signup (email link just confirmed) or a
   // genuinely unrelated account. provisionIfNeededAndEnter() only acts on
   // the former (checks user_metadata.role itself) and falls through to a

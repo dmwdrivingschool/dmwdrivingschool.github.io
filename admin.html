@@ -238,6 +238,14 @@ tbody tr:hover td{background:#334263}
     </div>
     <p style="text-align:center;margin-top:1rem;font-size:.85rem;color:var(--muted)"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">← Back to sign in</a></p>
   </div>
+  <div id="gate-mandate" class="hidden">
+    <p class="sub">One more step</p>
+    <p style="font-weight:700;margin-bottom:.4rem">Your Direct Debit still needs setting up</p>
+    <p class="muted" id="mandate-gate-copy" style="line-height:1.5;margin-bottom:1rem">Your free trial is running. Nothing is charged until it ends.</p>
+    <button class="btn btn-navy full" id="mandate-gate-btn" onclick="startMandateFromGate()">Set up Direct Debit</button>
+    <div class="err" id="mandate-err"></div>
+    <p style="text-align:center;margin-top:1rem;font-size:.85rem"><a href="#" onclick="logoutFromGate();return false" style="color:var(--navy);font-weight:600">Log out</a></p>
+  </div>
 </div>
 
 <div id="app">
@@ -730,6 +738,7 @@ async function unlock(){
     await provisionIfNeededAndEnter(data.user);
     return;
   }
+  if(await requireMandateOrRedirect(data.user)) return;
   enterApp(data.user,prof);
 }
 async function resolveVideoAccess(prof){
@@ -993,10 +1002,18 @@ async function submitSignup(){
  * subscription with no mandate, it goes to GoCardless before the dashboard.
  * Returns true if it is redirecting, so callers stop what they are doing.
  */
+/**
+ * The mandate gate. A trialing account with no Direct Debit does not get
+ * into the Control Centre at all (Dale's call), but it gets a page saying
+ * so, with the one button that fixes it and a way to log out -- not a silent
+ * bounce to GoCardless on every visit with no exit. Runs on session restore
+ * AND on a fresh sign-in; the first trip after email confirmation is still
+ * automatic (provisionIfNeededAndEnter). Returns true when it has taken
+ * over the screen, so the caller stops.
+ */
 async function requireMandateOrRedirect(user){
   // Just back from the hosted GoCardless flow: the mandate exists but the
-  // webhook that writes it to our row may still be in flight. Do not send
-  // them straight back to GoCardless; let them in and tidy the URL.
+  // webhook that writes it to our row may still be in flight. Let them in.
   if(new URLSearchParams(location.search).get("dd")==="done"){
     try{ history.replaceState(null, "", location.pathname); }catch(e){}
     return false;
@@ -1007,21 +1024,53 @@ async function requireMandateOrRedirect(user){
     const ownerType = prof.school_id ? "school" : "instructor";
     const ownerId = prof.school_id || user.id;
     const { data: sub } = await sb.from("subscriptions")
-      .select("status,gocardless_mandate_id")
+      .select("status,plan,trial_ends_at,seats_purchased,videos_addon,gocardless_mandate_id")
       .eq("owner_type", ownerType).eq("owner_id", ownerId).maybeSingle();
     // No subscription row = an account from before self-serve billing. Leave alone.
     if(!sub || sub.gocardless_mandate_id) return false;
     if(sub.status !== "trialing" && sub.status !== "mandate_failed") return false;
-    const res = await callFn("create-billing-request", {});
-    if(res && res.authorisation_url){ window.location.href = res.authorisation_url; return true; }
-    return false;
+    showMandateGate(sub);
+    return true;
   }catch(e){
-    alert("We could not start your Direct Debit setup: " + (e.message || "unknown error") +
-          String.fromCharCode(10,10) + "You can try again from the Billing tab.");
     return false;
   }
 }
 
+function showMandateGate(sub){
+  document.getElementById("app").style.display="none";
+  document.getElementById("gate").style.display="block";
+  ["gate-signin","gate-signup","gate-recovery"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add("hidden"); });
+  document.getElementById("gate-mandate").classList.remove("hidden");
+  const addon = sub.videos_addon ? 200 : 0;
+  const monthly = sub.plan==="solo" ? 1199+addon : 1399+addon + (999+addon)*Math.max(0,(sub.seats_purchased||1)-1);
+  const end = sub.trial_ends_at ? new Date(sub.trial_ends_at) : null;
+  const first = end && end.getTime()>Date.now() ? new Date(end.getTime()+86400000) : null;
+  const fmt = d => d.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+  const copy = document.getElementById("mandate-gate-copy");
+  copy.textContent = sub.status==="mandate_failed"
+    ? "Your Direct Debit could not be confirmed, so it needs setting up again. Nothing is charged until your trial ends."
+    : (first
+        ? "Your free trial is running until " + fmt(end) + ". Nothing is charged before then. From " + fmt(first) + " it is " + gbp(monthly) + " a month, and you can cancel any time."
+        : "Your trial has ended. Setting up the Direct Debit restores access, and the first payment is " + gbp(monthly) + ".");
+}
+
+async function startMandateFromGate(){
+  const err=document.getElementById("mandate-err"); err.textContent="";
+  const btn=document.getElementById("mandate-gate-btn"); btn.disabled=true; btn.textContent="Opening GoCardless…";
+  try{
+    const res = await callFn("create-billing-request", {});
+    if(res && res.authorisation_url){ window.location.href = res.authorisation_url; return; }
+    err.textContent = "GoCardless did not return a setup link. Please try again.";
+  }catch(e){
+    err.textContent = e.message || "Could not start Direct Debit setup";
+  }
+  btn.disabled=false; btn.textContent="Set up Direct Debit";
+}
+
+async function logoutFromGate(){
+  try{ await sb.auth.signOut({scope:"local"}); }catch(e){}
+  location.href = location.pathname;
+}
 async function provisionIfNeededAndEnter(user){
   let { data: prof } = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id", user.id).maybeSingle();
   if(!prof && user.user_metadata?.role === "instructor"){

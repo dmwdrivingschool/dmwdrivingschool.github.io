@@ -3887,6 +3887,22 @@ function schoolMonthlyPence(seats, videosAddon){
 }
 const gbp = pence => "£" + (pence/100).toFixed(2);
 
+// GoCardless prepares each collection days before it actually takes the
+// money, and amending the amount does NOT re-price a payment it has already
+// prepared. So a seat change made close to the billing date bills the OLD
+// figure for that month. update-seat-quantity detects that and hands back
+// the pending payment; say so plainly rather than let a school find out
+// from their bank statement.
+function seatChangeNote(res){
+  if(!res || !res.pending_payment) return "";
+  const p = res.pending_payment;
+  const when = p.charge_date
+    ? new Date(p.charge_date + "T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"long"})
+    : "your next";
+  return "\n\nNote: your " + when + " payment of " + gbp(p.amount) +
+         " was already prepared by the bank, so it goes out at the old amount. The new amount starts the month after.";
+}
+
 /**
  * Removing an instructor doesn't free the seat they occupied — the school
  * would quietly keep paying £9.99/month for an empty one until somebody
@@ -3914,8 +3930,8 @@ async function offerSeatReduction(){
     + `The change applies from your next payment. Choose Cancel to keep the seat open for a replacement.`;
   if(!confirm(msg)) return;
   try{
-    await callFn("update-seat-quantity", {seats: next});
-    alert(`Done — you're now paying for ${next} seat${next===1?"":"s"} (${gbp(then)}/month from your next payment).`);
+    const seatRes = await callFn("update-seat-quantity", {seats: next});
+    alert(`Done — you're now paying for ${next} seat${next===1?"":"s"} (${gbp(then)}/month from your next payment).` + seatChangeNote(seatRes));
   }catch(e){
     alert("Could not update seats: " + (e.message||"unknown error"));
   }
@@ -4671,7 +4687,8 @@ async function reduceToUsedSeats(seats){
   const err=document.getElementById("billing-err");
   if(err) err.textContent="";
   try{
-    await callFn("update-seat-quantity", {seats});
+    const seatRes = await callFn("update-seat-quantity", {seats});
+    const note = seatChangeNote(seatRes); if(note) alert(note.trim());
     await loadBillingPanel();
   }catch(e){
     if(err) err.textContent = e.message||"Could not update seats"; else alert(e.message||"Could not update seats");
@@ -4685,7 +4702,8 @@ async function changeSeats(delta, currentSeats, instructorCount){
   if(next < instructorCount){ err.textContent=`Can't reduce below your current ${instructorCount} instructors — remove one first.`; return; }
   if(next < 1) return;
   try{
-    await callFn("update-seat-quantity", {seats: next});
+    const seatRes = await callFn("update-seat-quantity", {seats: next});
+    const note = seatChangeNote(seatRes); if(note) alert(note.trim());
     await loadBillingPanel();
   }catch(e){
     err.textContent = e.message||"Could not update seats";

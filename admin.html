@@ -319,6 +319,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('terms')"><span class="ico">📄</span><div><strong>School terms</strong><span>The terms pupils accept at first login</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('enquiryWidget')"><span class="ico">🧲</span><div><strong>Your enquiry form</strong><span>Website embed code &amp; gearbox message</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('importExport')"><span class="ico">📇</span><div><strong>Import / export pupils</strong><span>CSV backup, or switch over from another app</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('importExportFinance')"><span class="ico">💷</span><div><strong>Import / export finances</strong><span>CSV backup of income &amp; expenses, or bring records over</span></div></button>
         </div>
       </div>
     </section>
@@ -556,6 +557,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('terms')">School terms</button>
           <button type="button" onclick="openSettings('enquiryWidget')">Your enquiry form</button>
           <button type="button" onclick="openSettings('importExport')">Import / export pupils</button>
+          <button type="button" onclick="openSettings('importExportFinance')">Import / export finances</button>
         </div>
         <div id="settings-panel" class="hidden" style="margin-top:1rem"></div>
       </div>
@@ -3131,6 +3133,25 @@ async function openSettings(which){
         <input type="file" accept=".csv,text/csv" hidden onchange="importPupilsCsv(event)">
       </label>
       <div class="muted" id="import-status" style="margin-top:.75rem;white-space:pre-line"></div>`;
+  } else if(which==="importExportFinance"){
+    // Same two actions the Finances tab has, surfaced from the dashboard so
+    // they are as easy to find as the pupils ones (Dale, 2026-09-09).
+    // Export uses whatever period is selected on the Finances tab.
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Export finances</h3>
+      <p class="muted" style="margin-bottom:.75rem">Download your income and expenses as a CSV spreadsheet — a backup, or for your accountant. Covers the period currently selected on the Finances tab (this tax year by default).</p>
+      <button class="btn btn-navy btn-sm" onclick="exportFinance()">Download CSV</button>
+
+      <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--line)">
+      <h3 style="margin:0 0 .75rem">Import finances</h3>
+      <p class="muted" style="margin-bottom:.75rem">
+        Bringing records over from another app or a spreadsheet? Upload a CSV. Columns are matched by name
+        (date, type, category, amount, method, notes) and anything else is ignored, so a download from the Export button above imports straight back in.
+      </p>
+      <label class="btn btn-navy btn-sm" style="cursor:pointer;display:inline-block">
+        📥 Choose CSV file
+        <input type="file" accept=".csv,text/csv" hidden onchange="importCsv(event)">
+      </label>`;
   }
 }
 

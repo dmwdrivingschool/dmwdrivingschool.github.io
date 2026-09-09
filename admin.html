@@ -50,6 +50,11 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);min-height:100
 .stat strong{display:block;font-family:var(--fd);font-weight:800;font-size:1.9rem;color:var(--navy);line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .stat span{font-size:.78rem;color:var(--muted);font-weight:500}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:1.35rem 1.3rem;margin-bottom:1.1rem;box-shadow:var(--shadow)}
+/* Billing: flat, not a raised card floating over the page (Dale, 2026-09-09).
+   The nested panel it renders inside keeps no bottom margin, so there is no
+   dead space under the last section. */
+#billing-content{box-shadow:none}
+#billing-content .panel{margin-bottom:0;box-shadow:none}
 .panel h2{font-family:var(--fd);font-weight:700;font-size:1.05rem;letter-spacing:-.01em;color:var(--ink);margin-bottom:1rem}
 .metric-row{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
 @media(min-width:700px){.metric-row{grid-template-columns:repeat(4,1fr)}}

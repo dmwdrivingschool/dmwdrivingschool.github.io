@@ -4526,6 +4526,30 @@ async function requestResumeSubscription(ownerType, ownerId, name){
 }
 
 // Super admin: cancel on someone's behalf (phone/email request).
+// Hand-granted access until a date, regardless of billing state (failed
+// payment past its grace, Direct Debit cancelled, trial with no mandate,
+// even cancelled). subscription_active() honours it until it expires.
+// Dale: for when someone has phoned and is sorting it out.
+async function superAdminExtendAccess(ownerType, ownerId, name){
+  const days = prompt(`Extend ${name}'s access for how many days from today? (max 90)`, "14");
+  if(days===null) return;
+  const n = Number(days);
+  if(!Number.isInteger(n) || n<1 || n>90){ alert("Enter a whole number of days, 1 to 90."); return; }
+  const until = new Date(Date.now() + n*86400000);
+  try{
+    await callFn("manage-subscription", {action:"extend_access", owner_type:ownerType, owner_id:ownerId, until: until.toISOString()});
+    alert(`${name} now has access until ${until.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}, whatever their billing state. It expires on its own.`);
+    loadAllAccountsBilling();
+  }catch(e){ alert("Could not extend access: " + (e.message||"unknown error")); }
+}
+async function superAdminClearExtension(ownerType, ownerId, name){
+  if(!confirm(`Remove the access extension for ${name}? Normal billing rules apply again immediately.`)) return;
+  try{
+    await callFn("manage-subscription", {action:"clear_extension", owner_type:ownerType, owner_id:ownerId});
+    loadAllAccountsBilling();
+  }catch(e){ alert("Could not clear the extension: " + (e.message||"unknown error")); }
+}
+
 async function superAdminCancel(ownerType, ownerId, name){
   if(!confirm(`Cancel ${name}'s subscription?\n\nGoCardless billing stops immediately. They keep access until the end of the period they've already paid for.`)) return;
   openCancelSubscription("", "", false);
@@ -4591,7 +4615,7 @@ async function loadSuperAdminBilling(){
 
 async function loadAllAccountsBilling(){
   const el=document.getElementById("all-accounts-list");
-  const {data:subs} = await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,cancel_at_period_end,trial_ends_at,current_period_end,cancel_reason").order("created_at",{ascending:false});
+  const {data:subs} = await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,cancel_at_period_end,trial_ends_at,current_period_end,cancel_reason,access_until_override").order("created_at",{ascending:false});
   const rows = subs||[];
   const schoolIds = rows.filter(s=>s.owner_type==="school").map(s=>s.owner_id);
   const instrIds = rows.filter(s=>s.owner_type==="instructor").map(s=>s.owner_id);
@@ -4611,15 +4635,18 @@ async function loadAllAccountsBilling(){
     // one; the invite only asks, it can't restart their Direct Debit.
     const endsAt = (s.status==="trialing"||s.status==="mandate_failed") ? s.trial_ends_at : s.current_period_end;
     const endsText = endsAt ? new Date(endsAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : null;
+    const extUntil = s.access_until_override && new Date(s.access_until_override).getTime() > Date.now() ? new Date(s.access_until_override) : null;
+    const extNote = extUntil ? `<div class="muted">Access extended to ${extUntil.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})} <a href="#" onclick="superAdminClearExtension('${s.owner_type}','${s.owner_id}','${nameEsc}');return false" style="color:var(--navy)">clear</a></div>` : "";
     const cancelNote = s.cancel_at_period_end
       ? `<div class="muted">Cancelled${endsText?` · access to ${endsText}`:""}${s.cancel_reason?` · ${esc(s.cancel_reason)}`:""}</div>`
       : "";
     const subBtn = s.cancel_at_period_end
       ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="requestResumeSubscription('${s.owner_type}','${s.owner_id}','${nameEsc}')">Ask to resume</button>`
       : `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="superAdminCancel('${s.owner_type}','${s.owner_id}','${nameEsc}')">Cancel</button>`;
-    return `<div class="list-row"><div><strong>${esc(name)}</strong> ${s.cancel_at_period_end?'<span class="chip chip-wait">CANCELLING</span>':renderStatusChip(s.status)}<div class="muted">${esc(s.plan)}${s.owner_type==="school"?" · "+s.seats_purchased+" seat"+(s.seats_purchased===1?"":"s"):""}</div>${cancelNote}</div>
+    return `<div class="list-row"><div><strong>${esc(name)}</strong> ${s.cancel_at_period_end?'<span class="chip chip-wait">CANCELLING</span>':renderStatusChip(s.status)}<div class="muted">${esc(s.plan)}${s.owner_type==="school"?" · "+s.seats_purchased+" seat"+(s.seats_purchased===1?"":"s"):""}</div>${cancelNote}${extNote}</div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap">
         <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showPaymentHistory('${s.id}','${nameEsc}')">Payment history</button>
+        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="superAdminExtendAccess('${s.owner_type}','${s.owner_id}','${nameEsc}')">Extend access</button>
         ${subBtn}
       </div>
     </div>`;

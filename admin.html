@@ -994,6 +994,13 @@ async function submitSignup(){
  * Returns true if it is redirecting, so callers stop what they are doing.
  */
 async function requireMandateOrRedirect(user){
+  // Just back from the hosted GoCardless flow: the mandate exists but the
+  // webhook that writes it to our row may still be in flight. Do not send
+  // them straight back to GoCardless; let them in and tidy the URL.
+  if(new URLSearchParams(location.search).get("dd")==="done"){
+    try{ history.replaceState(null, "", location.pathname); }catch(e){}
+    return false;
+  }
   try{
     const { data: prof } = await sb.from("profiles").select("role,school_id").eq("id", user.id).maybeSingle();
     if(!prof || (prof.role !== "instructor")) return false;

@@ -3974,7 +3974,7 @@ async function openSchoolPayment(pupilId){
       <div class="field"><label>Amount (£)</label><input id="sp-amt" type="number" step="0.01" min="0"></div>
       <div class="field"><label>Date</label><input id="sp-date" type="date" value="${today}"></div>
       <div class="field"><label>Method</label><select id="sp-method"><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Other</option></select></div>
-      <div class="field"><label>Category</label><select id="sp-cat"><option>Pupil Lesson</option><option>Pupil Test Fee</option></select></div>
+      <div class="field"><label>What for</label><select id="sp-cat"><option>Lessons</option><option>Test fee</option></select></div>
       <div class="field"><label>Lesson hours paid for</label><input id="sp-hrs" type="number" min="0" step="1" placeholder="e.g. 2"></div>
       <div class="field"><label>Minutes</label><input id="sp-mins" type="number" min="0" max="59" step="1" placeholder="0"></div>
     </div>
@@ -3992,8 +3992,10 @@ async function saveSchoolPayment(pupilId){
   const hrs=document.getElementById("sp-hrs").value, mins=document.getElementById("sp-mins").value;
   let notes=val("sp-notes")||"";
   if(hrs||mins) notes=(notes?notes+" ":"")+`(${hrs||0}h ${mins||0}m)`;
-  notes=(notes?notes+" · ":"")+"Taken by the school";
-  const payload={type:"income", category:document.getElementById("sp-cat").value, amount, transaction_date:date, payment_method:document.getElementById("sp-method").value, notes, pupil_id:pupilId, instructor_id:currentUserId, related_instructor_id:p.instructor_id};
+  notes=(notes?notes+" · ":"")+document.getElementById("sp-cat").value+" for "+instrName(p.instructor_id)+" · taken by the school";
+  // On the school's books this is "School payment" — money held for an
+  // instructor — never "Pupil Lesson", which is for the owner's own pupils.
+  const payload={type:"income", category:SCHOOL_MONEY_CATS.income, amount, transaction_date:date, payment_method:document.getElementById("sp-method").value, notes, pupil_id:pupilId, instructor_id:currentUserId, related_instructor_id:p.instructor_id};
   const {error}=await sb.from("transactions").insert(payload);
   if(error){ err.textContent=error.message; return; }
   const h=hoursFromFields(hrs,mins); if(h) await adjustPupilCredit(pupilId,h);

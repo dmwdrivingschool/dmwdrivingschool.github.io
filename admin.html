@@ -333,6 +333,7 @@ tbody tr:hover td{background:#334263}
           <button data-status="waiting">Waiting</button>
           <button data-status="passed">Passed</button>
           <button data-status="inactive">Inactive</button>
+          <button data-status="unassigned" id="pupil-filter-unassigned" class="hidden">Unassigned</button>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:.75rem">
           <input id="pupil-search" placeholder="Search name / phone / email" style="flex:1;min-width:180px;padding:.65rem .75rem;border:1px solid var(--line);border-radius:8px">
@@ -607,7 +608,7 @@ async function saveFinanceCategories(){
   return true;
 }
 
-let pupilsCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="active";
+let pupilsCache=[], unassignedCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="active";
 // Diary parity with the app (src/pages/Diary.tsx) — hide-cancelled toggle,
 // the currently-rendered week's lessons (so block clicks can look up the
 // full row without a second fetch), and lesson-swap picker state.
@@ -773,6 +774,8 @@ async function enterApp(user,prof){
   document.getElementById("nav-teams-btn").classList.toggle("hidden", !isSuperAdminUser && !isSchoolAdminUser);
   document.getElementById("nav-billing-btn").classList.remove("hidden"); // seat instructors get the tab too, but only a pointer to their admin (see loadBillingPanel)
   document.getElementById("nav-website-btn").classList.toggle("hidden", !isSuperAdminUser); // public website is your (platform admin's) tool only — never a driving school's
+  document.getElementById("pupil-filter-unassigned").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
+  await loadSchoolInstructors();
   await refresh(); setInterval(refresh,30000);
   checkProfileCompletion();
 }
@@ -1190,7 +1193,16 @@ async function refresh(){
 async function loadPupils(){
   const {data,error}=await sb.from("pupils").select("*").order("first_name",{ascending:true});
   if(error){showBanner("Pupils: "+error.message); pupilsCache=[]; return}
-  pupilsCache=data||[]; showBanner("");
+  // School pool: pupils with no instructor yet (added as Unassigned, or
+  // whose instructor was removed). Only a school admin can see them, and
+  // only on the Pupils tab's Unassigned filter — they must not appear in
+  // diary/gap/message pickers until someone is assigned (Dale).
+  const all=data||[];
+  unassignedCache = all.filter(p=>!p.instructor_id && p.status!=="enquiry");
+  pupilsCache = all.filter(p=>p.instructor_id || p.status==="enquiry");
+  const tab=document.getElementById("pupil-filter-unassigned");
+  if(tab){ tab.textContent = "Unassigned" + (unassignedCache.length ? " (" + unassignedCache.length + ")" : ""); }
+  showBanner("");
 }
 async function loadPayments(){
   const pageSize=1000;
@@ -1299,11 +1311,15 @@ function addrLine(p){
 
 function renderPupils(){
   const q=(document.getElementById("pupil-search").value||"").toLowerCase();
-  let list=pupilsCache.filter(p=>p.status!=="enquiry");
-  list=list.filter(p=>p.status===pupilStatusFilter);
+  const unassignedView = pupilStatusFilter==="unassigned";
+  let list = unassignedView ? unassignedCache.slice() : pupilsCache.filter(p=>p.status!=="enquiry" && p.status===pupilStatusFilter);
   if(q) list=list.filter(p=>`${p.first_name} ${p.last_name} ${p.phone||""} ${p.email||""}`.toLowerCase().includes(q));
+  const assignSel = (p) => unassignedView ? `<select onchange="assignPoolPupil('${p.id}',this.value)" style="font-size:.8rem">
+        <option value="">Assign to…</option>
+        ${schoolInstructorsCache.map(i=>`<option value="${i.id}">${esc(i.full_name||i.email)}${i.id===currentUserId?" (me)":""}</option>`).join("")}
+      </select>` : "";
   const el=document.getElementById("pupil-list");
-  if(!list.length){el.innerHTML='<p class="muted">No pupils</p>';return}
+  if(!list.length){el.innerHTML=unassignedView?'<p class="muted">No unassigned pupils — every pupil in the school has an instructor.</p>':'<p class="muted">No pupils</p>';return}
   el.innerHTML=list.map(p=>`<div class="list-row">
     <div style="flex:1;min-width:0">
       <strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
@@ -1312,6 +1328,7 @@ function renderPupils(){
     </div>
     <div class="actions">
       <span class="chip ${p.status==="active"?"chip-ok":p.status==="waiting"?"chip-wait":"chip-info"}">${esc(p.status)}</span>
+      ${assignSel(p)}
       <button class="btn-outline" onclick="showPupilById('${p.id}')">Details</button>
       <button class="btn-outline" onclick="editPupilById('${p.id}')">Edit</button>
       ${p.email?`<button class="btn-outline" onclick="copyEmail('${esc(p.email)}')">Email</button>`:""}
@@ -1325,8 +1342,8 @@ function renderPupils(){
 // silently break the button (click does nothing, no error visible). Looking
 // the pupil up by id from the already-loaded cache — same pattern the diary
 // already used for its own "open pupil" clicks — is robust to that.
-function showPupilById(id){ const p=pupilsCache.find(x=>x.id===id); if(p) showPupil(p); }
-function editPupilById(id){ const p=pupilsCache.find(x=>x.id===id); if(p) editPupil(p); }
+function showPupilById(id){ const p=pupilsCache.concat(unassignedCache).find(x=>x.id===id); if(p) showPupil(p); }
+function editPupilById(id){ const p=pupilsCache.concat(unassignedCache).find(x=>x.id===id); if(p) editPupil(p); }
 
 function copyEmail(email){
   navigator.clipboard.writeText(email).then(()=>alert("Copied: "+email)).catch(()=>prompt("Copy email:",email));
@@ -1876,11 +1893,22 @@ async function loadEnquiries(){
     ${assignRow(p)}
   </div>`).join("");
 }
+async function assignPoolPupil(pupilId, instructorId){
+  if(!instructorId) return;
+  const {error}=await sb.from("pupils").update({instructor_id:instructorId}).eq("id",pupilId);
+  if(error){ alert(error.message); return; }
+  await loadPupils(); renderPupils(); loadDash();
+}
+async function loadSchoolInstructors(){
+  if(!(isSchoolAdminUser && currentSchoolId)) return;
+  const {data:instrs} = await sb.from("profiles").select("id,full_name,email").eq("role","instructor").eq("school_id",currentSchoolId).is("locked_at",null).order("full_name");
+  schoolInstructorsCache = instrs||[];
+}
 async function assignEnquiryInstructor(pupilId, instructorId){
   const value = instructorId || null;
   const {error}=await sb.from("pupils").update({instructor_id:value}).eq("id",pupilId);
   if(error){ alert(error.message); return; }
-  const p = pupilsCache.find(x=>x.id===pupilId);
+  const p = pupilsCache.concat(unassignedCache).find(x=>x.id===pupilId);
   if(p) p.instructor_id = value;
 }
 async function setStatus(id,status){const {error}=await sb.from("pupils").update({status}).eq("id",id); if(error)alert(error.message); else refresh()}
@@ -2032,7 +2060,7 @@ async function onDiaryBlockClick(el){
   // private/other blocks with no pupil) opens the general edit-lesson
   // modal — previously all three of these just offered "remove".
   if(pupilId){
-    let p=pupilsCache.find(x=>x.id===pupilId);
+    let p=pupilsCache.concat(unassignedCache).find(x=>x.id===pupilId);
     if(!p){
       const {data}=await sb.from("pupils").select("*").eq("id",pupilId).maybeSingle();
       p=data;

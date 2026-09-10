@@ -282,6 +282,7 @@ tbody tr:hover td{background:#334263}
     <div class="banner" id="data-banner"></div>
 
     <section id="tab-dash">
+      <div id="dash-owed" class="hidden"></div>
       <div class="stat-row">
         <button type="button" class="stat" onclick="goTab('pupils','active')"><strong id="n-active">–</strong><span>Active pupils</span></button>
         <button type="button" class="stat" onclick="goTab('pupils','waiting')"><strong id="n-waiting">–</strong><span>Waiting list</span></button>
@@ -335,6 +336,7 @@ tbody tr:hover td{background:#334263}
           <button data-status="passed">Passed</button>
           <button data-status="inactive">Inactive</button>
           <button data-status="unassigned" id="pupil-filter-unassigned" class="hidden">Unassigned</button>
+          <button data-status="instructors" id="pupil-filter-instructors" class="hidden">Instructors' pupils</button>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:.75rem">
           <input id="pupil-search" placeholder="Search name / phone / email" style="flex:1;min-width:180px;padding:.65rem .75rem;border:1px solid var(--line);border-radius:8px">
@@ -398,6 +400,7 @@ tbody tr:hover td{background:#334263}
           <div class="field" id="fin-from-wrap" style="display:none"><label>From</label><input type="date" id="fin-from"></div>
           <div class="field" id="fin-to-wrap" style="display:none"><label>To</label><input type="date" id="fin-to"></div>
           <button class="btn btn-navy btn-sm" onclick="applyFinance()">Apply</button>
+          <button class="btn-outline btn-sm hidden" id="fin-pay-instr-btn" onclick="openPayInstructor()">Pay instructor</button>
           <button class="btn-outline" onclick="exportFinance()">Export CSV</button>
           <button class="btn-outline" onclick="document.getElementById('import-file').click()">Import CSV</button>
           <input type="file" id="import-file" accept=".csv,text/csv" class="hidden" onchange="importCsv(event)">
@@ -613,7 +616,7 @@ async function saveFinanceCategories(){
   return true;
 }
 
-let pupilsCache=[], unassignedCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="active";
+let pupilsCache=[], unassignedCache=[], schoolPupilsCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="active";
 // Diary parity with the app (src/pages/Diary.tsx) — hide-cancelled toggle,
 // the currently-rendered week's lessons (so block clicks can look up the
 // full row without a second fetch), and lesson-swap picker state.
@@ -781,6 +784,8 @@ async function enterApp(user,prof){
   document.getElementById("nav-billing-btn").classList.remove("hidden"); // seat instructors get the tab too, but only a pointer to their admin (see loadBillingPanel)
   document.getElementById("nav-website-btn").classList.toggle("hidden", !isSuperAdminUser); // public website is your (platform admin's) tool only — never a driving school's
   document.getElementById("pupil-filter-unassigned").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
+  document.getElementById("pupil-filter-instructors").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
+  document.getElementById("fin-pay-instr-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
   // A school's waiting list is the Unassigned pool (assigning makes a pupil active), so no separate Waiting tab for school admins.
   document.getElementById("pupil-filter-waiting").classList.toggle("hidden", !!(isSchoolAdminUser && currentSchoolId));
   document.getElementById("nav-messages-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
@@ -1207,8 +1212,16 @@ async function loadPupils(){
   // only on the Pupils tab's Unassigned filter — they must not appear in
   // diary/gap/message pickers until someone is assigned (Dale).
   const all=data||[];
+  const schoolAdmin = !!(isSchoolAdminUser && currentSchoolId);
   unassignedCache = all.filter(p=>!p.instructor_id && p.status!=="enquiry");
-  pupilsCache = all.filter(p=>p.instructor_id || p.status==="enquiry");
+  // A school admin's own pupils drive everything (diary, gaps, messages,
+  // stats); other instructors' pupils live only under "Instructors' pupils"
+  // (Dale: the owner was able to add lessons for another instructor's
+  // pupil in their own diary). Enquiries stay with the admin until assigned.
+  schoolPupilsCache = schoolAdmin ? all.filter(p=>p.instructor_id && p.instructor_id!==currentUserId && p.status!=="enquiry") : [];
+  pupilsCache = all.filter(p=>(p.instructor_id && (!schoolAdmin || p.instructor_id===currentUserId)) || p.status==="enquiry");
+  const itab=document.getElementById("pupil-filter-instructors");
+  if(itab){ itab.textContent = "Instructors' pupils" + (schoolPupilsCache.length ? " (" + schoolPupilsCache.length + ")" : ""); }
   const tab=document.getElementById("pupil-filter-unassigned");
   if(tab){ tab.textContent = "Unassigned" + (unassignedCache.length ? " (" + unassignedCache.length + ")" : ""); }
   showBanner("");
@@ -1259,6 +1272,7 @@ async function loadTests(){
 }
 
 function loadDash(){
+  renderOwedBanner();
   const pupils=pupilsCache||[];
   const active=pupils.filter(p=>p.status==="active");
   document.getElementById("n-active").textContent=active.length;
@@ -1321,13 +1335,32 @@ function addrLine(p){
 function renderPupils(){
   const q=(document.getElementById("pupil-search").value||"").toLowerCase();
   const unassignedView = pupilStatusFilter==="unassigned";
-  let list = unassignedView ? unassignedCache.slice() : pupilsCache.filter(p=>p.status!=="enquiry" && p.status===pupilStatusFilter);
+  const instructorsView = pupilStatusFilter==="instructors";
+  let list = unassignedView ? unassignedCache.slice() : instructorsView ? schoolPupilsCache.slice() : pupilsCache.filter(p=>p.status!=="enquiry" && p.status===pupilStatusFilter);
   if(q) list=list.filter(p=>`${p.first_name} ${p.last_name} ${p.phone||""} ${p.email||""}`.toLowerCase().includes(q));
   const assignSel = (p) => unassignedView ? `<select onchange="assignPoolPupil('${p.id}',this.value)" style="font-size:.8rem">
         <option value="">Assign to…</option>
         ${schoolInstructorsCache.map(i=>`<option value="${i.id}">${esc(i.full_name||i.email)}${i.id===currentUserId?" (me)":""}</option>`).join("")}
       </select>` : "";
   const el=document.getElementById("pupil-list");
+  if(instructorsView){
+    if(!list.length){ el.innerHTML='<p class="muted">No pupils with other instructors yet. Assign pupils from the Unassigned tab, or move one of yours with Edit.</p>'; return; }
+    const byInstr={}; list.forEach(p=>{ (byInstr[p.instructor_id]=byInstr[p.instructor_id]||[]).push(p); });
+    const nameOf=id=>{ const i=schoolInstructorsCache.find(x=>x.id===id); return i?(i.full_name||i.email):"Instructor"; };
+    el.innerHTML = Object.keys(byInstr).sort((a,b)=>nameOf(a).localeCompare(nameOf(b))).map(iid=>`
+      <h3 style="margin:1rem 0 .4rem">${esc(nameOf(iid))} <span class="muted" style="font-weight:400;font-size:.85rem">· ${byInstr[iid].length} pupil${byInstr[iid].length===1?"":"s"}${owedTo(iid)>0.005?" · owed "+gbp(Math.round(owedTo(iid)*100)):""}</span></h3>
+      ${byInstr[iid].map(p=>`<div class="list-row">
+        <div style="flex:1;min-width:0"><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
+          <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div></div>
+        <div class="actions">
+          <span class="chip ${p.status==="active"?"chip-ok":p.status==="waiting"?"chip-wait":"chip-info"}">${esc(p.status)}</span>
+          <button class="btn btn-navy btn-sm" onclick="openSchoolPayment('${p.id}')">Take payment</button>
+          <select onchange="if(this.value){assignPoolPupil('${p.id}',this.value)}" style="font-size:.8rem"><option value="">Move to…</option>${schoolInstructorsCache.filter(i=>i.id!==iid).map(i=>`<option value="${i.id}">${esc(i.full_name||i.email)}${i.id===currentUserId?" (me)":""}</option>`).join("")}</select>
+          <button class="btn-outline" onclick="showPupilById('${p.id}')">Details</button>
+          <button class="btn-outline" onclick="editPupilById('${p.id}')">Edit</button>
+        </div></div>`).join("")}`).join("");
+    return;
+  }
   if(!list.length){el.innerHTML=unassignedView?'<p class="muted">No unassigned pupils — every pupil in the school has an instructor.</p>':'<p class="muted">No pupils</p>';return}
   el.innerHTML=list.map(p=>`<div class="list-row">
     <div style="flex:1;min-width:0">
@@ -1352,8 +1385,8 @@ function renderPupils(){
 // silently break the button (click does nothing, no error visible). Looking
 // the pupil up by id from the already-loaded cache — same pattern the diary
 // already used for its own "open pupil" clicks — is robust to that.
-function showPupilById(id){ const p=pupilsCache.concat(unassignedCache).find(x=>x.id===id); if(p) showPupil(p); }
-function editPupilById(id){ const p=pupilsCache.concat(unassignedCache).find(x=>x.id===id); if(p) editPupil(p); }
+function showPupilById(id){ const p=allPupils().find(x=>x.id===id); if(p) showPupil(p); }
+function editPupilById(id){ const p=allPupils().find(x=>x.id===id); if(p) editPupil(p); }
 
 function copyEmail(email){
   navigator.clipboard.writeText(email).then(()=>alert("Copied: "+email)).catch(()=>prompt("Copy email:",email));
@@ -1919,7 +1952,7 @@ async function assignEnquiryInstructor(pupilId, instructorId){
   const value = instructorId || null;
   const {error}=await sb.from("pupils").update({instructor_id:value}).eq("id",pupilId);
   if(error){ alert(error.message); return; }
-  const p = pupilsCache.concat(unassignedCache).find(x=>x.id===pupilId);
+  const p = allPupils().find(x=>x.id===pupilId);
   if(p) p.instructor_id = value;
 }
 async function setStatus(id,status){const {error}=await sb.from("pupils").update({status}).eq("id",id); if(error)alert(error.message); else refresh()}
@@ -2071,7 +2104,7 @@ async function onDiaryBlockClick(el){
   // private/other blocks with no pupil) opens the general edit-lesson
   // modal — previously all three of these just offered "remove".
   if(pupilId){
-    let p=pupilsCache.concat(unassignedCache).find(x=>x.id===pupilId);
+    let p=allPupils().find(x=>x.id===pupilId);
     if(!p){
       const {data}=await sb.from("pupils").select("*").eq("id",pupilId).maybeSingle();
       p=data;
@@ -3871,10 +3904,111 @@ async function loadMessagesPanel(){
     </div>`; }).join("")}`;
 }
 
+// --- School <-> instructor money -----------------------------------------
+// A pupil pays the school for lessons with instructor X: income row owned by
+// the school admin, related_instructor_id = X, hours in the notes so it
+// counts as that pupil's credit in X's app. The school then owes X. Paying X
+// (manage-auth pay_instructor) writes the school's expense and X's income
+// as a linked pair. owed = school income for X − school expenses to X.
+function owedSummary(){
+  const out={};
+  (txCache||[]).forEach(x=>{
+    if(x.instructor_id===currentUserId && x.related_instructor_id){
+      out[x.related_instructor_id]=(out[x.related_instructor_id]||0)+(x.type==="income"?1:x.type==="expense"?-1:0)*Number(x.amount||0);
+    }
+  });
+  return out;
+}
+function owedTo(instrId){ return owedSummary()[instrId]||0; }
+function instrName(id){ const i=schoolInstructorsCache.find(x=>x.id===id); return i?(i.full_name||i.email):"the instructor"; }
+function renderOwedBanner(){
+  const el=document.getElementById("dash-owed"); if(!el) return;
+  if(!(isSchoolAdminUser && currentSchoolId)){ el.classList.add("hidden"); return; }
+  const sum=owedSummary(); const rows=Object.keys(sum).filter(id=>sum[id]>0.005);
+  if(!rows.length){ el.classList.add("hidden"); el.innerHTML=""; return; }
+  el.className="panel"; el.style.cssText="border-left:4px solid #d97706;margin-bottom:1rem";
+  el.innerHTML=`<strong>Instructor payments due</strong>
+    <p class="muted" style="margin:.3rem 0 .5rem">Pupils have paid the school for lessons with these instructors. Pay them, then record it here so their income is right.</p>
+    ${rows.map(id=>`<div class="list-row"><div><strong>${esc(instrName(id))}</strong> <span class="muted">is owed</span> <strong>${gbp(Math.round(sum[id]*100))}</strong></div>
+      <div class="actions"><button class="btn btn-navy btn-sm" onclick="openPayInstructor('${id}')">Pay now</button></div></div>`).join("")}`;
+}
+async function openSchoolPayment(pupilId){
+  const p=allPupils().find(x=>x.id===pupilId); if(!p) return;
+  const today=new Date().toISOString().slice(0,10);
+  openModal(`<h3 style="margin:0 0 .25rem">Take payment — ${esc(p.first_name)} ${esc(p.last_name)}</h3>
+    <p class="muted" style="margin-bottom:.75rem">Paid to the school for lessons with ${esc(instrName(p.instructor_id))}. It adds lesson credit for the pupil, and the school owes ${esc(instrName(p.instructor_id))} the money until you record paying them (Finances › Pay instructor).</p>
+    <div class="two">
+      <div class="field"><label>Amount (£)</label><input id="sp-amt" type="number" step="0.01" min="0"></div>
+      <div class="field"><label>Date</label><input id="sp-date" type="date" value="${today}"></div>
+      <div class="field"><label>Method</label><select id="sp-method"><option>Bank Transfer</option><option>Cash</option><option>Card</option><option>Other</option></select></div>
+      <div class="field"><label>Category</label><select id="sp-cat"><option>Pupil Lesson</option><option>Pupil Test Fee</option></select></div>
+      <div class="field"><label>Lesson hours paid for</label><input id="sp-hrs" type="number" min="0" step="1" placeholder="e.g. 2"></div>
+      <div class="field"><label>Minutes</label><input id="sp-mins" type="number" min="0" max="59" step="1" placeholder="0"></div>
+    </div>
+    <div class="field"><label>Notes (optional)</label><input id="sp-notes"></div>
+    <button class="btn btn-navy btn-sm" onclick="saveSchoolPayment('${p.id}')">Record payment</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
+    <div class="err" id="sp-err" style="margin-top:.5rem;display:block;text-align:left"></div>`);
+}
+async function saveSchoolPayment(pupilId){
+  const p=allPupils().find(x=>x.id===pupilId); const err=document.getElementById("sp-err"); err.textContent="";
+  if(!p||!p.instructor_id){ err.textContent="This pupil has no instructor yet — assign one first."; return; }
+  const amtRaw=document.getElementById("sp-amt").value; const amount=Number(amtRaw); const date=val("sp-date");
+  if(amtRaw===""||isNaN(amount)||amount<0){ err.textContent="Amount is required"; return; }
+  if(!date){ err.textContent="Date is required"; return; }
+  const hrs=document.getElementById("sp-hrs").value, mins=document.getElementById("sp-mins").value;
+  let notes=val("sp-notes")||"";
+  if(hrs||mins) notes=(notes?notes+" ":"")+`(${hrs||0}h ${mins||0}m)`;
+  notes=(notes?notes+" · ":"")+"Taken by the school";
+  const payload={type:"income", category:document.getElementById("sp-cat").value, amount, transaction_date:date, payment_method:document.getElementById("sp-method").value, notes, pupil_id:pupilId, instructor_id:currentUserId, related_instructor_id:p.instructor_id};
+  const {error}=await sb.from("transactions").insert(payload);
+  if(error){ err.textContent=error.message; return; }
+  const h=hoursFromFields(hrs,mins); if(h) await adjustPupilCredit(pupilId,h);
+  closeModal(); await loadPayments(); loadDash(); if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
+  alert(`Recorded £${amount.toFixed(2)} for ${p.first_name}. ${instrName(p.instructor_id)} is now owed ${gbp(Math.round(owedTo(p.instructor_id)*100))} in total — record paying them under Finances › Pay instructor.`);
+}
+function openPayInstructor(instrId){
+  const instrs=schoolInstructorsCache.filter(i=>i.id!==currentUserId);
+  if(!instrs.length){ alert("No other instructors in your school yet."); return; }
+  const sum=owedSummary(); const sel=instrId||instrs[0].id;
+  const today=new Date().toISOString().slice(0,10);
+  openModal(`<h3 style="margin:0 0 .25rem">Pay an instructor</h3>
+    <p class="muted" style="margin-bottom:.75rem">Recorded as an expense for the school and as income for the instructor, so both sets of books match. Delete either one and the other goes too.</p>
+    <div class="field"><label>Instructor</label><select id="pi-instr" onchange="onPayInstrChange(true)">${instrs.map(i=>`<option value="${i.id}" ${i.id===sel?"selected":""}>${esc(i.full_name||i.email)}${(sum[i.id]||0)>0.005?" — owed "+gbp(Math.round(sum[i.id]*100)):""}</option>`).join("")}</select></div>
+    <div class="two">
+      <div class="field"><label>Amount (£)</label><input id="pi-amt" type="number" step="0.01" min="0"></div>
+      <div class="field"><label>Date</label><input id="pi-date" type="date" value="${today}"></div>
+      <div class="field"><label>Method</label><select id="pi-method"><option>Bank Transfer</option><option>Cash</option><option>Other</option></select></div>
+      <div class="field"><label>For pupil (optional)</label><select id="pi-pupil"></select></div>
+    </div>
+    <div class="field"><label>Notes (optional)</label><input id="pi-notes"></div>
+    <button class="btn btn-navy btn-sm" onclick="savePayInstructor()">Record payment</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
+    <div class="err" id="pi-err" style="margin-top:.5rem;display:block;text-align:left"></div>`);
+  onPayInstrChange(true);
+}
+function onPayInstrChange(fillAmount){
+  const iid=document.getElementById("pi-instr").value;
+  const ps=schoolPupilsCache.filter(p=>p.instructor_id===iid);
+  document.getElementById("pi-pupil").innerHTML='<option value="">— none —</option>'+ps.map(p=>`<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`).join("");
+  if(fillAmount){ const owed=owedTo(iid); document.getElementById("pi-amt").value = owed>0.005 ? owed.toFixed(2) : ""; }
+}
+async function savePayInstructor(){
+  const err=document.getElementById("pi-err"); err.textContent="";
+  const instructor_id=document.getElementById("pi-instr").value; const amount=Number(document.getElementById("pi-amt").value);
+  if(!(amount>0)){ err.textContent="Amount must be more than zero"; return; }
+  const date=val("pi-date"); if(!date){ err.textContent="Date is required"; return; }
+  try{
+    await manageAuthAdmin("pay_instructor",{instructor_id, amount, date, payment_method:document.getElementById("pi-method").value, pupil_id:document.getElementById("pi-pupil").value||null, notes:val("pi-notes")||null});
+  }catch(e){ err.textContent=e.message||"Could not record payment"; return; }
+  closeModal(); await loadPayments(); loadDash(); if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
+}
+
+function allPupils(){ return pupilsCache.concat(unassignedCache, schoolPupilsCache); }
 let threadPupilId=null;
 async function openPupilThread(pupilId){
   threadPupilId=pupilId;
-  const p = pupilsCache.concat(unassignedCache).find(x=>x.id===pupilId);
+  const p = allPupils().find(x=>x.id===pupilId);
   const name = p ? `${p.first_name} ${p.last_name}` : "Pupil";
   openModal(`<h3 style="margin:0 0 .25rem">${esc(name)}</h3>
     <p class="muted" style="margin-bottom:.5rem">${p&&p.status==="enquiry"?"On the enquiry list":"No instructor assigned yet"}${p&&p.email?" · "+esc(p.email):""}</p>
@@ -3892,7 +4026,7 @@ async function openPupilThread(pupilId){
 // flag the instructor app toggles). Dale: let the school turn it on here.
 function renderThreadChatLine(){
   const el=document.getElementById("thread-chat-line"); if(!el) return;
-  const p = pupilsCache.concat(unassignedCache).find(x=>x.id===threadPupilId);
+  const p = allPupils().find(x=>x.id===threadPupilId);
   const on = !!(p && (p.messaging_enabled || p.status==="active"));
   el.innerHTML = on
     ? `<span class="chip chip-ok">Chat on</span> They can reply. <a href="#" onclick="togglePupilChat(false);return false" style="color:var(--navy)">Turn chat off</a>`
@@ -3901,7 +4035,7 @@ function renderThreadChatLine(){
 async function togglePupilChat(on){
   const {error}=await sb.from("pupils").update({messaging_enabled:on}).eq("id",threadPupilId);
   if(error){ const e=document.getElementById("thread-err"); if(e) e.textContent=error.message; return; }
-  const p = pupilsCache.concat(unassignedCache).find(x=>x.id===threadPupilId); if(p) p.messaging_enabled=on;
+  const p = allPupils().find(x=>x.id===threadPupilId); if(p) p.messaging_enabled=on;
   renderThreadChatLine();
 }
 async function renderThread(){

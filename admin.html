@@ -190,6 +190,47 @@ tbody tr:hover td{background:#334263}
 .d-col{border-color:#3a4a6d}
 .d-col.today{background:rgba(30,58,95,.35)}
 .d-allday{background:#38486b;border-color:#475569;color:#cbd5e1}
+/* ---- phones (Dale 2026-09-10: the Control Centre was very cluttered in a
+   mobile browser). Only applies under 700px wide; desktop is unchanged. ---- */
+@media (max-width:700px){
+  .top{padding:.55rem .8rem;gap:.5rem;flex-wrap:nowrap}
+  .brand{font-size:.9rem;gap:.45rem;min-width:0}
+  .brand img{height:26px}
+  .brand span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #who{display:none}
+  .top .btn-sm,.top .btn-outline{padding:.38rem .6rem;font-size:.75rem;white-space:nowrap}
+  /* one swipeable row of tabs instead of 3-4 wrapped sticky rows */
+  .nav{flex-wrap:nowrap;overflow-x:auto;padding:.4rem .6rem;gap:.15rem;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .nav::-webkit-scrollbar{display:none}
+  .nav button{flex:0 0 auto;padding:.45rem .75rem;font-size:.82rem}
+  .main{padding:.9rem .7rem 1.5rem}
+  .panel{padding:1rem .9rem;border-radius:14px}
+  .panel h2{margin-bottom:.7rem}
+  .stat-row{gap:.55rem;margin-bottom:1rem}
+  .stat{padding:.8rem .85rem}
+  .stat strong{font-size:1.5rem}
+  .metric{padding:.7rem}
+  /* rows with buttons: text on top, buttons underneath, not squeezed side by side */
+  .list-row:has(button){flex-direction:column;align-items:stretch;gap:.5rem}
+  .list-row:has(button) > div:last-child{justify-content:flex-start}
+  .tabs-sub{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none}
+  .tabs-sub::-webkit-scrollbar{display:none}
+  .tabs-sub button{flex:0 0 auto}
+  /* wide tables scroll sideways inside the card */
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+  /* 16px stops iPhones zooming in on every field */
+  .field input,.field select,.field textarea,#gate input,input,select,textarea{font-size:16px}
+  .filters .field{min-width:0;flex:1 1 45%}
+  .dash-settings-grid{grid-template-columns:1fr}
+  /* diary: readable day columns, swipe sideways across the week */
+  .d-head{flex-wrap:wrap;gap:.4rem;padding:.6rem .7rem}
+  .d-head > div{width:100%;justify-content:space-between}
+  .d-days,.d-body{min-width:760px}
+  .d-scroll{max-height:calc(100vh - 250px)}
+  .modal-box{padding:1.1rem 1rem;max-height:92vh}
+  footer{display:none}
+  #gate{margin:4vh .8rem;padding:1.8rem 1.2rem}
+}
 </style>
 </head>
 <body>
@@ -717,6 +758,7 @@ document.getElementById("pupil-search").addEventListener("input",renderPupils);
 
 function goTab(tab, pupilFilter){
   document.querySelectorAll("#main-nav button").forEach(x=>x.classList.toggle("on",x.dataset.tab===tab));
+  try{ const onBtn=document.querySelector("#main-nav button.on"); if(onBtn && window.innerWidth<=700) onBtn.scrollIntoView({block:"nearest",inline:"center"}); }catch(e){}
   document.querySelectorAll(".main > section").forEach(s=>s.classList.add("hidden"));
   document.getElementById("tab-"+tab).classList.remove("hidden");
   if(tab==="pupils"){

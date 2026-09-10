@@ -331,7 +331,7 @@ tbody tr:hover td{background:#334263}
         <h2>Pupils</h2>
         <div class="tabs-sub" id="pupil-filters">
           <button class="on" data-status="active">Active</button>
-          <button data-status="waiting">Waiting</button>
+          <button data-status="waiting" id="pupil-filter-waiting">Waiting</button>
           <button data-status="passed">Passed</button>
           <button data-status="inactive">Inactive</button>
           <button data-status="unassigned" id="pupil-filter-unassigned" class="hidden">Unassigned</button>
@@ -781,6 +781,8 @@ async function enterApp(user,prof){
   document.getElementById("nav-billing-btn").classList.remove("hidden"); // seat instructors get the tab too, but only a pointer to their admin (see loadBillingPanel)
   document.getElementById("nav-website-btn").classList.toggle("hidden", !isSuperAdminUser); // public website is your (platform admin's) tool only — never a driving school's
   document.getElementById("pupil-filter-unassigned").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
+  // A school's waiting list is the Unassigned pool (assigning makes a pupil active), so no separate Waiting tab for school admins.
+  document.getElementById("pupil-filter-waiting").classList.toggle("hidden", !!(isSchoolAdminUser && currentSchoolId));
   document.getElementById("nav-messages-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
   await loadSchoolInstructors();
   await refresh(); setInterval(refresh,30000);
@@ -1334,7 +1336,7 @@ function renderPupils(){
       ${addrLine(p)?`<div class="muted">${esc(addrLine(p))}</div>`:""}
     </div>
     <div class="actions">
-      <span class="chip ${p.status==="active"?"chip-ok":p.status==="waiting"?"chip-wait":"chip-info"}">${esc(p.status)}</span>
+      <span class="chip ${unassignedView?"chip-wait":p.status==="active"?"chip-ok":p.status==="waiting"?"chip-wait":"chip-info"}">${unassignedView?"unassigned":esc(p.status)}</span>
       ${assignSel(p)}
       ${unassignedView?`<button class="btn-outline" onclick="openPupilThread('${p.id}')">Message</button>`:""}
       <button class="btn-outline" onclick="showPupilById('${p.id}')">Details</button>
@@ -3875,13 +3877,32 @@ async function openPupilThread(pupilId){
   const p = pupilsCache.concat(unassignedCache).find(x=>x.id===pupilId);
   const name = p ? `${p.first_name} ${p.last_name}` : "Pupil";
   openModal(`<h3 style="margin:0 0 .25rem">${esc(name)}</h3>
-    <p class="muted" style="margin-bottom:.75rem">${p&&p.status==="enquiry"?"On the enquiry list":"No instructor assigned yet"}${p&&p.email?" · "+esc(p.email):""}</p>
+    <p class="muted" style="margin-bottom:.5rem">${p&&p.status==="enquiry"?"On the enquiry list":"No instructor assigned yet"}${p&&p.email?" · "+esc(p.email):""}</p>
+    <p style="margin-bottom:.75rem;font-size:.85rem" id="thread-chat-line"></p>
     <div id="thread-list" style="max-height:45vh;overflow-y:auto;background:var(--surface-2,#f8fafc);border:1px solid var(--line);border-radius:8px;padding:.5rem;margin-bottom:.75rem">Loading…</div>
     <div class="field"><label>Reply</label><textarea id="thread-body" rows="3" style="width:100%;padding:.5rem;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit" placeholder="Type a message to ${esc(p?p.first_name:"the pupil")}…"></textarea></div>
     <button class="btn btn-navy btn-sm" onclick="sendThreadMessage()">Send</button>
     <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Close</button>
     <div class="err" id="thread-err" style="margin-top:.5rem;display:block;text-align:left"></div>`);
+  renderThreadChatLine();
   await renderThread();
+}
+// Pupils on the enquiry/waiting list can read messages but only reply once
+// messaging is switched on for them (pupils.messaging_enabled — the same
+// flag the instructor app toggles). Dale: let the school turn it on here.
+function renderThreadChatLine(){
+  const el=document.getElementById("thread-chat-line"); if(!el) return;
+  const p = pupilsCache.concat(unassignedCache).find(x=>x.id===threadPupilId);
+  const on = !!(p && (p.messaging_enabled || p.status==="active"));
+  el.innerHTML = on
+    ? `<span class="chip chip-ok">Chat on</span> They can reply. <a href="#" onclick="togglePupilChat(false);return false" style="color:var(--navy)">Turn chat off</a>`
+    : `<span class="chip chip-wait">Chat off</span> They can read your messages but can't reply yet. <button class="btn btn-navy btn-sm" style="margin-left:.4rem" onclick="togglePupilChat(true)">Turn chat on</button>`;
+}
+async function togglePupilChat(on){
+  const {error}=await sb.from("pupils").update({messaging_enabled:on}).eq("id",threadPupilId);
+  if(error){ const e=document.getElementById("thread-err"); if(e) e.textContent=error.message; return; }
+  const p = pupilsCache.concat(unassignedCache).find(x=>x.id===threadPupilId); if(p) p.messaging_enabled=on;
+  renderThreadChatLine();
 }
 async function renderThread(){
   const el=document.getElementById("thread-list"); if(!el||!threadPupilId) return;
@@ -6187,6 +6208,7 @@ async function openAddPupilForm(){
     <div class="field"><label>Phone</label><input id="ap-phone"></div>
     <div class="field"><label>Email</label><input id="ap-email" type="email"></div>
     ${picker}
+    ${picker?'<p class="muted" style="margin:-.25rem 0 .5rem;font-size:.8rem">Unassigned pupils wait in the school pool until an instructor takes them on; they become active when assigned.</p>':""}
     <div class="field"><label>Status</label>
       <select id="ap-status">
         <option value="active">Active</option>

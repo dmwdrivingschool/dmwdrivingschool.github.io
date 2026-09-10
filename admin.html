@@ -898,6 +898,14 @@ async function saveCompleteProfile(){
   closeModal();
 }
 
+// Most school owners run the school from home (Dale), so one click copies
+// the personal address into the school address fields.
+function copyOwnAddressToSchool(){
+  [["pf-address1","sa-address1"],["pf-address2","sa-address2"],["pf-city","sa-city"],["pf-postcode","sa-postcode"]].forEach(([from,to])=>{
+    const f=document.getElementById(from), t=document.getElementById(to);
+    if(f&&t) t.value=f.value;
+  });
+}
 async function saveProfilePanel(){
   const errEl=document.getElementById("pf-err"), okEl=document.getElementById("pf-ok");
   errEl.textContent=""; okEl.style.display="none";
@@ -2995,7 +3003,7 @@ async function openSettings(which){
       ${addrField("pf-postcode","Postcode",addr.postcode)}
       ${schoolAddr ? `
       <h4 style="margin:1.25rem 0 .5rem">${esc(schoolAddr.display_name||schoolAddr.name||"School")} — school address</h4>
-      <p class="muted" style="margin-bottom:.5rem">The business address of the school itself.</p>
+      <p class="muted" style="margin-bottom:.5rem">The business address of the school itself. <a href="#" onclick="copyOwnAddressToSchool();return false" style="color:var(--navy);font-weight:600">Same as my address</a></p>
       ${addrField("sa-address1","Address line 1",schoolAddr.address_line1)}
       ${addrField("sa-address2","Address line 2 (optional)",schoolAddr.address_line2)}
       ${addrField("sa-city","City",schoolAddr.city)}

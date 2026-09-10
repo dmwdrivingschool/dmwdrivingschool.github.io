@@ -4276,9 +4276,18 @@ function daysAgo(dateStr){
 }
 
 async function showInstructorDetail(instructorId){
-  const {data:i} = await sb.from("profiles").select("id,full_name,email,phone,address_line1,address_line2,city,postcode,school_id,is_school_admin,created_at").eq("id",instructorId).single();
-  const {data:sub} = await sb.from("subscriptions").select("plan,status,trial_ends_at,current_period_end,past_due_since,manual_payment_note,seats_purchased").eq("owner_type","instructor").eq("owner_id",instructorId).maybeSingle();
-  const school = schoolsCache.find(s=>s.id===i.school_id);
+  const {data:i} = await sb.from("profiles").select("id,full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode,school_id,is_school_admin,created_at").eq("id",instructorId).single();
+  // On a school seat, billing is the school's subscription, not their own.
+  const {data:sub} = i.school_id
+    ? await sb.from("subscriptions").select("plan,status,trial_ends_at,current_period_end,past_due_since,manual_payment_note,seats_purchased").eq("owner_type","school").eq("owner_id",i.school_id).maybeSingle()
+    : await sb.from("subscriptions").select("plan,status,trial_ends_at,current_period_end,past_due_since,manual_payment_note,seats_purchased").eq("owner_type","instructor").eq("owner_id",instructorId).maybeSingle();
+  // schoolsCache is only filled on the super-admin Teams view; a school
+  // admin looking at their own instructor needs the name fetched.
+  let school = schoolsCache.find(s=>s.id===i.school_id) || null;
+  if(!school && i.school_id){
+    const {data:sc} = await sb.from("schools").select("id,display_name,name").eq("id",i.school_id).maybeSingle();
+    school = sc || null;
+  }
   const addressLines = [i.address_line1, i.address_line2, i.city, i.postcode].filter(Boolean);
   const address = addressLines.length ? esc(addressLines.join(", ")) : "Not provided yet";
 
@@ -4294,20 +4303,21 @@ async function showInstructorDetail(instructorId){
       extra = `<p class="muted">Last manual payment note: ${esc(sub.manual_payment_note)}</p>`;
     }
     billingBlock = `<div class="field"><label>Billing</label>
-      <p>${renderStatusChip(sub.status)} ${esc(sub.plan)}</p>
+      <p>${renderStatusChip(sub.status)} ${i.school_id ? "School seat — billed through " + esc(school?(school.display_name||school.name):"the school") : esc(sub.plan)}</p>
       ${sub.trial_ends_at?`<p class="muted">Trial ends: ${new Date(sub.trial_ends_at).toLocaleDateString()}</p>`:""}
       ${sub.current_period_end?`<p class="muted">Current period ends: ${new Date(sub.current_period_end).toLocaleDateString()}</p>`:""}
       ${extra}
     </div>`;
   } else {
-    billingBlock = `<div class="field"><label>Billing</label><p class="muted">No billing (grandfathered)</p></div>`;
+    billingBlock = `<div class="field"><label>Billing</label><p class="muted">${i.school_id ? "School seat — the school has no subscription on file" : "No subscription on file (account predates self-serve billing)"}</p></div>`;
   }
 
   openModal(`<h3 style="margin:0 0 1rem">${esc(i.full_name||i.email)}</h3>
     <div class="field"><label>Contact</label>
-      <p>${esc(i.email||"")}${i.phone?" · "+esc(i.phone):""}</p>
-      <p class="muted">${address}</p>
+      <p>${esc(i.email||"")}${i.phone?" · "+esc(i.phone):'<span class="muted"> · no phone yet</span>'}</p>
+      <p class="muted">${i.school_id ? "" : address}</p>
     </div>
+    <div class="field"><label>ADI/PDI badge number</label><p>${i.adi_badge_number?esc(i.adi_badge_number):'<span class="muted">Not provided yet</span>'}</p></div>
     <div class="field"><label>School</label><p>${school?esc(school.display_name||school.name):"Solo"}${i.is_school_admin?" (admin)":""}</p></div>
     <div class="field"><label>Signed up</label><p>${daysAgo(i.created_at)||"—"}</p></div>
     ${billingBlock}

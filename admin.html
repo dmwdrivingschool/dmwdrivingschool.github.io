@@ -713,6 +713,7 @@ function goTab(tab, pupilFilter){
 }
 
 async function unlock(){
+  lockEnforced=false;
   const email=document.getElementById("gate-email").value.trim();
   const password=document.getElementById("gate-pass").value;
   const err=document.getElementById("gate-err"); err.style.display="none";
@@ -927,6 +928,9 @@ async function saveProfilePanel(){
   if(rpcError){ errEl.textContent=rpcError.message; return; }
   document.getElementById("who").textContent=name;
   okEl.style.display="block";
+  okEl.scrollIntoView({block:"nearest"});
+  const btn=document.querySelector('#settings-panel button[onclick="saveProfilePanel()"]');
+  if(btn){ const t=btn.textContent; btn.textContent="✓ Saved"; btn.disabled=true; setTimeout(()=>{ btn.textContent=t; btn.disabled=false; }, 2500); }
 }
 
 // --- Self-serve signup -------------------------------------------------
@@ -1124,8 +1128,42 @@ async function provisionIfNeededAndEnter(user){
   }
   enterApp(user, prof);
 }
+// Locked accounts (by the super admin, or by a school admin for one of their
+// instructors). The sign-in form already checks this; these two make sure a
+// session that is ALREADY open is thrown out as well — on reload, and every
+// 30s while the page sits open (Dale: "just tried locking out driving seat
+// ... it hasnt locked them out"). A locked school locks all its instructors.
+async function lockMessageFor(userId){
+  const {data:prof}=await sb.from("profiles").select("school_id,locked_at,locked_reason").eq("id",userId).maybeSingle();
+  if(!prof) return null;
+  if(prof.school_id){
+    const {data:school}=await sb.from("schools").select("locked_at,locked_reason").eq("id",prof.school_id).maybeSingle();
+    if(school&&school.locked_at) return school.locked_reason||"Your driving school's account has been locked. Please contact Drive My Way.";
+  }
+  if(prof.locked_at) return prof.locked_reason||(prof.school_id?"Your account has been locked. Please contact your driving school.":"Your account has been locked. Please contact Drive My Way.");
+  return null;
+}
+let lockEnforced=false;
+async function enforceLock(userId){
+  if(lockEnforced) return true;
+  let msg=null;
+  try{ msg=await lockMessageFor(userId); }catch(e){ return false; }
+  if(!msg) return false;
+  lockEnforced=true;
+  await sb.auth.signOut({scope:"local"});
+  document.getElementById("app").style.display="none";
+  document.getElementById("gate").style.display="block";
+  document.getElementById("gate-mandate").classList.add("hidden");
+  document.getElementById("gate-signup").classList.add("hidden");
+  document.getElementById("gate-signin").classList.remove("hidden");
+  const err=document.getElementById("gate-err"); err.textContent=msg; err.style.display="block";
+  closeModal();
+  return true;
+}
+
 sb.auth.getSession().then(async ({data})=>{
   if(!data.session) return;
+  if(await enforceLock(data.session.user.id)) return;
   if(pendingRecovery){ showRecoveryForm(); return; }
   const { data: prof } = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.session.user.id).maybeSingle();
   if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin")return;
@@ -1143,6 +1181,7 @@ sb.auth.getSession().then(async ({data})=>{
 function showBanner(msg){const b=document.getElementById("data-banner"); if(!msg){b.style.display="none";return} b.textContent=msg;b.style.display="block"}
 
 async function refresh(){
+  if(currentUserId && await enforceLock(currentUserId)) return;
   await Promise.all([loadPupils(),loadPayments(),loadTests(),loadWorkingHours(),loadSyllabus(),loadFinanceCategories()]);
   loadDash(); loadEnquiries(); loadGaps(); loadActivity();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
@@ -3010,7 +3049,7 @@ async function openSettings(which){
       ${addrField("sa-postcode","Postcode",schoolAddr.postcode)}` : ""}
       <button class="btn btn-navy btn-sm" onclick="saveProfilePanel()">Save</button>
       <div class="err" id="pf-err" style="margin-top:.5rem"></div>
-      <div class="muted" id="pf-ok" style="margin-top:.5rem;display:none">Saved.</div>`;
+      <div id="pf-ok" style="margin-top:.6rem;display:none;color:#0a7a3d;font-weight:700;font-size:1rem">✓ Saved</div>`;
   } else if(which==="reminders"){
     const raw=JSON.parse(localStorage.getItem("dmw_admin_reminders")||'{"enabled":false,"hours":48,"message":"Looking forward to seeing you."}');
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>

@@ -4421,7 +4421,13 @@ async function loadBillingPanel(){
     statusChip = '<span class="chip chip-wait">CANCELLING</span>';
   }
 
-  const planLine = sub.plan==="solo" ? "Solo instructor — £11.99/month" : "Driving school — £13.99/month + £9.99/seat";
+  // Say the actual total, not just the parts (Dale: "it should have a total
+  // on billing"). Premium adds £2 to the base and to every seat.
+  const addonPence = sub.videos_addon ? VIDEO_ADDON_PENCE : 0;
+  const totalPence = sub.plan==="solo" ? 1199 + addonPence : schoolMonthlyPence(sub.seats_purchased||1, sub.videos_addon);
+  const planLine = sub.plan==="solo"
+    ? `Solo instructor — ${gbp(totalPence)} a month`
+    : `Driving school — ${gbp(SCHOOL_BASE_PENCE+addonPence)}/month + ${gbp(SEAT_PRICE_PENCE+addonPence)} per extra seat · <strong>${gbp(totalPence)} a month in total</strong> for ${sub.seats_purchased||1} seat${(sub.seats_purchased||1)===1?"":"s"}`;
 
   let mandateBtn = "";
   if(!sub.gocardless_mandate_id || sub.status==="mandate_failed"){

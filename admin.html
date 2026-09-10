@@ -840,16 +840,13 @@ async function checkProfileCompletion(){
   // the app's CompleteProfileModal: everything stays editable in Settings.
   const shownKey = "dmw_profile_prompt_shown_" + currentUserId;
   try { if(localStorage.getItem(shownKey) === "1") return; } catch(e){}
+  // Everyone's own address, school member or not (Dale: instructors under
+  // a school fill in their details so the school can see them).
   const {data:own} = await sb.from("profiles").select("address_line1,address_line2,city,postcode,adi_badge_number").eq("id",currentUserId).maybeSingle();
-  let addressSource = own;
-  if(currentSchoolId){
-    const {data:school} = await sb.from("schools").select("address_line1,address_line2,city,postcode").eq("id",currentSchoolId).maybeSingle();
-    addressSource = school;
-  }
-  const needsProfile = !addressSource?.address_line1 || !own?.adi_badge_number;
+  const needsProfile = !own?.address_line1 || !own?.adi_badge_number;
   if(needsProfile){
     try { localStorage.setItem(shownKey, "1"); } catch(e){}
-    showCompleteProfileModal(addressSource, own?.adi_badge_number);
+    showCompleteProfileModal(own, own?.adi_badge_number);
   }
 }
 
@@ -881,21 +878,11 @@ async function saveCompleteProfile(){
   const adi=document.getElementById("cp-adi").value.trim();
   if(!address1||!postcode){ errEl.textContent="Address line 1 and postcode are required"; return; }
 
-  // School address is a direct update (school admins have an RLS policy on
-  // their own schools row). Anything on the profiles row goes through the
-  // instructor_update_own_profile RPC — a plain instructor has no policy
-  // allowing a direct UPDATE there, and Supabase silently updates 0 rows
-  // rather than erroring, which is how this used to "save" nothing and
-  // re-prompt every login. Same fix as the app's CompleteProfileModal.
-  if(currentSchoolId){
-    const {error} = await sb.from("schools").update({
-      address_line1: address1,
-      address_line2: address2||null,
-      city: city||null,
-      postcode
-    }).eq("id", currentSchoolId);
-    if(error){ errEl.textContent=error.message; return; }
-  }
+  // Everything goes through the instructor_update_own_profile RPC — a plain
+  // instructor has no policy allowing a direct UPDATE on profiles, and
+  // Supabase silently updates 0 rows rather than erroring. The address is
+  // the instructor's own even inside a school; the school's own address is
+  // edited by the admin under Settings > Your profile.
   const {error:rpcError} = await sb.rpc("instructor_update_own_profile", {
     p_full_name: null,
     p_phone: null,
@@ -918,18 +905,16 @@ async function saveProfilePanel(){
   const name=v("pf-name"), phone=v("pf-phone"), adi=v("pf-adi");
   const address1=v("pf-address1"), address2=v("pf-address2"), city=v("pf-city"), postcode=v("pf-postcode");
   if(!name){ errEl.textContent="Your name is required"; return; }
-  const addressEditable = !currentSchoolId || isSchoolAdminUser;
-  if(addressEditable && (!address1||!postcode)){ errEl.textContent="Address line 1 and postcode are required"; return; }
-  if(currentSchoolId && isSchoolAdminUser){
-    const {error}=await sb.from("schools").update({address_line1:address1,address_line2:address2||null,city:city||null,postcode}).eq("id",currentSchoolId);
+  if(!address1||!postcode){ errEl.textContent="Address line 1 and postcode are required"; return; }
+  if(currentSchoolId && isSchoolAdminUser && document.getElementById("sa-address1")){
+    const sa1=v("sa-address1"), sa2=v("sa-address2"), sac=v("sa-city"), sap=v("sa-postcode");
+    if((sa1||sap) && (!sa1||!sap)){ errEl.textContent="School address needs at least line 1 and a postcode"; return; }
+    const {error}=await sb.from("schools").update({address_line1:sa1||null,address_line2:sa2||null,city:sac||null,postcode:sap||null}).eq("id",currentSchoolId);
     if(error){ errEl.textContent=error.message; return; }
   }
-  // Address args are ignored by the RPC for school members anyway; pass
-  // null so a solo/school distinction can't wipe anything by accident.
-  const solo=!currentSchoolId;
   const {error:rpcError}=await sb.rpc("instructor_update_own_profile",{
     p_full_name:name, p_phone:phone, p_adi_badge_number:adi,
-    p_address_line1:solo?address1:null, p_address_line2:solo?address2:null, p_city:solo?city:null, p_postcode:solo?postcode:null
+    p_address_line1:address1, p_address_line2:address2, p_city:city, p_postcode:postcode
   });
   if(rpcError){ errEl.textContent=rpcError.message; return; }
   document.getElementById("who").textContent=name;
@@ -2989,25 +2974,32 @@ async function openSettings(which){
     // time (Dale: after the popup there was nowhere to change it). Saves
     // through the same RPC as the popup; null = leave that field alone.
     const {data:prof}=await sb.from("profiles").select("full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode").eq("id",currentUserId).maybeSingle();
-    let addr = prof||{};
-    if(currentSchoolId){
-      const {data:school}=await sb.from("schools").select("address_line1,address_line2,city,postcode").eq("id",currentSchoolId).maybeSingle();
-      addr = school||{};
+    const addr = prof||{};
+    let schoolAddr = null;
+    if(currentSchoolId && isSchoolAdminUser){
+      const {data:school}=await sb.from("schools").select("display_name,name,address_line1,address_line2,city,postcode").eq("id",currentSchoolId).maybeSingle();
+      schoolAddr = school||{};
     }
-    const addressEditable = !currentSchoolId || isSchoolAdminUser;
-    const addrField=(id,label,val)=>`<div class="field"><label>${label}</label><input id="${id}" value="${esc(val||"")}" ${addressEditable?"":"disabled"}></div>`;
+    const addrField=(id,label,val)=>`<div class="field"><label>${label}</label><input id="${id}" value="${esc(val||"")}"></div>`;
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Your profile</h3>
       <div class="field"><label>Email</label><input value="${esc(prof?.email||"")}" disabled><span class="muted" style="font-size:.78rem">To change your sign-in email, contact Drive My Way.</span></div>
       <div class="field"><label>Your name</label><input id="pf-name" value="${esc(prof?.full_name||"")}"></div>
       <div class="field"><label>Phone</label><input id="pf-phone" value="${esc(prof?.phone||"")}"></div>
       <div class="field"><label>ADI/PDI badge number (optional)</label><input id="pf-adi" value="${esc(prof?.adi_badge_number||"")}"></div>
-      <h4 style="margin:1rem 0 .5rem">${currentSchoolId?"School address":"Address"}</h4>
-      ${addressEditable?"":'<p class="muted" style="margin-bottom:.5rem">Your school admin looks after the school address.</p>'}
+      <h4 style="margin:1rem 0 .5rem">Your address</h4>
+      ${currentSchoolId && !isSchoolAdminUser ? '<p class="muted" style="margin-bottom:.5rem">Your school can see these details.</p>' : ""}
       ${addrField("pf-address1","Address line 1",addr.address_line1)}
       ${addrField("pf-address2","Address line 2 (optional)",addr.address_line2)}
       ${addrField("pf-city","City",addr.city)}
       ${addrField("pf-postcode","Postcode",addr.postcode)}
+      ${schoolAddr ? `
+      <h4 style="margin:1.25rem 0 .5rem">${esc(schoolAddr.display_name||schoolAddr.name||"School")} — school address</h4>
+      <p class="muted" style="margin-bottom:.5rem">The business address of the school itself.</p>
+      ${addrField("sa-address1","Address line 1",schoolAddr.address_line1)}
+      ${addrField("sa-address2","Address line 2 (optional)",schoolAddr.address_line2)}
+      ${addrField("sa-city","City",schoolAddr.city)}
+      ${addrField("sa-postcode","Postcode",schoolAddr.postcode)}` : ""}
       <button class="btn btn-navy btn-sm" onclick="saveProfilePanel()">Save</button>
       <div class="err" id="pf-err" style="margin-top:.5rem"></div>
       <div class="muted" id="pf-ok" style="margin-top:.5rem;display:none">Saved.</div>`;
@@ -4315,7 +4307,7 @@ async function showInstructorDetail(instructorId){
   openModal(`<h3 style="margin:0 0 1rem">${esc(i.full_name||i.email)}</h3>
     <div class="field"><label>Contact</label>
       <p>${esc(i.email||"")}${i.phone?" · "+esc(i.phone):'<span class="muted"> · no phone yet</span>'}</p>
-      <p class="muted">${i.school_id ? "" : address}</p>
+      <p class="muted">${address}</p>
     </div>
     <div class="field"><label>ADI/PDI badge number</label><p>${i.adi_badge_number?esc(i.adi_badge_number):'<span class="muted">Not provided yet</span>'}</p></div>
     <div class="field"><label>School</label><p>${school?esc(school.display_name||school.name):"Solo"}${i.is_school_admin?" (admin)":""}</p></div>

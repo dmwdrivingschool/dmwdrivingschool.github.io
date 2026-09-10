@@ -4388,7 +4388,7 @@ async function loadBillingPanel(){
 
   const ownerType = currentSchoolId ? "school" : "instructor";
   const ownerId = currentSchoolId || currentUserId;
-  const {data:sub} = await sb.from("subscriptions").select("plan,status,trial_ends_at,seats_purchased,gocardless_mandate_id,videos_addon,cancel_at_period_end,current_period_end,canceled_at,resume_requested_at,resume_request_note").eq("owner_type",ownerType).eq("owner_id",ownerId).maybeSingle();
+  const {data:sub} = await sb.from("subscriptions").select("id,plan,status,trial_ends_at,seats_purchased,gocardless_mandate_id,videos_addon,cancel_at_period_end,current_period_end,canceled_at,resume_requested_at,resume_request_note").eq("owner_type",ownerType).eq("owner_id",ownerId).maybeSingle();
 
   if(!sub){
     content.innerHTML = '<h2>Billing</h2><p class="muted">No subscription on file — your account predates self-serve billing and isn\'t affected by it.</p>';
@@ -4507,6 +4507,20 @@ async function loadBillingPanel(){
     content.innerHTML = '<h2>Billing</h2><p>Your school\x27s billing is looked after by your school admin. Ask them to change seats, switch plan, or cancel.</p>';
     return;
   }
+  // Every collection GoCardless has confirmed (or bounced), newest first,
+  // with a receipt for each confirmed one. Dale: instructors need something
+  // for their books; GoCardless only sends bank notices, not receipts.
+  const {data:payRows} = await sb.from("gocardless_payments").select("id,amount_pence,status,charge_date,created_at").eq("subscription_id",sub.id).order("charge_date",{ascending:false});
+  const payList = (payRows||[]).map(p=>{
+    const d = p.charge_date ? new Date(p.charge_date+"T00:00:00") : new Date(p.created_at);
+    const date = d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+    const chip = p.status==="confirmed" ? '<span class="chip chip-ok">Paid</span>' : '<span class="chip chip-bad">Failed</span>';
+    const btn = p.status==="confirmed" ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem;margin-left:.5rem" onclick="openReceipt('${p.id}')">Receipt</button>` : "";
+    return `<div class="list-row"><div>${date}</div><div>${gbp(p.amount_pence)} ${chip}${btn}</div></div>`;
+  }).join("");
+  const paymentsBlock = `
+    <h3 style="margin:1.5rem 0 .5rem">Payments</h3>
+    ${payList || '<p class="muted">No payments taken yet' + (sub.status==="trialing" ? " — your first one is due after the free trial" : "") + '.</p>'}`;
   content.innerHTML = `
     <h2>Billing</h2>
     <div class="panel" style="border:none;padding:0">
@@ -4516,10 +4530,82 @@ async function loadBillingPanel(){
       ${premiumBlock}
       ${seatsBlock}
       ${cancelBlock}
+      ${paymentsBlock}
       <div class="err" id="billing-err" style="margin-top:.75rem;display:block;text-align:left"></div>
     </div>`;
 }
 
+// Printable receipt for one confirmed payment. Issued by Dale (sole trader,
+// not VAT registered, no postal address by choice), billed to the payer.
+// Opens in a new tab with a Print button — Chrome/Edge/Safari all offer
+// "Save as PDF" from there. Receipt number is derived from the payment so
+// it is stable and unique without another table.
+async function openReceipt(paymentRowId){
+  const win = window.open("", "_blank"); // open synchronously so the popup blocker allows it
+  if(!win){ alert("Your browser blocked the receipt window — allow pop-ups for this site and try again."); return; }
+  win.document.write("<p style=\"font-family:sans-serif;padding:2rem\">Preparing your receipt…</p>");
+  try{
+    const {data:p, error} = await sb.from("gocardless_payments").select("id,gocardless_payment_id,amount_pence,status,charge_date,created_at,subscription_id").eq("id",paymentRowId).maybeSingle();
+    if(error||!p) throw new Error(error?error.message:"Payment not found");
+    const {data:sub} = await sb.from("subscriptions").select("owner_type,owner_id,plan,videos_addon,seats_purchased").eq("id",p.subscription_id).maybeSingle();
+    const {data:me} = await sb.from("profiles").select("full_name,email,address_line1,address_line2,city,postcode").eq("id",currentUserId).maybeSingle();
+    let school = null;
+    if(sub && sub.owner_type==="school"){
+      const {data:sc} = await sb.from("schools").select("display_name,name,address_line1,address_line2,city,postcode").eq("id",sub.owner_id).maybeSingle();
+      school = sc;
+    }
+    const addr = school || me || {};
+    const addressLines = [addr.address_line1, addr.address_line2, addr.city, addr.postcode].filter(Boolean);
+    const paidOn = p.charge_date ? new Date(p.charge_date+"T00:00:00") : new Date(p.created_at);
+    const periodEnd = new Date(paidOn); periodEnd.setMonth(periodEnd.getMonth()+1); periodEnd.setDate(periodEnd.getDate()-1);
+    const fmt = d => d.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+    const ymd = paidOn.getFullYear() + String(paidOn.getMonth()+1).padStart(2,"0") + String(paidOn.getDate()).padStart(2,"0"); // local date, not UTC (BST would shift it a day)
+    const receiptNo = "DMW-" + ymd + "-" + String(p.gocardless_payment_id||p.id).slice(-6).toUpperCase();
+    const planName = !sub ? "Subscription" : (sub.plan==="solo" ? "Solo instructor subscription" : "Driving school subscription" + (sub.seats_purchased>1 ? " (" + sub.seats_purchased + " instructor seats)" : ""));
+    const tier = sub && sub.videos_addon ? "Premium (Learning Videos & Theory Practice included)" : "Basic";
+    const e = x => String(x==null?"":x).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Receipt ${e(receiptNo)}</title>
+<style>
+  body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;margin:0;padding:2.5rem;max-width:720px}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:2rem;margin-bottom:2rem}
+  h1{font-size:1.6rem;margin:0 0 .2rem}
+  .muted{color:#64748b;font-size:.9rem}
+  .meta{text-align:right;font-size:.9rem}
+  .meta strong{display:block;font-size:1.05rem}
+  .cols{display:flex;gap:2rem;margin:1.5rem 0}
+  .cols>div{flex:1}
+  h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin:0 0 .4rem}
+  table{width:100%;border-collapse:collapse;margin-top:1.5rem}
+  th,td{text-align:left;padding:.6rem .4rem;border-bottom:1px solid #e2e8f0;font-size:.95rem;vertical-align:top}
+  th{font-size:.8rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+  td.amt,th.amt{text-align:right;white-space:nowrap}
+  tr.total td{border-bottom:none;font-weight:700;font-size:1.05rem;padding-top:.9rem}
+  .foot{margin-top:2.5rem;font-size:.85rem;color:#64748b;line-height:1.5}
+  .paid{display:inline-block;background:#dcfce7;color:#166534;font-weight:700;font-size:.75rem;padding:.2rem .6rem;border-radius:999px;letter-spacing:.05em}
+  .print{position:fixed;top:1rem;right:1rem;background:#0A4CA1;color:#fff;border:none;border-radius:8px;padding:.6rem 1rem;font-weight:600;cursor:pointer}
+  @media print{.print{display:none} body{padding:0}}
+</style></head><body>
+<button class="print" onclick="window.print()">Print / Save as PDF</button>
+<div class="top">
+  <div><h1>Drive My Way</h1><div class="muted">Dale Willetts t/a Drive My Way<br>hello@drivemyway.co.uk · drivemyway.co.uk</div></div>
+  <div class="meta"><strong>Receipt</strong>${e(receiptNo)}<br>${e(fmt(paidOn))}<br><span class="paid">PAID</span></div>
+</div>
+<div class="cols">
+  <div><h3>Billed to</h3>${school ? "<strong>" + e(school.display_name||school.name) + "</strong><br>" : ""}${e(me&&me.full_name||"")}<br>${e(me&&me.email||"")}${addressLines.length ? "<br>" + addressLines.map(e).join("<br>") : ""}</div>
+  <div><h3>Payment</h3>Direct Debit via GoCardless<br><span class="muted">Ref ${e(p.gocardless_payment_id||"")}</span><br>Collected ${e(fmt(paidOn))}</div>
+</div>
+<table>
+  <tr><th>Description</th><th class="amt">Amount</th></tr>
+  <tr><td>${e(planName)} — ${e(tier)}<br><span class="muted">${e(fmt(paidOn))} to ${e(fmt(periodEnd))}</span></td><td class="amt">${e(gbp(p.amount_pence))}</td></tr>
+  <tr class="total"><td>Total paid</td><td class="amt">${e(gbp(p.amount_pence))}</td></tr>
+</table>
+<div class="foot">No VAT charged — Drive My Way is not VAT registered.<br>Thank you. Questions about this receipt: hello@drivemyway.co.uk</div>
+</body></html>`;
+    win.document.open(); win.document.write(html); win.document.close();
+  }catch(err){
+    win.document.open(); win.document.write("<p style=\"font-family:sans-serif;padding:2rem\">Could not build the receipt: " + String(err.message||err).replace(/</g,"&lt;") + "</p>"); win.document.close();
+  }
+}
 // Why-are-you-leaving capture plus one save step. The reason is stored on
 // the subscription row and pushed to the super admin, so a cancellation is
 // still the start of a conversation rather than just a lost customer.

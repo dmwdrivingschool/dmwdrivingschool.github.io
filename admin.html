@@ -4791,6 +4791,17 @@ async function respondJoin(id, accept){
   if(!document.getElementById("tab-teams").classList.contains("hidden")) loadTeamsPanel();
 }
 
+// Billing line on an instructor's details when they are in a school.
+function seatBillingText(i, school, hasSub){
+  const schoolLabel = esc(school?(school.display_name||school.name):"the school");
+  if(i.is_school_admin) return hasSub
+    ? `Runs the school, so this account pays for ${schoolLabel}'s subscription, including every instructor seat.`
+    : `Runs ${schoolLabel}. The school has no billing set up, so nothing is being charged at the moment.`;
+  return hasSub
+    ? `Covered by ${schoolLabel}. Instructors in a school don't need their own subscription, because the school pays for their seat.`
+    : `Covered by ${schoolLabel}. Instructors in a school don't need their own subscription, because the school pays for their seat. ${schoolLabel} has no billing set up, so nothing is being charged at the moment.`;
+}
+
 function allPupils(){ return pupilsCache.concat(unassignedCache, schoolPupilsCache); }
 let threadPupilId=null;
 let diaryOwnerId=null, keepDiaryOwner=false, staffNames={};
@@ -5449,13 +5460,13 @@ async function showInstructorDetail(instructorId){
       extra = `<p class="muted">Last manual payment note: ${esc(sub.manual_payment_note)}</p>`;
     }
     billingBlock = `<div class="field"><label>Billing</label>
-      <p>${renderStatusChip(sub.status)} ${i.school_id ? "School seat — billed through " + esc(school?(school.display_name||school.name):"the school") : esc(sub.plan)}</p>
+      <p>${renderStatusChip(sub.status)} ${i.school_id ? seatBillingText(i, school, true) : esc(sub.plan)}</p>
       ${sub.trial_ends_at?`<p class="muted">Trial ends: ${new Date(sub.trial_ends_at).toLocaleDateString()}</p>`:""}
       ${sub.current_period_end?`<p class="muted">Current period ends: ${new Date(sub.current_period_end).toLocaleDateString()}</p>`:""}
       ${extra}
     </div>`;
   } else {
-    billingBlock = `<div class="field"><label>Billing</label><p class="muted">${i.school_id ? "School seat — the school has no subscription on file" : "No subscription on file (account predates self-serve billing)"}</p></div>`;
+    billingBlock = `<div class="field"><label>Billing</label><p class="muted">${i.school_id ? seatBillingText(i, school, false) : "No subscription on file (account predates self-serve billing)"}</p></div>`;
   }
 
   openModal(`<h3 style="margin:0 0 1rem">${esc(i.full_name||i.email)}</h3>

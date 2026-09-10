@@ -3884,7 +3884,7 @@ async function loadTeamsPanel(){
   } else if(isSchoolAdminUser && currentSchoolId){
     content.innerHTML=`
       <h2>Your instructors</h2>
-      <p class="muted" style="margin-bottom:.75rem">Lock an instructor's access (e.g. non-payment) or edit their details. Only a super admin can delete an instructor account.</p>
+      <p class="muted" style="margin-bottom:.75rem">Lock an instructor's access, edit their details, or remove them from your school. Removed instructors are locked until Drive My Way sets them up on their own, and their pupils go with them. Accounts are never deleted from here.</p>
       <div id="instructors-list">Loading…</div>
 
       <h3 style="margin:1.5rem 0 .75rem">Add an instructor</h3>
@@ -3939,8 +3939,20 @@ function renderInstructorRow(i, schoolRows, fullControls){
       billingBtns = `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','solo','${nameEsc}')">Convert to solo</button>`;
     } else if(sub && sub.plan==="solo"){
       billingBtns = `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','school_seat','${nameEsc}')">Move to a school</button>`;
+    } else if(!school){
+      // Unattached with no subscription of their own: a school removed them
+      // (locked, waiting for Dale) or a grandfathered account. Either move
+      // reactivates them.
+      billingBtns = `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','solo','${nameEsc}')">Set up as solo</button>
+        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','school_seat','${nameEsc}')">Move to a school</button>`;
     }
   }
+  // School admin only: remove one of their instructors. The instructor is
+  // locked and detached (their pupils go with them) until Dale sets them up
+  // as solo or moves them to another school; the seat can then be dropped.
+  const removeBtn = !fullControls && !isMe && school
+    ? `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="removeFromSchool('${i.id}','${nameEsc}')">Remove from school</button>`
+    : "";
   const deleteBtn = fullControls
     ? `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteInstructor('${i.id}','${nameEsc}')">Delete</button>`
     : "";
@@ -3958,7 +3970,7 @@ function renderInstructorRow(i, schoolRows, fullControls){
       ${videosSelect}
       ${theorySelect}
       <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showInstructorDetail('${i.id}')">Details</button>
-      ${lockBtn}
+      ${lockBtn}${removeBtn}
       ${toggleBtn}
       ${billingBtns}
       <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editInstructor('${i.id}')">Edit</button>
@@ -3971,9 +3983,32 @@ async function lockInstructor(instructorId, name){
   if(reason===null) return;
   const err=document.getElementById("teams-err");
   err.style.color=""; err.textContent="";
-  const {error}=await sb.from("profiles").update({locked_at:new Date().toISOString(), locked_reason:reason.trim()||null}).eq("id",instructorId);
-  if(error){ err.textContent=error.message; return; }
+  if(isSuperAdminUser){
+    const {error}=await sb.from("profiles").update({locked_at:new Date().toISOString(), locked_reason:reason.trim()||null}).eq("id",instructorId);
+    if(error){ err.textContent=error.message; return; }
+  } else {
+    // Via manage-auth: same lock, plus a push + email to Drive My Way so
+    // Dale can reach out to the instructor.
+    try{ await manageAuthAdmin("lock_instructor", {instructor_id:instructorId, reason:reason.trim()}); }
+    catch(e){ err.textContent=e.message||"Could not lock"; return; }
+  }
   await loadTeamsPanel();
+}
+
+async function removeFromSchool(instructorId, name){
+  const ok = confirm(`Remove ${name} from your school?\n\n• They lose access straight away and are no longer part of your team.\n• Their pupils go with them — you will no longer see those pupils.\n• Drive My Way is told, and will contact them about carrying on as a solo instructor.\n• You can then drop the seat in Billing so you are not charged for it.\n\nThis cannot be undone from here.`);
+  if(!ok) return;
+  const reason = prompt("Optional: a short note for them and for Drive My Way (leave blank for none):", "");
+  if(reason===null) return;
+  const err=document.getElementById("teams-err");
+  err.style.color=""; err.textContent="";
+  try{
+    await manageAuthAdmin("remove_from_school", {instructor_id:instructorId, reason:reason.trim()});
+    await loadTeamsPanel();
+    const done=document.getElementById("teams-err");
+    done.style.color="#0a7a3d";
+    done.innerHTML = `${esc(name)} has been removed. If you no longer need their seat, <a href="#" onclick="goTab('billing');return false" style="color:var(--navy)">drop it in Billing</a> so it is not charged next month.`;
+  }catch(e){ err.textContent=e.message||"Could not remove instructor"; }
 }
 
 async function unlockInstructor(instructorId, name){

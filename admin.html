@@ -1725,8 +1725,10 @@ function renderPupilLogins(){
 
 function row(k,v){return `<div style="padding:.4rem 0;border-bottom:1px solid #f1f5f9;font-size:.9rem"><strong style="color:#64748b;display:inline-block;min-width:110px">${k}</strong> ${esc(v||"—")}</div>`}
 
-function editPupil(p){
+async function editPupil(p){
+  const picker = await instructorPickerHtml("ep-instr", p.instructor_id||null);
   openModal(`<h2 style="margin-bottom:1rem">Edit pupil</h2>
+    ${picker}
     <div class="two">
       <div class="field"><label>First name</label><input id="ep-fn" value="${esc(p.first_name||"")}"></div>
       <div class="field"><label>Last name</label><input id="ep-ln" value="${esc(p.last_name||"")}"></div>
@@ -1761,6 +1763,7 @@ async function savePupil(id){
   };
   const dhapEl=document.getElementById("ep-dhap");
   if(dhapEl) payload.delivered_hours_at_pass = dhapEl.value.trim()===""?null:Number(dhapEl.value);
+  if(document.getElementById("ep-instr")) payload.instructor_id = document.getElementById("ep-instr").value||null;
   const {error}=await sb.from("pupils").update(payload).eq("id",id);
   if(error) alert(error.message); else {closeModal(); await loadPupils(); renderPupils(); loadDash()}
 }
@@ -3375,6 +3378,8 @@ async function importPupilsCsv(ev){
       preferred_gearbox: /auto/i.test(rec.preferred_gearbox||"") ? "automatic" : "manual",
       credit_hours: Number(rec.credit_hours)>0 ? Number(rec.credit_hours) : 0,
       notes: rec.notes || null,
+      instructor_id: currentUserId,
+      school_id: currentSchoolId||null,
     };
     const {error} = await sb.from("pupils").insert(payload);
     if(error){ failed++; if(errors.length<5) errors.push("Row "+(r+1)+": "+error.message); }
@@ -6045,12 +6050,37 @@ async function websiteDeleteSelected(){
 function fmt(iso){if(!iso)return"–";try{return new Date(iso).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}catch{return iso}}
 
 
-function openAddPupilForm(){
+// Every pupil row must carry instructor_id + school_id or RLS refuses it
+// (pupils_owner_all). The app always sets both; the Control Centre forgot
+// to after the schools rollout, so Add pupil / CSV import failed with
+// "new row violates row-level security policy" (Dale, 2026-09-10).
+// A school admin who also teaches picks which instructor gets the pupil;
+// everyone else gets themselves.
+async function instructorPickerHtml(selectId, selectedId){
+  if(!(isSchoolAdminUser && currentSchoolId)) return "";
+  const {data:instrs} = await sb.from("profiles").select("id,full_name,email").eq("role","instructor").eq("school_id",currentSchoolId).is("locked_at",null).order("full_name");
+  schoolInstructorsCache = instrs||[];
+  const sel = selectedId===undefined ? currentUserId : selectedId;
+  return `<div class="field"><label>Instructor</label>
+    <select id="${selectId}">
+      <option value="" ${!sel?"selected":""}>— Unassigned (school pool) —</option>
+      ${schoolInstructorsCache.map(i=>`<option value="${i.id}" ${i.id===sel?"selected":""}>${esc(i.full_name||i.email)}${i.id===currentUserId?" (me)":""}</option>`).join("")}
+    </select></div>`;
+}
+function pupilOwnerFields(selectId){
+  const el = document.getElementById(selectId);
+  const chosen = el ? (el.value||null) : currentUserId;
+  return { instructor_id: chosen, school_id: currentSchoolId||null };
+}
+
+async function openAddPupilForm(){
+  const picker = await instructorPickerHtml("ap-instr");
   openModal(`<h3>Add pupil</h3>
     <div class="field"><label>First name *</label><input id="ap-fn"></div>
     <div class="field"><label>Last name *</label><input id="ap-ln"></div>
     <div class="field"><label>Phone</label><input id="ap-phone"></div>
     <div class="field"><label>Email</label><input id="ap-email" type="email"></div>
+    ${picker}
     <div class="field"><label>Status</label>
       <select id="ap-status">
         <option value="active">Active</option>
@@ -6077,6 +6107,7 @@ async function saveNewPupil(){
     postcode:document.getElementById("ap-pc").value.trim()||null,
   };
   if(row.email) row.email=row.email.toLowerCase();
+  Object.assign(row, pupilOwnerFields("ap-instr"));
   const {error}=await sb.from("pupils").insert(row);
   if(error) alert(error.message);
   else { closeModal(); await loadPupils(); renderPupils(); loadDash(); }

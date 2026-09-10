@@ -258,6 +258,7 @@ tbody tr:hover td{background:#334263}
     <div class="brand"><img src="drive-my-way-logo.png" alt="Drive My Way" onerror="this.remove()"><span>Drive My Way Control Centre</span></div>
     <div style="display:flex;gap:.5rem;align-items:center">
       <span id="who" style="color:#64748b;font-size:.8rem"></span>
+      <button class="btn-outline btn-sm" onclick="goTab('settings');openSettings('profile')">Profile</button>
       <button class="btn btn-gold btn-sm" onclick="lock()">Sign out</button>
     </div>
   </div>
@@ -546,6 +547,7 @@ tbody tr:hover td{background:#334263}
       <div class="panel">
         <h2>Settings</h2>
         <div class="settings-list" id="settings-menu">
+          <button type="button" onclick="openSettings('profile')">Your profile</button>
           <button type="button" onclick="openSettings('reminders')">Reminders</button>
           <button type="button" onclick="openSettings('paycats')">Payment categories</button>
           <button type="button" onclick="openSettings('workinghours')">Working hours</button>
@@ -854,7 +856,7 @@ async function checkProfileCompletion(){
 function showCompleteProfileModal(address, adiBadgeNumber){
   address = address || {};
   openModal(`<h3 style="margin:0 0 1rem">Complete your profile</h3>
-    <p class="muted" style="margin-bottom:1rem">A couple of things missing from your account — takes a minute to add.</p>
+    <p class="muted" style="margin-bottom:1rem">A couple of things missing from your account — takes a minute to add. You can change any of it later under Settings → Your profile.</p>
     <div class="field"><label>Address line 1</label><input id="cp-address1" value="${esc(address.address_line1||"")}"></div>
     <div class="field"><label>Address line 2 (optional)</label><input id="cp-address2" value="${esc(address.address_line2||"")}"></div>
     <div class="field"><label>City</label><input id="cp-city" value="${esc(address.city||"")}"></div>
@@ -907,6 +909,31 @@ async function saveCompleteProfile(){
 
   profileCompletionDismissed = true;
   closeModal();
+}
+
+async function saveProfilePanel(){
+  const errEl=document.getElementById("pf-err"), okEl=document.getElementById("pf-ok");
+  errEl.textContent=""; okEl.style.display="none";
+  const v=id=>(document.getElementById(id)?.value||"").trim();
+  const name=v("pf-name"), phone=v("pf-phone"), adi=v("pf-adi");
+  const address1=v("pf-address1"), address2=v("pf-address2"), city=v("pf-city"), postcode=v("pf-postcode");
+  if(!name){ errEl.textContent="Your name is required"; return; }
+  const addressEditable = !currentSchoolId || isSchoolAdminUser;
+  if(addressEditable && (!address1||!postcode)){ errEl.textContent="Address line 1 and postcode are required"; return; }
+  if(currentSchoolId && isSchoolAdminUser){
+    const {error}=await sb.from("schools").update({address_line1:address1,address_line2:address2||null,city:city||null,postcode}).eq("id",currentSchoolId);
+    if(error){ errEl.textContent=error.message; return; }
+  }
+  // Address args are ignored by the RPC for school members anyway; pass
+  // null so a solo/school distinction can't wipe anything by accident.
+  const solo=!currentSchoolId;
+  const {error:rpcError}=await sb.rpc("instructor_update_own_profile",{
+    p_full_name:name, p_phone:phone, p_adi_badge_number:adi,
+    p_address_line1:solo?address1:null, p_address_line2:solo?address2:null, p_city:solo?city:null, p_postcode:solo?postcode:null
+  });
+  if(rpcError){ errEl.textContent=rpcError.message; return; }
+  document.getElementById("who").textContent=name;
+  okEl.style.display="block";
 }
 
 // --- Self-serve signup -------------------------------------------------
@@ -2957,7 +2984,34 @@ async function openSettings(which){
   document.getElementById("settings-menu").classList.add("hidden");
   const panel=document.getElementById("settings-panel");
   panel.classList.remove("hidden");
-  if(which==="reminders"){
+  if(which==="profile"){
+    // Everything the "Complete your profile" popup asks for, editable any
+    // time (Dale: after the popup there was nowhere to change it). Saves
+    // through the same RPC as the popup; null = leave that field alone.
+    const {data:prof}=await sb.from("profiles").select("full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode").eq("id",currentUserId).maybeSingle();
+    let addr = prof||{};
+    if(currentSchoolId){
+      const {data:school}=await sb.from("schools").select("address_line1,address_line2,city,postcode").eq("id",currentSchoolId).maybeSingle();
+      addr = school||{};
+    }
+    const addressEditable = !currentSchoolId || isSchoolAdminUser;
+    const addrField=(id,label,val)=>`<div class="field"><label>${label}</label><input id="${id}" value="${esc(val||"")}" ${addressEditable?"":"disabled"}></div>`;
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Your profile</h3>
+      <div class="field"><label>Email</label><input value="${esc(prof?.email||"")}" disabled><span class="muted" style="font-size:.78rem">To change your sign-in email, contact Drive My Way.</span></div>
+      <div class="field"><label>Your name</label><input id="pf-name" value="${esc(prof?.full_name||"")}"></div>
+      <div class="field"><label>Phone</label><input id="pf-phone" value="${esc(prof?.phone||"")}"></div>
+      <div class="field"><label>ADI/PDI badge number (optional)</label><input id="pf-adi" value="${esc(prof?.adi_badge_number||"")}"></div>
+      <h4 style="margin:1rem 0 .5rem">${currentSchoolId?"School address":"Address"}</h4>
+      ${addressEditable?"":'<p class="muted" style="margin-bottom:.5rem">Your school admin looks after the school address.</p>'}
+      ${addrField("pf-address1","Address line 1",addr.address_line1)}
+      ${addrField("pf-address2","Address line 2 (optional)",addr.address_line2)}
+      ${addrField("pf-city","City",addr.city)}
+      ${addrField("pf-postcode","Postcode",addr.postcode)}
+      <button class="btn btn-navy btn-sm" onclick="saveProfilePanel()">Save</button>
+      <div class="err" id="pf-err" style="margin-top:.5rem"></div>
+      <div class="muted" id="pf-ok" style="margin-top:.5rem;display:none">Saved.</div>`;
+  } else if(which==="reminders"){
     const raw=JSON.parse(localStorage.getItem("dmw_admin_reminders")||'{"enabled":false,"hours":48,"message":"Looking forward to seeing you."}');
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Lesson reminders</h3>
@@ -3737,7 +3791,7 @@ async function loadTeamsPanel(){
         <label style="margin:0;text-transform:none;font-weight:600;font-size:.85rem;color:var(--text)">This is a PDI (free while training)</label>
       </div>
       <button class="btn btn-navy btn-sm" onclick="addInstructorGlobal()">Send invite</button>
-      <div class="err" id="teams-err" style="margin-top:.5rem"></div>`;
+      <div class="err" id="teams-err" style="margin-top:.5rem;display:block;text-align:left"></div>`;
 
     const [{data:schools}, {data:instructors}] = await Promise.all([
       sb.from("schools").select("id,display_name,name,locked_at").order("display_name"),
@@ -3802,7 +3856,7 @@ async function loadTeamsPanel(){
       <div class="field"><label>Email</label><input id="new-instr-email" type="email"></div>
       <div class="field"><label>Phone (optional)</label><input id="new-instr-phone"></div>
       <button class="btn btn-navy btn-sm" onclick="addInstructorSchool()">Send invite</button>
-      <div class="err" id="teams-err" style="margin-top:.5rem"></div>`;
+      <div class="err" id="teams-err" style="margin-top:.5rem;display:block;text-align:left"></div>`;
 
     const {data:instructors} = await sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at").eq("role","instructor").eq("school_id",currentSchoolId).order("full_name");
     const instrRows = instructors||[];
@@ -4120,22 +4174,44 @@ async function addInstructorGlobal(){
 // setInstructorBilling).
 async function addInstructorSchool(){
   const err=document.getElementById("teams-err");
-  err.textContent="";
+  err.style.color=""; err.textContent="";
   const fullName=document.getElementById("new-instr-name").value.trim();
   const email=document.getElementById("new-instr-email").value.trim().toLowerCase();
   const phone=document.getElementById("new-instr-phone").value.trim();
   if(!fullName||!email){ err.textContent="Name and email are required"; return; }
+  const send = () => manageAuthAdmin("create_instructor", {full_name:fullName, email, phone: phone||null});
+  let seatAdded = false;
   try{
-    await manageAuthAdmin("create_instructor", {full_name:fullName, email, phone: phone||null});
+    try{
+      await send();
+    }catch(e){
+      if(!/^No seats available/.test(e.message||"")) throw e;
+      // At the seat limit. Dale: warn, and offer to buy the seat right here
+      // rather than sending them off to find Billing and come back.
+      const {data:sub} = await sb.from("subscriptions").select("seats_purchased,videos_addon").eq("owner_type","school").eq("owner_id",currentSchoolId).maybeSingle();
+      const seats = (sub&&sub.seats_purchased)||1;
+      const perSeat = SEAT_PRICE_PENCE + (sub&&sub.videos_addon ? VIDEO_ADDON_PENCE : 0);
+      const total = schoolMonthlyPence(seats+1, sub&&sub.videos_addon);
+      const ok = confirm(`You're using all ${seats} of your seat${seats===1?"":"s"}.\n\nAdd another seat for ${gbp(perSeat)} a month (${gbp(total)} a month in total) and send the invite to ${email}?\n\nNothing is taken now — the new amount applies from your next Direct Debit payment.`);
+      if(!ok){
+        err.innerHTML = `You're at your seat limit (${seats}). <a href="#" onclick="goTab('billing');return false" style="color:var(--navy)">Open Billing</a> to add a seat, then send the invite again.`;
+        return;
+      }
+      const seatRes = await callFn("update-seat-quantity", {seats: seats+1});
+      seatAdded = true;
+      const note = seatChangeNote(seatRes); if(note) alert(note.trim());
+      await send();
+    }
     document.getElementById("new-instr-name").value="";
     document.getElementById("new-instr-email").value="";
     document.getElementById("new-instr-phone").value="";
-    err.style.color="#0a7a3d";
-    err.textContent="Invite sent to "+email+".";
-    await loadTeamsPanel();
+    await loadTeamsPanel(); // re-renders the panel, so write the message afterwards
+    const done=document.getElementById("teams-err");
+    done.style.color="#0a7a3d";
+    done.textContent=(seatAdded?"Seat added. ":"")+"Invite sent to "+email+".";
   }catch(e){
     err.style.color="";
-    err.textContent=e.message||"Failed to add instructor";
+    err.textContent=(seatAdded?"Seat added, but the invite failed: ":"")+(e.message||"Failed to add instructor");
   }
 }
 

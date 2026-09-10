@@ -273,7 +273,7 @@ tbody tr:hover td{background:#334263}
     <button data-tab="portal">Learning Videos</button>
     <button data-tab="theory" id="nav-theory-btn" class="hidden">Theory</button>
     <button data-tab="messages" id="nav-messages-btn" class="hidden">Messages</button>
-    <button data-tab="teams" id="nav-teams-btn" class="hidden">Teams</button>
+    <button data-tab="teams" id="nav-teams-btn" class="hidden">Instructors</button>
     <button data-tab="billing" id="nav-billing-btn" class="hidden">Billing</button>
     <button data-tab="website" id="nav-website-btn" class="hidden">Website</button>
     <button data-tab="help">Help</button>
@@ -369,6 +369,7 @@ tbody tr:hover td{background:#334263}
             <button class="btn btn-navy btn-sm" onclick="openDiaryAddLesson()">+ Add</button>
           </div>
         </div>
+        <div id="diary-owner-bar"></div>
         <div id="diary-wrap"></div>
       </div>
     </section>
@@ -719,7 +720,7 @@ function goTab(tab, pupilFilter){
     }
     renderPupils();
   }
-  if(tab==="diary") renderDiary();
+  if(tab==="diary"){ if(!keepDiaryOwner) diaryOwnerId=currentUserId; keepDiaryOwner=false; renderDiary(); }
   if(tab==="finance"){fillCats(); applyFinance()}
   if(tab==="tests") showTests("future");
   if(tab==="settings"){document.getElementById("settings-menu").classList.remove("hidden");document.getElementById("settings-panel").classList.add("hidden")}
@@ -798,7 +799,7 @@ async function enterApp(user,prof){
   document.getElementById("fin-pay-instr-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
   // A school's waiting list is the Unassigned pool (assigning makes a pupil active), so no separate Waiting tab for school admins.
   document.getElementById("pupil-filter-waiting").classList.toggle("hidden", !!(isSchoolAdminUser && currentSchoolId));
-  document.getElementById("nav-messages-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
+  document.getElementById("nav-messages-btn").classList.remove("hidden"); // everyone: school/instructors + own pupils
   await loadSchoolInstructors();
   await refresh(); setInterval(refresh,30000);
   checkProfileCompletion();
@@ -1358,7 +1359,7 @@ function renderPupils(){
     const byInstr={}; list.forEach(p=>{ (byInstr[p.instructor_id]=byInstr[p.instructor_id]||[]).push(p); });
     const nameOf=id=>{ const i=schoolInstructorsCache.find(x=>x.id===id); return i?(i.full_name||i.email):"Instructor"; };
     el.innerHTML = Object.keys(byInstr).sort((a,b)=>nameOf(a).localeCompare(nameOf(b))).map(iid=>`
-      <h3 style="margin:1rem 0 .4rem">${esc(nameOf(iid))} <span class="muted" style="font-weight:400;font-size:.85rem">· ${byInstr[iid].length} pupil${byInstr[iid].length===1?"":"s"}${owedTo(iid)>0.005?" · owed "+gbp(Math.round(owedTo(iid)*100)):""}</span></h3>
+      <h3 style="margin:1rem 0 .4rem">${esc(nameOf(iid))} <span class="muted" style="font-weight:400;font-size:.85rem">· ${byInstr[iid].length} pupil${byInstr[iid].length===1?"":"s"}${owedTo(iid)>0.005?" · owed "+gbp(Math.round(owedTo(iid)*100)):""}</span> <button class="btn-outline" style="font-size:.72rem;padding:.2rem .5rem;margin-left:.4rem" onclick="openInstructorDiary('${iid}')">Diary</button></h3>
       ${byInstr[iid].map(p=>`<div class="list-row">
         <div style="flex:1;min-width:0"><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
           <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div></div>
@@ -1592,12 +1593,12 @@ async function convertLessonToGap(id){
     lesson_type:"gap", title:"Gap",
     start_time:l.start_time, end_time:l.end_time,
     status:"booked", payment_status:"unpaid",
-    pupil_id:null, instructor_id:session?.user?.id||null,
+    pupil_id:null, instructor_id:pupilDetail.p.instructor_id||session?.user?.id||null,
     gearbox:l.gearbox||"manual"
   });
   if(insErr) return alert(insErr.message);
   const thisPupilId=pupilDetail.p.id;
-  const {data:activePupils}=await sb.from("pupils").select("id").eq("status","active");
+  const {data:activePupils}=await sb.from("pupils").select("id").eq("status","active").eq("instructor_id", pupilDetail.p.instructor_id||currentUserId);
   const others=(activePupils||[]).filter(p=>p.id!==thisPupilId);
   if(others.length){
     const start=new Date(l.start_time);
@@ -1954,6 +1955,7 @@ async function assignPoolPupil(pupilId, instructorId){
   await loadPupils(); renderPupils(); loadDash();
 }
 async function loadSchoolInstructors(){
+  if(currentSchoolId && !schoolDisplayNameCache){ try{ const {data:sn}=await sb.from("schools").select("display_name,name").eq("id",currentSchoolId).maybeSingle(); schoolDisplayNameCache=(sn&&(sn.display_name||sn.name))||""; }catch(e){} }
   if(!(isSchoolAdminUser && currentSchoolId)) return;
   try{ const {data:sc}=await sb.from("schools").select("display_name,name").eq("id",currentSchoolId).maybeSingle(); schoolDisplayNameCache=(sc&&(sc.display_name||sc.name))||""; }catch(e){}
   const {data:instrs} = await sb.from("profiles").select("id,full_name,email").eq("role","instructor").eq("school_id",currentSchoolId).is("locked_at",null).order("full_name");
@@ -2007,7 +2009,8 @@ async function renderDiary(){
   // (and anything else spanning midnight) start before the week or before a
   // given day but still cover it — start_time-only filtering hid them here
   // while the app showed them.
-  const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)")
+  renderDiaryOwnerBar();
+  const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)").eq("instructor_id", diaryOwnerId||currentUserId)
     .lt("start_time",end.toISOString()).gt("end_time",weekStart.toISOString()).order("start_time");
   diaryLessonsCache=lessons||[];
   const list=diaryHideCancelled ? diaryLessonsCache.filter(l=>l.status!=="cancelled") : diaryLessonsCache;
@@ -2133,7 +2136,7 @@ async function onDiaryBlockClick(el){
 // (RLS scopes the row to the signed-in instructor, no owner column needed).
 function openDiaryAddLesson(){
   const today=new Date().toISOString().slice(0,10);
-  const pupils=pupilsCache.filter(p=>p.status==="active"||p.status==="waiting")
+  const pupils=diaryPupils().filter(p=>p.status==="active"||p.status==="waiting")
     .sort((a,b)=>(a.first_name||"").localeCompare(b.first_name||""));
   const opts=pupils.map(p=>`<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`).join("");
   openModal(`<h2 style="margin-bottom:1rem">Add to diary</h2>
@@ -2168,7 +2171,7 @@ async function saveDiaryAddLesson(){
     pupil_id:pupilId, lesson_type:type,
     title:type==="student_away"?"Away":null,
     start_time:start.toISOString(), end_time:end.toISOString(),
-    status:"booked", payment_status:"unpaid"
+    status:"booked", payment_status:"unpaid", instructor_id:diaryOwnerId||currentUserId
   });
   if(error) return alert("Could not add: "+error.message);
   closeModal();
@@ -2270,7 +2273,7 @@ async function saveAwayModal(editingId){
   const session=(await sb.auth.getSession()).data.session;
   const payload={
     lesson_type:"private", title, start_time:start.toISOString(), end_time:end.toISOString(),
-    status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:session?.user?.id||null,
+    status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:diaryOwnerId||session?.user?.id||null,
     notes, gearbox:"manual", visible_to_pupil:visibleToPupil, do_not_delete:doNotDelete
   };
   const {error}= editingId
@@ -2311,7 +2314,7 @@ function openDiaryGap(){
         <option value="select">Select pupils</option>
       </select>
       <div id="gp-select-wrap" style="display:none;max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin-top:.5rem">
-        ${pupilsCache.map(p=>`<label style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem"><input type="checkbox" class="gp-pupil-cb" value="${p.id}"> ${esc(p.first_name)} ${esc(p.last_name)}</label>`).join("")}
+        ${diaryPupils().map(p=>`<label style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem"><input type="checkbox" class="gp-pupil-cb" value="${p.id}"> ${esc(p.first_name)} ${esc(p.last_name)}</label>`).join("")}
       </div>
     </div>
     <div class="actions" style="margin-top:.75rem">
@@ -2330,19 +2333,19 @@ async function saveDiaryGap(){
   const session=(await sb.auth.getSession()).data.session;
   const {error}=await sb.from("lessons").insert({
     lesson_type:"gap", title:"Gap", start_time:start.toISOString(), end_time:end.toISOString(),
-    status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:session?.user?.id||null, gearbox
+    status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:diaryOwnerId||session?.user?.id||null, gearbox
   });
   if(error) return alert(error.message);
 
   if(document.getElementById("gp-notify").checked){
     const sendTo=document.getElementById("gp-sendto").value;
     let targets=pupilsCache;
-    if(sendTo==="active") targets=pupilsCache.filter(p=>p.status==="active");
-    else if(sendTo==="waiting") targets=pupilsCache.filter(p=>p.status==="waiting");
-    else if(sendTo==="both") targets=pupilsCache.filter(p=>p.status==="active"||p.status==="waiting");
+    if(sendTo==="active") targets=diaryPupils().filter(p=>p.status==="active");
+    else if(sendTo==="waiting") targets=diaryPupils().filter(p=>p.status==="waiting");
+    else if(sendTo==="both") targets=diaryPupils().filter(p=>p.status==="active"||p.status==="waiting");
     else{
       const selected=[...document.querySelectorAll(".gp-pupil-cb:checked")].map(el=>el.value);
-      targets=pupilsCache.filter(p=>selected.includes(p.id));
+      targets=diaryPupils().filter(p=>selected.includes(p.id));
     }
     const when=start.toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
     const body=`Gap available: ${when} (${duration} mins, ${gearbox}). Open the app and tap Book on this slot if you want it.`;
@@ -2362,7 +2365,7 @@ async function saveDiaryGap(){
 const SWAP_NOT_SWAPPABLE=["gap","lesson_offer","student_away","driving_test"];
 function openLessonSwap(){
   swapLessonsCache={a:[],b:[]};
-  const active=pupilsCache.filter(p=>p.status==="active").sort((a,b)=>(a.first_name||"").localeCompare(b.first_name||""));
+  const active=diaryPupils().filter(p=>p.status==="active").sort((a,b)=>(a.first_name||"").localeCompare(b.first_name||""));
   const opts=active.map(p=>`<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`).join("");
   openModal(`<h2 style="margin-bottom:1rem">Lesson swap</h2>
     <p class="muted" style="margin-bottom:.75rem">Pick a pupil and lesson on each side — their appointment times swap, each lesson keeps its own length and details.</p>
@@ -2492,12 +2495,12 @@ async function convertDiaryLessonToGap(id){
   const session=(await sb.auth.getSession()).data.session;
   const {error:insErr}=await sb.from("lessons").insert({
     lesson_type:"gap", title:"Gap", start_time:l.start_time, end_time:l.end_time,
-    status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:session?.user?.id||null,
+    status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:l.instructor_id||session?.user?.id||null,
     gearbox:l.gearbox||"manual"
   });
   if(insErr) return alert(insErr.message);
   const thisPupilId=l.pupil_id;
-  const {data:activePupils}=await sb.from("pupils").select("id").eq("status","active");
+  const {data:activePupils}=await sb.from("pupils").select("id").eq("status","active").eq("instructor_id", l.instructor_id||currentUserId);
   const others=(activePupils||[]).filter(p=>p.id!==thisPupilId);
   if(others.length){
     const start=new Date(l.start_time);
@@ -2803,6 +2806,15 @@ function showFin(mode,btn){
 // amber — that's usually exactly where a mismatch against Total Drive comes
 // from (an entry filed under the wrong category, or an old category no
 // longer offered when adding new entries).
+// What each category means for this account (Dale: make School payment vs
+// Pupil Lesson obvious for a school owner).
+function catHint(c){
+  const aud = helpAudience();
+  const map = aud==="school"
+    ? {"Pupil Lesson":"your own pupils","Pupil Test Fee":"your own pupils","School payment":"from other instructors' pupils","Instructor payment":"paid to your instructors"}
+    : aud==="member" ? {"School payment":"paid to you by your school"} : {};
+  return map[c] ? ' <span class="muted" style="font-size:.75rem;font-weight:400">('+esc(map[c])+')</span>' : "";
+}
 function financeCategoryTable(rows,standardCats,label,isExp){
   const byCat={};
   rows.forEach(r=>{
@@ -2819,7 +2831,7 @@ function financeCategoryTable(rows,standardCats,label,isExp){
     const flagged=extra.includes(c);
     const catArg=JSON.stringify(c).replace(/'/g,"&#39;");
     return `<tr style="cursor:pointer${flagged?";background:#FFF7E8":""}" onclick='showFinCategoryModal(${catArg},${isExp?"true":"false"})' title="Click to see every entry in this category">
-      <td>${esc(c)}${flagged?' <span style="color:#b45309;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">· not a standard category</span>':""}</td>
+      <td>${esc(c)}${catHint(c)}${flagged?' <span style="color:#b45309;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">· not a standard category</span>':""}</td>
       <td style="text-align:right">${d.count}</td>
       <td style="text-align:right">£${d.amount.toFixed(2)}</td>
     </tr>`;
@@ -3088,7 +3100,7 @@ async function saveGap(){
   const start=new Date(y,m-1,d,hh,mm); const end=new Date(start.getTime()+mins*60000);
   const {error}=await sb.from("lessons").insert({
     lesson_type:"gap", title:"Gap", start_time:start.toISOString(), end_time:end.toISOString(),
-    status:"booked", payment_status:"unpaid", notes:val("gap-notes")||null, pupil_id:null
+    status:"booked", payment_status:"unpaid", notes:val("gap-notes")||null, pupil_id:null, instructor_id:currentUserId
   });
   if(error) alert(error.message); else {closeModal(); loadGaps()}
 }
@@ -3271,6 +3283,9 @@ async function openSettings(which){
       const {data:own}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","terms_and_conditions").maybeSingle();
       body=(own&&own.value&&own.value.body)||"";
     }
+    let noticeHours=48;
+    { const {data:cp}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","cancellation_policy").maybeSingle(); if(cp&&cp.value&&cp.value.noticeHours!=null) noticeHours=Number(cp.value.noticeHours); }
+    if(currentSchoolId){ const {data:sc2}=await sb.from("schools").select("cancellation_notice_hours").eq("id",currentSchoolId).maybeSingle(); if(sc2&&sc2.cancellation_notice_hours!=null) noticeHours=Number(sc2.cancellation_notice_hours); }
     const usingDefault=!body.trim();
     if(usingDefault) body=DEFAULT_TERMS_BODY;
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
@@ -3279,6 +3294,8 @@ async function openSettings(which){
         ? `These are ${esc(who)}'s terms and conditions. Every instructor in the school shows the same terms, so only your school admin can change them.`
         : (currentSchoolId ? `Shown to every pupil of every instructor in ${esc(who)} at their first login. Instructors can't change them.` : "Shown to your pupils at their first login. Write <code>{{HOURS}}</code> wherever your cancellation notice period should appear.")}</p>
       ${usingDefault && !readOnly ? '<p class="muted" style="margin-bottom:.5rem;font-size:.8rem">This is the standard Drive My Way template. Edit anything you like and save to make it yours.</p>' : ""}
+      <div class="field" style="max-width:280px"><label>Cancellation notice period (hours)</label><input id="terms-hours" type="number" min="0" step="1" value="${noticeHours}" ${readOnly?"readonly":""}></div>
+      <p class="muted" style="margin:-.25rem 0 .75rem;font-size:.8rem">Pupils who cancel with less notice than this are flagged for a charge decision. Wherever the terms say {{HOURS}}, pupils see this number.</p>
       <textarea id="terms-body" rows="22" ${readOnly?"readonly":""} style="width:100%;padding:.75rem;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit;font-size:.85rem;line-height:1.45">${esc(body)}</textarea>
       ${readOnly?"":`<div style="margin-top:.75rem;display:flex;gap:.5rem;align-items:center">
         <button class="btn btn-navy btn-sm" onclick="saveTerms()">Save</button>
@@ -3919,22 +3936,40 @@ async function manageAuthAdmin(action, payload){
 // them in the feed on the enquiry/waiting screen and gets a push.
 async function loadMessagesPanel(){
   const content=document.getElementById("messages-content");
-  if(!(isSchoolAdminUser && currentSchoolId)){ content.innerHTML='<h2>Messages</h2><p class="muted">Messaging from the Control Centre is for driving school admins. Use the app to message your pupils.</p>'; return; }
   content.innerHTML='<h2>Messages</h2><p class="muted">Loading…</p>';
-  const people = unassignedCache.concat(pupilsCache.filter(p=>p.status==="enquiry"));
-  if(!people.length){ content.innerHTML='<h2>Messages</h2><p class="muted">Nobody to message here. This tab is for pupils who have no instructor yet — open enquiries and the Unassigned list. Once a pupil is assigned, message them from the instructor\'s app.</p>'; return; }
-  const ids = people.map(p=>p.id);
-  const {data:msgs} = await sb.from("messages").select("pupil_id,body,direction,is_read,created_at").in("pupil_id",ids).order("created_at",{ascending:false});
+  const schoolAdmin=!!(isSchoolAdminUser && currentSchoolId);
+  const member=!!(currentSchoolId && !isSchoolAdminUser);
+  // Staff: a school admin talks to their instructors; an instructor in a
+  // school talks to the school. Same rows the app uses (pupil_id null,
+  // sender_id/recipient_id), so the conversation is shared with the app.
+  let staff=[];
+  if(schoolAdmin){ if(!schoolInstructorsCache.length) await loadSchoolInstructors(); staff=schoolInstructorsCache.filter(i=>i.id!==currentUserId).map(i=>({id:i.id,name:i.full_name||i.email})); }
+  else if(member){ const {data}=await sb.rpc("my_school_admins"); staff=(data||[]).map(a=>({id:a.id,name:(schoolDisplayNameCache||"")+(schoolDisplayNameCache?" · ":"")+(a.full_name||a.email)})); }
+  staff.forEach(x=>{ staffNames[x.id]=x.name; });
+  const sLast={}, sUnread={};
+  if(staff.length){
+    const {data:sm}=await sb.from("messages").select("sender_id,recipient_id,body,is_read,created_at").is("pupil_id",null).or(`sender_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`).order("created_at",{ascending:false}).limit(500);
+    (sm||[]).forEach(m=>{ const peer=m.sender_id===currentUserId?m.recipient_id:m.sender_id; if(!sLast[peer]) sLast[peer]=m; if(m.recipient_id===currentUserId && !m.is_read) sUnread[peer]=(sUnread[peer]||0)+1; });
+  }
+  const own=pupilsCache.filter(p=>p.status==="active"||p.status==="waiting");
+  const pool=schoolAdmin ? unassignedCache.concat(pupilsCache.filter(p=>p.status==="enquiry")) : [];
+  const ids=own.concat(pool).map(p=>p.id);
   const last={}, unread={};
-  (msgs||[]).forEach(m=>{ if(!last[m.pupil_id]) last[m.pupil_id]=m; if(m.direction==="inbound" && !m.is_read) unread[m.pupil_id]=(unread[m.pupil_id]||0)+1; });
-  people.sort((a,b)=>{ const la=last[a.id]?new Date(last[a.id].created_at).getTime():0, lb=last[b.id]?new Date(last[b.id].created_at).getTime():0; return lb-la; });
-  content.innerHTML = `<h2>Messages</h2>
-    <p class="muted" style="margin-bottom:.75rem">Pupils without an instructor yet — open enquiries and the Unassigned list. They see these in their app straight away.</p>
-    ${people.map(p=>{ const l=last[p.id]; const u=unread[p.id]||0; return `<div class="list-row" style="cursor:pointer" onclick="openPupilThread('${p.id}')">
-      <div style="flex:1;min-width:0"><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong> <span class="chip ${p.status==="enquiry"?"chip-info":"chip-wait"}">${p.status==="enquiry"?"enquiry":"unassigned"}</span>${u?` <span class="chip chip-bad">${u} new</span>`:""}
-        <div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l?(l.direction==="inbound"?"They: ":"You: ")+esc(l.body):"No messages yet"}</div></div>
-      <div class="muted" style="font-size:.75rem;white-space:nowrap">${l?new Date(l.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"}):""}</div>
-    </div>`; }).join("")}`;
+  if(ids.length){
+    const {data:msgs}=await sb.from("messages").select("pupil_id,body,direction,is_read,created_at").in("pupil_id",ids).order("created_at",{ascending:false}).limit(3000);
+    (msgs||[]).forEach(m=>{ if(!last[m.pupil_id]) last[m.pupil_id]=m; if(m.direction==="inbound" && !m.is_read) unread[m.pupil_id]=(unread[m.pupil_id]||0)+1; });
+  }
+  const t=m=>m?new Date(m.created_at).getTime():0;
+  const when=m=>m?new Date(m.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"}):"";
+  const staffRow=x=>`<div class="list-row" style="cursor:pointer" onclick="openStaffThread('${x.id}')"><div style="flex:1;min-width:0"><strong>${esc(x.name)}</strong>${sUnread[x.id]?` <span class="chip chip-bad">${sUnread[x.id]} new</span>`:""}<div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sLast[x.id]?(sLast[x.id].sender_id===currentUserId?"You: ":"")+esc(sLast[x.id].body||""):"No messages yet"}</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${when(sLast[x.id])}</div></div>`;
+  const pupilRow=(p,chip)=>`<div class="list-row" style="cursor:pointer" onclick="openPupilThread('${p.id}')"><div style="flex:1;min-width:0"><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong> ${chip}${unread[p.id]?` <span class="chip chip-bad">${unread[p.id]} new</span>`:""}<div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${last[p.id]?(last[p.id].direction==="inbound"?"They: ":"You: ")+esc(last[p.id].body||""):"No messages yet"}</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${when(last[p.id])}</div></div>`;
+  const sec=(title,note,rows,empty)=>`<h3 style="margin:1.1rem 0 .3rem">${esc(title)}</h3>${note?`<p class="muted" style="margin-bottom:.4rem;font-size:.85rem">${note}</p>`:""}${rows||`<p class="muted">${empty}</p>`}`;
+  let html="<h2>Messages</h2>";
+  if(schoolAdmin) html+=sec("Your instructors","",staff.slice().sort((a,b)=>t(sLast[b.id])-t(sLast[a.id])).map(staffRow).join(""),"No other instructors in your school yet.");
+  if(member) html+=sec("Your school","",staff.map(staffRow).join(""),"No school admin found.");
+  html+=sec("Your pupils","",own.slice().sort((a,b)=>t(last[b.id])-t(last[a.id])).map(p=>pupilRow(p,`<span class="chip ${p.status==="active"?"chip-ok":"chip-wait"}">${esc(p.status)}</span>`)).join(""),"No active or waiting pupils.");
+  if(schoolAdmin) html+=sec("Unassigned & enquiries","Pupils with no instructor yet. Once assigned, their instructor takes over the conversation.",pool.slice().sort((a,b)=>t(last[b.id])-t(last[a.id])).map(p=>pupilRow(p,`<span class="chip ${p.status==="enquiry"?"chip-info":"chip-wait"}">${p.status==="enquiry"?"enquiry":"unassigned"}</span>`)).join(""),"Nobody waiting.");
+  content.innerHTML=html;
 }
 
 // --- School <-> instructor money -----------------------------------------
@@ -4043,7 +4078,7 @@ async function savePayInstructor(){
 // (driving school admin, solo instructor, instructor in a school). Dale
 // wants schools to stop having to ask; keep this in step with
 // dmw-app/docs/how-to.md whenever a feature lands.
-const HELP_TOPICS = [{"t":"Getting started","a":["school","solo"],"q":"Signing up and your free trial","b":["Sign up on the Control Centre: your name, email and password. Confirm the email link.","You are taken to GoCardless to set up your Direct Debit. The page shows the monthly amount and the first payment date.","Nothing is charged during the 30-day free trial. The first payment is taken the day after the trial ends. Cancel any time before then and nothing is ever charged.","You cannot use the Control Centre or the app until the Direct Debit is set up.","The app is on the App Store and Google Play. Sign in with the same email and password."]},{"t":"Getting started","a":["member"],"q":"Your invite and first sign-in","b":["Your school admin invites you from their Control Centre. You get an email with a link to set your password.","Sign in to the app (App Store / Google Play) or the Control Centre with that email and password.","Your school pays for your seat. You never see or handle billing.","Tap Profile (next to Sign out) and fill in your phone, ADI/PDI badge number and address. Your school can see these details."]},{"t":"Getting started","a":["school","solo","member"],"q":"Your profile","b":["Profile is the button next to Sign out.","Name, phone, ADI/PDI badge number and your address. Save shows a green tick.","School admins also have a \"school address\" section underneath, with a \"Same as my address\" link for when the school runs from home."]},{"t":"Your team","a":["school"],"q":"Invite an instructor","b":["Teams → Add an instructor → name, email, phone → Send invite.","They get an email to set a password. Each instructor uses one seat.","At your seat limit? Send invite asks whether to add a seat (it shows the price and your new monthly total) and sends the invite in one go. Or use Billing → Instructor seats → +."]},{"t":"Your team","a":["school"],"q":"Lock, remove or delete an instructor","b":["Lock (Teams → Lock): they cannot sign in to the app or the Control Centre until you Unlock. You can add a message; your contact details and Drive My Way's are always shown under it.","Remove from school: takes them out of your team and locks them. Their pupils go with them. You can then drop the seat in Billing so it is not charged. Drive My Way is told and can set them up as a solo instructor.","Delete: only Drive My Way can delete an account. Contact admin@drivemyway.co.uk.","You cannot lock your own account."]},{"t":"Your team","a":["school"],"q":"See an instructor's details","b":["Teams → Details: email, phone, badge number, address, and their seat status.","Edit lets you change their name, email or phone."]},{"t":"Pupils","a":["school"],"q":"Where pupils sit","b":["Active / Passed / Inactive: your own pupils (the ones assigned to you).","Unassigned: the school's waiting list — pupils with no instructor yet. Only you see them. They never appear in the diary or any picker until assigned.","Instructors' pupils: every other instructor's pupils, grouped under the instructor's name.","A school has no separate waiting list: Unassigned is the waiting list. Assigning an instructor makes the pupil active."]},{"t":"Pupils","a":["school"],"q":"Add a pupil","b":["Pupils → Add pupil.","Instructor: pick who teaches them (defaults to you), or Unassigned to put them on the school waiting list.","With an email address the pupil is sent a link to set their password for the app."]},{"t":"Pupils","a":["solo","member"],"q":"Add a pupil","b":["Pupils → Add pupil → name, phone, email, status.","With an email address the pupil is sent a link to set their password for the app.","Waiting: on your waiting list, they can read your messages but the app is otherwise limited. Active: full app."]},{"t":"Pupils","a":["school"],"q":"Assign or move a pupil to an instructor","b":["Unassigned tab → \"Assign to…\" on the pupil's row.","Instructors' pupils → \"Move to…\" to move between instructors.","Edit pupil → Instructor dropdown, or Enquiries → \"Assign to instructor\".","The pupil gets a message in their app: \"You have been assigned to [instructor] at [school]. Someone will be in contact shortly to arrange your first lesson…\". Chat is switched on for them at the same time."]},{"t":"Pupils","a":["member"],"q":"Pupils your school assigns to you","b":["When your school admin assigns a pupil to you they appear under your Pupils as Active, and the pupil is told you are their instructor and to expect contact.","Contact them to arrange the first lesson unless the school already has.","Anything the school said to them before they were assigned is in the same message thread."]},{"t":"Pupils","a":["school"],"q":"Message a pupil who has no instructor yet","b":["Messages tab lists Unassigned pupils and open enquiries, newest conversation first.","Open one, type, Send. It shows in the pupil's app straight away, labelled \"From [your school]\", with a push notification.","Turn chat on so they can reply. Once assigned, the instructor's app takes over.","You can also use the Message button on an Unassigned row or an enquiry card."]},{"t":"Pupils","a":["school","solo"],"q":"Enquiries and your website form","b":["Settings → Your enquiry form gives you code to paste into your website. Leads land in the Enquiries tab.","Accept moves them to the waiting list (Unassigned for a school); Decline removes them and tells them.","Schools: a second \"school enquiry form\" sends leads in unassigned so you can hand them to any instructor."]},{"t":"Money between school and instructors","a":["school"],"q":"Take a payment from another instructor's pupil","b":["Pupils → Instructors' pupils → Take payment on the pupil's row.","Amount, date, method, category and the lesson hours it covers.","The hours count as that pupil's credit in the instructor's app. On the school's books it is recorded as School payment (Pupil Lesson is only for your own pupils). The school now owes the instructor.","If that pupil is later moved to you, the payment becomes an ordinary Pupil Lesson of yours and nothing is owed. Moved to another instructor, the money is owed to them instead."]},{"t":"Money between school and instructors","a":["school"],"q":"Pay an instructor","b":["Finances → Pay instructor, or Pay now on the dashboard reminder.","The amount pre-fills with what they are owed. Optionally pick the pupil it relates to.","It is recorded as an expense for the school and as income for the instructor (\"School payment\" in their app), so both sets of books match. Deleting either entry removes the other.","The \"Instructor payments due\" panel on your dashboard lists anyone still owed money."]},{"t":"Money","a":["member"],"q":"When a pupil pays the school instead of you","b":["The school records the payment against the pupil. The lesson hours show as that pupil's credit in your app straight away.","The money itself is not your income until the school pays it over. When they do, it appears under Money as \"School payment\"."]},{"t":"Finances","a":["school","solo","member"],"q":"Income, expenses and reports","b":["Finances tab: Summary, Income, Expenses, Add entry. Filter by tax year, month or custom dates.","Finances shows only your own books. A school admin does not see other instructors' income or expenses here.","Import / export finances (dashboard tile or Settings) for a CSV backup or to bring records over from another app.","Settings → Payment categories to change the category lists."]},{"t":"Diary","a":["school","solo","member"],"q":"Lessons, gaps, swaps and holidays","b":["+ Add: a lesson for one of your pupils. Only your own pupils appear in the list.","Swap: swap two pupils' lesson slots; both are told.","+ Gap: offer a free slot to your active or waiting pupils; first to tap Book gets it.","+ Holiday: block out time.","Settings → Working hours sets the days and times you teach; it drives the diary, the app and your enquiry form."]},{"t":"Terms and conditions","a":["school"],"q":"Your school's terms","b":["Settings → Terms & conditions. Starts with the standard template; edit and Save.","They apply to every instructor in your school. Instructors cannot change them.","Pupils accept them in the app at first login; the acceptance is timestamped on their record.","Write {{HOURS}} wherever the cancellation notice period should appear."]},{"t":"Terms and conditions","a":["solo"],"q":"Your terms","b":["Settings → Terms & conditions (also in the app under Settings). Starts with the standard template; edit and Save.","Pupils accept them in the app at first login; the acceptance is timestamped on their record.","Write {{HOURS}} wherever the cancellation notice period should appear."]},{"t":"Terms and conditions","a":["member"],"q":"Terms your pupils accept","b":["Your pupils see your school's terms. Only your school admin can change them.","Settings → Terms & conditions shows them read-only."]},{"t":"Billing","a":["school"],"q":"What you pay and changing it","b":["Billing shows your trial or subscription status and the monthly total for your seats.","Instructor seats: + and − change the seat count from your next payment. A banner tells you if you are paying for an unused seat.","Premium (Learning Videos & Theory Practice for every pupil): Upgrade / Switch to Basic. +£2 a month on the base and on every seat.","Cancel: you keep full access to the end of what you have paid for, and the free trial runs its full length."]},{"t":"Billing","a":["solo"],"q":"What you pay and changing it","b":["Billing shows your trial or subscription status and the monthly amount.","Premium (Learning Videos & Theory Practice for your pupils): Upgrade / Switch to Basic. +£2 a month.","Cancel: you keep full access to the end of what you have paid for, and the free trial runs its full length."]},{"t":"Billing","a":["school","solo"],"q":"Receipts","b":["Billing → Payments lists every Direct Debit collection.","Receipt opens a printable page — Print / Save as PDF. No VAT is charged."]},{"t":"Billing","a":["member"],"q":"Billing","b":["Your school looks after billing. Ask your school admin to change anything."]},{"t":"Problems","a":["school","solo"],"q":"The app says access is paused","b":["It means there is no working Direct Debit, the trial has ended without one, a payment failed more than 7 days ago, or the subscription was cancelled and the paid-up date has passed.","Sign in to the Control Centre, set up or re-authorise the Direct Debit under Billing, then tap \"I've sorted it — check again\" in the app.","A failed payment gives 7 days' grace first, with an amber banner in the app.","Stuck? Email admin@drivemyway.co.uk."]},{"t":"Problems","a":["member"],"q":"You have been locked out","b":["If your school has locked or removed you, the sign-in screen tells you and shows your school admin's contact details.","Want to carry on with Drive My Way on your own? Email admin@drivemyway.co.uk and we can reactivate you as a solo instructor — you keep your pupils and records."]},{"t":"Problems","a":["school","solo","member"],"q":"Contact Drive My Way","b":["Email admin@drivemyway.co.uk. Support page: drivemyway.co.uk/support."]}];
+const HELP_TOPICS = [{"t":"Getting started","a":["school","solo"],"q":"Signing up and your free trial","b":["Sign up on the Control Centre: your name, email and password. Confirm the email link.","You are taken to GoCardless to set up your Direct Debit. The page shows the monthly amount and the first payment date.","Nothing is charged during the 30-day free trial. The first payment is taken the day after the trial ends. Cancel any time before then and nothing is ever charged.","You cannot use the Control Centre or the app until the Direct Debit is set up.","The app is on the App Store and Google Play. Sign in with the same email and password."]},{"t":"Getting started","a":["member"],"q":"Your invite and first sign-in","b":["Your school admin invites you from their Control Centre. You get an email with a link to set your password.","Sign in to the app (App Store / Google Play) or the Control Centre with that email and password.","Your school pays for your seat. You never see or handle billing.","Tap Profile (next to Sign out) and fill in your phone, ADI/PDI badge number and address. Your school can see these details."]},{"t":"Getting started","a":["school","solo","member"],"q":"Your profile","b":["Profile is the button next to Sign out.","Name, phone, ADI/PDI badge number and your address. Save shows a green tick.","School admins also have a \"school address\" section underneath, with a \"Same as my address\" link for when the school runs from home."]},{"t":"Your instructors","a":["school"],"q":"Invite an instructor","b":["Instructors → Add an instructor → name, email, phone → Send invite.","They get an email to set a password. Each instructor uses one seat.","At your seat limit? Send invite asks whether to add a seat (it shows the price and your new monthly total) and sends the invite in one go. Or use Billing → Instructor seats → +."]},{"t":"Your instructors","a":["school"],"q":"Lock, remove or delete an instructor","b":["Lock (Instructors → Lock): they cannot sign in to the app or the Control Centre until you Unlock. You can add a message; your contact details and Drive My Way's are always shown under it.","Remove from school: takes them out of your team and locks them. Their pupils go with them. You can then drop the seat in Billing so it is not charged. Drive My Way is told and can set them up as a solo instructor.","Delete: only Drive My Way can delete an account. Contact admin@drivemyway.co.uk.","You cannot lock your own account."]},{"t":"Your instructors","a":["school"],"q":"See an instructor's details","b":["Instructors → Details: email, phone, badge number, address, and their seat status.","Edit lets you change their name, email or phone."]},{"t":"Your instructors","a":["school"],"q":"Open an instructor's diary and book lessons","b":["Instructors → Diary on the instructor's row, or the Diary button next to their name under Pupils → Instructors' pupils.","An amber bar shows whose diary you're in. + Add, + Gap, Swap and + Holiday all go into their diary, using their pupils. Their pupils are told as normal.","← Back to my diary returns to yours. Clicking Diary in the top menu also takes you back to your own.","If the instructor has locked their diary you'll see a message saying so, with a button to message them."]},{"t":"Your instructors","a":["school"],"q":"Message an instructor","b":["Messages → Your instructors, or Instructors → Message on their row.","It's the same conversation as in the app, so they can reply from their phone or the Control Centre."]},{"t":"Pupils","a":["school"],"q":"Where pupils sit","b":["Active / Passed / Inactive: your own pupils (the ones assigned to you).","Unassigned: the school's waiting list — pupils with no instructor yet. Only you see them. They never appear in the diary or any picker until assigned.","Instructors' pupils: every other instructor's pupils, grouped under the instructor's name.","A school has no separate waiting list: Unassigned is the waiting list. Assigning an instructor makes the pupil active."]},{"t":"Pupils","a":["school"],"q":"Add a pupil","b":["Pupils → Add pupil.","Instructor: pick who teaches them (defaults to you), or Unassigned to put them on the school waiting list.","With an email address the pupil is sent a link to set their password for the app."]},{"t":"Pupils","a":["solo","member"],"q":"Add a pupil","b":["Pupils → Add pupil → name, phone, email, status.","With an email address the pupil is sent a link to set their password for the app.","Waiting: on your waiting list, they can read your messages but the app is otherwise limited. Active: full app."]},{"t":"Pupils","a":["school"],"q":"Assign or move a pupil to an instructor","b":["Unassigned tab → \"Assign to…\" on the pupil's row.","Instructors' pupils → \"Move to…\" to move between instructors.","Edit pupil → Instructor dropdown, or Enquiries → \"Assign to instructor\".","The pupil gets a message in their app: \"You have been assigned to [instructor] at [school]. Someone will be in contact shortly to arrange your first lesson…\". Chat is switched on for them at the same time."]},{"t":"Pupils","a":["member"],"q":"Pupils your school assigns to you","b":["When your school admin assigns a pupil to you they appear under your Pupils as Active, and the pupil is told you are their instructor and to expect contact.","Contact them to arrange the first lesson unless the school already has.","Anything the school said to them before they were assigned is in the same message thread."]},{"t":"Pupils","a":["school"],"q":"Message a pupil who has no instructor yet","b":["Messages tab lists Unassigned pupils and open enquiries, newest conversation first.","Open one, type, Send. It shows in the pupil's app straight away, labelled \"From [your school]\", with a push notification.","Turn chat on so they can reply. Once assigned, the instructor's app takes over.","You can also use the Message button on an Unassigned row or an enquiry card."]},{"t":"Pupils","a":["school","solo"],"q":"Enquiries and your website form","b":["Settings → Your enquiry form gives you code to paste into your website. Leads land in the Enquiries tab.","Accept moves them to the waiting list (Unassigned for a school); Decline removes them and tells them.","Schools: a second \"school enquiry form\" sends leads in unassigned so you can hand them to any instructor."]},{"t":"Money between school and instructors","a":["school"],"q":"Take a payment from another instructor's pupil","b":["Pupils → Instructors' pupils → Take payment on the pupil's row.","Amount, date, method, category and the lesson hours it covers.","The hours count as that pupil's credit in the instructor's app. On the school's books it is recorded as School payment (Pupil Lesson is only for your own pupils). The school now owes the instructor.","If that pupil is later moved to you, the payment becomes an ordinary Pupil Lesson of yours and nothing is owed. Moved to another instructor, the money is owed to them instead."]},{"t":"Money between school and instructors","a":["school"],"q":"Pay an instructor","b":["Finances → Pay instructor, or Pay now on the dashboard reminder.","The amount pre-fills with what they are owed. Optionally pick the pupil it relates to.","It is recorded as an expense for the school and as income for the instructor (\"School payment\" in their app), so both sets of books match. Deleting either entry removes the other.","The \"Instructor payments due\" panel on your dashboard lists anyone still owed money."]},{"t":"Money","a":["member"],"q":"When a pupil pays the school instead of you","b":["The school records the payment against the pupil. The lesson hours show as that pupil's credit in your app straight away.","The money itself is not your income until the school pays it over. When they do, it appears under Money as \"School payment\"."]},{"t":"Finances","a":["school","solo","member"],"q":"Income, expenses and reports","b":["Finances tab: Summary, Income, Expenses, Add entry. Filter by tax year, month or custom dates.","Finances shows only your own books. A school admin does not see other instructors' income or expenses here.","Import / export finances (dashboard tile or Settings) for a CSV backup or to bring records over from another app.","Settings → Payment categories to change the category lists."]},{"t":"Diary","a":["school","solo","member"],"q":"Lessons, gaps, swaps and holidays","b":["+ Add: a lesson for one of your pupils. Only your own pupils appear in the list.","Swap: swap two pupils' lesson slots; both are told.","+ Gap: offer a free slot to your active or waiting pupils; first to tap Book gets it.","+ Holiday: block out time.","Settings → Working hours sets the days and times you teach; it drives the diary, the app and your enquiry form."]},{"t":"Diary","a":["member"],"q":"Lock or unlock your diary","b":["The bar at the top of your Diary shows whether it's locked or unlocked.","Unlocked (the default): your school can view your diary and add or change lessons, for example booking the first lesson for a pupil they've just assigned to you.","Lock diary: your school can't view it or change anything. If they try, they're told it's locked and to contact you.","Only you can lock or unlock it."]},{"t":"Terms and conditions","a":["school"],"q":"Your school's terms","b":["Settings → Terms & conditions. Starts with the standard template; edit and Save.","They apply to every instructor in your school. Instructors cannot change them.","Pupils accept them in the app at first login; the acceptance is timestamped on their record.","Set the cancellation notice period (hours) above the terms. Wherever the terms say {{HOURS}}, pupils see that number."]},{"t":"Terms and conditions","a":["solo"],"q":"Your terms","b":["Settings → Terms & conditions (also in the app under Settings). Starts with the standard template; edit and Save.","Pupils accept them in the app at first login; the acceptance is timestamped on their record.","Set the cancellation notice period (hours) above the terms. Wherever the terms say {{HOURS}}, pupils see that number."]},{"t":"Terms and conditions","a":["member"],"q":"Terms your pupils accept","b":["Your pupils see your school's terms. Only your school admin can change them.","Settings → Terms & conditions shows them read-only."]},{"t":"Billing","a":["school"],"q":"What you pay and changing it","b":["Billing shows your trial or subscription status and the monthly total for your seats.","Instructor seats: + and − change the seat count from your next payment. A banner tells you if you are paying for an unused seat.","Premium (Learning Videos & Theory Practice for every pupil): Upgrade / Switch to Basic. +£2 a month on the base and on every seat.","Cancel: you keep full access to the end of what you have paid for, and the free trial runs its full length."]},{"t":"Billing","a":["solo"],"q":"What you pay and changing it","b":["Billing shows your trial or subscription status and the monthly amount.","Premium (Learning Videos & Theory Practice for your pupils): Upgrade / Switch to Basic. +£2 a month.","Cancel: you keep full access to the end of what you have paid for, and the free trial runs its full length."]},{"t":"Billing","a":["school","solo"],"q":"Receipts","b":["Billing → Payments lists every Direct Debit collection.","Receipt opens a printable page — Print / Save as PDF. No VAT is charged."]},{"t":"Billing","a":["member"],"q":"Billing","b":["Your school looks after billing. Ask your school admin to change anything."]},{"t":"Problems","a":["school","solo"],"q":"The app says access is paused","b":["It means there is no working Direct Debit, the trial has ended without one, a payment failed more than 7 days ago, or the subscription was cancelled and the paid-up date has passed.","Sign in to the Control Centre, set up or re-authorise the Direct Debit under Billing, then tap \"I've sorted it — check again\" in the app.","A failed payment gives 7 days' grace first, with an amber banner in the app.","Stuck? Email admin@drivemyway.co.uk."]},{"t":"Problems","a":["member"],"q":"You have been locked out","b":["If your school has locked or removed you, the sign-in screen tells you and shows your school admin's contact details.","Want to carry on with Drive My Way on your own? Email admin@drivemyway.co.uk and we can reactivate you as a solo instructor — you keep your pupils and records."]},{"t":"Problems","a":["school","solo","member"],"q":"Contact Drive My Way","b":["Email admin@drivemyway.co.uk. Support page: drivemyway.co.uk/support."]},{"t":"Messages","a":["school"],"q":"Messages in the Control Centre","b":["Messages tab has three lists: Your instructors, Your pupils, and Unassigned & enquiries.","Open a conversation, type, Send. Pupils and instructors get a push notification and see it in the app.","Messages to your own pupils come from you. Messages to pupils without an instructor show as \"From [your school]\"."]},{"t":"Messages","a":["member"],"q":"Messages in the Control Centre","b":["Messages tab has two lists: Your school and Your pupils.","It's the same conversations as in the app, so you can reply from either."]},{"t":"Messages","a":["solo"],"q":"Messages in the Control Centre","b":["Messages tab lists your active and waiting pupils, newest conversation first.","It's the same conversations as in the app, so you can reply from either."]}];
 function helpAudience(){
   if(currentSchoolId && !isSchoolAdminUser) return "member";
   if(currentSchoolId || isSuperAdminUser) return "school";
@@ -4062,15 +4097,102 @@ function renderHelp(){
     ${Object.keys(groups).map(t=>`<h3 style="margin:1rem 0 .4rem">${esc(t)}</h3>${groups[t].map(x=>`<details class="help-item" ${q?"open":""} style="border:1px solid var(--line);border-radius:8px;padding:.5rem .8rem;margin-bottom:.4rem"><summary style="cursor:pointer;font-weight:600">${esc(x.q)}</summary><ol style="margin:.5rem 0 .25rem 1.1rem;padding:0;line-height:1.5">${x.b.map(li=>`<li style="margin:.2rem 0">${esc(li)}</li>`).join("")}</ol></details>`).join("")}`).join("") || '<p class="muted">Nothing matches that search.</p>'}`;
 }
 
+// --- Diary sharing ---------------------------------------------------------
+// A school admin can open an instructor's diary (Instructors tab / Instructors'
+// pupils) and add lessons in it, unless that instructor has locked it. The
+// lock lives in app_settings(owner=instructor, id=diary_access) and is
+// enforced by the database (trg_lessons_zz_guard_diary_lock), not just here.
+function diaryPupils(){ return (diaryOwnerId && diaryOwnerId!==currentUserId) ? schoolPupilsCache.filter(p=>p.instructor_id===diaryOwnerId) : pupilsCache; }
+async function diaryIsLocked(ownerId){
+  const {data}=await sb.from("app_settings").select("value").eq("owner_id",ownerId).eq("id","diary_access").maybeSingle();
+  return !!(data && data.value && data.value.locked);
+}
+async function openInstructorDiary(instrId){
+  if(!schoolInstructorsCache.length) await loadSchoolInstructors();
+  const name=instrName(instrId);
+  if(await diaryIsLocked(instrId)){
+    openModal(`<h3 style="margin:0 0 .5rem">🔒 ${esc(name)}'s diary is locked</h3>
+      <p style="margin-bottom:1rem">${esc(name)} has locked their diary, so the school can't view it or add lessons. Contact them to arrange lessons, or ask them to unlock it.</p>
+      <button class="btn btn-navy btn-sm" onclick="closeModal();openStaffThread('${instrId}')">Message ${esc(name)}</button>
+      <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Close</button>`);
+    return;
+  }
+  diaryOwnerId=instrId; keepDiaryOwner=true; goTab("diary");
+}
+async function renderDiaryOwnerBar(){
+  const bar=document.getElementById("diary-owner-bar"); if(!bar) return;
+  if(diaryOwnerId && diaryOwnerId!==currentUserId){
+    bar.innerHTML=`<div style="background:#fef3c7;color:#78350f;padding:.55rem .9rem;font-size:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap"><strong>Viewing ${esc(instrName(diaryOwnerId))}'s diary.</strong><span>Lessons you add here go in their diary and their pupils are told as normal.</span><a href="#" onclick="diaryOwnerId=currentUserId;renderDiary();return false" style="color:#78350f;font-weight:700;margin-left:auto">← Back to my diary</a></div>`;
+    return;
+  }
+  if(currentSchoolId && !isSchoolAdminUser){
+    const locked=await diaryIsLocked(currentUserId);
+    bar.innerHTML = locked
+      ? `<div style="background:#f1f5f9;color:#0f172a;padding:.55rem .9rem;font-size:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap"><strong>🔒 Diary locked.</strong><span>Your school can't see your diary or add lessons to it.</span><button class="btn-outline btn-sm" style="margin-left:auto" onclick="setMyDiaryLock(false)">Unlock diary</button></div>`
+      : `<div style="background:#ecfdf5;color:#064e3b;padding:.55rem .9rem;font-size:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap"><strong>🔓 Diary unlocked.</strong><span>Your school can view your diary and add or change lessons, e.g. booking a new pupil's first lesson.</span><button class="btn-outline btn-sm" style="margin-left:auto" onclick="setMyDiaryLock(true)">Lock diary</button></div>`;
+    return;
+  }
+  bar.innerHTML="";
+}
+async function setMyDiaryLock(locked){
+  const msg = locked ? "Lock your diary? Your school will no longer be able to view it or add lessons. They'll be told to contact you instead." : "Unlock your diary? Your school will be able to view it and add or change lessons.";
+  if(!confirm(msg)) return;
+  const {error}=await sb.from("app_settings").upsert({id:"diary_access",owner_id:currentUserId,value:{locked},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+  if(error){ alert(error.message); return; }
+  renderDiaryOwnerBar();
+}
+
+// --- Staff messages (school <-> instructor), shared with the app -----------
+let staffPeerId=null;
+async function openStaffThread(peerId){
+  staffPeerId=peerId;
+  if(!staffNames[peerId]){
+    if(isSchoolAdminUser){ if(!schoolInstructorsCache.length) await loadSchoolInstructors(); staffNames[peerId]=instrName(peerId); }
+    else { const {data}=await sb.rpc("my_school_admins"); (data||[]).forEach(a=>{ staffNames[a.id]=a.full_name||a.email; }); }
+  }
+  const name=staffNames[peerId]||"Message";
+  openModal(`<h3 style="margin:0 0 .75rem">${esc(name)}</h3>
+    <div id="staff-thread-list" style="max-height:45vh;overflow-y:auto;background:var(--surface-2,#f8fafc);border:1px solid var(--line);border-radius:8px;padding:.5rem;margin-bottom:.75rem">Loading…</div>
+    <div class="field"><label>Message</label><textarea id="staff-thread-body" rows="3" style="width:100%;padding:.5rem;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit"></textarea></div>
+    <button class="btn btn-navy btn-sm" onclick="sendStaffMessage()">Send</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Close</button>
+    <div class="err" id="staff-thread-err" style="margin-top:.5rem;display:block;text-align:left"></div>`);
+  await renderStaffThread();
+}
+async function renderStaffThread(){
+  const el=document.getElementById("staff-thread-list"); if(!el||!staffPeerId) return;
+  const me=currentUserId, peer=staffPeerId;
+  const {data:msgs,error}=await sb.from("messages").select("id,sender_id,recipient_id,body,is_read,created_at").is("pupil_id",null)
+    .or(`and(sender_id.eq.${me},recipient_id.eq.${peer}),and(sender_id.eq.${peer},recipient_id.eq.${me})`).order("created_at",{ascending:true});
+  if(error){ el.innerHTML='<p class="muted">'+esc(error.message)+'</p>'; return; }
+  const rows=msgs||[];
+  el.innerHTML = rows.length ? rows.map(m=>`<div style="display:flex;justify-content:${m.sender_id===me?"flex-end":"flex-start"};margin:.3rem 0"><div style="max-width:80%;background:${m.sender_id===me?"#dbeafe":"#fff"};color:#0f172a;border:1px solid var(--line);border-radius:10px;padding:.45rem .65rem;font-size:.85rem"><div style="white-space:pre-line">${esc(m.body||"")}</div><div style="font-size:.7rem;margin-top:.2rem;color:#64748b">${new Date(m.created_at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</div></div></div>`).join("") : '<p class="muted" style="text-align:center;padding:1rem">No messages yet</p>';
+  el.scrollTop=el.scrollHeight;
+  const unreadIds=rows.filter(m=>m.recipient_id===me && !m.is_read).map(m=>m.id);
+  if(unreadIds.length) await sb.from("messages").update({is_read:true, read_at:new Date().toISOString()}).in("id",unreadIds);
+}
+async function sendStaffMessage(){
+  const err=document.getElementById("staff-thread-err"); err.textContent="";
+  const body=(document.getElementById("staff-thread-body").value||"").trim();
+  if(!body){ err.textContent="Type a message first"; return; }
+  const {data:msg,error}=await sb.from("messages").insert({pupil_id:null, sender_id:currentUserId, recipient_id:staffPeerId, body}).select("id").maybeSingle();
+  if(error){ err.textContent=error.message; return; }
+  document.getElementById("staff-thread-body").value="";
+  if(msg?.id) triggerMsgPush(msg.id);
+  await renderStaffThread();
+  if(!document.getElementById("tab-messages").classList.contains("hidden")) loadMessagesPanel();
+}
+
 function allPupils(){ return pupilsCache.concat(unassignedCache, schoolPupilsCache); }
 let threadPupilId=null;
+let diaryOwnerId=null, keepDiaryOwner=false, staffNames={};
 let schoolDisplayNameCache="";
 async function openPupilThread(pupilId){
   threadPupilId=pupilId;
   const p = allPupils().find(x=>x.id===pupilId);
   const name = p ? `${p.first_name} ${p.last_name}` : "Pupil";
   openModal(`<h3 style="margin:0 0 .25rem">${esc(name)}</h3>
-    <p class="muted" style="margin-bottom:.5rem">${p&&p.status==="enquiry"?"On the enquiry list":"No instructor assigned yet"}${p&&p.email?" · "+esc(p.email):""}</p>
+    <p class="muted" style="margin-bottom:.5rem">${p&&p.status==="enquiry"?"On the enquiry list":(p&&p.instructor_id)?(p.instructor_id===currentUserId?"Your pupil":"Pupil of "+esc(instrName(p.instructor_id))):"No instructor assigned yet"}${p&&p.email?" · "+esc(p.email):""}</p>
     <p style="margin-bottom:.75rem;font-size:.85rem" id="thread-chat-line"></p>
     <div id="thread-list" style="max-height:45vh;overflow-y:auto;background:var(--surface-2,#f8fafc);border:1px solid var(--line);border-radius:8px;padding:.5rem;margin-bottom:.75rem">Loading…</div>
     <div class="field"><label>Reply</label><textarea id="thread-body" rows="3" style="width:100%;padding:.5rem;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit" placeholder="Type a message to ${esc(p?p.first_name:"the pupil")}…"></textarea></div>
@@ -4120,7 +4242,9 @@ async function sendThreadMessage(){
   // The pupil app labels outbound messages as from "your instructor"; a
   // subject carrying the school's name makes it clear this came from the
   // school office (Dale) — no app change needed.
-  const schoolLabel = schoolDisplayNameCache ? `From ${schoolDisplayNameCache}` : "From your driving school";
+  const tp = allPupils().find(x=>x.id===threadPupilId);
+  const fromSchool = !!(isSchoolAdminUser && currentSchoolId && (!tp || tp.instructor_id!==currentUserId));
+  const schoolLabel = fromSchool ? (schoolDisplayNameCache ? `From ${schoolDisplayNameCache}` : "From your driving school") : null;
   const {data:msg,error}=await sb.from("messages").insert({pupil_id:threadPupilId, direction:"outbound", subject:schoolLabel, body, delivered_at:new Date().toISOString()}).select("id").maybeSingle();
   if(error){ err.textContent=error.message; return; }
   document.getElementById("thread-body").value="";
@@ -4298,6 +4422,7 @@ function renderInstructorRow(i, schoolRows, fullControls){
       ${planBtn}
       ${videosSelect}
       ${theorySelect}
+      ${(!fullControls && i.id!==currentUserId)?`<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openInstructorDiary('${i.id}')">Diary</button><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openStaffThread('${i.id}')">Message</button>`:""}
       <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showInstructorDetail('${i.id}')">Details</button>
       ${lockBtn}${removeBtn}
       ${toggleBtn}
@@ -5461,13 +5586,16 @@ async function saveTerms(){
   const body=(document.getElementById("terms-body").value||"").trim();
   const err=document.getElementById("terms-err"), ok=document.getElementById("terms-ok"); err.textContent=""; ok.style.display="none";
   if(!body){ err.textContent="Terms can't be empty"; return; }
+  const hours=Math.max(0,Math.round(Number(document.getElementById("terms-hours").value)||0));
   if(currentSchoolId && isSchoolAdminUser){
     // schools.terms_body fans out to every instructor's app_settings row (trigger).
-    const {error}=await sb.from("schools").update({terms_body:body}).eq("id",currentSchoolId);
+    const {error}=await sb.from("schools").update({terms_body:body, cancellation_notice_hours:hours}).eq("id",currentSchoolId);
     if(error){ err.textContent=error.message; return; }
   } else if(!currentSchoolId){
     const {error}=await sb.from("app_settings").upsert({id:"terms_and_conditions",owner_id:currentUserId,value:{body},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
     if(error){ err.textContent=error.message; return; }
+    const {error:e2}=await sb.from("app_settings").upsert({id:"cancellation_policy",owner_id:currentUserId,value:{noticeHours:hours},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+    if(e2){ err.textContent=e2.message; return; }
   } else { err.textContent="Only your school admin can change the school's terms."; return; }
   ok.style.display="inline";
 }

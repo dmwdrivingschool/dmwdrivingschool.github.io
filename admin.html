@@ -272,6 +272,7 @@ tbody tr:hover td{background:#334263}
     <button data-tab="gaps">Gaps</button>
     <button data-tab="portal">Learning Videos</button>
     <button data-tab="theory" id="nav-theory-btn" class="hidden">Theory</button>
+    <button data-tab="messages" id="nav-messages-btn" class="hidden">Messages</button>
     <button data-tab="teams" id="nav-teams-btn" class="hidden">Teams</button>
     <button data-tab="billing" id="nav-billing-btn" class="hidden">Billing</button>
     <button data-tab="website" id="nav-website-btn" class="hidden">Website</button>
@@ -536,6 +537,10 @@ tbody tr:hover td{background:#334263}
       </div>
     </section>
 
+    <section id="tab-messages" class="hidden">
+      <div class="panel" id="messages-content">Loading…</div>
+    </section>
+
     <section id="tab-teams" class="hidden">
       <div class="panel" id="teams-content">Loading…</div>
     </section>
@@ -709,6 +714,7 @@ function goTab(tab, pupilFilter){
   if(tab==="portal"){ loadVideoModules().then(()=>{ loadActivity(); loadLearningVideos(); }); }
   if(tab==="theory"){ loadTheoryProgress(); }
   if(tab==="teams"){ loadTeamsPanel(); }
+  if(tab==="messages"){ loadMessagesPanel(); }
   if(tab==="billing"){ loadBillingPanel(); }
   if(tab==="website"){ websiteShow(websiteMode || "carousel"); }
 }
@@ -775,6 +781,7 @@ async function enterApp(user,prof){
   document.getElementById("nav-billing-btn").classList.remove("hidden"); // seat instructors get the tab too, but only a pointer to their admin (see loadBillingPanel)
   document.getElementById("nav-website-btn").classList.toggle("hidden", !isSuperAdminUser); // public website is your (platform admin's) tool only — never a driving school's
   document.getElementById("pupil-filter-unassigned").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
+  document.getElementById("nav-messages-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
   await loadSchoolInstructors();
   await refresh(); setInterval(refresh,30000);
   checkProfileCompletion();
@@ -1329,6 +1336,7 @@ function renderPupils(){
     <div class="actions">
       <span class="chip ${p.status==="active"?"chip-ok":p.status==="waiting"?"chip-wait":"chip-info"}">${esc(p.status)}</span>
       ${assignSel(p)}
+      ${unassignedView?`<button class="btn-outline" onclick="openPupilThread('${p.id}')">Message</button>`:""}
       <button class="btn-outline" onclick="showPupilById('${p.id}')">Details</button>
       <button class="btn-outline" onclick="editPupilById('${p.id}')">Edit</button>
       ${p.email?`<button class="btn-outline" onclick="copyEmail('${esc(p.email)}')">Email</button>`:""}
@@ -1885,6 +1893,7 @@ async function loadEnquiries(){
       <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div>
       <div class="muted">${esc(p.notes||"")}</div></div>
       <div class="actions">
+        ${(isSchoolAdminUser && currentSchoolId)?`<button class="btn-outline" onclick="openPupilThread('${p.id}')">Message</button>`:""}
         <button class="btn btn-navy btn-sm" onclick="setStatus('${p.id}','waiting')">Accept</button>
         <button class="btn-outline" onclick="setStatus('${p.id}','inactive')">Decline</button>
         <button class="btn-danger" onclick="removePupil('${p.id}')">Remove</button>
@@ -3831,6 +3840,75 @@ async function manageAuthAdmin(action, payload){
   if(!res.ok) throw new Error((data&&data.error)||("Request failed ("+res.status+")"));
   if(data&&data.error) throw new Error(data.error);
   return data;
+}
+
+// --- Messages (school admins): talk to pupils who have no instructor yet -
+// the unassigned pool and open enquiries. Dale: "it should act like they are
+// on the waiting list but allow the driving school to message via the
+// Control Centre". Once assigned, the instructor's app takes over. Messages
+// go in as normal outbound pupil messages (RLS: can_access_pupil covers a
+// school admin's pool pupils via pupils.school_id), so the pupil app shows
+// them in the feed on the enquiry/waiting screen and gets a push.
+async function loadMessagesPanel(){
+  const content=document.getElementById("messages-content");
+  if(!(isSchoolAdminUser && currentSchoolId)){ content.innerHTML='<h2>Messages</h2><p class="muted">Messaging from the Control Centre is for driving school admins. Use the app to message your pupils.</p>'; return; }
+  content.innerHTML='<h2>Messages</h2><p class="muted">Loading…</p>';
+  const people = unassignedCache.concat(pupilsCache.filter(p=>p.status==="enquiry"));
+  if(!people.length){ content.innerHTML='<h2>Messages</h2><p class="muted">Nobody to message here. This tab is for pupils who have no instructor yet — open enquiries and the Unassigned list. Once a pupil is assigned, message them from the instructor\'s app.</p>'; return; }
+  const ids = people.map(p=>p.id);
+  const {data:msgs} = await sb.from("messages").select("pupil_id,body,direction,is_read,created_at").in("pupil_id",ids).order("created_at",{ascending:false});
+  const last={}, unread={};
+  (msgs||[]).forEach(m=>{ if(!last[m.pupil_id]) last[m.pupil_id]=m; if(m.direction==="inbound" && !m.is_read) unread[m.pupil_id]=(unread[m.pupil_id]||0)+1; });
+  people.sort((a,b)=>{ const la=last[a.id]?new Date(last[a.id].created_at).getTime():0, lb=last[b.id]?new Date(last[b.id].created_at).getTime():0; return lb-la; });
+  content.innerHTML = `<h2>Messages</h2>
+    <p class="muted" style="margin-bottom:.75rem">Pupils without an instructor yet — open enquiries and the Unassigned list. They see these in their app straight away.</p>
+    ${people.map(p=>{ const l=last[p.id]; const u=unread[p.id]||0; return `<div class="list-row" style="cursor:pointer" onclick="openPupilThread('${p.id}')">
+      <div style="flex:1;min-width:0"><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong> <span class="chip ${p.status==="enquiry"?"chip-info":"chip-wait"}">${p.status==="enquiry"?"enquiry":"unassigned"}</span>${u?` <span class="chip chip-bad">${u} new</span>`:""}
+        <div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l?(l.direction==="inbound"?"They: ":"You: ")+esc(l.body):"No messages yet"}</div></div>
+      <div class="muted" style="font-size:.75rem;white-space:nowrap">${l?new Date(l.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"}):""}</div>
+    </div>`; }).join("")}`;
+}
+
+let threadPupilId=null;
+async function openPupilThread(pupilId){
+  threadPupilId=pupilId;
+  const p = pupilsCache.concat(unassignedCache).find(x=>x.id===pupilId);
+  const name = p ? `${p.first_name} ${p.last_name}` : "Pupil";
+  openModal(`<h3 style="margin:0 0 .25rem">${esc(name)}</h3>
+    <p class="muted" style="margin-bottom:.75rem">${p&&p.status==="enquiry"?"On the enquiry list":"No instructor assigned yet"}${p&&p.email?" · "+esc(p.email):""}</p>
+    <div id="thread-list" style="max-height:45vh;overflow-y:auto;background:var(--surface-2,#f8fafc);border:1px solid var(--line);border-radius:8px;padding:.5rem;margin-bottom:.75rem">Loading…</div>
+    <div class="field"><label>Reply</label><textarea id="thread-body" rows="3" style="width:100%;padding:.5rem;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit" placeholder="Type a message to ${esc(p?p.first_name:"the pupil")}…"></textarea></div>
+    <button class="btn btn-navy btn-sm" onclick="sendThreadMessage()">Send</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Close</button>
+    <div class="err" id="thread-err" style="margin-top:.5rem;display:block;text-align:left"></div>`);
+  await renderThread();
+}
+async function renderThread(){
+  const el=document.getElementById("thread-list"); if(!el||!threadPupilId) return;
+  const {data:msgs,error} = await sb.from("messages").select("id,subject,body,direction,is_read,created_at").eq("pupil_id",threadPupilId).order("created_at",{ascending:true});
+  if(error){ el.innerHTML='<p class="muted">'+esc(error.message)+'</p>'; return; }
+  const rows=msgs||[];
+  el.innerHTML = rows.length ? rows.map(m=>`<div style="display:flex;justify-content:${m.direction==="inbound"?"flex-start":"flex-end"};margin:.3rem 0">
+      <div style="max-width:80%;background:${m.direction==="inbound"?"#fff":"#dbeafe"};border:1px solid var(--line);border-radius:10px;padding:.45rem .65rem;font-size:.85rem">
+        ${m.subject?`<div style="font-weight:600;font-size:.75rem;color:#64748b">${esc(m.subject)}</div>`:""}
+        <div style="white-space:pre-line">${esc(m.body||"")}</div>
+        <div class="muted" style="font-size:.7rem;margin-top:.2rem">${new Date(m.created_at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</div>
+      </div></div>`).join("") : '<p class="muted" style="text-align:center;padding:1rem">No messages yet</p>';
+  el.scrollTop = el.scrollHeight;
+  // Anything they sent is now read.
+  const unreadIds = rows.filter(m=>m.direction==="inbound" && !m.is_read).map(m=>m.id);
+  if(unreadIds.length){ await sb.from("messages").update({is_read:true, read_at:new Date().toISOString()}).in("id",unreadIds); }
+}
+async function sendThreadMessage(){
+  const err=document.getElementById("thread-err"); err.textContent="";
+  const body=(document.getElementById("thread-body").value||"").trim();
+  if(!body){ err.textContent="Type a message first"; return; }
+  const {data:msg,error}=await sb.from("messages").insert({pupil_id:threadPupilId, direction:"outbound", body, delivered_at:new Date().toISOString()}).select("id").maybeSingle();
+  if(error){ err.textContent=error.message; return; }
+  document.getElementById("thread-body").value="";
+  if(msg?.id) triggerMsgPush(msg.id);
+  await renderThread();
+  if(!document.getElementById("tab-messages").classList.contains("hidden")) loadMessagesPanel();
 }
 
 async function loadTeamsPanel(){

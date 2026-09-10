@@ -319,7 +319,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('resources')"><span class="ico">📚</span><div><strong>Resources</strong><span>The links pupils see in their app</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('reflect')"><span class="ico">📝</span><div><strong>Reflective logs</strong><span>Wording of the reflective log questions</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('branding')"><span class="ico">🎨</span><div><strong>Branding</strong><span>Your logo &amp; school name in the pupil app</span></div></button>
-          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('terms')"><span class="ico">📄</span><div><strong>School terms</strong><span>The terms pupils accept at first login</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('terms')"><span class="ico">📄</span><div><strong>Terms &amp; conditions</strong><span>What pupils accept at first login</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('enquiryWidget')"><span class="ico">🧲</span><div><strong>Your enquiry form</strong><span>Website embed code &amp; gearbox message</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('importExport')"><span class="ico">📇</span><div><strong>Import / export pupils</strong><span>CSV backup, or switch over from another app</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('importExportFinance')"><span class="ico">💷</span><div><strong>Import / export finances</strong><span>CSV backup of income &amp; expenses, or bring records over</span></div></button>
@@ -565,7 +565,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('resources')">Resources</button>
           <button type="button" onclick="openSettings('reflect')">Reflective logs</button>
           <button type="button" onclick="openSettings('branding')">Branding</button>
-          <button type="button" onclick="openSettings('terms')">School terms</button>
+          <button type="button" onclick="openSettings('terms')">Terms &amp; conditions</button>
           <button type="button" onclick="openSettings('enquiryWidget')">Your enquiry form</button>
           <button type="button" onclick="openSettings('importExport')">Import / export pupils</button>
           <button type="button" onclick="openSettings('importExportFinance')">Import / export finances</button>
@@ -1945,6 +1945,7 @@ async function assignPoolPupil(pupilId, instructorId){
 }
 async function loadSchoolInstructors(){
   if(!(isSchoolAdminUser && currentSchoolId)) return;
+  try{ const {data:sc}=await sb.from("schools").select("display_name,name").eq("id",currentSchoolId).maybeSingle(); schoolDisplayNameCache=(sc&&(sc.display_name||sc.name))||""; }catch(e){}
   const {data:instrs} = await sb.from("profiles").select("id,full_name,email").eq("role","instructor").eq("school_id",currentSchoolId).is("locked_at",null).order("full_name");
   schoolInstructorsCache = instrs||[];
 }
@@ -3246,12 +3247,33 @@ async function openSettings(which){
         <div class="err" id="branding-err" style="margin-top:.5rem"></div>`;
     }
   } else if(which==="terms"){
-    const terms=JSON.parse(localStorage.getItem("dmw_terms")||'{"url":"https://www.dmwdrivingschool.co.uk/terms"}');
+    // Pupils accept these in the app at first login (timestamped on their
+    // profile). A school's terms apply to every instructor in it and only
+    // the school admin can change them; solo instructors edit their own.
+    // {{HOURS}} is swapped for the cancellation notice period at display.
+    let body="", readOnly=false, who="";
+    if(currentSchoolId){
+      const {data:sc}=await sb.from("schools").select("display_name,name,terms_body").eq("id",currentSchoolId).maybeSingle();
+      body=(sc&&sc.terms_body)||""; who=(sc&&(sc.display_name||sc.name))||"your school"; readOnly=!isSchoolAdminUser;
+      if(!body){ const {data:own}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","terms_and_conditions").maybeSingle(); body=(own&&own.value&&own.value.body)||""; }
+    } else {
+      const {data:own}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","terms_and_conditions").maybeSingle();
+      body=(own&&own.value&&own.value.body)||"";
+    }
+    const usingDefault=!body.trim();
+    if(usingDefault) body=DEFAULT_TERMS_BODY;
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
-      <h3 style="margin:1rem 0 .75rem">School terms</h3>
-      <p class="muted">Pupils must accept terms in the app. Agreement is timestamped on their profile.</p>
-      <div class="field"><label>Terms URL</label><input id="terms-url" value="${esc(terms.url||"")}"></div>
-      <button class="btn btn-navy btn-sm" onclick="localStorage.setItem('dmw_terms',JSON.stringify({url:document.getElementById('terms-url').value.trim()}));alert('Saved')">Save</button>`;
+      <h3 style="margin:1rem 0 .75rem">${currentSchoolId?"School terms":"Your terms"}</h3>
+      <p class="muted" style="margin-bottom:.5rem">${readOnly
+        ? `These are ${esc(who)}'s terms and conditions. Every instructor in the school shows the same terms, so only your school admin can change them.`
+        : (currentSchoolId ? `Shown to every pupil of every instructor in ${esc(who)} at their first login. Instructors can't change them.` : "Shown to your pupils at their first login. Write <code>{{HOURS}}</code> wherever your cancellation notice period should appear.")}</p>
+      ${usingDefault && !readOnly ? '<p class="muted" style="margin-bottom:.5rem;font-size:.8rem">This is the standard Drive My Way template. Edit anything you like and save to make it yours.</p>' : ""}
+      <textarea id="terms-body" rows="22" ${readOnly?"readonly":""} style="width:100%;padding:.75rem;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit;font-size:.85rem;line-height:1.45">${esc(body)}</textarea>
+      ${readOnly?"":`<div style="margin-top:.75rem;display:flex;gap:.5rem;align-items:center">
+        <button class="btn btn-navy btn-sm" onclick="saveTerms()">Save</button>
+        <button class="btn-outline" onclick="if(confirm('Replace the text with the standard template?')){document.getElementById('terms-body').value=DEFAULT_TERMS_BODY}">Reset to template</button>
+        <span id="terms-ok" style="display:none;color:#0a7a3d;font-weight:700">✓ Saved</span></div>
+      <div class="err" id="terms-err" style="margin-top:.5rem;display:block;text-align:left"></div>`}`;
   } else if(which==="enquiryWidget"){
     const snippet = buildEnquirySnippet(currentUserId);
     const schoolBlock = (isSchoolAdminUser && currentSchoolId) ? `
@@ -4006,6 +4028,7 @@ async function savePayInstructor(){
 
 function allPupils(){ return pupilsCache.concat(unassignedCache, schoolPupilsCache); }
 let threadPupilId=null;
+let schoolDisplayNameCache="";
 async function openPupilThread(pupilId){
   threadPupilId=pupilId;
   const p = allPupils().find(x=>x.id===pupilId);
@@ -4044,10 +4067,10 @@ async function renderThread(){
   if(error){ el.innerHTML='<p class="muted">'+esc(error.message)+'</p>'; return; }
   const rows=msgs||[];
   el.innerHTML = rows.length ? rows.map(m=>`<div style="display:flex;justify-content:${m.direction==="inbound"?"flex-start":"flex-end"};margin:.3rem 0">
-      <div style="max-width:80%;background:${m.direction==="inbound"?"#fff":"#dbeafe"};border:1px solid var(--line);border-radius:10px;padding:.45rem .65rem;font-size:.85rem">
-        ${m.subject?`<div style="font-weight:600;font-size:.75rem;color:#64748b">${esc(m.subject)}</div>`:""}
+      <div style="max-width:80%;background:${m.direction==="inbound"?"#fff":"#dbeafe"};color:#0f172a;border:1px solid var(--line);border-radius:10px;padding:.45rem .65rem;font-size:.85rem">
+        ${m.subject?`<div style="font-weight:600;font-size:.75rem;color:#475569">${esc(m.subject)}</div>`:""}
         <div style="white-space:pre-line">${esc(m.body||"")}</div>
-        <div class="muted" style="font-size:.7rem;margin-top:.2rem">${new Date(m.created_at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</div>
+        <div style="font-size:.7rem;margin-top:.2rem;color:#64748b">${new Date(m.created_at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</div>
       </div></div>`).join("") : '<p class="muted" style="text-align:center;padding:1rem">No messages yet</p>';
   el.scrollTop = el.scrollHeight;
   // Anything they sent is now read.
@@ -4058,7 +4081,11 @@ async function sendThreadMessage(){
   const err=document.getElementById("thread-err"); err.textContent="";
   const body=(document.getElementById("thread-body").value||"").trim();
   if(!body){ err.textContent="Type a message first"; return; }
-  const {data:msg,error}=await sb.from("messages").insert({pupil_id:threadPupilId, direction:"outbound", body, delivered_at:new Date().toISOString()}).select("id").maybeSingle();
+  // The pupil app labels outbound messages as from "your instructor"; a
+  // subject carrying the school's name makes it clear this came from the
+  // school office (Dale) — no app change needed.
+  const schoolLabel = schoolDisplayNameCache ? `From ${schoolDisplayNameCache}` : "From your driving school";
+  const {data:msg,error}=await sb.from("messages").insert({pupil_id:threadPupilId, direction:"outbound", subject:schoolLabel, body, delivered_at:new Date().toISOString()}).select("id").maybeSingle();
   if(error){ err.textContent=error.message; return; }
   document.getElementById("thread-body").value="";
   if(msg?.id) triggerMsgPush(msg.id);
@@ -5392,6 +5419,21 @@ function saveReminders(){
     message: document.getElementById("rem-msg").value
   }));
   alert("Saved");
+}
+const DEFAULT_TERMS_BODY = "Terms and Conditions\nDriving Tuition Agreement\n\nAll trainees must possess a valid, signed provisional licence and meet DVSA eyesight requirements.\n\n1. INSURANCE\n1.1. Fees include public liability coverage for trainees driving school vehicles, provided they are supervised by the instructor or a DVSA examiner during a test.\n\n2. PAYMENTS & REFUNDS\n2.1. Payment is required in advance.\n2.2. 14-Day Cancellation: Per UK law, you have a 14-day cooling-off period to cancel and receive a full refund, provided training has not started. Starting lessons within this period waives this right for hours delivered.\n2.3. Refunds: Unused hours from prepaid blocks are refundable for 6 months. Partial refunds recalculate lessons at the standard rate, with a £15 admin fee.\n2.4. Invoices: Requested invoices incur a £2.50 fee.\n\n3. CANCELLATION NOTICE\n3.1. A minimum of {{HOURS}} hours' notice is required to cancel or rearrange lessons to avoid losing the full fee.\n3.2. The instructor will provide {{HOURS}} hours' notice for cancellations, except for emergencies or bad weather.\n\n4. OFFICIAL TESTS\n4.1. The school may refuse the vehicle for a test if the trainee is not safe.\n4.2. Pupils are responsible for booking tests and complying with DVSA notice requirements for cancellations.\n4.3. The school may claim costs for vehicle damage caused by the pupil.\n\n5. TEST TERMINATION\n5.1. If a test is terminated by the examiner, permission to drive the school car terminates immediately.\n5.2. You must surrender the keys, as driving without the instructor is illegal, breaches insurance, and violates these terms.\n\n6. APPOINTMENTS\n6.1. The school is not liable for cancellations due to weather, mechanical issues, or staff absence.\n6.2. Instructors will wait 15 minutes at the pickup point before charging for a missed lesson.\n\n7. PERSONAL PROPERTY\n7.1. The school is not responsible for personal items lost or damaged in vehicles or on premises.\n\n8. MISUSE POLICY\n8.1. Driving under the influence is strictly prohibited.\n8.2. Instructors will refuse to provide lessons if misuse is suspected.\n8.3. Prescriptions affecting driving must be disclosed.\n\n9. DATA PROTECTION\n9.1. Personal data will be securely processed and stored in compliance with UK regulations.\n9.2. No unauthorised sharing of information will occur.\n\nBy booking lessons, you agree to these terms.";
+async function saveTerms(){
+  const body=(document.getElementById("terms-body").value||"").trim();
+  const err=document.getElementById("terms-err"), ok=document.getElementById("terms-ok"); err.textContent=""; ok.style.display="none";
+  if(!body){ err.textContent="Terms can't be empty"; return; }
+  if(currentSchoolId && isSchoolAdminUser){
+    // schools.terms_body fans out to every instructor's app_settings row (trigger).
+    const {error}=await sb.from("schools").update({terms_body:body}).eq("id",currentSchoolId);
+    if(error){ err.textContent=error.message; return; }
+  } else if(!currentSchoolId){
+    const {error}=await sb.from("app_settings").upsert({id:"terms_and_conditions",owner_id:currentUserId,value:{body},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+    if(error){ err.textContent=error.message; return; }
+  } else { err.textContent="Only your school admin can change the school's terms."; return; }
+  ok.style.display="inline";
 }
 async function saveWorkingHours(){
   const start=document.getElementById("wh-start").value||"09:00";

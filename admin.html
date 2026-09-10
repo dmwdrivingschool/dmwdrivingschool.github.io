@@ -6189,7 +6189,7 @@ async function instructorPickerHtml(selectId, selectedId){
   schoolInstructorsCache = instrs||[];
   const sel = selectedId===undefined ? currentUserId : selectedId;
   return `<div class="field"><label>Instructor</label>
-    <select id="${selectId}">
+    <select id="${selectId}" onchange="if(this.id==='ap-instr') syncAddPupilStatus()">
       <option value="" ${!sel?"selected":""}>— Unassigned (school pool) —</option>
       ${schoolInstructorsCache.map(i=>`<option value="${i.id}" ${i.id===sel?"selected":""}>${esc(i.full_name||i.email)}${i.id===currentUserId?" (me)":""}</option>`).join("")}
     </select></div>`;
@@ -6208,8 +6208,7 @@ async function openAddPupilForm(){
     <div class="field"><label>Phone</label><input id="ap-phone"></div>
     <div class="field"><label>Email</label><input id="ap-email" type="email"></div>
     ${picker}
-    ${picker?'<p class="muted" style="margin:-.25rem 0 .5rem;font-size:.8rem">Unassigned pupils wait in the school pool until an instructor takes them on; they become active when assigned.</p>':""}
-    <div class="field"><label>Status</label>
+    <div class="field" id="ap-status-field"><label>Status</label>
       <select id="ap-status">
         <option value="active">Active</option>
         <option value="waiting">Waiting</option>
@@ -6217,10 +6216,20 @@ async function openAddPupilForm(){
         <option value="inactive">Inactive</option>
       </select>
     </div>
+    <p class="muted hidden" id="ap-pool-note" style="margin:-.25rem 0 .75rem;font-size:.8rem">They go on the school's waiting list (Unassigned) and see that in their app. They become active the moment an instructor is assigned.</p>
     <div class="field"><label>Address line 1</label><input id="ap-a1"></div>
     <div class="field"><label>Postcode</label><input id="ap-pc"></div>
+    <p class="muted" style="font-size:.8rem;margin-bottom:.5rem">With an email address, the pupil is sent a link to set their password and sign in to the app.</p>
     <button class="btn btn-navy" onclick="saveNewPupil()">Save pupil</button>
     <button class="btn-outline" onclick="closeModal()">Cancel</button>`);
+  syncAddPupilStatus();
+}
+function syncAddPupilStatus(){
+  const sel=document.getElementById("ap-instr"); if(!sel) return;
+  const pool = !sel.value;
+  document.getElementById("ap-status-field").classList.toggle("hidden", pool);
+  document.getElementById("ap-pool-note").classList.toggle("hidden", !pool);
+  if(pool) document.getElementById("ap-status").value="waiting";
 }
 async function saveNewPupil(){
   const first=document.getElementById("ap-fn").value.trim();
@@ -6236,9 +6245,23 @@ async function saveNewPupil(){
   };
   if(row.email) row.email=row.email.toLowerCase();
   Object.assign(row, pupilOwnerFields("ap-instr"));
-  const {error}=await sb.from("pupils").insert(row);
-  if(error) alert(error.message);
-  else { closeModal(); await loadPupils(); renderPupils(); loadDash(); }
+  const btn=document.querySelector('#modal button[onclick="saveNewPupil()"]'); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
+  const {data:created,error}=await sb.from("pupils").insert(row).select("id").maybeSingle();
+  if(error){ alert(error.message); if(btn){ btn.disabled=false; btn.textContent="Save pupil"; } return; }
+  // Same as the app's Add pupil: with an email, create their login and send
+  // the set-password invite (manage-auth create_pupil_login). If that fails,
+  // don't leave a pupil with no way to sign in — remove the row and say so.
+  if(row.email && created?.id){
+    try{ await manageAuthAdmin("create_pupil_login", {pupil_id: created.id}); }
+    catch(e){
+      await sb.from("pupils").delete().eq("id", created.id);
+      alert("The pupil was not added: could not create their login. " + (e.message||""));
+      if(btn){ btn.disabled=false; btn.textContent="Save pupil"; }
+      return;
+    }
+  }
+  closeModal(); await loadPupils(); renderPupils(); loadDash();
+  if(row.email) alert("Pupil added. An email has been sent to " + row.email + " with a link to set their password.");
 }
 
 

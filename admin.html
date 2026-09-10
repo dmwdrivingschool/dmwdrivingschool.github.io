@@ -4499,6 +4499,21 @@ async function loadBillingPanel(){
        <p class="muted">Cancel any time. You keep full access until the end of the period you've already paid for${sub.status==="trialing"?" — and your free trial still runs its full length":""}.</p>
        <button class="btn-outline" style="margin-top:.6rem" onclick="openCancelSubscription('${esc(planLine).replace(/'/g,"&#39;")}','${accessEndsText?esc(accessEndsText).replace(/'/g,"&#39;"):""}',${sub.status==="trialing"?"true":"false"})">Cancel subscription</button>`;
 
+  // A plain instructor on a school seat can see how the school stands, but
+  // every change (seats, plan, cancel, Direct Debit) belongs to the school
+  // admin — the functions refuse anyone else anyway, and the seat count a
+  // non-admin can compute is wrong (RLS only shows them their own row).
+  if(ownerType==="school" && !isSchoolAdminUser){
+    content.innerHTML = `
+    <h2>Billing</h2>
+    <div class="panel" style="border:none;padding:0">
+      <p>${statusChip} <strong style="margin-left:.4rem">${statusLine}</strong></p>
+      <p class="muted" style="margin-top:.3rem">${planLine}</p>
+      <p class="muted" style="margin-top:.3rem">${sub.videos_addon ? "Premium — Learning Videos included" : "Basic — Learning Videos not included"}</p>
+      <p style="margin-top:1rem">Your school's billing is looked after by your school admin. Ask them to change seats, switch plan, or cancel.</p>
+    </div>`;
+    return;
+  }
   content.innerHTML = `
     <h2>Billing</h2>
     <div class="panel" style="border:none;padding:0">
@@ -4508,7 +4523,7 @@ async function loadBillingPanel(){
       ${premiumBlock}
       ${seatsBlock}
       ${cancelBlock}
-      <div class="err" id="billing-err" style="margin-top:.75rem"></div>
+      <div class="err" id="billing-err" style="margin-top:.75rem;display:block;text-align:left"></div>
     </div>`;
 }
 

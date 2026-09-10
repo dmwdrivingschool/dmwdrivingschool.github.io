@@ -776,7 +776,11 @@ async function enterApp(user,prof){
   document.getElementById("nav-theory-btn").classList.toggle("hidden", !canSeeTheoryTab);
   document.getElementById("manage-videos-panel").classList.toggle("hidden", !isSuperAdminUser);
   document.getElementById("nav-teams-btn").classList.toggle("hidden", !isSuperAdminUser && !isSchoolAdminUser);
-  document.getElementById("nav-billing-btn").classList.remove("hidden"); // everyone can see their own billing, not just admins
+  // Billing is the payer's business: a solo instructor's own, or the school
+  // admin's. An instructor on a school seat never sees it (Dale: what the
+  // school pays is confidential to the school owner).
+  const seesBilling = isSuperAdminUser || !currentSchoolId || isSchoolAdminUser;
+  document.getElementById("nav-billing-btn").classList.toggle("hidden", !seesBilling);
   document.getElementById("nav-website-btn").classList.toggle("hidden", !isSuperAdminUser); // public website is your (platform admin's) tool only — never a driving school's
   await refresh(); setInterval(refresh,30000);
   checkProfileCompletion();
@@ -4504,14 +4508,7 @@ async function loadBillingPanel(){
   // admin — the functions refuse anyone else anyway, and the seat count a
   // non-admin can compute is wrong (RLS only shows them their own row).
   if(ownerType==="school" && !isSchoolAdminUser){
-    content.innerHTML = `
-    <h2>Billing</h2>
-    <div class="panel" style="border:none;padding:0">
-      <p>${statusChip} <strong style="margin-left:.4rem">${statusLine}</strong></p>
-      <p class="muted" style="margin-top:.3rem">${planLine}</p>
-      <p class="muted" style="margin-top:.3rem">${sub.videos_addon ? "Premium — Learning Videos included" : "Basic — Learning Videos not included"}</p>
-      <p style="margin-top:1rem">Your school's billing is looked after by your school admin. Ask them to change seats, switch plan, or cancel.</p>
-    </div>`;
+    content.innerHTML = '<h2>Billing</h2><p class="muted">Billing for your school is managed by your school admin.</p>';
     return;
   }
   content.innerHTML = `

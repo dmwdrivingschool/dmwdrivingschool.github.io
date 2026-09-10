@@ -594,10 +594,11 @@ let isSuperAdminUser=false, isSchoolAdminUser=false, canSeeVideosTab=false, canS
 // These are just the built-in defaults, used to seed that row the first time
 // and as a fallback if the fetch fails — loadFinanceCategories() below
 // reassigns both arrays in place once the real saved list is loaded.
-let INCOME_CATS=["Pupil Lesson","Pupil Test Fee","Bank Interest","Other"];
+const SCHOOL_MONEY_CATS={income:"School payment", expense:"Instructor payment"};
+let INCOME_CATS=["Pupil Lesson","Pupil Test Fee","Bank Interest","School payment","Other"];
 // "Lesson Refund" added 15 Aug 2026 to match Total Drive's category list —
 // the app previously had no matching expense category for refunds at all.
-let EXPENSE_CATS=["Advertising","Bank Charges","Car Finance","Franchise / Car Rental","Fuel","Insurance","Lesson Refund","Miscellaneous","Motor Expenses","Office Expenses","Payment Service Fee","Printing & Stationery","Pupil Lesson","Pupil Test Fee","Square Payment Charge","Subscriptions","Telephone & Internet"];
+let EXPENSE_CATS=["Advertising","Bank Charges","Car Finance","Franchise / Car Rental","Fuel","Insurance","Lesson Refund","Miscellaneous","Motor Expenses","Office Expenses","Payment Service Fee","Printing & Stationery","Pupil Lesson","Pupil Test Fee","Square Payment Charge","Subscriptions","Telephone & Internet","Instructor payment"];
 async function loadFinanceCategories(){
   try{
     // app_settings' real primary key is (owner_id, id) — every row is scoped
@@ -609,6 +610,9 @@ async function loadFinanceCategories(){
       if(Array.isArray(data.value.expense) && data.value.expense.length) EXPENSE_CATS=data.value.expense;
     }
   }catch(e){}
+  // Saved lists predate these; keep them standard without touching the saved row.
+  if(!INCOME_CATS.includes(SCHOOL_MONEY_CATS.income)) INCOME_CATS.push(SCHOOL_MONEY_CATS.income);
+  if(!EXPENSE_CATS.includes(SCHOOL_MONEY_CATS.expense)) EXPENSE_CATS.push(SCHOOL_MONEY_CATS.expense);
 }
 async function saveFinanceCategories(){
   const {error}=await sb.from("app_settings").upsert({id:"finance_categories",owner_id:currentUserId,value:{income:INCOME_CATS,expense:EXPENSE_CATS},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
@@ -2705,6 +2709,7 @@ function getFinRange(){
 function filteredPayments(){
   const {from,to}=getFinRange();
   return (txCache||[]).filter(r=>{
+    if(r.instructor_id && r.instructor_id!==currentUserId) return false; // another instructor's books
     const d=r.transaction_date||(r.created_at||"").slice(0,10)||"";
     if(from&&d&&d<from)return false; if(to&&d&&d>to)return false; return true;
   });

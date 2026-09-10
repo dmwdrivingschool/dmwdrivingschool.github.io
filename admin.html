@@ -731,15 +731,9 @@ async function unlock(){
     await sb.auth.signOut({scope:"local"}); err.textContent="Not an instructor account"; err.style.display="block"; return;
   }
   let lockMessage=null;
-  if(prof&&prof.school_id){
-    const {data:school}=await sb.from("schools").select("locked_at,locked_reason").eq("id",prof.school_id).maybeSingle();
-    if(school&&school.locked_at) lockMessage=school.locked_reason||"Your driving school's account has been locked. Please contact Drive My Way.";
-  }
-  if(!lockMessage&&prof&&prof.locked_at){
-    lockMessage=prof.locked_reason||(prof.school_id?"Your account has been locked. Please contact your driving school.":"Your account has been locked. Please contact Drive My Way.");
-  }
+  try{ lockMessage = prof ? await lockMessageFor(data.user.id) : null; }catch(e){ lockMessage=null; }
   if(lockMessage){
-    await sb.auth.signOut({scope:"local"}); err.textContent=lockMessage; err.style.display="block"; return;
+    await sb.auth.signOut({scope:"local"}); showGateError(lockMessage); return;
   }
   if(!prof){
     // No profile yet — e.g. they confirmed their email on another device
@@ -1133,15 +1127,19 @@ async function provisionIfNeededAndEnter(user){
 // session that is ALREADY open is thrown out as well — on reload, and every
 // 30s while the page sits open (Dale: "just tried locking out driving seat
 // ... it hasnt locked them out"). A locked school locks all its instructors.
+// account_lock_message() is SECURITY DEFINER: it adds the school admin's
+// name/email/phone (which the locked instructor can't read themselves) and
+// how to reach Drive My Way, under whatever reason the locker typed. Dale:
+// an instructor who falls out with their school can ask us to convert them
+// to a solo account and keep their pupils.
 async function lockMessageFor(userId){
-  const {data:prof}=await sb.from("profiles").select("school_id,locked_at,locked_reason").eq("id",userId).maybeSingle();
-  if(!prof) return null;
-  if(prof.school_id){
-    const {data:school}=await sb.from("schools").select("locked_at,locked_reason").eq("id",prof.school_id).maybeSingle();
-    if(school&&school.locked_at) return school.locked_reason||"Your driving school's account has been locked. Please contact Drive My Way.";
-  }
-  if(prof.locked_at) return prof.locked_reason||(prof.school_id?"Your account has been locked. Please contact your driving school.":"Your account has been locked. Please contact Drive My Way.");
-  return null;
+  const {data,error}=await sb.rpc("account_lock_message");
+  if(error) throw error;
+  return data||null;
+}
+function showGateError(msg){
+  const err=document.getElementById("gate-err");
+  err.textContent=msg; err.style.display="block"; err.style.whiteSpace="pre-line"; err.style.textAlign="left";
 }
 let lockEnforced=false;
 async function enforceLock(userId){
@@ -1156,7 +1154,7 @@ async function enforceLock(userId){
   document.getElementById("gate-mandate").classList.add("hidden");
   document.getElementById("gate-signup").classList.add("hidden");
   document.getElementById("gate-signin").classList.remove("hidden");
-  const err=document.getElementById("gate-err"); err.textContent=msg; err.style.display="block";
+  showGateError(msg);
   closeModal();
   return true;
 }
@@ -3919,7 +3917,10 @@ function renderInstructorRow(i, schoolRows, fullControls){
   const lockedBadge = i.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
   const sub = subsByOwnerCache[i.id];
   const statusChip = sub ? renderStatusChip(sub.status) : "";
-  const lockBtn = i.locked_at
+  const isMe = i.id===currentUserId;
+  const lockBtn = isMe
+    ? '<span class="muted" style="font-size:.75rem">(you)</span>'
+    : i.locked_at
     ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockInstructor('${i.id}','${nameEsc}')">Unlock</button>`
     : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockInstructor('${i.id}','${nameEsc}')">Lock</button>`;
   const toggleBtn = fullControls && school
@@ -3966,7 +3967,7 @@ function renderInstructorRow(i, schoolRows, fullControls){
 }
 
 async function lockInstructor(instructorId, name){
-  const reason=prompt(`Lock ${name}'s account (they won't be able to sign in). Optional message to show them at login — leave blank for the default:`, "");
+  const reason=prompt(`Lock ${name}'s account (they won't be able to sign in). Optional message to show them at login. Your contact details and Drive My Way's are always shown underneath it:`, "");
   if(reason===null) return;
   const err=document.getElementById("teams-err");
   err.style.color=""; err.textContent="";

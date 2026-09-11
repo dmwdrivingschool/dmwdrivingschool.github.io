@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Drive My Way App Features | Track Lessons, Messages &amp; Progress | DMW Driving School</title>
-    <meta name="description" content="Discover the Drive My Way app — live instructor tracking, in-app messages with photos, progress charts, reflective logs, lesson management and more. Free for all active pupils.">
-    <meta name="keywords" content="drive my way app, driving lesson tracker gloucester, pupil progress app, instructor on the way tracking">
+    <title>The Drive My Way App for Pupils | DMW Driving School Gloucester</title>
+    <meta name="description" content="See the Drive My Way app DMW Driving School pupils use: watch your instructor arrive on a live map, see your lessons and credit, message your instructor, practise for your theory test and more. Free for every pupil.">
+    <meta name="keywords" content="drive my way app, driving lessons app gloucester, theory test practice app, instructor on the way tracking, dmw driving school">
     <link rel="canonical" href="https://dmwdrivingschool.co.uk/app-features.html">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
@@ -19,60 +19,23 @@
       gtag('config', 'G-8VPCP1ZYEE');
     </script>
 
+    <!--
+      App Features (Dale, 2026-09-11): mirrors the drivemyway.co.uk explore page
+      (dark hero with the red and green glow, real screenshots in phone frames)
+      but written for pupils: only what a pupil sees and does in the app.
+      Header, menu and footer stay the DMW Driving School ones.
+    -->
     <style>
-        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
+        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --dmw-red: #D62E2E; --dmw-green: #2E9E4F; --dmw-amber: #F0A202; --bg-light: #F4F7FA; --text-dark: #222222; }
 
-        html, body {
-            display: flow-root;
-            margin: 0 !important;
-            padding: 0 !important;
-            background-color: var(--bg-light);
-            color: var(--text-dark);
-            line-height: 1.6;
-            overflow-x: hidden;
-            max-width: 100%;
-            font-family: Arial, Helvetica, sans-serif;
-        }
+        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; overflow-x: hidden; max-width: 100%; font-family: Arial, Helvetica, sans-serif; }
         * { box-sizing: border-box; max-width: 100%; }
 
-        .master-sticky-header {
-            position: sticky;
-            top: 0;
-            z-index: 10000;
-            width: 100%;
-            background-color: #111111;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-
-        .top-info-banner {
-            background-color: #111111 !important;
-            color: #ffffff !important;
-            text-align: center !important;
-            padding: 14px 20px 6px 20px !important;
-            font-size: 1.25rem !important;
-            font-weight: 900 !important;
-            letter-spacing: 1px !important;
-            line-height: 1.2 !important;
-            animation: bookingPulse 1.5s infinite ease-in-out !important;
-            margin: 0 !important;
-            width: 100% !important;
-        }
-        .top-info-sub {
-            background-color: #111111;
-            color: #f1c40f;
-            text-align: center;
-            padding: 0 20px 12px 20px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            margin: 0;
-            border-bottom: 1px solid #222;
-        }
-        @keyframes bookingPulse {
-            0% { color: #ffffff; text-shadow: none; }
-            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; }
-            100% { color: #ffffff; text-shadow: none; }
-        }
-
+        /* DMW Driving School header (same as the rest of the site) */
+        .master-sticky-header { position: sticky; top: 0; z-index: 10000; width: 100%; background-color: #111111; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .top-info-banner { background-color: #111111 !important; color: #ffffff !important; text-align: center !important; padding: 14px 20px 6px 20px !important; font-size: 1.25rem !important; font-weight: 900 !important; letter-spacing: 1px !important; line-height: 1.2 !important; animation: bookingPulse 1.5s infinite ease-in-out !important; margin: 0 !important; width: 100% !important; }
+        .top-info-sub { background-color: #111111; color: #f1c40f; text-align: center; padding: 0 20px 12px 20px; font-size: 0.95rem; font-weight: 600; margin: 0; border-bottom: 1px solid #222; }
+        @keyframes bookingPulse { 0% { color: #ffffff; text-shadow: none; } 50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 100% { color: #ffffff; text-shadow: none; } }
         header { background-color: #111111 !important; margin: 0 !important; width: 100% !important; display: block; position: relative; z-index: 10010; }
         .navbar-shell { max-width: 1140px !important; margin: 0 auto !important; display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 12px 20px !important; flex-wrap: wrap !important; gap: 15px !important; }
         .brand-logo img { height: 60px; width: auto; display: block; }
@@ -81,205 +44,71 @@
         .nav-links-list li a:hover { color: #3498db; }
         .active-page { color: #3498db !important; font-weight: bold; border-bottom: 2px solid #3498db; }
 
-        .hero-band {
-            position: relative;
-            width: 100%;
-            min-height: 220px;
-            background: linear-gradient(135deg, rgba(6, 47, 99, 0.92), rgba(10, 76, 161, 0.88));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
-            text-align: center;
-            color: #fff;
-        }
-        .hero-band h1 {
-            margin: 0 0 10px 0;
-            font-size: 2rem;
-            font-weight: 800;
-            line-height: 1.2;
-        }
-        .hero-band p {
-            margin: 0 auto;
-            max-width: 640px;
-            font-size: 1.1rem;
-            opacity: 0.95;
-            line-height: 1.5;
-        }
-        .hero-pill {
-            display: inline-block;
-            margin-top: 18px;
-            background: rgba(255,255,255,0.15);
-            border: 1px solid rgba(255,255,255,0.35);
-            color: #fff;
-            padding: 8px 16px;
-            border-radius: 999px;
-            font-size: 0.9rem;
-            font-weight: 700;
-        }
+        /* Hero: dark with the red and green glow, as on drivemyway.co.uk */
+        .hero-band { position: relative; width: 100%; min-height: 240px; background: linear-gradient(135deg, #111111 0%, #1c1c1c 55%, #232323 100%); display: flex; align-items: center; justify-content: center; padding: 48px 20px 40px; text-align: center; color: #fff; overflow: hidden; }
+        .hero-band::before { content: ""; position: absolute; top: -60%; right: -10%; width: 55%; padding-bottom: 55%; border-radius: 50%; background: radial-gradient(circle, rgba(214,46,46,0.28), transparent 70%); }
+        .hero-band::after { content: ""; position: absolute; bottom: -55%; left: -12%; width: 50%; padding-bottom: 50%; border-radius: 50%; background: radial-gradient(circle, rgba(46,158,79,0.25), transparent 70%); }
+        .hero-band > div { position: relative; z-index: 2; max-width: 720px; }
+        .hero-band h1 { margin: 0 0 12px 0; font-size: 2.1rem; font-weight: 800; line-height: 1.2; }
+        .hero-band p { margin: 0 auto; max-width: 660px; font-size: 1.1rem; opacity: 0.95; line-height: 1.55; }
+        .hero-pill { display: inline-block; margin-top: 18px; background: var(--dmw-green); color: #fff; font-weight: 800; font-size: 0.78rem; letter-spacing: 1.2px; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; }
 
-        .content-workspace {
-            max-width: 1140px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
+        /* Official store badges at the same visual height (the Google Play PNG has Google's clear space built in) */
+        .store-badges { display: flex; flex-wrap: wrap; gap: 14px 22px; justify-content: center; align-items: center; margin-top: 22px; }
+        .store-badges a { display: inline-flex; align-items: center; }
+        .badge-apple { height: 50px; width: auto; display: block; }
+        .badge-google { height: 74px; width: auto; display: block; margin: -12px -10px; }
+        .badge-note { font-size: 0.85rem !important; opacity: 0.75 !important; margin-top: 10px !important; }
 
-        .intro-card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 28px 24px;
-            margin-bottom: 28px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-        }
-        .intro-card h2 {
-            margin: 0 0 10px 0;
-            color: var(--dmw-deep-navy);
-            font-size: 1.45rem;
-        }
-        .intro-card p {
-            margin: 0 0 12px 0;
-            color: #475569;
-            font-size: 1.05rem;
-        }
+        .content-workspace { max-width: 1140px; margin: 40px auto; padding: 0 20px; }
+        .sample-note { text-align: center; color: #475569; font-size: 0.86rem; max-width: 660px; margin: 0 auto 38px auto; padding: 14px 18px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
 
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            margin-bottom: 28px;
-        }
+        .showcase-row { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: center; margin-bottom: 60px; }
+        .showcase-row.reverse .showcase-text { order: 2; }
+        .showcase-row.reverse .showcase-visual { order: 1; }
+        .showcase-eyebrow { color: var(--dmw-red); font-weight: 800; font-size: 0.78rem; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 8px 0; }
+        .showcase-text h2 { margin: 0 0 12px 0; color: #111; font-size: 1.55rem; font-weight: 800; line-height: 1.3; }
+        .showcase-text p { margin: 0 0 14px 0; color: #475569; font-size: 1.02rem; line-height: 1.6; }
+        .showcase-text ul { margin: 0; padding-left: 20px; color: #334155; font-size: 0.95rem; line-height: 1.7; }
+        .showcase-visual { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+        .phone-frame { position: relative; width: 260px; border-radius: 34px; padding: 10px; background: #0b0b0d; box-shadow: 0 20px 40px rgba(0,0,0,0.22), 0 0 0 2px rgba(0,0,0,0.04); }
+        .phone-frame img { display: block; width: 100%; border-radius: 24px; }
+        .showcase-visual.pair .phone-frame { width: 220px; }
+        .mockup-note { text-align: center; color: #94a3b8; font-size: 0.78rem; font-style: italic; margin: -46px 0 50px 0; }
 
-        .feature-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 22px 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-            display: flex;
-            flex-direction: column;
-        }
-        .feature-card .icon {
-            font-size: 1.75rem;
-            margin-bottom: 8px;
-        }
-        .feature-card h3 {
-            margin: 0 0 8px 0;
-            color: #1e1e24;
-            font-size: 1.15rem;
-            font-weight: 700;
-        }
-        .feature-card .card-line {
-            height: 3px;
-            background: var(--dmw-main-blue);
-            margin: 0 0 12px 0;
-            border-radius: 2px;
-            width: 48px;
-        }
-        .feature-card p {
-            margin: 0;
-            color: #475569;
-            font-size: 0.95rem;
-            line-height: 1.55;
-            flex: 1;
-        }
-        .feature-card ul {
-            margin: 10px 0 0 0;
-            padding-left: 18px;
-            color: #334155;
-            font-size: 0.9rem;
-            line-height: 1.45;
-        }
-        .feature-card li { margin-bottom: 4px; }
+        .section-title { text-align: center; color: #111; font-size: 1.6rem; font-weight: 800; margin: 10px 0 6px 0; }
+        .section-sub { text-align: center; color: #64748b; margin: 0 auto 10px auto; max-width: 620px; }
+        .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 20px 0 50px 0; }
+        .feature-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 22px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+        .feature-card .icon { font-size: 1.6rem; margin-bottom: 8px; }
+        .feature-card h3 { margin: 0 0 8px 0; color: #1e1e24; font-size: 1.08rem; font-weight: 700; }
+        .feature-card p { margin: 0; color: #475569; font-size: 0.93rem; line-height: 1.55; }
 
-        .who-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 28px;
-        }
-        .who-card {
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-        }
-        .who-card .who-head {
-            background: #f8f9fa;
-            padding: 14px 20px;
-            border-bottom: 1px solid #e2e8f0;
-            font-weight: 700;
-            color: #2c3e50;
-            font-size: 1.1rem;
-        }
-        .who-card .who-body {
-            padding: 18px 20px;
-            color: #475569;
-            font-size: 0.95rem;
-        }
-        .who-card .who-body ul {
-            margin: 8px 0 0 0;
-            padding-left: 18px;
-        }
-        .who-card .who-body li { margin-bottom: 6px; }
+        .steps-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 30px 26px; margin: 0 0 40px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+        .steps-card h2 { margin: 0 0 18px 0; text-align: center; color: #111; font-size: 1.5rem; font-weight: 800; }
+        .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+        .steps li { position: relative; padding: 46px 12px 0 12px; text-align: center; color: #475569; font-size: 0.95rem; line-height: 1.5; }
+        .steps li::before { counter-increment: step; content: counter(step); position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 34px; height: 34px; border-radius: 50%; background: var(--dmw-main-blue); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+        .steps li strong { display: block; color: #111; margin-bottom: 4px; }
+        .steps-card .store-badges { margin-top: 26px; }
+        .steps-card .badge-note { text-align: center; color: #64748b; opacity: 1 !important; margin: 10px 0 0 0 !important; }
 
-        .cta-band {
-            background: linear-gradient(135deg, var(--dmw-deep-navy), var(--dmw-main-blue));
-            color: #fff;
-            border-radius: 12px;
-            padding: 28px 24px;
-            text-align: center;
-            margin-bottom: 40px;
-            box-shadow: 0 6px 20px rgba(10, 76, 161, 0.25);
-        }
+        .cta-band { background: linear-gradient(135deg, #111111, #262626); color: #fff; border-radius: 12px; padding: 34px 28px; text-align: center; margin-bottom: 40px; box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
         .cta-band h2 { margin: 0 0 10px 0; font-size: 1.5rem; }
-        .cta-band p { margin: 0 0 18px 0; opacity: 0.95; max-width: 560px; margin-left: auto; margin-right: auto; }
-        .cta-band a {
-            display: inline-block;
-            background: #fff;
-            color: var(--dmw-main-blue);
-            font-weight: 700;
-            text-decoration: none;
-            padding: 12px 22px;
-            border-radius: 8px;
-            margin: 4px;
-        }
-        .cta-band a.secondary {
-            background: transparent;
-            color: #fff;
-            border: 2px solid rgba(255,255,255,0.7);
-        }
+        .cta-band p { margin: 0 auto 18px auto; opacity: 0.9; max-width: 560px; }
+        .cta-band a { display: inline-block; background: #f1c40f; color: #1e1e24; font-weight: 800; text-decoration: none; padding: 13px 26px; border-radius: 999px; font-size: 0.98em; margin: 4px; }
+        .cta-band a.secondary { background: transparent; color: #fff; border: 2px solid rgba(255,255,255,0.5); }
 
-        footer {
-            background: #111827;
-            color: #9ca3af;
-            text-align: center;
-            padding: 30px;
-            margin-top: 40px;
-            width: 100%;
-        }
+        footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 40px; width: 100%; }
         footer a { color: #93c5fd; text-decoration: none; margin: 0 6px; }
 
-        .sticky-enquiry-widget {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background-color: var(--dmw-main-blue);
-            color: #ffffff !important;
-            padding: 10px 18px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 0.9rem;
-            box-shadow: 0 4px 14px rgba(10, 76, 161, 0.4);
-            z-index: 99999;
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-        }
+        .sticky-enquiry-widget { position: fixed; bottom: 20px; right: 20px; background-color: var(--dmw-main-blue); color: #ffffff !important; padding: 10px 18px; border-radius: 50px; text-decoration: none; font-weight: bold; font-size: 0.9rem; box-shadow: 0 4px 14px rgba(10, 76, 161, 0.4); z-index: 99999; display: inline-flex; align-items: center; gap: 7px; }
         .sticky-enquiry-widget:hover { background-color: var(--dmw-deep-navy); }
 
+        @media (max-width: 900px) {
+            .feature-grid { grid-template-columns: repeat(2, 1fr); }
+            .steps { grid-template-columns: repeat(2, 1fr); row-gap: 26px; }
+        }
         @media (max-width: 750px) {
             .master-sticky-header { position: relative !important; }
             .top-info-banner { font-size: 1.05rem !important; padding: 10px 15px 4px !important; }
@@ -287,11 +116,17 @@
             .brand-logo img { height: 45px; margin: 0 auto; }
             .nav-links-list { gap: 10px 14px; }
             .nav-links-list li a { font-size: 0.85rem; }
-            .hero-band h1 { font-size: 1.45rem; }
+            .hero-band h1 { font-size: 1.55rem; }
             .hero-band p { font-size: 1rem; }
-            .feature-grid, .who-grid { grid-template-columns: 1fr; }
-            .content-workspace { margin: 20px auto; padding: 0 12px; }
+            .showcase-row, .showcase-row.reverse { grid-template-columns: 1fr; margin-bottom: 56px; }
+            .showcase-row.reverse .showcase-text, .showcase-row.reverse .showcase-visual { order: initial; }
+            .showcase-visual.pair .phone-frame { width: 46%; min-width: 150px; }
+            .mockup-note { margin: -40px 0 46px 0; }
+            .feature-grid, .steps { grid-template-columns: 1fr; }
+            .content-workspace { margin: 26px auto; padding: 0 14px; }
             .sticky-enquiry-widget { right: 12px; bottom: 14px; font-size: 0.8rem; padding: 8px 13px; }
+            .badge-apple { height: 46px; }
+            .badge-google { height: 68px; margin: -11px -9px; }
         }
     </style>
 </head>
@@ -319,192 +154,217 @@
 
     <div class="hero-band">
         <div>
-            <h1>📱 The Drive My Way App</h1>
-            <p>Everything you need for lessons in one place — used by DMW Driving School pupils and your instructor.</p>
-            <span class="hero-pill">Free for all active DMW Driving School pupils</span>
-            <div style="margin-top: 22px;">
-                <a href="https://app.drivemyway.co.uk" target="_blank" rel="noopener" style="display: inline-block; background: #f1c40f; color: #1e1e24; font-weight: 800; text-decoration: none; padding: 16px 32px; border-radius: 999px; font-size: 1.1em; box-shadow: 0 8px 22px rgba(0,0,0,0.35); border: 2px solid rgba(255,255,255,0.5); margin: 4px;">📱 Open the app →</a>
-                <a href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener" style="display: inline-block; margin: 4px; vertical-align: middle;"><img src="app-store-badge.svg" alt="Download on the App Store" style="height: 56px; width: auto; display: block;"></a>
+            <h1>📱 The Drive My Way app</h1>
+            <p>Watch your instructor arrive, see your lessons and credit, message your instructor, follow your progress and practise for your theory test, all on your phone.</p>
+            <span class="hero-pill">Free for every DMW Driving School pupil</span>
+            <div class="store-badges">
+                <a href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener"><img class="badge-apple" src="app-store-badge.svg" alt="Download on the App Store"></a>
+                <a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener"><img class="badge-google" src="google-play-badge.png" alt="Get it on Google Play"></a>
             </div>
+            <p class="badge-note google-play-soon">The Android app is going live on Google Play very soon.</p>
         </div>
     </div>
 
     <div class="content-workspace">
-        <div class="intro-card">
-            <h2>Smarter lessons. Clearer progress. Less hassle.</h2>
-            <p>
-                Drive My Way connects you with your instructor in real time. Track when they’re on the way,
-                message with photos, manage bookings, follow your progress, and study between lessons —
-                all from your phone.
-            </p>
-            <p style="margin-bottom:0;">
-                Add the app to your home screen for the best experience, and turn on notifications so you never miss a message or update.
-            </p>
+
+        <p class="sample-note">
+            Every image below is a genuine screenshot of the pupil app. The names, lessons, messages and figures are
+            <strong>sample data on a demo account</strong>. No real pupil's information appears on this page.
+        </p>
+
+        <!-- Live tracking -->
+        <div class="showcase-row">
+            <div class="showcase-text">
+                <p class="showcase-eyebrow">Live tracking</p>
+                <h2>🗺️ Watch your instructor arrive</h2>
+                <p>When your instructor sets off, your app switches to a live map showing where they are and when they'll get to you. No more waiting at the window wondering if they're nearly there.</p>
+                <ul>
+                    <li>Your instructor's position on a map, updating as they drive</li>
+                    <li>An arrival time the moment they set off</li>
+                    <li>A message the moment they arrive</li>
+                    <li>The map closes by itself when your lesson starts</li>
+                </ul>
+            </div>
+            <div class="showcase-visual">
+                <div class="phone-frame">
+                    <img src="app-screenshots/pupil-tracking-map.jpg" alt="Live map in the Drive My Way app showing the instructor on the way with an arrival time" loading="lazy">
+                </div>
+            </div>
         </div>
+        <p class="mockup-note">Real screenshot of the pupil app while the instructor is on the way.</p>
 
-        <h2 style="color: var(--dmw-deep-navy); font-size: 1.5rem; margin: 0 0 16px 0;">What’s new &amp; what you can do</h2>
+        <!-- Lessons -->
+        <div class="showcase-row reverse">
+            <div class="showcase-text">
+                <p class="showcase-eyebrow">Your lessons</p>
+                <h2>📅 Your lessons, offers and credit in one place</h2>
+                <p>Your home screen shows your upcoming lessons and how many hours of credit you have. If a lesson slot comes up, your instructor can offer it to you, and you accept or decline with one tap.</p>
+                <ul>
+                    <li>Upcoming lessons at a glance</li>
+                    <li>Accept or decline lesson offers straight away</li>
+                    <li>Cancel a lesson in the app (the cancellation terms still apply)</li>
+                    <li>Your hours of credit on your home screen</li>
+                </ul>
+            </div>
+            <div class="showcase-visual">
+                <div class="phone-frame">
+                    <img src="app-screenshots/pupil-home-lessons.jpg" alt="Pupil home screen with a lesson offer, upcoming lessons and hours of credit" loading="lazy">
+                </div>
+            </div>
+        </div>
+        <p class="mockup-note">Real screenshot of the pupil home screen with a lesson offer.</p>
 
+        <!-- Holidays -->
+        <div class="showcase-row">
+            <div class="showcase-text">
+                <p class="showcase-eyebrow">Holidays &amp; availability</p>
+                <h2>🗓️ Tell us when you're away, see when your instructor is</h2>
+                <p>Add your holiday in the app and it shows in your instructor's diary straight away, so nothing gets booked while you're away. When your instructor is away, you see it on your home screen too.</p>
+                <ul>
+                    <li>Add or change your own holidays</li>
+                    <li>Your instructor's away dates shown clearly</li>
+                    <li>Cancelled lessons show whether they were charged</li>
+                    <li>Let your instructor know which times suit you</li>
+                </ul>
+            </div>
+            <div class="showcase-visual">
+                <div class="phone-frame">
+                    <img src="app-screenshots/pupil-home-holidays.jpg" alt="Pupil home screen showing a booked holiday, instructor away dates and lessons" loading="lazy">
+                </div>
+            </div>
+        </div>
+        <p class="mockup-note">Real screenshot of the pupil home screen with a holiday booked.</p>
+
+        <!-- Messages -->
+        <div class="showcase-row reverse">
+            <div class="showcase-text">
+                <p class="showcase-eyebrow">Messages</p>
+                <h2>💬 Messages that don't get lost</h2>
+                <p>Message your instructor in the app, send photos, and get a notification when there's a reply. Anything important pops up when you open the app, so you never miss it.</p>
+                <ul>
+                    <li>Chat with your instructor, with photos</li>
+                    <li>Notifications for new messages and lesson changes</li>
+                    <li>Important messages you can't scroll past</li>
+                </ul>
+            </div>
+            <div class="showcase-visual">
+                <div class="phone-frame">
+                    <img src="app-screenshots/pupil-messages.jpg" alt="Messages from the instructor shown in the pupil app" loading="lazy">
+                </div>
+            </div>
+        </div>
+        <p class="mockup-note">Real screenshot of messages in the pupil app.</p>
+
+        <!-- Theory -->
+        <div class="showcase-row">
+            <div class="showcase-text">
+                <p class="showcase-eyebrow">Theory test</p>
+                <h2>🎓 Theory practice and mock tests</h2>
+                <p>Practice questions by topic, mock tests marked like the real thing, and road signs to learn, with your progress saved as you go so you can see what still needs work.</p>
+                <ul>
+                    <li>50-question mock tests with the real pass mark of 43</li>
+                    <li>Practise by topic and see what you got right and wrong</li>
+                    <li>Road signs and what they mean</li>
+                </ul>
+            </div>
+            <div class="showcase-visual pair">
+                <div class="phone-frame">
+                    <img src="app-screenshots/pupil-theory-practice.jpg" alt="Theory practice screen with mock tests and progress by topic" loading="lazy">
+                </div>
+                <div class="phone-frame">
+                    <img src="app-screenshots/pupil-road-signs.jpg" alt="Road signs section in the Drive My Way app" loading="lazy">
+                </div>
+            </div>
+        </div>
+        <p class="mockup-note">Real screenshots of theory practice and road signs.</p>
+
+        <!-- Videos -->
+        <div class="showcase-row reverse">
+            <div class="showcase-text">
+                <p class="showcase-eyebrow">Learning videos</p>
+                <h2>🎬 Videos to watch between lessons</h2>
+                <p>Short videos on moving off, junctions, roundabouts, manoeuvres and more, so you can go over what you've learnt before your next lesson.</p>
+                <ul>
+                    <li>Grouped by topic, in the order you'll learn them</li>
+                    <li>Watch any time, as often as you like</li>
+                </ul>
+            </div>
+            <div class="showcase-visual">
+                <div class="phone-frame">
+                    <img src="app-screenshots/pupil-learning-videos.jpg" alt="Learning videos grouped by topic in the Drive My Way app" loading="lazy">
+                </div>
+            </div>
+        </div>
+        <p class="mockup-note">Real screenshot of the learning videos.</p>
+
+        <!-- Highway Code -->
+        <div class="showcase-row">
+            <div class="showcase-text">
+                <p class="showcase-eyebrow">Highway Code</p>
+                <h2>📖 The full Highway Code in your pocket</h2>
+                <p>The official Highway Code, split into sections you can open any time. No separate book or app needed.</p>
+            </div>
+            <div class="showcase-visual">
+                <div class="phone-frame">
+                    <img src="app-screenshots/pupil-highway-code.jpg" alt="The Highway Code sections in the Drive My Way app" loading="lazy">
+                </div>
+            </div>
+        </div>
+        <p class="mockup-note">Real screenshot of the Highway Code section.</p>
+
+        <h2 class="section-title">Everything else in the app</h2>
+        <p class="section-sub">All included, free, for every DMW Driving School pupil.</p>
         <div class="feature-grid">
             <div class="feature-card">
-                <div class="icon">🗺️</div>
-                <h3>Live “On the way” tracking</h3>
-                <div class="card-line"></div>
-                <p>
-                    When your instructor sets off, you’ll see a live map on your home screen with their position updating in real time.
-                </p>
-                <ul>
-                    <li>Clear “instructor is on the way” banner</li>
-                    <li>Estimated arrival time (set when they leave)</li>
-                    <li>Map closes automatically when they arrive</li>
-                    <li>Friendly message if a trip has to be cancelled</li>
-                </ul>
+                <div class="icon">📊</div>
+                <h3>Progress chart</h3>
+                <p>Every skill your instructor marks, from introduced to independent, so you can see how close you are to test standard.</p>
             </div>
-
             <div class="feature-card">
-                <div class="icon">💬</div>
-                <h3>Messages with photos</h3>
-                <div class="card-line"></div>
-                <p>
-                    Chat with your instructor in the app — including photo attachments from your camera or gallery.
-                </p>
-                <ul>
-                    <li>Paperclip to take or upload a photo</li>
-                    <li>Push notifications (even when the app is closed*)</li>
-                    <li>Message history in one place</li>
-                    <li>Quick message box on the pupil home screen</li>
-                </ul>
+                <div class="icon">📝</div>
+                <h3>Reflective log</h3>
+                <p>Your goal for each lesson, what went well, what to keep working on and the plan for next time.</p>
             </div>
-
             <div class="feature-card">
-                <div class="icon">📅</div>
-                <h3>Lessons &amp; cancellations</h3>
-                <div class="card-line"></div>
-                <p>
-                    See upcoming lessons at a glance, cancel when you need to at the click of a button.
-                </p>
-                <ul>
-                    <li>Upcoming lessons on your home screen</li>
-                    <li>Cancel with a clear confirmation</li>
-                    <li>Book additional lessons with available diary gaps when offered</li>
-                </ul>
+                <div class="icon">💷</div>
+                <h3>Payments &amp; credit</h3>
+                <p>Your payments and hours of credit, always up to date.</p>
             </div>
-
             <div class="feature-card">
-                <div class="icon">📈</div>
-                <h3>Progress &amp; reflective logs</h3>
-                <div class="card-line"></div>
-                <p>
-                    Follow the same syllabus structure used in lessons and keep reflective notes between sessions.
-                </p>
-                <ul>
-                    <li>Progress chart by skill area</li>
-                    <li>Interactive reflective log</li>
-                    <li>Aligned with DVSA-style training topics</li>
-                </ul>
+                <div class="icon">🕒</div>
+                <h3>Your availability</h3>
+                <p>Tell your instructor which days and times suit you for lessons.</p>
             </div>
-
-            <div class="feature-card">
-                <div class="icon">🎬</div>
-                <h3>Learning videos &amp; resources</h3>
-                <div class="card-line"></div>
-                <p>
-                    Access training videos and learning resources between lessons to reinforce what you’ve practised on the road.
-                </p>
-                <ul>
-                    <li>Learning videos section</li>
-                    <li>Resources / learning aids</li>
-                    <li>Support for junctions, manoeuvres and more</li>
-                </ul>
-            </div>
-
-            <div class="feature-card">
-                <div class="icon">🎓</div>
-                <h3>Theory practice &amp; Highway Code</h3>
-                <div class="card-line"></div>
-                <p>
-                    Practise for your theory test right in the app, and browse the full Highway Code whenever you need it.
-                </p>
-                <ul>
-                    <li>700+ practice questions across all 14 real test categories</li>
-                    <li>Mock test with the real 43/50 pass mark</li>
-                    <li>Road signs reference, real sign artwork</li>
-                    <li>Full Highway Code built in, always free</li>
-                </ul>
-            </div>
-
             <div class="feature-card">
                 <div class="icon">🔔</div>
-                <h3>Smart notifications</h3>
-                <div class="card-line"></div>
-                <p>
-                    Stay informed about messages, lesson updates and when your instructor is on the way.
-                </p>
-                <ul>
-                    <li>Enable notifications in Settings</li>
-                    <li>Works best when installed to your home screen</li>
-                    <li>Test notification to confirm it’s working</li>
-                </ul>
+                <h3>Notifications</h3>
+                <p>Know straight away when a lesson is booked or changed, or a message arrives.</p>
             </div>
-
             <div class="feature-card">
-                <div class="icon">💳</div>
-                <h3>Payments &amp; credit</h3>
-                <div class="card-line"></div>
-                <p>
-                    See your lesson credit balance and payment-related information in the app.
-                </p>
-                <ul>
-                    <li>Credit hours on your home screen</li>
-                    <li>Payments section for your records</li>
-                </ul>
-            </div>
-
-            <div class="feature-card">
-                <div class="icon">🗓️</div>
-                <h3>Availability &amp; holidays</h3>
-                <div class="card-line"></div>
-                <p>
-                    Share when you’re free and flag holidays so booking stays organised for both of you.
-                </p>
-                <ul>
-                    <li>My availability</li>
-                    <li>Add upcoming holiday dates</li>
-                    <li>See when your instructor is away</li>
-                </ul>
+                <div class="icon">📚</div>
+                <h3>Resources</h3>
+                <p>Useful links and learning material from your instructor, in one place.</p>
             </div>
         </div>
 
-        <div class="who-grid">
-            <div class="who-card">
-                <div class="who-head">👤 For pupils</div>
-                <div class="who-body">
-                    Your home screen adapts when your instructor is en route — big map, clear message, and the tools you need without clutter.
-                    Message, track progress, manage lessons and study between sessions, all in one app.
-                </div>
+        <div class="steps-card">
+            <h2>How to get the app</h2>
+            <ol class="steps">
+                <li><strong>Book your lessons</strong>Get in touch and we'll get you booked in.</li>
+                <li><strong>Check your email</strong>You get an email to choose your password.</li>
+                <li><strong>Download the app</strong>Drive My Way, from the App Store or Google Play.</li>
+                <li><strong>Sign in</strong>With your email address and your new password.</li>
+            </ol>
+            <div class="store-badges">
+                <a href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener"><img class="badge-apple" src="app-store-badge.svg" alt="Download on the App Store"></a>
+                <a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener"><img class="badge-google" src="google-play-badge.png" alt="Get it on Google Play"></a>
             </div>
-            <div class="who-card">
-                <div class="who-head">🚗 For your instructor</div>
-                <div class="who-body">
-                    Diary, pupils, messages, money tools and “On the way” tracking in one place — including live GPS sharing,
-                    arrival / cancel controls, and cancellation charge decisions when notice is under 48 hours.
-                </div>
-            </div>
-        </div>
-
-        <div class="intro-card" style="border-left: 4px solid var(--dmw-main-blue);">
-            <h2 style="font-size: 1.2rem;">How to get the app</h2>
-            <p style="margin-bottom: 8px;">Your instructor will set up your login. Then:</p>
-            <ul style="margin: 0; padding-left: 20px; color: #475569;">
-                <li style="margin-bottom: 10px;"><strong>iPhone:</strong> Get it from the App Store:<br>
-                    <a href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener" style="display: inline-block; margin: 8px 0 4px 0;"><img src="app-store-badge.svg" alt="Download on the App Store" style="height: 44px; width: auto; display: block;"></a></li>
-                <li style="margin-bottom: 6px;"><strong>Android:</strong> Open in Chrome → menu → <em>Add to Home screen</em> / Install app</li>
-                <li>Open from the home screen icon, then enable notifications in Settings</li>
-            </ul>
+            <p class="badge-note google-play-soon">The Android app is going live on Google Play very soon.</p>
         </div>
 
         <div class="cta-band">
             <h2>Ready to get on the road?</h2>
-            <p>Book with a Grade A instructor in Gloucester and surrounding areas — and get the Drive My Way app free as an active pupil.</p>
+            <p>Book with a Grade A instructor in Gloucester and the surrounding areas, and get the Drive My Way app free.</p>
             <a href="https://www.dmwdrivingschool.co.uk/contact.html">📅 Check availability</a>
             <a class="secondary" href="https://www.dmwdrivingschool.co.uk/prices.html">View prices</a>
         </div>
@@ -519,6 +379,7 @@
             <a href="terms.html">Lesson &amp; Payment Terms</a> ·
             <a href="refund.html">Refund Policy</a>
         </p>
+        <p style="margin-top:8px;font-size:0.75rem;">Apple and the Apple logo are trademarks of Apple Inc. Google Play and the Google Play logo are trademarks of Google LLC.</p>
     </footer>
 
     <a href="https://www.dmwdrivingschool.co.uk/contact.html" class="sticky-enquiry-widget">

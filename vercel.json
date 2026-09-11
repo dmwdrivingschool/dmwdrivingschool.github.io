@@ -40,11 +40,11 @@
   "rewrites": [
     {
       "source": "/auth/confirm",
-      "destination": "/admin.html"
+      "destination": "/auth-confirm.html"
     },
     {
       "source": "/admin.html/auth/confirm",
-      "destination": "/admin.html"
+      "destination": "/auth-confirm.html"
     },
     {
       "source": "/change-password",

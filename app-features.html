@@ -129,20 +129,6 @@
             .badge-google { height: 68px; margin: -11px -9px; }
         }
     
-        /* Header with the red and green glow, menu centred (Dale, 2026-09-11) */
-        .master-sticky-header { background: radial-gradient(ellipse 42% 170% at 100% 0%, rgba(214,46,46,0.42), transparent 70%), radial-gradient(ellipse 42% 170% at 0% 100%, rgba(46,158,79,0.38), transparent 70%), linear-gradient(135deg, #111111 0%, #1c1c1c 55%, #232323 100%) !important; }
-        .top-info-banner, .top-info-sub, header { background: transparent !important; }
-        .top-info-sub { border-bottom: 1px solid rgba(255,255,255,0.08) !important; }
-        .navbar-shell { display: grid !important; grid-template-columns: 1fr auto 1fr !important; align-items: center !important; }
-        .navbar-shell .brand-logo { justify-self: start; grid-column: 1; }
-        .navbar-shell nav { justify-self: center; grid-column: 2; }
-        .navbar-shell .nav-links-list { margin: 0 !important; }
-        @media (max-width: 960px) {
-            .navbar-shell { grid-template-columns: 1fr !important; justify-items: center !important; gap: 8px !important; }
-            .navbar-shell .brand-logo, .navbar-shell nav { grid-column: 1; justify-self: center; }
-            .navbar-shell .brand-logo img { margin: 0 auto; }
-        }
-    
         /* Store badges the same height and level, Google Play first; thin phone edge (Dale, 2026-09-11) */
         .badge-apple, .badge-google { height: 46px !important; width: auto !important; margin: 0 !important; display: block; }
         .store-badges, .app-actions { align-items: center !important; }
@@ -154,6 +140,7 @@
             .store-badges { flex-wrap: nowrap !important; gap: 12px !important; }
         }
     </style>
+    <link rel="stylesheet" href="dmw-site.css">
 </head>
 <body>
     <div class="master-sticky-header">
@@ -227,7 +214,6 @@
                 <ul>
                     <li>Upcoming lessons at a glance</li>
                     <li>Accept or decline lesson offers straight away</li>
-                    <li>Cancel a lesson in the app (the cancellation terms still apply)</li>
                     <li>Your hours of credit on your home screen</li>
                 </ul>
             </div>
@@ -248,7 +234,7 @@
                 <ul>
                     <li>Add or change your own holidays</li>
                     <li>Your instructor's away dates shown clearly</li>
-                    <li>Cancelled lessons show whether they were charged</li>
+                    <li>Cancel a lesson with one tap, and it's confirmed straight away in your app</li>
                     <li>Let your instructor know which times suit you</li>
                 </ul>
             </div>

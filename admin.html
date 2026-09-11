@@ -5743,14 +5743,14 @@ async function toggleSchoolAdmin(instructorId, makeAdmin){
 let adminNoteCache={}, pendingPdiPrefill=null, pendingPdiNotificationId=null;
 function adminWhen(iso){ return new Date(iso).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}); }
 async function adminNotificationsSectionHtml(){
-  const {data,error}=await sb.from("admin_notifications").select("id,kind,title,body,details,created_at,read_at").order("created_at",{ascending:false}).limit(50);
+  const {data,error}=await sb.from("admin_notifications").select("id,kind,title,body,details,created_at,read_at,actioned_at").order("created_at",{ascending:false}).limit(50);
   if(error) return `<h3 style="margin:1.1rem 0 .3rem">Admin</h3><p class="muted">${esc(error.message)}</p>`;
   const rows=data||[];
   adminNoteCache=Object.fromEntries(rows.map(r=>[r.id,r]));
   const unread=rows.filter(r=>!r.read_at).length;
   return `<h3 style="margin:1.1rem 0 .3rem">Admin ${unread?`<span class="chip chip-bad">${unread} new</span>`:""}</h3>
-    <p class="muted" style="margin-bottom:.4rem;font-size:.85rem">Alerts about driving schools, instructors, trainees and subscriptions.${unread?' <a href="#" onclick="markAllAdminRead();return false" style="color:var(--navy)">Mark all read</a>':""}</p>
-    ${rows.length ? rows.map(r=>`<div class="list-row" style="cursor:pointer" onclick="openAdminNotification('${r.id}')"><div style="flex:1;min-width:0"><strong>${esc(r.title)}</strong>${r.read_at?"":' <span class="chip chip-bad">new</span>'}${(r.details&&r.details.created_user_id)?' <span class="chip chip-ok">PDI created</span>':""}<div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.body)}</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${adminWhen(r.created_at)}</div></div>`).join("") : '<p class="muted">No admin alerts yet.</p>'}`;
+    <p class="muted" style="margin-bottom:.4rem;font-size:.85rem">Alerts about driving schools, instructors, trainees and subscriptions. A green &#10003; Done means it has been dealt with.${unread?' <a href="#" onclick="markAllAdminRead();return false" style="color:var(--navy)">Mark all read</a>':""}</p>
+    ${rows.length ? rows.map(r=>`<div class="list-row" style="cursor:pointer" onclick="openAdminNotification('${r.id}')"><div style="flex:1;min-width:0"><strong>${esc(r.title)}</strong>${r.read_at?"":' <span class="chip chip-bad">new</span>'}${r.actioned_at?' <span class="chip chip-ok">&#10003; Done</span>':""}<div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.body)}</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${adminWhen(r.created_at)}</div></div>`).join("") : '<p class="muted">No admin alerts yet.</p>'}`;
 }
 async function openAdminNotification(id){
   const r=adminNoteCache[id]; if(!r) return;
@@ -5769,7 +5769,21 @@ async function openAdminNotification(id){
   openModal(`<h3 style="margin:0 0 .25rem">${esc(r.title)}</h3>
     <p class="muted" style="margin-bottom:.75rem">${adminWhen(r.created_at)}</p>
     <p style="white-space:pre-line;margin-bottom:.75rem">${esc(r.body)}</p>
-    ${extra}<button class="btn-outline" onclick="closeModal();if(!document.getElementById('tab-messages').classList.contains('hidden'))loadMessagesPanel()">Close</button>`);
+    ${extra}${r.actioned_at
+      ? `<p style="color:#0a7a3d;font-weight:700;margin-bottom:.75rem">&#10003; Done ${adminWhen(r.actioned_at)}</p>${d.created_user_id?"":`<button class="btn-outline" style="margin-right:.4rem" onclick="setAdminNoteDone('${r.id}',false)">Mark as not done</button>`}`
+      : `<button class="btn btn-sm" style="background:#0a7a3d;color:#fff;margin-right:.4rem" onclick="setAdminNoteDone('${r.id}',true)">&#10003; Mark as done</button>`}<button class="btn-outline" onclick="closeModal();if(!document.getElementById('tab-messages').classList.contains('hidden'))loadMessagesPanel()">Close</button>`);
+}
+// Done tick (Dale, 2026-09-11): set automatically when a PDI is created from
+// a school's request or a paid seat request is approved or declined (database
+// triggers); anything else is ticked off here or in the app.
+async function setAdminNoteDone(id, done){
+  const r=adminNoteCache[id]; if(!r) return;
+  const actioned_at=done?new Date().toISOString():null;
+  const {error}=await sb.from("admin_notifications").update({actioned_at}).eq("id",id);
+  if(error){ alert(error.message); return; }
+  r.actioned_at=actioned_at;
+  closeModal();
+  if(!document.getElementById("tab-messages").classList.contains("hidden")) loadMessagesPanel();
 }
 async function markAllAdminRead(){
   await sb.from("admin_notifications").update({read_at:new Date().toISOString()}).is("read_at",null);

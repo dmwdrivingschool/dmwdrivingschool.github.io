@@ -293,16 +293,23 @@ tbody tr:hover td{background:#334263}
     <p style="text-align:center;margin-top:.6rem;font-size:.85rem;color:var(--muted)">New here? <a href="#" onclick="showSignup();return false" style="color:var(--navy);font-weight:700">Start your free trial</a></p>
   </div>
   <div id="gate-recovery" class="hidden">
-    <p class="sub">Choose a new password for your account</p>
+    <p class="sub" id="recovery-sub">Choose a new password for your account</p>
     <input type="password" id="gate-newpass" placeholder="New password" autocomplete="new-password">
     <input type="password" id="gate-newpass-confirm" placeholder="Confirm new password" autocomplete="new-password" style="margin-top:.5rem">
-    <button class="btn btn-navy full" onclick="saveNewPassword()">Set new password</button>
+    <button class="btn btn-navy full" id="recovery-save-btn" onclick="saveNewPassword()">Set new password</button>
     <div class="err" id="recovery-err"></div>
     <div id="recovery-done" class="hidden" style="text-align:center;padding:1rem 0">
       <p style="font-weight:700;margin-bottom:.5rem">Password changed.</p>
       <p class="muted" style="margin-bottom:1rem">Sign in below with your new password.</p>
       <button class="btn btn-navy full" onclick="location.href=location.pathname">Go to sign in</button>
     </div>
+  </div>
+  <div id="gate-pupil" class="hidden" style="text-align:center">
+    <p style="font-weight:700;font-size:1.05rem;margin-bottom:.5rem" id="gate-pupil-title">You're all set</p>
+    <p class="muted" style="margin-bottom:1rem">Your Drive My Way login is for the app. Open the Drive My Way app on your phone and sign in with your email address and password.</p>
+    <a class="btn btn-navy full" style="display:block;text-decoration:none;margin-bottom:.5rem" href="https://apps.apple.com/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener">App Store (iPhone)</a>
+    <a class="btn btn-navy full" style="display:block;text-decoration:none" href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener">Google Play (Android)</a>
+    <p class="muted" style="margin-top:1rem;font-size:.85rem">Driving instructor? <a href="#" onclick="location.href=location.pathname;return false" style="color:var(--navy);font-weight:700">Sign in to the Control Centre</a></p>
   </div>
   <div id="gate-signup" class="hidden">
     <p class="sub">30 days free, then billed monthly</p>
@@ -844,7 +851,7 @@ async function unlock(){
   // own login the moment migration 01 ran on live.
   const {data:prof}=await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin,locked_at,locked_reason").eq("id",data.user.id).maybeSingle();
   if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin"){
-    await sb.auth.signOut({scope:"local"}); err.textContent="Not an instructor account"; err.style.display="block"; return;
+    await sb.auth.signOut({scope:"local"}); err.textContent="This is a pupil login. Open the Drive My Way app on your phone to sign in."; err.style.display="block"; return;
   }
   let lockMessage=null;
   try{ lockMessage = prof ? await lockMessageFor(data.user.id) : null; }catch(e){ lockMessage=null; }
@@ -921,8 +928,26 @@ async function forgotPassword(){
   if(error){err.textContent=error.message;err.style.display="block";return}
   alert("Reset link sent — check your email (and spam). The link brings you back here to set a new password.");
 }
-let pendingRecovery=/type=recovery/.test(location.hash);
+// Links from emails land here (Dale, 2026-09-11: nothing points at the
+// app.drivemyway.co.uk web app). recovery = reset, invite = new instructor or
+// pupil login, signup = a pupil confirming their enquiry email (they still
+// need to choose a password). Instructors then sign in here; pupils are told
+// to open the app.
+let pendingRecovery=/type=(recovery|invite)/.test(location.hash);
+const pendingInvite=/type=invite/.test(location.hash);
+const pendingSignupConfirm=/type=signup/.test(location.hash);
+function showPupilAppNotice(title){
+  document.getElementById("app").style.display="none";
+  document.getElementById("gate").style.display="block";
+  ["gate-signin","gate-signup","gate-recovery","gate-mandate"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add("hidden"); });
+  const t=document.getElementById("gate-pupil-title"); if(t&&title) t.textContent=title;
+  document.getElementById("gate-pupil").classList.remove("hidden");
+}
 function showRecoveryForm(){
+  if(pendingInvite||pendingSignupConfirm){
+    const sub=document.getElementById("recovery-sub"); if(sub) sub.textContent="Welcome to Drive My Way. Choose a password for your account.";
+    const btn=document.getElementById("recovery-save-btn"); if(btn) btn.textContent="Set password";
+  }
   document.getElementById("app").style.display="none";
   document.getElementById("gate").style.display="block";
   document.getElementById("gate-signin").classList.add("hidden");
@@ -941,11 +966,20 @@ async function saveNewPassword(){
   // password reset should land you at sign-in with your NEW password, not
   // silently confirm the old session was still valid (Dale: "which i dont
   // want"). Same UX as the app's own change-password screen.
+  // Pupils are told to use the app rather than shown the instructor sign-in.
+  let setterRole=null;
+  try{
+    const {data:u}=await sb.auth.getUser();
+    const usr=u&&u.user;
+    setterRole=(usr&&usr.user_metadata&&usr.user_metadata.role)||null;
+    if(usr){ const {data:pr}=await sb.from("profiles").select("role").eq("id",usr.id).maybeSingle(); if(pr&&pr.role) setterRole=pr.role; }
+  }catch(e){}
   await sb.auth.signOut();
   document.getElementById("gate-newpass").classList.add("hidden");
   document.getElementById("gate-newpass-confirm").classList.add("hidden");
   document.querySelector('#gate-recovery button[onclick="saveNewPassword()"]').classList.add("hidden");
   document.getElementById("recovery-done").classList.remove("hidden");
+  if(setterRole==="pupil") showPupilAppNotice(pendingInvite||pendingSignupConfirm ? "Password set" : "Password changed");
 }
 sb.auth.onAuthStateChange((event)=>{ if(event==="PASSWORD_RECOVERY"){ pendingRecovery=true; showRecoveryForm(); } });
 
@@ -1291,8 +1325,10 @@ async function enforceLock(userId){
 sb.auth.getSession().then(async ({data})=>{
   if(!data.session) return;
   if(await enforceLock(data.session.user.id)) return;
+  if(pendingSignupConfirm && data.session.user.user_metadata && data.session.user.user_metadata.role==="pupil") pendingRecovery=true;
   if(pendingRecovery){ showRecoveryForm(); return; }
   const { data: prof } = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.session.user.id).maybeSingle();
+  if(prof&&prof.role==="pupil"){ await sb.auth.signOut({scope:"local"}); showPupilAppNotice("You're all set"); return; }
   if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin")return;
   if(prof){
     if(await requireMandateOrRedirect(data.session.user)) return;
@@ -3913,7 +3949,7 @@ function buildEnquirySnippet(instructorId, schoolId){
     <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-left:4px solid #059669;border-radius:8px;padding:12px;font-size:13px;color:#065f46;margin-bottom:14px">
       <strong>What happens next</strong><br>
       1. We're emailing you a secure link right now — use it to set your app password (check spam if it doesn't arrive within a few minutes).<br>
-      2. Sign in to the Drive My Way app at <strong>app.drivemyway.co.uk</strong>.<br>
+      2. Download the Drive My Way app on your phone (App Store or Google Play) and sign in with your email and that password.<br>
       3. The app shows the live status of your enquiry — you'll see there as soon as it's been reviewed and accepted, and you'll get updates and messages from your instructor in the same place.
     </div>
     <label>Email</label>
@@ -3922,7 +3958,8 @@ function buildEnquirySnippet(instructorId, schoolId){
     <div id="dmw-signup-ok" style="background:#ecfdf5;border:1px solid #a7f3d0;border-left:4px solid #059669;border-radius:8px;padding:12px;font-size:13px;color:#065f46;margin-top:10px;display:none"></div>
     <button type="button" class="dmw-btn" id="dmw-signup-btn">Resend password link</button>
     <p style="font-size:12px;color:#64748b;text-align:center;margin:6px 0 14px 0">The password email is sent automatically — use this button only if it hasn't arrived.</p>
-    <a href="https://app.drivemyway.co.uk" target="_blank" rel="noopener" style="display:block;text-align:center;padding:14px 18px;background:#0A4CA1;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">📱 Open the Drive My Way app</a>
+    <a href="https://apps.apple.com/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener" style="display:block;text-align:center;padding:14px 18px;background:#0A4CA1;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;margin-bottom:8px">📱 Get the app on the App Store (iPhone)</a>
+    <a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener" style="display:block;text-align:center;padding:14px 18px;background:#0A4CA1;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">📱 Get the app on Google Play (Android)</a>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"><\/script>
@@ -3931,7 +3968,7 @@ function buildEnquirySnippet(instructorId, schoolId){
   var SUPABASE_URL = "${SUPABASE_URL}";
   var SUPABASE_KEY = "${SUPABASE_ANON}";
   var HOURS_OWNER_ID = "${instructorId}";
-  var APP_CHANGE_PASSWORD_URL = "https://app.drivemyway.co.uk/change-password";
+  var APP_CHANGE_PASSWORD_URL = "https://web.drivemyway.co.uk/admin.html";
   var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   var enquiryEmail = "";
   var enquiryFirstName = "";
@@ -5159,6 +5196,7 @@ async function loadTeamsPanel(){
       <div class="field" style="margin-top:1rem"><label>Full name</label><input id="new-instr-name"></div>
       <div class="field"><label>Email</label><input id="new-instr-email" type="email"></div>
       <div class="field"><label>Phone (optional)</label><input id="new-instr-phone"></div>
+      <div class="field"><label>ADI/PDI badge number (optional)</label><input id="new-instr-badge"></div>
       <div class="field"><label>Driving school</label>
         <select id="new-instr-school" onchange="syncNewInstrBilling()"><option value="">— Solo instructor (no school) —</option></select>
       </div>
@@ -5620,11 +5658,13 @@ async function addInstructorGlobal(){
   if(isPdi && !schoolId){ err.textContent="PDI accounts must be linked to a driving school"; return; }
   try{
     const billing = (!schoolId && !isPdi) ? ((document.getElementById("new-instr-billing")||{}).value||"invite") : "free";
-    const res = await manageAuthAdmin("create_instructor", {full_name:fullName, email, phone: phone||null, school_id: schoolId, is_pdi: isPdi, billing});
+    const res = await manageAuthAdmin("create_instructor", {full_name:fullName, email, phone: phone||null, school_id: schoolId, is_pdi: isPdi, billing, adi_badge_number:(document.getElementById("new-instr-badge")||{}).value||null, admin_notification_id: pendingPdiNotificationId});
     document.getElementById("new-instr-name").value="";
     document.getElementById("new-instr-email").value="";
     document.getElementById("new-instr-phone").value="";
     document.getElementById("new-instr-pdi").checked=false;
+    { const badgeEl=document.getElementById("new-instr-badge"); if(badgeEl) badgeEl.value=""; }
+    pendingPdiNotificationId=null;
     err.style.color="#0a7a3d";
     err.textContent = res && res.billing==="invite"
       ? "Invite sent to "+email+", with a 30-day free trial and an email explaining how to set up their Direct Debit."
@@ -5700,7 +5740,7 @@ async function toggleSchoolAdmin(instructorId, makeAdmin){
 // Every admin alert that pops up for Drive My Way is kept in
 // admin_notifications and listed in Messages, Admin. A school's Request a PDI
 // form is one of them, with Create this PDI to fill in the add-instructor form.
-let adminNoteCache={}, pendingPdiPrefill=null;
+let adminNoteCache={}, pendingPdiPrefill=null, pendingPdiNotificationId=null;
 function adminWhen(iso){ return new Date(iso).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}); }
 async function adminNotificationsSectionHtml(){
   const {data,error}=await sb.from("admin_notifications").select("id,kind,title,body,details,created_at,read_at").order("created_at",{ascending:false}).limit(50);
@@ -5710,7 +5750,7 @@ async function adminNotificationsSectionHtml(){
   const unread=rows.filter(r=>!r.read_at).length;
   return `<h3 style="margin:1.1rem 0 .3rem">Admin ${unread?`<span class="chip chip-bad">${unread} new</span>`:""}</h3>
     <p class="muted" style="margin-bottom:.4rem;font-size:.85rem">Alerts about driving schools, instructors, trainees and subscriptions.${unread?' <a href="#" onclick="markAllAdminRead();return false" style="color:var(--navy)">Mark all read</a>':""}</p>
-    ${rows.length ? rows.map(r=>`<div class="list-row" style="cursor:pointer" onclick="openAdminNotification('${r.id}')"><div style="flex:1;min-width:0"><strong>${esc(r.title)}</strong>${r.read_at?"":' <span class="chip chip-bad">new</span>'}<div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.body)}</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${adminWhen(r.created_at)}</div></div>`).join("") : '<p class="muted">No admin alerts yet.</p>'}`;
+    ${rows.length ? rows.map(r=>`<div class="list-row" style="cursor:pointer" onclick="openAdminNotification('${r.id}')"><div style="flex:1;min-width:0"><strong>${esc(r.title)}</strong>${r.read_at?"":' <span class="chip chip-bad">new</span>'}${(r.details&&r.details.created_user_id)?' <span class="chip chip-ok">PDI created</span>':""}<div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.body)}</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${adminWhen(r.created_at)}</div></div>`).join("") : '<p class="muted">No admin alerts yet.</p>'}`;
 }
 async function openAdminNotification(id){
   const r=adminNoteCache[id]; if(!r) return;
@@ -5724,7 +5764,7 @@ async function openAdminNotification(id){
   if(r.kind==="pdi_add_request"){
     const line=(k,v)=>v?`<tr><th style="text-align:left;padding:.3rem .9rem .3rem 0;white-space:nowrap">${esc(k)}</th><td style="padding:.3rem 0">${esc(v)}</td></tr>`:"";
     extra=`<table style="margin:.25rem 0 1rem">${line("School",d.school_name)}${line("School admin",(d.admin_name?d.admin_name+" · ":"")+(d.admin_email||""))}${line("Full name",d.full_name)}${line("Email",d.email)}${line("Phone",d.phone)}${line("PDI badge number",d.badge)}${line("Note",d.note)}</table>
-      <button class="btn btn-navy btn-sm" onclick="prefillPdiFromRequest('${r.id}')">Create this PDI</button> `;
+      ${d.created_user_id ? `<p style="color:#0a7a3d;font-weight:700;margin-bottom:.75rem">PDI created ${d.created_at?adminWhen(d.created_at):""}. They were emailed to set their password.</p>` : `<button class="btn btn-navy btn-sm" onclick="prefillPdiFromRequest('${r.id}')">Create this PDI</button> `}`;
   }
   openModal(`<h3 style="margin:0 0 .25rem">${esc(r.title)}</h3>
     <p class="muted" style="margin-bottom:.75rem">${adminWhen(r.created_at)}</p>
@@ -5738,7 +5778,7 @@ async function markAllAdminRead(){
 }
 function prefillPdiFromRequest(id){
   const r=adminNoteCache[id]; if(!r) return;
-  pendingPdiPrefill=r.details||{};
+  pendingPdiPrefill=Object.assign({}, r.details||{}, {_notification_id:r.id});
   closeModal();
   goTab("teams");
 }
@@ -5746,12 +5786,13 @@ function applyPendingPdiPrefill(){
   const d=pendingPdiPrefill; if(!d) return;
   pendingPdiPrefill=null;
   const set=(id,v)=>{ const el=document.getElementById(id); if(el&&v) el.value=v; };
-  set("new-instr-name",d.full_name); set("new-instr-email",d.email); set("new-instr-phone",d.phone);
+  set("new-instr-name",d.full_name); set("new-instr-email",d.email); set("new-instr-phone",d.phone); set("new-instr-badge",d.badge);
+  pendingPdiNotificationId=d._notification_id||null;
   const sel=document.getElementById("new-instr-school"); if(sel&&d.school_id) sel.value=d.school_id;
   const pdi=document.getElementById("new-instr-pdi"); if(pdi) pdi.checked=true;
   syncNewInstrBilling();
   const err=document.getElementById("teams-err");
-  if(err){ err.style.color="#0a7a3d"; err.textContent="Filled in from "+(d.school_name||"the school")+"'s request"+(d.badge?" (PDI badge "+d.badge+": add it to their profile after they sign in)":"")+". Check the details and press Send invite."; }
+  if(err){ err.style.color="#0a7a3d"; err.textContent="Filled in from "+(d.school_name||"the school")+"'s request"+". Check the details and press Send invite."; }
   const nameEl=document.getElementById("new-instr-name"); if(nameEl){ try{ nameEl.scrollIntoView({block:"center"}); }catch(e){} nameEl.focus(); }
 }
 

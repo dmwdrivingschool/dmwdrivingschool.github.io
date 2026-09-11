@@ -815,7 +815,7 @@ function goTab(tab, pupilFilter){
     renderPupils();
   }
   if(tab==="diary"){ if(!keepDiaryOwner) diaryOwnerId=currentUserId; keepDiaryOwner=false; renderDiary(); }
-  if(tab==="finance"){fillCats(); applyFinance()}
+  if(tab==="finance"){fillCats(); applyFinance(); if(Date.now()-lastPaymentsLoadAt>60000){ loadPayments().then(()=>{ if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance(); loadDash(); }); } }
   if(tab==="tests") showTests("future");
   if(tab==="settings"){document.getElementById("settings-menu").classList.remove("hidden");document.getElementById("settings-panel").classList.add("hidden")}
   if(tab==="portal"){ loadVideoModules().then(()=>{ loadActivity(); loadLearningVideos(); }); }
@@ -878,7 +878,7 @@ async function resolveVideoAccess(prof){
 }
 async function enterApp(user,prof){
   currentUserId=user.id;
-  schoolDisplayNameCache=""; staffNames={}; schoolInstructorsCache=[]; diaryOwnerId=null;
+  schoolDisplayNameCache=""; staffNames={}; schoolInstructorsCache=[]; diaryOwnerId=null; lastPaymentsLoadAt=0;
   document.getElementById("gate").style.display="none";
   document.getElementById("app").style.display="block";
   document.getElementById("who").textContent=prof?.full_name||user.email||"";
@@ -897,7 +897,11 @@ async function enterApp(user,prof){
   document.getElementById("pupil-filter-waiting").classList.toggle("hidden", !!(isSchoolAdminUser && currentSchoolId));
   document.getElementById("nav-messages-btn").classList.remove("hidden"); // everyone: school/instructors + own pupils
   await loadSchoolInstructors();
-  await refresh(); if(!window.__dmwRefreshTimer) window.__dmwRefreshTimer=setInterval(refresh,30000);
+  await refresh();
+  if(!window.__dmwRefreshTimer){
+    window.__dmwRefreshTimer=setInterval(()=>refresh({tick:true}),30000);
+    document.addEventListener("visibilitychange", onControlCentreVisible);
+  }
   maybeShowWelcomeTour();
 }
 async function lock(){await sb.auth.signOut({scope:"local"}); document.getElementById("app").style.display="none"; document.getElementById("gate").style.display="block"}
@@ -1302,13 +1306,39 @@ sb.auth.getSession().then(async ({data})=>{
 
 function showBanner(msg){const b=document.getElementById("data-banner"); if(!msg){b.style.display="none";return} b.textContent=msg;b.style.display="block"}
 
-async function refresh(){
-  if(currentUserId && await enforceLock(currentUserId)) return;
-  await Promise.all([loadPupils(),loadPayments(),loadTests(),loadWorkingHours(),loadSyllabus(),loadFinanceCategories()]);
-  loadDash(); loadEnquiries(); loadGaps(); loadActivity(); updateMessagesBadge();
-  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
-  if(!document.getElementById("tab-pupils").classList.contains("hidden")) renderPupils();
-  if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
+// Lighter background refresh (Dale, 2026-09-11). The every-30-seconds timer
+// used to re-download every transaction (with pupil names) for every open
+// tab, even hidden ones: the single biggest load on the database, and it made
+// pupils' app screens queue behind it. Now:
+//   - a tab you can't see doesn't refresh at all, and catches up when shown
+//   - the 30-second tick reloads only the light things (pupils, tests, enquiries,
+//     gaps, messages, the lock check)
+//   - transactions and settings reload every 5 minutes, when Finances is
+//     opened with data over a minute old, and straight after any save
+//   - refresh() called directly (not by the timer) is still a full reload
+let lastPaymentsLoadAt=0, lastRefreshAt=0, refreshTickRunning=false;
+const FULL_DATA_EVERY_MS=5*60*1000;
+async function refresh(opts){
+  const tick=!!(opts&&opts.tick);
+  if(tick && (document.visibilityState==="hidden" || refreshTickRunning)) return;
+  if(tick) refreshTickRunning=true;
+  try{
+    if(currentUserId && await enforceLock(currentUserId)) return;
+    const full = !tick || Date.now()-lastPaymentsLoadAt > FULL_DATA_EVERY_MS;
+    const jobs=[loadPupils(),loadTests()];
+    if(full) jobs.push(loadPayments(),loadWorkingHours(),loadSyllabus(),loadFinanceCategories());
+    await Promise.all(jobs);
+    lastRefreshAt=Date.now();
+    loadDash(); loadEnquiries(); loadGaps(); loadActivity(); updateMessagesBadge();
+    if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+    if(!document.getElementById("tab-pupils").classList.contains("hidden")) renderPupils();
+    if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
+  } finally {
+    if(tick) refreshTickRunning=false;
+  }
+}
+function onControlCentreVisible(){
+  if(document.visibilityState==="visible" && currentUserId && Date.now()-lastRefreshAt>30000) refresh({tick:true});
 }
 
 async function loadPupils(){
@@ -1345,6 +1375,7 @@ async function loadPayments(){
     from+=pageSize;
   }
   txCache=all;
+  lastPaymentsLoadAt=Date.now();
 }
 async function loadTests(){
   let {data,error}=await sb.from("practical_tests").select("*, pupil:pupils(first_name,last_name)").order("test_date",{ascending:false});

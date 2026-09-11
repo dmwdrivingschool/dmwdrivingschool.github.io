@@ -4,303 +4,172 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DMW Driving School Gloucester | Grade A Manual Driving Tuition</title>
-   
+
     <meta name="description" content="Get on the road safely with DMW Driving School. Grade A manual driving instructor offering patient, high-quality driving tuition across Quedgeley, Kingsway, Hardwicke, and Gloucester. Book your slots today!">
     <meta name="keywords" content="manual driving lessons gloucester, driving schools quedgeley, grade a driving instructor gloucester, manual driving tuition kingsway, driving lessons hardwicke, patient instructor gloucester">
     <link rel="canonical" href="https://dmwdrivingschool.co.uk">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
+
+    <!--
+      Homepage (Dale, 2026-09-11): same look as the new App Features page and
+      drivemyway.co.uk (dark hero with the red and green glow, phone showcase),
+      keeping all of the existing content: welcome text, Grade A, review,
+      service areas, lesson times, why choose, review links and the Wall of Fame
+      carousel (photos managed in the Control Centre, website_photos table).
+    -->
     <style>
-        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --bg-light: #F4F7FA; --text-dark: #222222; }
-       
-        html, body { 
-            display: flow-root; 
-            margin: 0 !important; 
-            padding: 0 !important; 
-            background-color: var(--bg-light); 
-            color: var(--text-dark); 
-            line-height: 1.6; 
-            overflow-x: hidden;
-            max-width: 100%;
-        }
+        :root { --dmw-main-blue: #0A4CA1; --dmw-deep-navy: #062F63; --dmw-red: #D62E2E; --dmw-green: #2E9E4F; --dmw-amber: #F0A202; --bg-light: #F4F7FA; --text-dark: #222222; }
+
+        html, body { display: flow-root; margin: 0 !important; padding: 0 !important; background-color: var(--bg-light); color: var(--text-dark); line-height: 1.6; overflow-x: hidden; max-width: 100%; font-family: Arial, Helvetica, sans-serif; }
         * { box-sizing: border-box; max-width: 100%; }
 
-        .master-sticky-header {
-            position: sticky;
-            top: 0;
-            z-index: 10000;
-            width: 100%;
-            background-color: #111111;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-       
-        .video-hub-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 35px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.01);
-        }
-        .video-hub-card h3 {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.15rem;
-            font-weight: 700;
-            color: #1e1e24;
-        }
-        .video-hub-card .card-line {
-            height: 3px;
-            background: #2ecc71;
-            margin: 12px 0 16px 0;
-            border-radius: 2px;
-        }
-        .video-hub-card p {
-            color: #475569;
-            font-size: 0.88em;
-            line-height: 1.5;
-            margin: 10px 0 14px 0;
-        }
-        .video-hub-card ul { list-style: none; padding: 0; }
-        .video-hub-card li {
-            font-size: 0.88em;
-            color: #334155;
-            margin-bottom: 14px;
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            line-height: 1.4;
-        }
-       
-        .top-info-banner {
-            background-color: #111111 !important;
-            color: #ffffff !important;
-            text-align: center !important;
-            padding: 14px 20px 6px 20px !important;
-            font-size: 1.25rem !important;
-            font-family: Arial, Helvetica, sans-serif !important;
-            font-weight: 900 !important;
-            letter-spacing: 1px !important;
-            line-height: 1.2 !important;
-            animation: bookingPulse 1.5s infinite ease-in-out !important;
-            margin: 0 !important;
-            width: 100% !important;
-            box-sizing: border-box !important;
-        }
-        .top-info-sub {
-            background-color: #111111;
-            color: #f1c40f;
-            text-align: center;
-            padding: 0 20px 12px 20px;
-            font-size: 0.95rem;
-            font-family: Arial, Helvetica, sans-serif;
-            font-weight: 600;
-            letter-spacing: 0.3px;
-            margin: 0;
-            border-bottom: 1px solid #222;
-        }
-        @keyframes bookingPulse {
-            0% { color: #ffffff; text-shadow: none; }
-            50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; }
-            100% { color: #ffffff; text-shadow: none; }
-        }
-
+        /* DMW Driving School header (same as the rest of the site) */
+        .master-sticky-header { position: sticky; top: 0; z-index: 10000; width: 100%; background-color: #111111; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .top-info-banner { background-color: #111111 !important; color: #ffffff !important; text-align: center !important; padding: 14px 20px 6px 20px !important; font-size: 1.25rem !important; font-weight: 900 !important; letter-spacing: 1px !important; line-height: 1.2 !important; animation: bookingPulse 1.5s infinite ease-in-out !important; margin: 0 !important; width: 100% !important; }
+        .top-info-sub { background-color: #111111; color: #f1c40f; text-align: center; padding: 0 20px 12px 20px; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.3px; margin: 0; border-bottom: 1px solid #222; }
+        @keyframes bookingPulse { 0% { color: #ffffff; text-shadow: none; } 50% { color: #f1c40f; text-shadow: 0 0 15px #f1c40f; } 100% { color: #ffffff; text-shadow: none; } }
         header { background-color: #111111 !important; margin: 0 !important; width: 100% !important; display: block; position: relative; z-index: 10010; }
-        .navbar-shell { max-width: 1140px !important; margin: 0 auto !important; display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 12px 20px !important; flex-wrap: wrap !important; gap: 15px !important; box-sizing: border-box !important; }
+        .navbar-shell { max-width: 1140px !important; margin: 0 auto !important; display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 12px 20px !important; flex-wrap: wrap !important; gap: 15px !important; }
         .brand-logo img { height: 60px; width: auto; display: block; }
-       
         .nav-links-list { display: flex; flex-wrap: wrap; justify-content: center; list-style: none; gap: 16px 24px; align-items: center; margin: 0 auto; padding: 0; }
-        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; font-family: Arial, Helvetica, sans-serif !important; transition: color 0.2s ease; display: inline-flex; text-align: center; justify-content: center; align-items: center; height: 30px; box-sizing: border-box; }
+        .nav-links-list li a { text-decoration: none; color: #f3f4f6; font-weight: 600; font-size: 0.95rem; transition: color 0.2s ease; display: inline-flex; align-items: center; height: 30px; }
         .nav-links-list li a:hover { color: #3498db; }
         .active-page { color: #3498db !important; font-weight: bold; border-bottom: 2px solid #3498db; }
 
-        .content-workspace { max-width: 1140px; margin: 45px auto; padding: 0 20px; display: grid; grid-template-columns: 2.2fr 1.3fr; gap: 45px; align-items: stretch; }
-        .editorial-narrative { display: flex; flex-direction: column; height: 100%; justify-content: flex-start; }
-       
-        .reviews-flex-grid { font-family: Arial, sans-serif; width: 100%; display: flex; flex-wrap: wrap; gap: 20px; color: #333; }
-        .balanced-review-card { flex: 1; min-width: 260px; border: 1px solid #ddd; border-radius: 12px; padding: 22px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
-       
-        .service-areas-sidebar-card {
-            font-family: Arial, sans-serif;
-            width: 100%;
-            border: 1px solid #ddd;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-            background-color: #fff;
-            box-sizing: border-box;
-        }
+        /* Hero: dark with the red and green glow */
+        .hero-band { position: relative; width: 100%; min-height: 320px; background: linear-gradient(135deg, #111111 0%, #1c1c1c 55%, #232323 100%); display: flex; align-items: center; justify-content: center; padding: 46px 20px 44px; text-align: center; color: #fff; overflow: hidden; }
+        .hero-band::before { content: ""; position: absolute; top: -60%; right: -10%; width: 55%; padding-bottom: 55%; border-radius: 50%; background: radial-gradient(circle, rgba(214,46,46,0.28), transparent 70%); }
+        .hero-band::after { content: ""; position: absolute; bottom: -55%; left: -12%; width: 50%; padding-bottom: 50%; border-radius: 50%; background: radial-gradient(circle, rgba(46,158,79,0.25), transparent 70%); }
+        .hero-inner { position: relative; z-index: 2; max-width: 760px; }
+        .hero-badge { height: 128px; width: auto; display: block; margin: 0 auto 16px auto; filter: drop-shadow(0 8px 18px rgba(0,0,0,0.5)); }
+        .hero-band h1 { margin: 0 0 10px 0; font-size: 2.2rem; font-weight: 800; line-height: 1.2; }
+        .hero-band .hero-sub { margin: 0 auto; max-width: 640px; font-size: 1.15rem; opacity: 0.92; line-height: 1.5; }
+        .hero-cta-row { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+        .btn-primary { display: inline-block; background: #f1c40f; color: #1e1e24; font-weight: 800; text-decoration: none; padding: 14px 28px; border-radius: 999px; font-size: 1em; box-shadow: 0 8px 22px rgba(0,0,0,0.35); }
+        .btn-primary:hover { background: #ffd83d; }
+        .btn-secondary { display: inline-block; background: transparent; color: #fff; font-weight: 700; text-decoration: none; padding: 12px 26px; border-radius: 999px; font-size: 1em; border: 2px solid rgba(255,255,255,0.55); }
+        .btn-secondary:hover { border-color: #fff; }
+        .hero-pill-row { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .hero-pill { display: inline-block; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.28); color: #fff; padding: 6px 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 700; }
 
-.carousel-heading { 
-    color: var(--dmw-deep-navy); 
-    margin: 0 0 15px 0; 
-    font-size: 1.6rem; 
-    border-bottom: 2px solid #ddd; 
-    padding-bottom: 5px; 
-}
+        .content-workspace { max-width: 1140px; margin: 48px auto; padding: 0 20px; display: grid; grid-template-columns: 2.1fr 1.3fr; gap: 40px; align-items: start; }
+        .section-eyebrow { color: var(--dmw-red); font-weight: 800; font-size: 0.78rem; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 8px 0; }
+        .about h2 { margin: 0 0 14px 0; color: #111; font-size: 1.7rem; font-weight: 800; line-height: 1.25; }
+        .about p { margin: 0 0 14px 0; color: #475569; font-size: 1.05rem; line-height: 1.65; }
+        .about p strong { color: #111; }
 
-.carousel-container { 
-    position: relative; 
-    width: 100%; 
-    max-width: 650px; 
-    margin: 0 auto; 
-    overflow: hidden; 
-    border-radius: 12px; 
-    box-shadow: 0 6px 20px rgba(0,0,0,0.12); 
-    background: #fff; 
-    border: 1px solid #e1e8ed; 
-    height: 700px;                    /* fixed height */
-}
+        .feature-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 26px 0 28px 0; }
+        .feature-strip-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+        .feature-strip-card .fs-icon { font-size: 1.5rem; margin-bottom: 6px; }
+        .feature-strip-card h3 { margin: 0 0 6px 0; font-size: 1rem; color: #1e1e24; font-weight: 700; line-height: 1.3; }
+        .feature-strip-card p { margin: 0; font-size: 0.88em; color: #64748b; line-height: 1.5; }
 
-.carousel-slides { 
-    display: flex; 
-    transition: transform 0.4s ease-in-out; 
-    height: 100%;
-}
+        .review-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 26px 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); position: relative; }
+        .review-card .stars { color: #f1c40f; font-size: 1.25rem; letter-spacing: 2px; margin-bottom: 8px; }
+        .review-card blockquote { margin: 0 0 12px 0; font-size: 1.02rem; color: #334155; line-height: 1.6; font-style: italic; }
+        .review-card .who { font-weight: 700; color: #111; font-size: 0.92rem; }
+        .review-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+        .review-links a { text-decoration: none; font-weight: 700; font-size: 0.86em; padding: 10px 16px; border-radius: 999px; }
+        .review-links .google { color: #1a73e8; border: 1px solid #dadce0; background: #fff; }
+        .review-links .facebook { color: #fff; background: #1877f2; }
+        .review-links .leave { color: #fff; background: var(--dmw-green); }
 
-.slide { 
-    min-width: 100%; 
-    height: 100%; 
-    position: relative; 
-}
+        .side-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+        .side-card-head { padding: 18px 20px 14px; border-bottom: 1px solid #eef1f4; }
+        .side-card-head h2 { margin: 0; color: #111; font-size: 1.2rem; font-weight: 800; }
+        .side-card-head p { margin: 4px 0 0 0; color: #64748b; font-size: 0.88em; }
+        .side-card-body { padding: 18px 20px 20px; }
+        .side-card-body > p { margin: 0 0 14px 0; color: #475569; font-size: 0.93em; line-height: 1.5; }
+        .area-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .area-pills a, .area-pills span { background: #eef5fd; color: #0A4CA1; padding: 7px 12px; border-radius: 999px; font-weight: 700; font-size: 0.85em; text-decoration: none; }
+        .area-pills a:hover { background: #dcebfb; }
+        .area-note { margin: 0 0 14px 0 !important; color: #718096 !important; font-size: 0.85em !important; font-style: italic; }
+        .times-note { background: #fff7ed; border-left: 4px solid #ea580c; padding: 12px 14px; border-radius: 0 8px 8px 0; font-size: 0.9em; color: #7c2d12; line-height: 1.45; }
 
-.slide img { 
-    width: 100%; 
-    height: 100%; 
-    object-fit: cover; 
-    object-position: center center; 
-    display: block; 
-}
-       
-        .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(10, 76, 161, 0.85); color: white; border: none; padding: 14px 18px; font-size: 1.3rem; cursor: pointer; border-radius: 50%; z-index: 10; transition: 0.2s; user-select: none; }
-        .carousel-btn:hover { background: var(--dmw-deep-navy); }
-        .prev { left: 15px; }
-        .next { right: 15px; }
+        /* App showcase band */
+        .app-band { background: linear-gradient(135deg, #062F63, #111827 70%); padding: 60px 20px; overflow: hidden; position: relative; }
+        .app-band::before { content: ""; position: absolute; top: -40%; left: 55%; width: 50%; padding-bottom: 50%; border-radius: 50%; background: radial-gradient(circle, rgba(46,158,79,0.2), transparent 70%); }
+        .app-inner { position: relative; max-width: 1140px; margin: 0 auto; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 40px; align-items: center; }
+        .app-text .section-eyebrow { color: #f1c40f; }
+        .app-text h2 { color: #fff; font-size: 2rem; line-height: 1.25; margin: 0 0 14px 0; font-weight: 800; }
+        .app-text h2 span { color: #f1c40f; }
+        .app-text p { color: rgba(255,255,255,0.86); font-size: 1.05rem; line-height: 1.6; margin: 0 0 18px 0; }
+        .app-text ul { list-style: none; margin: 0 0 24px 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+        .app-text ul li { color: #fff; font-weight: 600; font-size: 0.95rem; }
+        .app-actions { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; }
+        .badge-apple { height: 48px; width: auto; display: block; }
+        .badge-google { height: 71px; width: auto; display: block; margin: -11px -9px; }
+        .app-actions .btn-secondary { padding: 11px 22px; }
+        .app-note { color: rgba(255,255,255,0.6) !important; font-size: 0.85rem !important; margin: 12px 0 0 0 !important; }
+        .app-visual { display: flex; justify-content: center; }
+        .phone-frame { position: relative; width: 270px; border-radius: 34px; padding: 10px; background: #0b0b0d; box-shadow: 0 30px 60px rgba(0,0,0,0.55), 0 0 0 2px rgba(255,255,255,0.06); transform: rotate(3deg); }
+        .phone-frame img { display: block; width: 100%; border-radius: 24px; }
 
-        .sidebar-panel-wrapper { display: flex; flex-direction: column; height: 100%; }
-        footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 80px; width: 100%; }
+        /* Wall of Fame */
+        .fame { max-width: 1140px; margin: 60px auto 0; padding: 0 20px; text-align: center; }
+        .fame h2 { margin: 0 0 8px 0; color: #111; font-size: 1.7rem; font-weight: 800; }
+        .fame > p { margin: 0 auto 24px auto; color: #64748b; max-width: 560px; }
+        .carousel-container { position: relative; width: 100%; max-width: 520px; margin: 0 auto; overflow: hidden; border-radius: 18px; box-shadow: 0 16px 40px rgba(0,0,0,0.16); background: #111; height: 640px; }
+        .carousel-slides { display: flex; transition: transform 0.45s ease-in-out; height: 100%; }
+        .slide { min-width: 100%; height: 100%; position: relative; }
+        .slide img { width: 100%; height: 100%; object-fit: cover; object-position: center center; display: block; }
+        .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(17,17,17,0.6); color: #fff; border: none; width: 46px; height: 46px; font-size: 1.2rem; cursor: pointer; border-radius: 50%; z-index: 10; transition: background 0.2s; user-select: none; }
+        .carousel-btn:hover { background: rgba(10,76,161,0.9); }
+        .prev { left: 14px; }
+        .next { right: 14px; }
+        .fame-link { display: inline-block; margin-top: 20px; color: #0A4CA1; font-weight: 700; text-decoration: none; }
 
-        .sticky-enquiry-widget {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background-color: var(--dmw-main-blue);
-            color: #ffffff !important;
-            padding: 10px 18px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 0.9rem;
-            box-shadow: 0 4px 14px rgba(10, 76, 161, 0.4);
-            z-index: 99999;
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            transition: transform 0.2s ease, background-color 0.2s ease;
-            font-family: 'Segoe UI', Arial, sans-serif;
-        }
+        .cta-band { max-width: 1100px; margin: 60px auto 0; background: linear-gradient(135deg, #111111, #262626); color: #fff; border-radius: 14px; padding: 36px 28px; text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,0.2); position: relative; overflow: hidden; }
+        .cta-band::before { content: ""; position: absolute; top: -70%; right: -15%; width: 45%; padding-bottom: 45%; border-radius: 50%; background: radial-gradient(circle, rgba(214,46,46,0.22), transparent 70%); }
+        .cta-band > * { position: relative; }
+        .cta-band h2 { margin: 0 0 10px 0; font-size: 1.6rem; }
+        .cta-band p { margin: 0 auto 20px auto; opacity: 0.9; max-width: 560px; }
+        .cta-band .cta-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+        .cta-wrap { padding: 0 20px; }
+
+        footer { background: #111827; color: #9ca3af; text-align: center; padding: 30px; margin-top: 60px; width: 100%; }
+        footer a { color: #93c5fd; text-decoration: none; margin: 0 6px; }
+
+        .sticky-enquiry-widget { position: fixed; bottom: 20px; right: 20px; background-color: var(--dmw-main-blue); color: #ffffff !important; padding: 10px 18px; border-radius: 50px; text-decoration: none; font-weight: bold; font-size: 0.9rem; box-shadow: 0 4px 14px rgba(10, 76, 161, 0.4); z-index: 99999; display: inline-flex; align-items: center; gap: 7px; transition: transform 0.2s ease, background-color 0.2s ease; }
         .sticky-enquiry-widget:hover { background-color: var(--dmw-deep-navy); transform: scale(1.05); }
 
-        /* ========== MOBILE ========== */
-@media (max-width: 750px) {
-    .master-sticky-header { position: relative !important; box-shadow: none !important; }
-    header { position: relative !important; }
+        @media (max-width: 900px) {
+            .content-workspace { grid-template-columns: 1fr; gap: 30px; }
+            .app-inner { grid-template-columns: 1fr; text-align: center; }
+            .app-text ul { justify-items: center; }
+            .app-actions { justify-content: center; }
+        }
+        @media (max-width: 750px) {
+            .master-sticky-header { position: relative !important; box-shadow: none !important; }
+            header { position: relative !important; }
+            .top-info-banner { padding: 10px 15px 4px 15px !important; font-size: 1.05rem !important; }
+            .top-info-sub { font-size: 0.85rem; padding: 0 15px 10px 15px; }
+            .navbar-shell { flex-direction: column !important; gap: 8px !important; padding: 8px 10px !important; text-align: center !important; align-items: center !important; }
+            .brand-logo img { height: 45px; margin: 0 auto; }
+            .nav-links-list { gap: 10px 14px; width: 100%; }
+            .nav-links-list li a { font-size: 0.85rem; height: auto !important; }
 
-    .top-info-banner {
-        padding: 10px 15px 4px 15px !important;
-        font-size: 1.05rem !important;
-    }
-    .top-info-sub {
-        font-size: 0.85rem;
-        padding: 0 15px 10px 15px;
-    }
-
-    .navbar-shell {
-        flex-direction: column !important;
-        gap: 8px !important;
-        padding: 8px 10px !important;
-        text-align: center !important;
-        align-items: center !important;
-    }
-    .brand-logo img { height: 45px; margin: 0 auto; }
-    .nav-links-list {
-        gap: 10px 14px;
-        justify-content: center;
-        width: 100%;
-        padding: 0;
-        margin: 0 auto;
-        text-align: center;
-    }
-    .nav-links-list li a { font-size: 0.85rem; height: auto !important; }
-
-    .content-workspace {
-        grid-template-columns: 1fr !important;
-        gap: 25px !important;
-        margin: 20px auto !important;
-        padding: 0 12px !important;
-        max-width: 100% !important;
-    }
-    .content-workspace h1 {
-        font-size: 1.4rem !important;
-        line-height: 1.25 !important;
-        word-break: break-word;
-    }
-    .content-workspace h2 {
-        font-size: 1.1rem !important;
-        line-height: 1.35 !important;
-        word-break: break-word;
-    }
-    .content-workspace p {
-        font-size: 0.95rem !important;
-        word-break: break-word;
-    }
-
-    /* Fix the video portal list on mobile */
-    .video-hub-card li {
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 4px !important;
-    }
-    .video-hub-card li span[style*="width: 180px"],
-    .video-hub-card li span[style*="width:180px"] {
-        width: auto !important;
-        display: block !important;
-        margin-bottom: 2px;
-    }
-
-    .video-hub-card,
-    .balanced-review-card,
-    .service-areas-sidebar-card {
-        padding: 18px 16px !important;
-    }
-
-    .video-hub-card p,
-    .video-hub-card li,
-    .balanced-review-card p {
-        word-break: break-word !important;
-        overflow-wrap: break-word !important;
-    }
-
-    /* Keep floating button fully visible */
-    .sticky-enquiry-widget {
-        right: 12px !important;
-        bottom: 14px !important;
-        padding: 8px 13px !important;
-        font-size: 0.8rem !important;
-    }
-
-    /* Carousel mobile fixes */
-    .carousel-container {
-        height: 380px !important;
-    }
-    .slide img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover !important;
-        object-position: center top !important;
-    }
-}
+            .hero-band { min-height: 0; padding: 34px 16px 32px; }
+            .hero-badge { height: 96px; }
+            .hero-band h1 { font-size: 1.6rem; }
+            .hero-band .hero-sub { font-size: 1rem; }
+            .content-workspace { margin: 28px auto; padding: 0 14px; }
+            .about h2 { font-size: 1.35rem; }
+            .about p { font-size: 0.98rem; }
+            .feature-strip { grid-template-columns: 1fr; }
+            .app-band { padding: 44px 16px; }
+            .app-text h2 { font-size: 1.5rem; }
+            .app-text ul { grid-template-columns: 1fr; }
+            .phone-frame { width: 220px; transform: none; }
+            .badge-apple { height: 44px; }
+            .badge-google { height: 65px; margin: -10px -8px; }
+            .fame h2 { font-size: 1.35rem; }
+            .carousel-container { height: 420px; border-radius: 14px; }
+            .slide img { object-position: center top; }
+            .cta-band { margin-top: 44px; padding: 28px 18px; }
+            .sticky-enquiry-widget { right: 12px !important; bottom: 14px !important; padding: 8px 13px !important; font-size: 0.8rem !important; }
+        }
     </style>
 
     <script async src="https://googletagmanager.com/gtag/js?id=G-8VPCP1ZYEE"></script>
@@ -311,7 +180,7 @@
       gtag('config', 'G-8VPCP1ZYEE');
     </script>
 </head>
-   
+
 <body>
     <div class="master-sticky-header">
         <div class="top-info-banner">✨ SPACES AVAILABLE | CALL/TEXT 07432 855096 ✨</div>
@@ -326,7 +195,7 @@
                         <li><a href="pass-photos.html">Pass Photos</a></li>
                         <li><a href="faq.html">FAQ</a></li>
                         <li><a href="contact.html">Contact Us</a></li>
-                        <li><a href="terms.html">Terms & Conditions</a></li>
+                        <li><a href="terms.html">Terms &amp; Conditions</a></li>
                         <li><a href="app-features.html">App Features</a></li>
                     </ul>
                 </nav>
@@ -335,181 +204,156 @@
     </div>
 
     <!-- Hero -->
-    <div style="position: relative; width: 100%; height: 260px; background: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url('car seat1.jpg') no-repeat center center; background-size: cover; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-        <div style="position: relative; z-index: 2; width: 100%; max-width: 1140px; padding: 0 20px; display: flex; align-items: center; justify-content: center;">
-            <div style="flex: 0 0 auto; text-align: center;">
-                <img src="grade a instructor dmw.png" alt="Grade A Approved Driving Instructor Badge" style="height: 140px; width: auto; max-height: 35vw; display: block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.45)); margin: 0 auto;">
+    <div class="hero-band">
+        <div class="hero-inner">
+            <img class="hero-badge" src="grade a instructor dmw.png" alt="Grade A Approved Driving Instructor badge">
+            <h1>Welcome to DMW Driving School</h1>
+            <p class="hero-sub">Grade A manual driving tuition in Gloucester and the surrounding areas. Calm, patient lessons that get you to test day, and keep you safe for life.</p>
+            <div class="hero-cta-row">
+                <a class="btn-primary" href="https://www.dmwdrivingschool.co.uk/contact.html">📅 Check availability</a>
+                <a class="btn-secondary" href="prices.html">View prices</a>
+            </div>
+            <div class="hero-pill-row">
+                <span class="hero-pill">⭐ Grade A instructor</span>
+                <span class="hero-pill">✅ Higher than national average pass rate</span>
+                <span class="hero-pill">⭐⭐⭐⭐⭐ Google reviews</span>
+                <span class="hero-pill">📱 Free pupil app</span>
             </div>
         </div>
     </div>
 
     <div class="content-workspace">
-        <main class="editorial-narrative">
-            <h1 style="font-size: 1.9rem; font-weight: bold; color: var(--text-dark); margin: 0 0 4px 0; padding: 0; line-height: 1.25;">
-                🚗 Welcome to DMW Driving School
-            </h1>
-           
-            <h2 style="font-size: 1.25rem; font-weight: bold; color: #333; margin: 0 0 12px 0; padding: 0; line-height: 1.35;">
-                Grade A Manual Driving Tuition in Gloucester & Surrounding Areas
-            </h2>
-           
-            <p style="margin: 0 0 12px 0; font-size: 1.05rem; line-height: 1.5;">At DMW Driving School, we don’t just teach you to pass your practical test—we give you the lifelong confidence and skills required to stay safe on the road for life.</p>
-           
-            <p style="margin: 0 0 20px 0; font-size: 1.05rem; line-height: 1.5;">As a <strong>Grade A</strong> Approved Driving Instructor, I pride myself on delivering a calm, patient, and highly enjoyable learning environment. Whether you are sitting behind the steering wheel for the very first time or looking for a structured path to test day, my relaxed approach is designed to make learning to drive fun.</p>
-           
-            <div class="video-hub-card">
-                <h3>📱 The DMW App — built in-house for pupils</h3>
-                <div class="card-line"></div>
+        <main class="about">
+            <p class="section-eyebrow">About DMW Driving School</p>
+            <h2>More than passing your test</h2>
+            <p>At DMW Driving School, we don’t just teach you to pass your practical test. We give you the lifelong confidence and skills to stay safe on the road for life.</p>
+            <p>As a <strong>Grade A</strong> Approved Driving Instructor, I pride myself on a calm, patient and highly enjoyable learning environment. Whether you are sitting behind the steering wheel for the very first time or looking for a structured path to test day, my relaxed approach is designed to make learning to drive fun.</p>
 
-                <p style="font-size: 1em; color: #475569; line-height: 1.5; margin: 0 0 18px 0;">
-                    Free for every active DMW pupil. Everything for lessons in one place — live instructor tracking,
-                    messages with photos, progress charts, reflective logs, lesson management and learning resources between sessions.
-                </p>
-
-                <ul style="list-style: none; padding: 0; margin: 0 0 18px 0;">
-                    <li style="font-size: 0.92em; color: #475569; margin-bottom: 12px; display: flex; align-items: flex-start; line-height: 1.5;">
-                        <span style="display: inline-block; width: 28px; text-align: left; font-size: 1.1em;">🗺️</span>
-                        <span style="flex: 1;"><strong style="color:#1e1e24;">Live “On the way” tracking</strong> – see your instructor on a map with an estimated arrival time when they set off.</span>
-                    </li>
-                    <li style="font-size: 0.92em; color: #475569; margin-bottom: 12px; display: flex; align-items: flex-start; line-height: 1.5;">
-                        <span style="display: inline-block; width: 28px; text-align: left; font-size: 1.1em;">💬</span>
-                        <span style="flex: 1;"><strong style="color:#1e1e24;">Messages with photos</strong> – chat in the app, attach photos, and get push notifications.</span>
-                    </li>
-                    <li style="font-size: 0.92em; color: #475569; margin-bottom: 12px; display: flex; align-items: flex-start; line-height: 1.5;">
-                        <span style="display: inline-block; width: 28px; text-align: left; font-size: 1.1em;">📈</span>
-                        <span style="flex: 1;"><strong style="color:#1e1e24;">Progress &amp; reflective logs</strong> – follow syllabus skill areas and keep notes between lessons.</span>
-                    </li>
-                    <li style="font-size: 0.92em; color: #475569; margin-bottom: 12px; display: flex; align-items: flex-start; line-height: 1.5;">
-                        <span style="display: inline-block; width: 28px; text-align: left; font-size: 1.1em;">📅</span>
-                        <span style="flex: 1;"><strong style="color:#1e1e24;">Lessons &amp; availability</strong> – see upcoming lessons, cancel when needed via the app, and share when you’re free.</span>
-                    </li>
-                    <li style="font-size: 0.92em; color: #475569; margin-bottom: 0; display: flex; align-items: flex-start; line-height: 1.5;">
-                        <span style="display: inline-block; width: 28px; text-align: left; font-size: 1.1em;">🎬</span>
-                        <span style="flex: 1;"><strong style="color:#1e1e24;">Learning videos &amp; resources</strong> – reinforce junctions, manoeuvres and more between sessions.</span>
-                    </li>
-                </ul>
-
-                <div style="margin-top: 6px; padding-top: 14px; border-top: 1px solid #e2e8f0; text-align: center;">
-                    <a href="app-features.html" style="display: inline-block; background: #0A4CA1; color: #fff; font-weight: 700; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-size: 0.95em; margin: 4px;">Explore all app features →</a>
-                    <a href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener" style="display: inline-block; margin: 4px; vertical-align: middle;"><img src="app-store-badge.svg" alt="Download on the App Store" style="height: 46px; width: auto; display: block;"></a>
-                    <p style="margin: 10px 0 0 0; font-size: 0.8em; color: #95a5a6; font-style: italic;">Free for every active DMW Driving School pupil</p>
+            <div class="feature-strip">
+                <div class="feature-strip-card">
+                    <div class="fs-icon">🏆</div>
+                    <h3>Higher than national average pass rate</h3>
+                    <p>Proven techniques that build lifelong confidence.</p>
+                </div>
+                <div class="feature-strip-card">
+                    <div class="fs-icon">⭐</div>
+                    <h3>Dozens of 5-star reviews</h3>
+                    <p>Calm, patient and highly structured teaching.</p>
+                </div>
+                <div class="feature-strip-card">
+                    <div class="fs-icon">📱</div>
+                    <h3>An app built in-house</h3>
+                    <p>Live instructor tracking, messages, progress charts and more, free for active pupils.</p>
                 </div>
             </div>
 
-            <div class="reviews-flex-grid">
-                <div style="flex: 1; min-width: 260px; border: 1px solid #ddd; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background-color: #fff; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between;">
-                    <div>
-                        <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 3px solid #ffcc00; padding-bottom: 8px; font-size: 1.1em; display: flex; align-items: center; gap: 6px;">⭐ Student Feedback</h3>
-                        <div style="color: #f1c40f; font-size: 1.1em; margin: 10px 0;">★★★★★</div>
-                        <p style="font-style: italic; color: #4a5568; font-size: 0.9em; line-height: 1.5; margin: 0 0 15px 0;">
-                            "Absolutely fantastic driving instructor. Really down to earth, makes you feel extremely comfortable and is extremely calm and helpful. Dale helped me to progress quickly and was very helpful in giving great advice... thoroughly worth every single one of the five stars."
-                        </p>
-                        <div style="font-weight: bold; color: #2c3e50; font-size: 0.9em; text-align: right; margin-bottom: 15px;">
-                            — James Godley (Google Review)
-                        </div>
-                    </div>
-                   
-                    <div style="border-top: 1px solid #eee; padding-top: 12px; text-align: center;">
-                        <a href="https://www.google.com/maps/place/DMW+Driving+School/@51.8183855,-2.2632036,17z/data=!4m18!1m9!3m8!1s0x4871078dfaf64521:0xcf387b87a6d2415d!2sDMW+Driving+School!8m2!3d51.8183855!4d-2.2632036!9m1!1b1!16s%2Fg%2F11pv3x8vyv!3m7!1s0x4871078dfaf64521:0xcf387b87a6d2415d!8m2!3d51.8183855!4d-2.2632036!9m1!1b1!16s%2Fg%2F11pv3x8vyv?entry=ttu" style="color: #4285F4; border: 1px solid #ddd; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85em; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: inline-flex; align-items: center; gap: 6px; background: #fff; font-family: Arial, sans-serif;">🌐 View Google Reviews</a>
-                    </div>
+            <div class="review-card">
+                <p class="section-eyebrow">Student feedback</p>
+                <div class="stars">★★★★★</div>
+                <blockquote>"Absolutely fantastic driving instructor. Really down to earth, makes you feel extremely comfortable and is extremely calm and helpful. Dale helped me to progress quickly and was very helpful in giving great advice... thoroughly worth every single one of the five stars."</blockquote>
+                <div class="who">James Godley, Google review</div>
+                <div class="review-links">
+                    <a class="google" href="https://www.google.com/maps/place/DMW+Driving+School/@51.8183855,-2.2632036,17z/data=!4m18!1m9!3m8!1s0x4871078dfaf64521:0xcf387b87a6d2415d!2sDMW+Driving+School!8m2!3d51.8183855!4d-2.2632036!9m1!1b1!16s%2Fg%2F11pv3x8vyv!3m7!1s0x4871078dfaf64521:0xcf387b87a6d2415d!8m2!3d51.8183855!4d-2.2632036!9m1!1b1!16s%2Fg%2F11pv3x8vyv?entry=ttu" target="_blank" rel="noopener">🌐 View Google reviews</a>
+                    <a class="facebook" href="http://facebook.com/dmwdrivingschool" target="_blank" rel="noopener">👍 Facebook page</a>
+                    <a class="leave" href="https://g.page/r/CV1B0qaHezjPEBM/review" target="_blank" rel="noopener">✍️ Leave a Google review</a>
                 </div>
             </div>
         </main>
 
-        <aside class="sidebar-panel-wrapper">
-            <div class="service-areas-sidebar-card">
-                <div style="background-color: #f8f9fa; padding: 16px 20px; text-align: left; border-bottom: 1px solid #e2e8f0;">
-                    <h3 style="margin: 0; color: #2c3e50; font-size: 1.2em; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px;">📍 Our Service Areas</h3>
-                    <p style="margin: 4px 0 0 0; color: #7f8c8d; font-size: 0.85em;">Providing reliable manual driving tuition across local communities</p>
+        <aside>
+            <div class="side-card">
+                <div class="side-card-head">
+                    <p class="section-eyebrow" style="margin-bottom:4px;">Where I teach</p>
+                    <h2>📍 Service areas</h2>
+                    <p>Reliable manual driving tuition across local communities</p>
                 </div>
-                <div style="padding: 20px; box-sizing: border-box;">
-                    <p style="margin: 0 0 16px 0; color: #4a5568; font-size: 0.95em; line-height: 1.5;">We offer local pick-up and drop-off services across the following primary operating areas:</p>
-                    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
-                        <button onclick="window.open('https://www.google.com/maps/place/Quedgeley,+Gloucester', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Quedgeley</button>
-                        <button onclick="window.open('https://www.google.com/maps/place/Kingsway,+Quedgeley,+Gloucester', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Kingsway</button>
-                        <button onclick="window.open('https://www.google.com/maps/place/Hardwicke', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Hardwicke</button>
-                        <button onclick="window.open('https://www.google.com/maps/place/Hunts+Grove', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Hunts Grove</button>
-                        <button onclick="window.open('https://www.google.com/maps/place/Tuffley,+Gloucester', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Tuffley</button>
-                        <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em;">📍 Linden</span>
-                        <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em;">📍 White City</span>
-                        <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em;">📍 Tredworth</span>
-                        <span style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em;">📍 Barton</span>
-                        <button onclick="window.open('https://www.google.com/maps/place/Gloucester', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Gloucester City Centre</button>
-                        <button onclick="window.open('https://www.google.com/maps/place/Matson,+Gloucester', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Matson</button>
-                        <button onclick="window.open('https://www.google.com/maps/place/Abbeydale,+Gloucester', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Abbeydale/Abbeymead</button>
-                        <button onclick="window.open('https://www.google.com/maps/place/Coopers+Edge', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Coopers Edge</button>
-                        <button onclick="window.open('https://www.google.com/maps/place/Upton+St+Leonards', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Upton St Leonards</button>
-                        <button onclick="window.open('https://www.google.com/maps/place/Stonehouse', '_blank')" style="background-color: #e8f4fd; color: #2b6cb0; padding: 8px 14px; border-radius: 20px; font-weight: bold; font-size: 0.9em; border: none; cursor: pointer;">📍 Stonehouse</button>
+                <div class="side-card-body">
+                    <p>Local pick-up and drop-off across these areas:</p>
+                    <div class="area-pills">
+                        <a href="https://www.google.com/maps/place/Quedgeley,+Gloucester" target="_blank" rel="noopener">Quedgeley</a>
+                        <a href="https://www.google.com/maps/place/Kingsway,+Quedgeley,+Gloucester" target="_blank" rel="noopener">Kingsway</a>
+                        <a href="https://www.google.com/maps/place/Hardwicke" target="_blank" rel="noopener">Hardwicke</a>
+                        <a href="https://www.google.com/maps/place/Hunts+Grove" target="_blank" rel="noopener">Hunts Grove</a>
+                        <a href="https://www.google.com/maps/place/Tuffley,+Gloucester" target="_blank" rel="noopener">Tuffley</a>
+                        <span>Linden</span>
+                        <span>White City</span>
+                        <span>Tredworth</span>
+                        <span>Barton</span>
+                        <a href="https://www.google.com/maps/place/Gloucester" target="_blank" rel="noopener">Gloucester City Centre</a>
+                        <a href="https://www.google.com/maps/place/Matson,+Gloucester" target="_blank" rel="noopener">Matson</a>
+                        <a href="https://www.google.com/maps/place/Abbeydale,+Gloucester" target="_blank" rel="noopener">Abbeydale/Abbeymead</a>
+                        <a href="https://www.google.com/maps/place/Coopers+Edge" target="_blank" rel="noopener">Coopers Edge</a>
+                        <a href="https://www.google.com/maps/place/Upton+St+Leonards" target="_blank" rel="noopener">Upton St Leonards</a>
+                        <a href="https://www.google.com/maps/place/Stonehouse" target="_blank" rel="noopener">Stonehouse</a>
                     </div>
-                    <p style="margin: 0 0 14px 0; color: #718096; font-size: 0.88em; font-style: italic; line-height: 1.4;">*Don't see your neighbourhood listed? Surrounding areas gladly considered depending on availability.</p>
-                    
-                    <div style="background-color: #fffaf0; border-left: 4px solid #dd6b20; padding: 12px; border-radius: 0 6px 6px 0; font-size: 0.88em; color: #7b341e; line-height: 1.4;">
-                        <strong>🕒 Lesson Times:</strong> Manual sessions operate Monday to Friday, 9:00 AM – 3:00 PM.
-                    </div>
-
-                    <div style="margin-top: 22px; border-top: 3px solid #df4744; padding-top: 18px;">
-                        <h3 style="font-size: 1.05rem; font-weight: 700; color: #1e1e24; margin-bottom: 14px;">Why Choose DMW Driving School</h3>
-                        <ul style="list-style: none; padding: 0; margin: 0;">
-                            <li style="font-size: 0.88em; color: #475569; margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px; line-height: 1.5;">
-                                <span>⭐</span>
-                                <span><strong>State-of-the-art app, built in-house</strong> – Live instructor tracking, messages, progress charts and more — free for active pupils.</span>
-                            </li>
-                            <li style="font-size: 0.88em; color: #475569; margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px; line-height: 1.5;">
-                                <span>⭐</span>
-                                <span><strong>Higher Than National Average Pass Rate</strong> – Proven techniques that build lifelong confidence.</span>
-                            </li>
-                            <li style="font-size: 0.88em; color: #475569; margin-bottom: 0; display: flex; align-items: flex-start; gap: 8px; line-height: 1.5;">
-                                <span>⭐</span>
-                                <span><strong>Dozens of 5-Star Reviews</strong> – Calm, patient and highly structured teaching.</span>
-                            </li>
-                        </ul>
-                    </div>
+                    <p class="area-note">Don't see your neighbourhood listed? Surrounding areas gladly considered depending on availability.</p>
+                    <div class="times-note"><strong>🕒 Lesson times:</strong> Manual lessons run Monday to Friday, 9:00am to 3:00pm.</div>
                 </div>
             </div>
         </aside>
     </div>
-   
-    <!-- Testimonials -->
-    <div style="max-width: 1140px; margin: 0 auto 40px auto; padding: 0 20px; box-sizing: border-box; width: 100%;">
-        <div style="width: 100%; border: 1px solid #ddd; border-radius: 12px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.04); overflow: hidden;">
-            <div style="background-color: #f8f9fa; padding: 16px 20px; border-bottom: 1px solid #e2e8f0;">
-                <h2 style="margin: 0; color: #2c3e50; font-size: 1.25em; font-weight: bold;">⭐ Student Testimonials</h2>
+
+    <!-- App showcase -->
+    <section class="app-band">
+        <div class="app-inner">
+            <div class="app-text">
+                <p class="section-eyebrow">Free for every pupil</p>
+                <h2>Watch your instructor arrive, <span>live</span></h2>
+                <p>Every DMW Driving School pupil gets the Drive My Way app free. See your lessons, watch me arrive on a live map, message me, follow your progress and practise for your theory test, all on your phone.</p>
+                <ul>
+                    <li>🗺️ Live "on the way" tracking</li>
+                    <li>📅 Lessons, offers and credit</li>
+                    <li>💬 Messages with photos</li>
+                    <li>📊 Progress and reflective logs</li>
+                    <li>🎓 Theory practice and mock tests</li>
+                    <li>🎬 Learning videos</li>
+                </ul>
+                <div class="app-actions">
+                    <a href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener"><img class="badge-apple" src="app-store-badge.svg" alt="Download on the App Store"></a>
+                    <a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener"><img class="badge-google" src="google-play-badge.png" alt="Get it on Google Play"></a>
+                    <a class="btn-secondary" href="app-features.html">Explore the app →</a>
+                </div>
+                <p class="app-note google-play-soon">The Android app is going live on Google Play very soon.</p>
             </div>
-            <div style="padding: 20px;">
-                <p style="margin: 0 0 16px 0; color: #4a5568; font-size: 0.95em; line-height: 1.5;">See why learners across Gloucester trust DMW Driving School.</p>
-                <div style="display: flex; flex-wrap: wrap; gap: 12px;">
-                    <a href="https://www.google.com/maps/place/DMW+Driving+School/@51.8183855,-2.2632036,17z" target="_blank" style="color: #4285F4; border: 1px solid #ddd; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85em; background: #fff;">🌐 View Google Reviews</a>
-                    <a href="http://facebook.com/dmwdrivingschool" target="_blank" style="background-color: #3b5998; color: #fff; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85em;">👍 View Facebook Page</a>
-                    <a href="https://g.page/r/CV1B0qaHezjPEBM/review" target="_blank" style="background-color: #2ecc71; color: white; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85em;">✍️ Leave a Google Review</a>
+            <div class="app-visual">
+                <div class="phone-frame">
+                    <img src="app-screenshots/pupil-tracking-map.jpg" alt="The Drive My Way app showing the instructor on the way on a live map" loading="lazy">
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 
     <!-- Wall of Fame Carousel -->
-    <div style="max-width: 1140px; margin: 0 auto; padding: 0 20px; box-sizing: border-box; width: 100%;">
-        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0 30px 0;">
-        <div style="width: 100%; text-align: center; margin-bottom: 50px;">
-            <h3 class="carousel-heading" style="text-align: center; margin: 0 auto 20px auto; font-size: 1.6rem; display: inline-block;">Our Successful Pupils Wall of Fame</h3>
-           
-            <div class="carousel-container" style="margin: 0 auto;">
-                <div class="carousel-slides" id="megaCarousel"></div>
-                <button class="carousel-btn prev" onclick="moveSlide(-1)">&#10094;</button>
-                <button class="carousel-btn next" onclick="moveSlide(1)">&#10095;</button>
+    <section class="fame">
+        <p class="section-eyebrow">Wall of Fame</p>
+        <h2>Our successful pupils</h2>
+        <p>Every one of them passed with DMW Driving School. You could be next.</p>
+        <div class="carousel-container">
+            <div class="carousel-slides" id="megaCarousel"></div>
+            <button class="carousel-btn prev" onclick="moveSlide(-1)" aria-label="Previous photo">&#10094;</button>
+            <button class="carousel-btn next" onclick="moveSlide(1)" aria-label="Next photo">&#10095;</button>
+        </div>
+        <a class="fame-link" href="pass-photos.html">See all pass photos →</a>
+    </section>
+
+    <div class="cta-wrap">
+        <div class="cta-band">
+            <h2>Ready to get on the road?</h2>
+            <p>Book with a Grade A instructor in Gloucester and the surrounding areas, and get the Drive My Way app free.</p>
+            <div class="cta-row">
+                <a class="btn-primary" href="https://www.dmwdrivingschool.co.uk/contact.html">📅 Check availability</a>
+                <a class="btn-secondary" href="prices.html">View prices</a>
+                <a class="btn-secondary" href="tel:07432855096">📞 07432 855096</a>
             </div>
         </div>
     </div>
 
     <script>
-        // Fallback list (legacy GitHub filenames) – used only if Supabase has no carousel rows yet
-        let imagesList = [
-            "pass-first-time-quedgeley-chloe.jpg",
-            "driving-test-pass-gloucester-test-centre qeel 03 03 26.jpg",
-            "driving-test-pass-gloucester-test-centre hys 12 1 26.jpg",
-            "driving-test-pass-gloucester-test-centre eorgia 9 1 26.jpg",
-            "driving-test-pass-gloucester-test-centre arla 4 12 25.jpg",
-            "driving-test-pass-gloucester-test-centre ayleigh 5 11 25.jpg"
-        ];
+        // Photos come from the Control Centre (website_photos table). The local
+        // list is only used if that can't be reached, so the carousel no longer
+        // flashes old file names that are not on the site.
+        let imagesList = [];
+        const FALLBACK_PHOTOS = ["pass-first-time-quedgeley-chloe.jpg"];
 
         const DMW_SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
         const DMW_SUPABASE_ANON = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
@@ -518,53 +362,43 @@
             const container = document.getElementById('megaCarousel');
             if (!container) return;
             container.innerHTML = "";
-            imagesList.forEach((src) => {
+            imagesList.forEach((src, i) => {
                 const slideDiv = document.createElement('div');
                 slideDiv.className = 'slide';
                 const img = document.createElement('img');
                 img.src = src;
-                img.alt = "Manual Driving Test Pass Gloucester";
-                img.loading = "eager";
+                img.alt = "Manual driving test pass, Gloucester";
+                img.loading = i === 0 ? "eager" : "lazy";
                 slideDiv.appendChild(img);
                 container.appendChild(slideDiv);
             });
         }
 
-        // Prefer live list from Supabase (website_photos table)
+        function useFallback() {
+            fetch('photos-config.json', { cache: 'no-store' })
+              .then(r => r.ok ? r.json() : null)
+              .then(cfg => {
+                const list = cfg ? ((cfg.carousel && cfg.carousel.length) ? cfg.carousel : (cfg.gallery || [])) : [];
+                imagesList = list && list.length ? list : FALLBACK_PHOTOS;
+              })
+              .catch(() => { imagesList = FALLBACK_PHOTOS; })
+              .finally(buildCarousel);
+        }
+
         fetch(
             DMW_SUPABASE_URL + "/rest/v1/website_photos?type=eq.carousel&select=url&order=sort_order.asc",
-            {
-                headers: {
-                    apikey: DMW_SUPABASE_ANON,
-                    Authorization: "Bearer " + DMW_SUPABASE_ANON
-                },
-                cache: "no-store"
-            }
+            { headers: { apikey: DMW_SUPABASE_ANON, Authorization: "Bearer " + DMW_SUPABASE_ANON }, cache: "no-store" }
         )
         .then(r => r.ok ? r.json() : null)
         .then(rows => {
             if (Array.isArray(rows) && rows.length) {
                 imagesList = rows.map(r => r.url).filter(Boolean);
+                buildCarousel();
+            } else {
+                useFallback();
             }
-            buildCarousel();
         })
-        .catch(() => {
-            // Fall back to hardcoded list / optional local JSON
-            fetch('photos-config.json', { cache: 'no-store' })
-              .then(r => r.ok ? r.json() : null)
-              .then(cfg => {
-                if (!cfg) return;
-                const list = (cfg.carousel && cfg.carousel.length) ? cfg.carousel : (cfg.gallery || []);
-                if (list && list.length) {
-                    imagesList = list;
-                }
-              })
-              .catch(() => {})
-              .finally(buildCarousel);
-        });
-
-        // Initial build with fallback while network request is in flight
-        buildCarousel();
+        .catch(useFallback);
 
         let currentSlide = 0;
         function moveSlide(direction) {
@@ -578,15 +412,16 @@
         setInterval(() => moveSlide(1), 5000);
     </script>
 
-        <footer>
+    <footer>
         <p style="margin:0;">&copy; 2018 DMW Driving School | Grade A Approved Driving Instructor | Gloucester</p>
         <p style="margin-top:12px;font-size:0.85rem;">
-            <a href="privacy.html" style="color:#93c5fd;text-decoration:none;margin:0 6px;">Privacy Policy</a> ·
-            <a href="cookies.html" style="color:#93c5fd;text-decoration:none;margin:0 6px;">Cookie Notice</a> ·
-            <a href="terms-of-use.html" style="color:#93c5fd;text-decoration:none;margin:0 6px;">Terms of Use</a> ·
-            <a href="terms.html" style="color:#93c5fd;text-decoration:none;margin:0 6px;">Lesson &amp; Payment Terms</a> ·
-            <a href="refund.html" style="color:#93c5fd;text-decoration:none;margin:0 6px;">Refund Policy</a>
+            <a href="privacy.html">Privacy Policy</a> ·
+            <a href="cookies.html">Cookie Notice</a> ·
+            <a href="terms-of-use.html">Terms of Use</a> ·
+            <a href="terms.html">Lesson &amp; Payment Terms</a> ·
+            <a href="refund.html">Refund Policy</a>
         </p>
+        <p style="margin-top:8px;font-size:0.75rem;">Apple and the Apple logo are trademarks of Apple Inc. Google Play and the Google Play logo are trademarks of Google LLC.</p>
     </footer>
 
     <a href="https://www.dmwdrivingschool.co.uk/contact.html" class="sticky-enquiry-widget">

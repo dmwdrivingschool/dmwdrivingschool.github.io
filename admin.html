@@ -5141,8 +5141,11 @@ async function loadTeamsPanel(){
       <div class="field"><label>Admin email</label><input id="new-school-admin-email" type="email" placeholder="Sends them an invite, like a solo instructor"></div>
       <button class="btn btn-navy btn-sm" onclick="addSchool()">Add driving school</button>
 
-      <h3 style="margin:1.5rem 0 .75rem">Instructors</h3>
+      <h3 style="margin:1.5rem 0 .25rem">Solo instructors</h3>
+      <p class="muted" style="margin-bottom:.75rem">Instructors with no driving school, including anyone a school has removed who is waiting to be set up. Instructors in a school are listed under their school above.</p>
       <div id="instructors-list">Loading…</div>
+      <h3 style="margin:1.5rem 0 .25rem">Add an instructor</h3>
+      <p class="muted" style="margin-bottom:.25rem">Pick a driving school to add them to that school, or leave it as solo.</p>
       <div class="field" style="margin-top:1rem"><label>Full name</label><input id="new-instr-name"></div>
       <div class="field"><label>Email</label><input id="new-instr-email" type="email"></div>
       <div class="field"><label>Phone (optional)</label><input id="new-instr-phone"></div>
@@ -5189,7 +5192,8 @@ async function loadTeamsPanel(){
       const lockBtn = s.locked_at
         ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockSchool('${s.id}','${nameEsc}')">Unlock</button>`
         : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockSchool('${s.id}','${nameEsc}')">Lock</button>`;
-      return `<div class="list-row"><div><strong>${esc(s.display_name||s.name)}</strong>${lockedBadge} ${statusChip}<div class="muted">${count} instructor${count===1?"":"s"}</div></div>
+      const members = instrRows.filter(i=>i.school_id===s.id);
+      return `<div class="school-block" style="border-bottom:1px solid var(--line);margin-bottom:.35rem;padding-bottom:.35rem"><div class="list-row" style="border-bottom:none"><div><strong>${esc(s.display_name||s.name)}</strong>${lockedBadge} ${statusChip}<div class="muted">${count} instructor${count===1?"":"s"}</div></div>
         <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
           ${sub ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setPlanAddon(${!sub.videos_addon},'school','${s.id}')">${sub.videos_addon?"Premium → Basic":"Basic → Premium"}</button>` : ""}
           ${renderVideosOverrideSelect('school', s.id)}
@@ -5198,11 +5202,14 @@ async function loadTeamsPanel(){
           ${lockBtn}
           <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editSchool('${s.id}','${nameEsc}')">Rename</button>
           <button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteSchool('${s.id}')">Delete</button>
-        </div></div>`;
+        </div></div>
+        <div style="margin:0 0 .25rem 1rem;padding-left:.85rem;border-left:3px solid var(--line)">${members.length ? members.map(i=>renderInstructorRow(i, schoolRows, true, {hideSchool:true})).join("") : '<p class="muted" style="font-size:.85rem;padding:.35rem 0">No instructors in this school yet.</p>'}</div></div>`;
     }).join("") : '<p class="muted">No driving schools yet.</p>';
 
     const instrList=document.getElementById("instructors-list");
-    instrList.innerHTML = instrRows.length ? instrRows.map(i=>renderInstructorRow(i, schoolRows, true)).join("") : '<p class="muted">No instructors yet.</p>';
+    const schoolIdSet = new Set(schoolRows.map(x=>x.id));
+    const soloRows = instrRows.filter(i=>!i.school_id || !schoolIdSet.has(i.school_id));
+    instrList.innerHTML = soloRows.length ? soloRows.map(i=>renderInstructorRow(i, schoolRows, true)).join("") : '<p class="muted">No solo instructors yet.</p>';
 
     const select=document.getElementById("new-instr-school");
     select.innerHTML = '<option value="">— Solo instructor (no school) —</option>' +
@@ -5235,7 +5242,7 @@ async function loadTeamsPanel(){
   }
 }
 
-function renderInstructorRow(i, schoolRows, fullControls){
+function renderInstructorRow(i, schoolRows, fullControls, opts){
   const school = schoolRows.find(s=>s.id===i.school_id);
   const schoolLabel = school ? esc(school.display_name||school.name) : "Solo";
   const nameEsc = esc(i.full_name||i.email).replace(/'/g,"&#39;");
@@ -5290,7 +5297,7 @@ function renderInstructorRow(i, schoolRows, fullControls){
   const planBtn = fullControls && !school && sub && sub.plan !== 'pdi'
     ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setPlanAddon(${!sub.videos_addon},'instructor','${i.id}')">${sub.videos_addon?"Premium → Basic":"Basic → Premium"}</button>`
     : "";
-  return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}${lockedBadge} ${statusChip}<div class="muted">${esc(i.email||"")}${fullControls?" · "+schoolLabel:""}</div></div>
+  return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}${lockedBadge} ${statusChip}<div class="muted">${esc(i.email||"")}${(fullControls && !(opts&&opts.hideSchool))?" · "+schoolLabel:""}</div></div>
     <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
       ${planBtn}
       ${videosSelect}

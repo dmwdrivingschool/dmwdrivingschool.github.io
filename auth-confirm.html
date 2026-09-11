@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Drive My Way</title>
+<link rel="icon" type="image/png" href="/drivemyway-favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!--
+  Landing page for every Supabase auth email (Dale, 2026-09-11). The email
+  templates link to <Site URL>/auth/confirm?token_hash=..&type=..; vercel.json
+  serves this page there. It is deliberately NOT the Control Centre: pupils
+  resetting their app password should never see it.
+
+  The link is only used when the person presses the button. Using it on page
+  load broke Dale's first test: the one-time token was checked twice in the
+  same second (browser preloading / a second tab / mail link scanners all do
+  this), the second check failed and the page fell back to a sign-in screen.
+  The session lives in memory only, so it never touches a Control Centre
+  login open in another tab.
+-->
+<style>
+:root{--ink:#0f172a;--blue:#2563eb;--bg:#f4f6fb;--card:#fff;--muted:#64748b;--line:#e2e8f0;--field:#f8fafc;--bad:#e11d48;--ok:#059669}
+@media (prefers-color-scheme: dark){:root{--ink:#e2e8f0;--bg:#16223a;--card:#1f2d49;--muted:#94a3b8;--line:#33446a;--field:#1a2640;--bad:#fb7185;--ok:#34d399}}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
+.card{max-width:410px;margin:10vh auto;background:var(--card);border-radius:20px;padding:2.5rem 2rem;box-shadow:0 24px 70px -20px rgba(30,64,175,.25);border:1px solid var(--line)}
+@media (max-width:480px){.card{margin:4vh .8rem;padding:1.8rem 1.2rem}}
+.logo{display:block;height:84px;margin:0 auto 1rem}
+h1{font-weight:800;font-size:1.4rem;letter-spacing:-.02em;text-align:center;margin-bottom:.4rem}
+.sub{color:var(--muted);font-size:.9rem;margin-bottom:1.5rem;text-align:center;line-height:1.5}
+input{width:100%;padding:.85rem 1rem;border:1.5px solid var(--line);border-radius:12px;font-size:1rem;margin-bottom:.7rem;font-family:inherit;background:var(--field);color:var(--ink)}
+input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.btn{display:block;width:100%;border:none;border-radius:10px;font-weight:600;cursor:pointer;padding:.8rem 1.15rem;font-size:.92rem;font-family:inherit;background:var(--blue);color:#fff;text-align:center;text-decoration:none}
+.btn+.btn{margin-top:.5rem}
+.btn:disabled{opacity:.6;cursor:default}
+.err{color:var(--bad);font-size:.85rem;font-weight:600;margin-top:.7rem;text-align:center;line-height:1.4}
+.small{color:var(--muted);font-size:.84rem;text-align:center;margin-top:1.1rem;line-height:1.5}
+.small a{color:var(--blue);font-weight:700}
+.tick{width:52px;height:52px;border-radius:50%;background:rgba(5,150,105,.12);color:var(--ok);display:flex;align-items:center;justify-content:center;margin:0 auto .9rem;font-size:1.6rem;font-weight:800}
+</style>
+</head>
+<body>
+<main class="card">
+  <img class="logo" src="/drive-my-way-logo.png" alt="Drive My Way" onerror="this.remove()">
+
+  <section id="s-password" hidden>
+    <h1 id="pw-title">Choose a new password</h1>
+    <p class="sub" id="pw-sub">Type your new password twice.</p>
+    <form onsubmit="event.preventDefault();submitPassword()">
+      <input type="password" id="pw" placeholder="New password" autocomplete="new-password">
+      <input type="password" id="pw2" placeholder="Confirm new password" autocomplete="new-password">
+      <button class="btn" id="pw-btn" type="submit">Set new password</button>
+    </form>
+    <p class="err" id="pw-err" hidden></p>
+  </section>
+
+  <section id="s-confirm" hidden>
+    <h1>Confirm your email</h1>
+    <p class="sub">Tap the button to confirm your email address.</p>
+    <button class="btn" id="confirm-btn" type="button" onclick="confirmEmail()">Confirm my email</button>
+    <p class="err" id="confirm-err" hidden></p>
+  </section>
+
+  <section id="s-pupil" hidden>
+    <div class="tick">&#10003;</div>
+    <h1 id="pupil-title">Password changed</h1>
+    <p class="sub">Open the Drive My Way app on your phone and sign in with your email address and your new password.</p>
+    <a class="btn" href="https://apps.apple.com/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener">App Store (iPhone)</a>
+    <a class="btn" href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener">Google Play (Android)</a>
+  </section>
+
+  <section id="s-instructor" hidden>
+    <div class="tick">&#10003;</div>
+    <h1 id="instructor-title">Password changed</h1>
+    <p class="sub">Sign in with your email address and your new password, in the Drive My Way app or the Control Centre.</p>
+    <a class="btn" href="/admin.html">Go to Control Centre sign in</a>
+  </section>
+
+  <section id="s-email-changed" hidden>
+    <div class="tick">&#10003;</div>
+    <h1>Email address confirmed</h1>
+    <p class="sub">Use your new email address the next time you sign in.</p>
+  </section>
+
+  <section id="s-expired" hidden>
+    <h1>This link has expired</h1>
+    <p class="sub">Each link works once, for a limited time, and this one has expired or has already been used. To get a new one, open the Drive My Way app and tap Forgot password on the sign-in screen.</p>
+    <p class="small">Driving instructor? You can also use Forgot password in the <a href="/admin.html">Control Centre</a>.</p>
+  </section>
+
+  <section id="s-bad" hidden>
+    <h1>This link is incomplete</h1>
+    <p class="sub">Open the link straight from the email. If it still does not work, open the Drive My Way app and tap Forgot password on the sign-in screen to get a new one.</p>
+  </section>
+</main>
+
+<script>
+const SUPABASE_URL="https://cxcqmyxbpjueezapknim.supabase.co";
+const SUPABASE_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4Y3FteXhicGp1ZWV6YXBrbmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUxNzAsImV4cCI6MjEwMTY4MTE3MH0.Qk46wzUGpDHlsqGvsImE9HdrrosL3ERKVbxDUsP4A30";
+const params=new URLSearchParams(location.search);
+const tokenHash=params.get("token_hash")||"";
+const linkType=(params.get("type")||"").toLowerCase();
+const linkClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:"dmw-email-link"}});
+const STATES=["s-password","s-confirm","s-pupil","s-instructor","s-email-changed","s-expired","s-bad"];
+let verified=null; // { user, session } once the one-time link has been used
+let busy=false;
+
+function $(id){ return document.getElementById(id); }
+function show(id){ STATES.forEach(s=>{ $(s).hidden=(s!==id); }); }
+function setErr(id,msg){ const e=$(id); e.textContent=msg||""; e.hidden=!msg; }
+function isExpired(err){ return /expired|invalid|not found|already been used/i.test((err&&err.message)||""); }
+
+// Uses the one-time token at most once per page, however often it is called.
+async function useLink(){
+  if(verified) return verified;
+  const {data,error}=await linkClient.auth.verifyOtp({token_hash:tokenHash,type:linkType});
+  if(error) throw error;
+  verified={ user:(data&&data.user)||(data&&data.session&&data.session.user)||null, session:(data&&data.session)||null };
+  return verified;
+}
+async function roleOf(user){
+  let role=(user&&user.user_metadata&&user.user_metadata.role)||null;
+  try{
+    if(user){ const {data}=await linkClient.from("profiles").select("role").eq("id",user.id).maybeSingle(); if(data&&data.role) role=data.role; }
+  }catch(e){}
+  return role;
+}
+
+async function submitPassword(){
+  if(busy) return;
+  const p=$("pw").value, p2=$("pw2").value;
+  setErr("pw-err","");
+  if(!p||p.length<8){ setErr("pw-err","Password must be at least 8 characters"); return; }
+  if(p!==p2){ setErr("pw-err","Passwords do not match"); return; }
+  busy=true;
+  const btn=$("pw-btn"), label=btn.textContent;
+  btn.disabled=true; btn.textContent="Saving…";
+  try{
+    let v;
+    try{ v=await useLink(); }catch(e){ if(isExpired(e)){ show("s-expired"); return; } throw e; }
+    const {error}=await linkClient.auth.updateUser({password:p});
+    if(error) throw error;
+    const role=await roleOf(v.user);
+    try{ await linkClient.auth.signOut({scope:"local"}); }catch(e){}
+    const title=linkType==="recovery" ? "Password changed" : "You're all set";
+    if(role==="pupil"){ $("pupil-title").textContent=title; show("s-pupil"); }
+    else{ $("instructor-title").textContent=title; show("s-instructor"); }
+  }catch(e){
+    setErr("pw-err",(e&&e.message)||"Could not set your password. Please try again.");
+  }finally{
+    busy=false; btn.disabled=false; btn.textContent=label;
+  }
+}
+
+async function confirmEmail(){
+  if(busy) return;
+  busy=true;
+  const btn=$("confirm-btn");
+  btn.disabled=true; btn.textContent="Confirming…";
+  try{
+    let v;
+    try{ v=await useLink(); }catch(e){ if(isExpired(e)){ show("s-expired"); return; } throw e; }
+    if(linkType==="email_change"){
+      try{ await linkClient.auth.signOut({scope:"local"}); }catch(e){}
+      show("s-email-changed"); return;
+    }
+    const role=await roleOf(v.user);
+    if(role==="pupil"){
+      // A pupil joining from an enquiry still chooses their app password.
+      $("pw-title").textContent="Welcome to Drive My Way";
+      $("pw-sub").textContent="Email confirmed. Now choose a password for the Drive My Way app.";
+      $("pw-btn").textContent="Set password";
+      show("s-password"); return;
+    }
+    // An instructor finishing their Control Centre sign-up carries on there,
+    // signed in, so the Control Centre can set up their account.
+    if(v.session){
+      const cc=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+      await cc.auth.setSession({access_token:v.session.access_token,refresh_token:v.session.refresh_token});
+    }
+    location.replace("/admin.html");
+  }catch(e){
+    setErr("confirm-err",(e&&e.message)||"Could not confirm your email. Please try again.");
+  }finally{
+    busy=false; btn.disabled=false; btn.textContent="Confirm my email";
+  }
+}
+
+(function init(){
+  if(!tokenHash||!linkType){ show("s-bad"); return; }
+  if(linkType==="recovery"){ show("s-password"); return; }
+  if(linkType==="invite"){
+    $("pw-title").textContent="Welcome to Drive My Way";
+    $("pw-sub").textContent="Choose a password for your account.";
+    $("pw-btn").textContent="Set password";
+    show("s-password"); return;
+  }
+  show("s-confirm");
+})();
+</script>
+</body>
+</html>

@@ -934,42 +934,8 @@ async function forgotPassword(){
 // need to choose a password). Instructors then sign in here; pupils are told
 // to open the app.
 let pendingRecovery=/type=(recovery|invite)/.test(location.hash);
-let pendingInvite=/type=invite/.test(location.hash);
-let pendingSignupConfirm=/type=signup/.test(location.hash);
-// Supabase's email templates link to <Site URL>/auth/confirm?token_hash=..&type=..
-// (vercel.json serves this page there). The token is checked here first; the
-// normal start-up session handling waits for it.
-const authConfirmParams = /\/auth\/confirm\/?$/.test(location.pathname) ? new URLSearchParams(location.search) : null;
-const authConfirmPending = !!(authConfirmParams && authConfirmParams.get("token_hash"));
-async function handleAuthConfirmLink(){
-  const tokenHash=authConfirmParams.get("token_hash");
-  const type=authConfirmParams.get("type")||"";
-  try{ history.replaceState(null,"","/admin.html"); }catch(e){}
-  const {data,error}=await sb.auth.verifyOtp({token_hash:tokenHash, type});
-  if(error){
-    document.getElementById("app").style.display="none";
-    document.getElementById("gate").style.display="block";
-    showGateError(/expired|invalid|not found/i.test(error.message||"")
-      ? "This link has expired or has already been used. Use Forgot password below to get a new one."
-      : (error.message||"This link could not be used."));
-    return;
-  }
-  const usr=(data&&data.user)||((await sb.auth.getUser()).data||{}).user||null;
-  let role=(usr&&usr.user_metadata&&usr.user_metadata.role)||null;
-  try{ if(usr){ const {data:pr}=await sb.from("profiles").select("role").eq("id",usr.id).maybeSingle(); if(pr&&pr.role) role=pr.role; } }catch(e){}
-  if(type==="recovery"||type==="invite"){
-    pendingRecovery=true; pendingInvite=(type==="invite");
-    showRecoveryForm(); return;
-  }
-  if(role==="pupil"){
-    // A pupil confirming their enquiry email still needs to choose a password.
-    pendingRecovery=true; pendingSignupConfirm=true;
-    showRecoveryForm(); return;
-  }
-  // An instructor confirming their sign-up email: carry on as a normal sign-in.
-  location.replace("/admin.html");
-}
-if(authConfirmPending) handleAuthConfirmLink();
+const pendingInvite=/type=invite/.test(location.hash);
+const pendingSignupConfirm=/type=signup/.test(location.hash);
 function showPupilAppNotice(title){
   document.getElementById("app").style.display="none";
   document.getElementById("gate").style.display="block";
@@ -1357,7 +1323,6 @@ async function enforceLock(userId){
 }
 
 sb.auth.getSession().then(async ({data})=>{
-  if(authConfirmPending) return; // handleAuthConfirmLink decides what to show
   if(!data.session) return;
   if(await enforceLock(data.session.user.id)) return;
   if(pendingSignupConfirm && data.session.user.user_metadata && data.session.user.user_metadata.role==="pupil") pendingRecovery=true;

@@ -170,6 +170,34 @@
             .cta-band { margin-top: 44px; padding: 28px 18px; }
             .sticky-enquiry-widget { right: 12px !important; bottom: 14px !important; padding: 8px 13px !important; font-size: 0.8rem !important; }
         }
+    
+        /* Header with the red and green glow, menu centred (Dale, 2026-09-11) */
+        .master-sticky-header { background: radial-gradient(ellipse 42% 170% at 100% 0%, rgba(214,46,46,0.42), transparent 70%), radial-gradient(ellipse 42% 170% at 0% 100%, rgba(46,158,79,0.38), transparent 70%), linear-gradient(135deg, #111111 0%, #1c1c1c 55%, #232323 100%) !important; }
+        .top-info-banner, .top-info-sub, header { background: transparent !important; }
+        .top-info-sub { border-bottom: 1px solid rgba(255,255,255,0.08) !important; }
+        .navbar-shell { display: grid !important; grid-template-columns: 1fr auto 1fr !important; align-items: center !important; }
+        .navbar-shell .brand-logo { justify-self: start; grid-column: 1; }
+        .navbar-shell nav { justify-self: center; grid-column: 2; }
+        .navbar-shell .nav-links-list { margin: 0 !important; }
+        @media (max-width: 960px) {
+            .navbar-shell { grid-template-columns: 1fr !important; justify-items: center !important; gap: 8px !important; }
+            .navbar-shell .brand-logo, .navbar-shell nav { grid-column: 1; justify-self: center; }
+            .navbar-shell .brand-logo img { margin: 0 auto; }
+        }
+    
+        /* Store badges the same height and level, Google Play first; thin phone edge (Dale, 2026-09-11) */
+        .badge-apple, .badge-google { height: 46px !important; width: auto !important; margin: 0 !important; display: block; }
+        .store-badges, .app-actions { align-items: center !important; }
+        .phone-frame { padding: 5px !important; border-radius: 30px !important; }
+        .phone-frame img { border-radius: 25px !important; }
+        .showcase-visual { align-items: flex-start !important; }
+        @media (max-width: 750px) {
+            .badge-apple, .badge-google { height: 40px !important; }
+            .store-badges { flex-wrap: nowrap !important; gap: 12px !important; }
+        }
+        /* The car photo behind the Grade A badge (Dale: "you removed the image of my car?") */
+        .hero-band { background: linear-gradient(rgba(8,8,8,0.55), rgba(8,8,8,0.68)), url('car seat1.jpg') center center / cover no-repeat !important; }
+        .hero-band::before, .hero-band::after { display: none !important; }
     </style>
 
     <script async src="https://googletagmanager.com/gtag/js?id=G-8VPCP1ZYEE"></script>
@@ -309,8 +337,8 @@
                     <li>🎬 Learning videos</li>
                 </ul>
                 <div class="app-actions">
+                    <a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener"><img class="badge-google" src="google-play-badge-trimmed.png" alt="Get it on Google Play"></a>
                     <a href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener"><img class="badge-apple" src="app-store-badge.svg" alt="Download on the App Store"></a>
-                    <a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener"><img class="badge-google" src="google-play-badge.png" alt="Get it on Google Play"></a>
                     <a class="btn-secondary" href="app-features.html">Explore the app →</a>
                 </div>
                 <p class="app-note google-play-soon">The Android app is going live on Google Play very soon.</p>

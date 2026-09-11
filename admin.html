@@ -5133,12 +5133,18 @@ async function loadTeamsPanel(){
       <h2>Driving schools</h2>
       <p class="muted" style="margin-bottom:.75rem">Only you (super admin) can create new driving schools or instructor logins, or lock a whole school's access.</p>
       <p style="margin-bottom:.75rem;padding:.6rem .8rem;border-radius:8px;background:#2d2308;border:1px solid #713f12;color:#fcd34d;font-size:.9rem">
-        ⚠ Anyone you create or invite from here gets free access — no subscription row gets created for admin-invited accounts, so billing never applies to them.
+        Choose how each new account is billed. <strong>Invite to set up Direct Debit</strong>: they get the same 30-day free trial as signing up themselves, and are asked to set up their Direct Debit in the Control Centre before using the app. <strong>Free access</strong>: no billing ever applies (friends, testers, special arrangements). Instructors added to an existing school are covered by that school.
       </p>
       <div id="schools-list">Loading…</div>
       <div class="field" style="margin-top:1rem"><label>Driving school name</label><input id="new-school-name" placeholder="e.g. Acme Driving School"></div>
       <div class="field"><label>Admin full name</label><input id="new-school-admin-name"></div>
       <div class="field"><label>Admin email</label><input id="new-school-admin-email" type="email" placeholder="Sends them an invite, like a solo instructor"></div>
+      <div class="field"><label>Billing</label>
+        <select id="new-school-billing">
+          <option value="invite">Invite to set up Direct Debit (30 days free, then £13.99 a month)</option>
+          <option value="free">Free access (no billing)</option>
+        </select>
+      </div>
       <button class="btn btn-navy btn-sm" onclick="addSchool()">Add driving school</button>
 
       <h3 style="margin:1.5rem 0 .25rem">Solo instructors</h3>
@@ -5150,11 +5156,18 @@ async function loadTeamsPanel(){
       <div class="field"><label>Email</label><input id="new-instr-email" type="email"></div>
       <div class="field"><label>Phone (optional)</label><input id="new-instr-phone"></div>
       <div class="field"><label>Driving school</label>
-        <select id="new-instr-school"><option value="">— Solo instructor (no school) —</option></select>
+        <select id="new-instr-school" onchange="syncNewInstrBilling()"><option value="">— Solo instructor (no school) —</option></select>
       </div>
       <div class="field" style="display:flex;align-items:center;gap:.5rem">
-        <input type="checkbox" id="new-instr-pdi" style="width:auto">
+        <input type="checkbox" id="new-instr-pdi" style="width:auto" onchange="syncNewInstrBilling()">
         <label style="margin:0;text-transform:none;font-weight:600;font-size:.85rem;color:var(--text)">This is a PDI (free while training)</label>
+      </div>
+      <div class="field" id="new-instr-billing-wrap"><label>Billing</label>
+        <select id="new-instr-billing">
+          <option value="invite">Invite to set up Direct Debit (30 days free, then £11.99 a month)</option>
+          <option value="free">Free access (no billing)</option>
+        </select>
+        <p class="muted" id="new-instr-billing-note" style="margin-top:.3rem;display:none"></p>
       </div>
       <button class="btn btn-navy btn-sm" onclick="addInstructorGlobal()">Send invite</button>
       <div class="err" id="teams-err" style="margin-top:.5rem;display:block;text-align:left"></div>`;
@@ -5188,7 +5201,7 @@ async function loadTeamsPanel(){
       const nameEsc = esc(s.display_name||s.name).replace(/'/g,"&#39;");
       const lockedBadge = s.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
       const sub = schoolSubsByOwner[s.id];
-      const statusChip = sub ? renderStatusChip(sub.status) : "";
+      const statusChip = sub ? renderStatusChip(sub.status) : '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>';
       const lockBtn = s.locked_at
         ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockSchool('${s.id}','${nameEsc}')">Unlock</button>`
         : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockSchool('${s.id}','${nameEsc}')">Lock</button>`;
@@ -5214,6 +5227,7 @@ async function loadTeamsPanel(){
     const select=document.getElementById("new-instr-school");
     select.innerHTML = '<option value="">— Solo instructor (no school) —</option>' +
       schoolRows.map(s=>`<option value="${s.id}">${esc(s.display_name||s.name)}</option>`).join("");
+    syncNewInstrBilling();
   } else if(isSchoolAdminUser && currentSchoolId){
     content.innerHTML=`
       <h2>Your instructors</h2>
@@ -5249,7 +5263,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
   const adminBadge = i.is_school_admin ? ' <span style="font-size:.7rem;font-weight:700;color:#0A4CA1">ADMIN</span>' : "";
   const lockedBadge = i.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
   const sub = subsByOwnerCache[i.id];
-  const statusChip = sub ? renderStatusChip(sub.status) : "";
+  const statusChip = sub ? renderStatusChip(sub.status) : ((fullControls && !i.school_id) ? '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>' : "");
   const isMe = i.id===currentUserId;
   const lockBtn = isMe
     ? '<span class="muted" style="font-size:.75rem">(you)</span>'
@@ -5390,12 +5404,15 @@ async function addSchool(){
   if(error){ err.textContent=error.message; return; }
 
   try{
-    const res=await manageAuthAdmin("create_instructor", {full_name:adminName, email:adminEmail, school_id:school.id});
+    const billing=(document.getElementById("new-school-billing")||{}).value||"invite";
+    const res=await manageAuthAdmin("create_instructor", {full_name:adminName, email:adminEmail, school_id:school.id, school_admin:true, billing});
     const {error:adminError}=await sb.from("profiles").update({is_school_admin:true}).eq("id",res.user_id);
     if(adminError) throw adminError;
     nameInput.value=""; adminNameInput.value=""; adminEmailInput.value="";
     err.style.color="#0a7a3d";
-    err.textContent="Driving school created — invite sent to "+adminEmail+" as school admin.";
+    err.textContent = res && res.billing==="invite"
+      ? "Driving school created. "+adminEmail+" has been invited as school admin, with a 30-day free trial and an email explaining how to set up their Direct Debit."
+      : "Driving school created with free access. Invite sent to "+adminEmail+" as school admin.";
   }catch(e){
     err.textContent="School created, but the admin invite failed: "+(e.message||"unknown error")+". Use the instructor form below to invite them and assign to this school instead.";
   }
@@ -5547,6 +5564,22 @@ async function deleteSchool(schoolId){
   await loadTeamsPanel();
 }
 
+// Billing choice only applies to a new solo instructor who isn't a PDI:
+// someone added to a school is covered by the school's seats, and a PDI is
+// free while training (Dale, 2026-09-11).
+function syncNewInstrBilling(){
+  const sel=document.getElementById("new-instr-billing"); if(!sel) return;
+  const note=document.getElementById("new-instr-billing-note");
+  const schoolId=(document.getElementById("new-instr-school")||{}).value;
+  const isPdi=!!(document.getElementById("new-instr-pdi")||{}).checked;
+  const applies=!schoolId && !isPdi;
+  sel.disabled=!applies;
+  if(note){
+    note.style.display=applies?"none":"block";
+    note.textContent = isPdi ? "PDIs are free while training." : "Covered by the school's seats, so no separate billing.";
+  }
+}
+
 async function addInstructorGlobal(){
   const err=document.getElementById("teams-err");
   err.textContent="";
@@ -5558,13 +5591,16 @@ async function addInstructorGlobal(){
   if(!fullName||!email){ err.textContent="Name and email are required"; return; }
   if(isPdi && !schoolId){ err.textContent="PDI accounts must be linked to a driving school"; return; }
   try{
-    await manageAuthAdmin("create_instructor", {full_name:fullName, email, phone: phone||null, school_id: schoolId, is_pdi: isPdi});
+    const billing = (!schoolId && !isPdi) ? ((document.getElementById("new-instr-billing")||{}).value||"invite") : "free";
+    const res = await manageAuthAdmin("create_instructor", {full_name:fullName, email, phone: phone||null, school_id: schoolId, is_pdi: isPdi, billing});
     document.getElementById("new-instr-name").value="";
     document.getElementById("new-instr-email").value="";
     document.getElementById("new-instr-phone").value="";
     document.getElementById("new-instr-pdi").checked=false;
     err.style.color="#0a7a3d";
-    err.textContent="Invite sent to "+email+".";
+    err.textContent = res && res.billing==="invite"
+      ? "Invite sent to "+email+", with a 30-day free trial and an email explaining how to set up their Direct Debit."
+      : "Invite sent to "+email+(schoolId ? "." : ", with free access.");
     await loadTeamsPanel();
   }catch(e){
     err.style.color="";

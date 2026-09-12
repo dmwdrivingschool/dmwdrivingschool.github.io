@@ -741,7 +741,6 @@ const EXPENSE_CAT_DEFS=[
   {name:"Motor Expenses",heading:"carVanTravelExpenses",claimable:true},
   {name:"Car insurance",heading:"carVanTravelExpenses",claimable:true},
   {name:"Car HP payment",heading:"carVanTravelExpenses",claimable:false},
-  {name:"Car HP interest",heading:"interestOnBankOtherLoans",claimable:true},
   {name:"Car lease / rental",heading:"carVanTravelExpenses",claimable:true},
   {name:"Parking & tolls",heading:"carVanTravelExpenses",claimable:true},
   {name:"Business insurance",heading:"premisesRunningCosts",claimable:true},
@@ -768,7 +767,10 @@ const LEGACY_CATS={
     "Car Finance":{heading:"carVanTravelExpenses",claimable:false,now:"Car HP payment"},
     "Franchise / Car Rental":{heading:"otherExpenses",claimable:true,now:"Franchise fee"},
     "Pupil Lesson":{heading:"refunds",claimable:true,now:"Lesson Refund"},
-    "Student Lesson Refund":{heading:"refunds",claimable:true,now:"Lesson Refund"}
+    "Student Lesson Refund":{heading:"refunds",claimable:true,now:"Lesson Refund"},
+    // Removed 12 Sep 2026 (Dale): HP interest is worked out from Car HP details
+    // instead of being typed in. Any older entries still count as interest.
+    "Car HP interest":{heading:"interestOnBankOtherLoans",claimable:true,now:"Interest on bank and other loans"}
   }
 };
 const INCOME_CATS=INCOME_CAT_DEFS.map(c=>c.name);
@@ -3393,21 +3395,11 @@ function financeCategoryTable(rows,standardCats,label,isExp){
   const byCat={};
   rows.forEach(r=>{
     const c=r.category||r.type||"Uncategorised";
-    if(!byCat[c]) byCat[c]={count:0,amount:0,notClaim:0,fromHp:0};
-    byCat[c].count++;
-    const hp=isExp?hpSplit(r):null;
-    if(hp){
-      // A Car HP payment covered by Car HP details: the interest shows on the
-      // Car HP interest row, and this row keeps the part paying off the car
-      // (Dale, 12 Sep 2026: "should that not just go into the box below?").
-      byCat[c].amount+=hp.capital; if(!isClaimable(r)) byCat[c].notClaim+=hp.capital;
-      const ic="Car HP interest";
-      if(!byCat[ic]) byCat[ic]={count:0,amount:0,notClaim:0,fromHp:0};
-      byCat[ic].amount+=hp.interest; byCat[ic].fromHp++;
-      return;
-    }
-    byCat[c].amount+=Number(r.amount||0);
-    if(isExp) byCat[c].notClaim+=notClaimablePart(r);
+    if(!byCat[c]) byCat[c]={count:0,amount:0,notClaim:0,hpInterest:0};
+    byCat[c].count++; byCat[c].amount+=Number(r.amount||0);
+    // A Car HP payment covered by Car HP details keeps its full amount here;
+    // its interest is the claimable part and is named in a note (Dale, 12 Sep 2026).
+    if(isExp){ byCat[c].notClaim+=notClaimablePart(r); const hp=hpSplit(r); if(hp) byCat[c].hpInterest+=hp.interest; }
   });
   const known=new Set(standardCats);
   const extra=Object.keys(byCat).filter(c=>!known.has(c)).sort();
@@ -3415,21 +3407,21 @@ function financeCategoryTable(rows,standardCats,label,isExp){
   const total=rows.reduce((s,r)=>s+Number(r.amount||0),0);
   const totalNot=isExp?rows.reduce((s,r)=>s+notClaimablePart(r),0):0;
   const body=allCats.map(c=>{
-    const d=byCat[c]||{count:0,amount:0,notClaim:0,fromHp:0};
+    const d=byCat[c]||{count:0,amount:0,notClaim:0,hpInterest:0};
     const flagged=extra.includes(c);
     const info=catInfo(c,isExp);
     const flagText=info.legacy?"· old category, counted as "+info.now:"· not a standard category";
     const catArg=JSON.stringify(c).replace(/'/g,"&#39;");
     return `<tr style="cursor:pointer${flagged?";background:#FFF7E8":""}" onclick='showFinCategoryModal(${catArg},${isExp?"true":"false"})' title="Click to see every entry in this category">
-      <td>${esc(c)}${catHint(c)}${d.fromHp?` <span class="muted" style="font-size:.75rem;font-weight:400">(worked out from ${d.fromHp} Car HP payment${d.fromHp===1?"":"s"})</span>`:""}${flagged?` <span style="color:#b45309;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">${esc(flagText)}</span>`:""}</td>
+      <td>${esc(c)}${catHint(c)}${d.hpInterest?` <span class="muted" style="font-size:.75rem;font-weight:400">(includes £${d.hpInterest.toFixed(2)} interest, claimable, worked out from your Car HP details)</span>`:""}${flagged?` <span style="color:#b45309;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">${esc(flagText)}</span>`:""}</td>
       <td style="text-align:right">${d.count}</td>
       <td style="text-align:right">£${d.amount.toFixed(2)}</td>
-      ${isExp?`<td style="text-align:right">${d.notClaim?"£"+d.notClaim.toFixed(2):"–"}</td>`:""}
+      ${isExp?`<td style="text-align:right">${d.notClaim>0.004?"£"+d.notClaim.toFixed(2):"–"}</td><td style="text-align:right">${(d.amount-d.notClaim)>0.004?"£"+(d.amount-d.notClaim).toFixed(2):"–"}</td>`:""}
     </tr>`;
   }).join("");
-  return `<table><thead><tr><th>${esc(label)}</th><th style="text-align:right">Qty</th><th style="text-align:right">Amount</th>${isExp?'<th style="text-align:right">Not claimable</th>':""}</tr></thead>
+  return `<table><thead><tr><th>${esc(label)}</th><th style="text-align:right">Qty</th><th style="text-align:right">Amount</th>${isExp?'<th style="text-align:right">Not claimable</th><th style="text-align:right">Claimable</th>':""}</tr></thead>
     <tbody>${body}</tbody>
-    <tfoot><tr style="background:var(--soft);font-weight:700"><td>Total ${esc(label)}</td><td style="text-align:right">${rows.length}</td><td style="text-align:right">£${total.toFixed(2)}</td>${isExp?`<td style="text-align:right">£${totalNot.toFixed(2)}</td>`:""}</tr></tfoot></table>`;
+    <tfoot><tr style="background:var(--soft);font-weight:700"><td>Total ${esc(label)}</td><td style="text-align:right">${rows.length}</td><td style="text-align:right">£${total.toFixed(2)}</td>${isExp?`<td style="text-align:right">£${totalNot.toFixed(2)}</td><td style="text-align:right">£${(total-totalNot).toFixed(2)}</td>`:""}</tr></tfoot></table>`;
 }
 // Tax summary (Dale, 12 Sep 2026): the figures a Making Tax Digital quarterly
 // update asks for, by HMRC heading, for one tax year and quarter of this
@@ -3484,7 +3476,7 @@ function taxFigures(from,to){
     h.total+=amt; if(!isClaimable(r)) h.notClaim+=amt;
   });
   const turnover=turnoverGross-refunds;
-  const usedHeadings=TAX_EXPENSE_ORDER.filter(k=>heads[k]||EXPENSE_CAT_DEFS.some(d=>d.heading===k));
+  const usedHeadings=TAX_EXPENSE_ORDER.filter(k=>heads[k]||k==="interestOnBankOtherLoans"||EXPENSE_CAT_DEFS.some(d=>d.heading===k));
   const totExp=Object.values(heads).reduce((s,h)=>s+h.total,0);
   const totNot=Object.values(heads).reduce((s,h)=>s+h.notClaim,0);
   const totClaim=totExp-totNot;
@@ -3630,7 +3622,7 @@ function showFinCategoryModal(cat,isExp){
   const list=cat==="Car HP interest"?rows.concat(hpIn):rows;
   const hpNote=hpInterestSum?`<p style="margin:-.5rem 0 1rem;font-size:.85rem">${cat==="Car HP interest"
     ?`£${hpInterestSum.toFixed(2)} is interest worked out from ${hpIn.length} Car HP payment${hpIn.length===1?"":"s"} using your <a href="#" onclick="openCarHpDetails();return false">Car HP details</a>. The full payments are listed below.`
-    :`£${hpInterestSum.toFixed(2)} of these payments is interest, shown under Car HP interest. The rest, £${(total-hpInterestSum).toFixed(2)}, is paying off the car.`}</p>`:"";
+    :`£${hpInterestSum.toFixed(2)} of these payments is interest, which is claimable, worked out from your <a href="#" onclick="openCarHpDetails();return false">Car HP details</a>. The rest, £${(total-hpInterestSum).toFixed(2)}, is paying off the car.`}</p>`:"";
   const catArg=JSON.stringify(cat).replace(/'/g,"&#39;");
   const body=list.length?tablePay(list,true):'<p class="muted">No entries in this category for the selected period</p>';
   openModal(`<h2 style="margin-bottom:.4rem">${esc(cat)}</h2>

@@ -4247,15 +4247,23 @@ function downloadMyTaxDigital(){
 }
 // Tax to set aside (Dale, 12 Sep 2026): income tax and Class 4 National
 // Insurance on a sole trader's profit at England, Wales and Northern Ireland
-// rates, assuming no other income. Class 2 isn't included (not charged from
-// April 2024; before that a small flat weekly amount). Keyed by the year a
-// tax year starts; later years use the latest rates.
+// rates, assuming no other income. Keyed by the year a tax year starts; later
+// years use the latest rates.
+// Class 2 (Dale, 13 Sep 2026, "if applicable"): a flat weekly amount (c2Week
+// x 52). It had to be paid on profits from c2Pay: the small profits threshold
+// up to 2021-22, then the lower profits limit in 2022-23 and 2023-24 (between
+// the two it counted as paid). From April 2024 nobody has to pay it (c2Pay
+// null). Under the small profits threshold (c2Spt) it's voluntary, and paying
+// keeps the year counting towards the State Pension. Rates from GOV.UK.
 const SA_RATES={
-  2020:{pa:12500,band:37500,addl:150000,c4Low:9500,c4High:50000,c4Main:0.09,c4Upper:0.02},
-  2021:{pa:12570,band:37700,addl:150000,c4Low:9568,c4High:50270,c4Main:0.09,c4Upper:0.02},
-  2022:{pa:12570,band:37700,addl:150000,c4Low:11908,c4High:50270,c4Main:0.0973,c4Upper:0.0273},
-  2023:{pa:12570,band:37700,addl:125140,c4Low:12570,c4High:50270,c4Main:0.09,c4Upper:0.02},
-  2024:{pa:12570,band:37700,addl:125140,c4Low:12570,c4High:50270,c4Main:0.06,c4Upper:0.02}
+  2019:{pa:12500,band:37500,addl:150000,c4Low:8632,c4High:50000,c4Main:0.09,c4Upper:0.02,c2Week:3.00,c2Spt:6365,c2Pay:6365},
+  2020:{pa:12500,band:37500,addl:150000,c4Low:9500,c4High:50000,c4Main:0.09,c4Upper:0.02,c2Week:3.05,c2Spt:6475,c2Pay:6475},
+  2021:{pa:12570,band:37700,addl:150000,c4Low:9568,c4High:50270,c4Main:0.09,c4Upper:0.02,c2Week:3.05,c2Spt:6515,c2Pay:6515},
+  2022:{pa:12570,band:37700,addl:150000,c4Low:11908,c4High:50270,c4Main:0.0973,c4Upper:0.0273,c2Week:3.15,c2Spt:6725,c2Pay:11908},
+  2023:{pa:12570,band:37700,addl:125140,c4Low:12570,c4High:50270,c4Main:0.09,c4Upper:0.02,c2Week:3.45,c2Spt:6725,c2Pay:12570},
+  2024:{pa:12570,band:37700,addl:125140,c4Low:12570,c4High:50270,c4Main:0.06,c4Upper:0.02,c2Week:3.45,c2Spt:6725,c2Pay:null},
+  2025:{pa:12570,band:37700,addl:125140,c4Low:12570,c4High:50270,c4Main:0.06,c4Upper:0.02,c2Week:3.50,c2Spt:6845,c2Pay:null},
+  2026:{pa:12570,band:37700,addl:125140,c4Low:12570,c4High:50270,c4Main:0.06,c4Upper:0.02,c2Week:3.65,c2Spt:7105,c2Pay:null}
 };
 function estimateSoleTraderTax(profit,taxYearStart){
   const years=Object.keys(SA_RATES).map(Number).sort((a,b)=>a-b);
@@ -4268,7 +4276,11 @@ function estimateSoleTraderTax(profit,taxYearStart){
   const higher=Math.max(0,Math.min(taxable,R.addl)-R.band);
   const incomeTax=basic*0.2+higher*0.4+addlPart*0.45;
   const c4=Math.max(0,Math.min(P,R.c4High)-R.c4Low)*R.c4Main+Math.max(0,P-R.c4High)*R.c4Upper;
-  return {incomeTax:Math.round(incomeTax*100)/100,classFour:Math.round(c4*100)/100,total:Math.round(incomeTax*100)/100+Math.round(c4*100)/100};
+  const r2=n=>Math.round(n*100)/100;
+  const classTwo=R.c2Pay!=null&&P>=R.c2Pay?r2(R.c2Week*52):0;
+  const voluntaryClassTwo=P<R.c2Spt?r2(R.c2Week*52):0;
+  return {incomeTax:r2(incomeTax),classFour:r2(c4),classTwo,voluntaryClassTwo,classTwoWeek:R.c2Week,classTwoSpt:R.c2Spt,classTwoPayable:R.c2Pay!=null,
+    total:r2(r2(incomeTax)+r2(c4)+classTwo)};
 }
 // Part way through a tax year the profit so far is scaled up to a whole year
 // at the same rate (Dale, 12 Sep 2026: £5,000 by the end of quarter 1 means
@@ -4290,20 +4302,29 @@ function taxSetAsideHtml(y,to){
   const cap=accr?capitalFigures(yearFrom,upTo):null;
   const taxable=projected-(cap?cap.allowances-cap.charges:0);
   const t=estimateSoleTraderTax(taxable,y);
-  const setAside=Math.round(t.total*share*100)/100;
-  const money=n=>(n<0?"-£":"£")+Math.abs(n).toFixed(2);
+  const money=n=>(n<0?"-£":"£")+Math.abs(n).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
   const whole=share>=1;
+  // Laid out like the Control Centre page on drivemyway.co.uk (Dale, 13 Sep 2026):
+  // profit, then income tax and each class of National Insurance, then the total.
+  // Part way through the year a second column shows the share to have put aside by now.
+  const part=n=>Math.round(n*share*100)/100;
+  const taxLines=[["Income tax",t.incomeTax],["Class 4 National Insurance",t.classFour]];
+  if(t.classTwo) taxLines.push(["Class 2 National Insurance",t.classTwo]);
+  const setAside=Math.round(taxLines.reduce((s,[,v])=>s+part(v),0)*100)/100;
+  const num=v=>`<td style="text-align:right">${money(v)}</td>`;
+  const capNet=cap?cap.allowances-cap.charges:0;
+  const classTwoNote=t.voluntaryClassTwo
+    ?`Your profit for the year is under £${t.classTwoSpt.toLocaleString("en-GB")}, so there's no Class 2 National Insurance to pay. You can choose to pay it (£${t.classTwoWeek.toFixed(2)} a week, ${money(t.voluntaryClassTwo)} for the year) so the year still counts towards your State Pension. `
+    :t.classTwo||!t.classTwoPayable?"":"There's no Class 2 National Insurance to pay: at this profit it counts as paid. ";
   return `<div style="border:1px solid var(--line);border-radius:12px;padding:.8rem 1rem;margin:0 0 1.2rem">
-    <h3 style="margin:0 0 .5rem">Tax to set aside (estimate)</h3>
-    <div class="metric-row" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:.5rem">
-      <div class="metric"><div class="v">${money(soFar)}</div><div class="l">${whole?"Profit for the year":`Profit so far (to ${fmtD(upTo)})`}</div></div>
-      ${whole?"":`<div class="metric"><div class="v">${money(projected)}</div><div class="l">Profit for the year at this rate</div></div>`}
-      <div class="metric"><div class="v">${money(t.total)}</div><div class="l">Tax for the year (estimate)</div></div>
-      ${whole?"":`<div class="metric"><div class="v bad">${money(setAside)}</div><div class="l">Set aside by ${fmtD(upTo)}</div></div>`}
-    </div>
-    <p style="margin:0 0 .4rem;font-size:.84rem">Tax for the year: income tax ${money(t.incomeTax)} and Class 4 National Insurance ${money(t.classFour)}.${cap&&(cap.allowances||cap.charges)?` It takes off ${money(cap.allowances)} for cars and equipment bought${cap.charges?` and adds back ${money(cap.charges)} for ones sold`:""}.`:""}</p>
-    <p class="muted" style="margin:0;font-size:.78rem;line-height:1.5">${whole?"":`Worked out as if you keep making profit at the same rate for the rest of the tax year: ${money(soFar)} by ${fmtD(upTo)} is about ${money(projected)} for the year. That year's tax is spread across the year, so by ${fmtD(upTo)} you'd have ${money(setAside)} of it put aside. It changes as your profit does. `}It assumes no other income such as a job or pension, and England, Wales and Northern Ireland rates (Scotland's income tax rates are different). If your bill is over £1,000, HMRC usually also asks for two payments towards next year, each half of this year's bill, due 31 January and 31 July.</p>
+    <h3 style="margin:0 0 .5rem">Tax to set aside · ${y}–${String(y+1).slice(2)} (estimate)</h3>
+    <table><thead><tr><th></th><th style="text-align:right">${whole?"For the year":"For the year at this rate"}</th>${whole?"":`<th style="text-align:right">By ${fmtD(upTo)}</th>`}</tr></thead><tbody>
+      <tr><td>Profit</td>${num(projected)}${whole?"":num(soFar)}</tr>
+      ${capNet?`<tr><td>${capNet>0?"Taken off for cars and equipment bought":"Added back for cars and equipment sold"}${cap.allowances&&cap.charges?` (${money(cap.allowances)} bought, ${money(cap.charges)} sold)`:""}</td>${num(-capNet)}${whole?"":'<td style="text-align:right">–</td>'}</tr>`:""}
+      ${taxLines.map(([label,v])=>`<tr><td>${label}</td>${num(v)}${whole?"":num(part(v))}</tr>`).join("")}
+    </tbody><tfoot><tr style="background:var(--soft);font-weight:700"><td>Set aside</td>${num(t.total)}${whole?"":num(setAside)}</tr></tfoot></table>
+    <p class="muted" style="margin:.6rem 0 0;font-size:.78rem;line-height:1.5">${classTwoNote}${whole?"":`Worked out as if you keep making profit at the same rate for the rest of the tax year: ${money(soFar)} by ${fmtD(upTo)} is about ${money(projected)} for the year. That year's tax is spread across the year, so by ${fmtD(upTo)} you'd have ${money(setAside)} of it put aside. It changes as your profit does. `}It assumes no other income such as a job or pension, and England, Wales and Northern Ireland rates (Scotland's income tax rates are different). If your bill is over £1,000, HMRC usually also asks for two payments towards next year, each half of this year's bill, due 31 January and 31 July.</p>
   </div>`;
 }
 // Cars and equipment bought and sold in a period, from Your cars and the

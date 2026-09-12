@@ -839,6 +839,8 @@ function hpSplit(r){
     const s=hpSchedule(a); if(!s) continue;
     const k=(Number(d.slice(0,4))-Number(a.first_payment.slice(0,4)))*12+(Number(d.slice(5,7))-Number(a.first_payment.slice(5,7)))+1;
     if(k<1||k>s.rows.length) continue;
+    // Sold or part exchanged: payments due after that date aren't this agreement's.
+    if(a.ended&&a.ended.date&&s.rows[k-1].date>a.ended.date) continue;
     const amt=Number(r.amount||0);
     const interest=Math.round(Math.min(amt,Math.max(0,s.rows[k-1].interest))*100)/100;
     return {interest,capital:Math.round((amt-interest)*100)/100,agreement:a,n:k,of:s.rows.length};
@@ -863,17 +865,28 @@ function openCarHpDetails(editId){
   const cards=carHpAgreements.map(a=>{
     const s=hpSchedule(a);
     const idArg=JSON.stringify(a.id).replace(/'/g,"&#39;");
-    const actions=`<div class="actions" style="margin-top:.5rem"><button class="btn-outline" onclick='openCarHpDetails(${idArg})'>Edit</button><button class="btn-danger" onclick='deleteCarHp(${idArg})'>Remove</button></div>`;
+    const ended=a.ended&&a.ended.date?a.ended:null;
+    const endBtns=ended
+      ?`<button class="btn-outline" onclick='undoCarHpEnd(${idArg})'>Undo ${ended.how==="part_exchange"?"part exchange":"sale"}</button>`
+      :`<button class="btn-outline" onclick='openCarHpEnd(${idArg},"sold")'>Sold</button><button class="btn-outline" onclick='openCarHpEnd(${idArg},"part_exchange")'>Part exchanged</button>`;
+    const actions=`<div class="actions" style="margin-top:.5rem"><button class="btn-outline" onclick='openCarHpDetails(${idArg})'>Edit</button>${endBtns}<button class="btn-danger" onclick='deleteCarHp(${idArg})'>Remove</button></div>`;
     if(!s) return `<div style="border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem;margin-bottom:.6rem"><strong>${esc(a.label||"Car")}</strong><p class="muted" style="margin:.3rem 0 0">These figures are incomplete, so nothing is being split. Edit them to fix it.</p>${actions}</div>`;
+    const inUse=ended?s.rows.filter(x=>x.date<=ended.date):s.rows;
     const matched=hpRows.filter(r=>{ const h=hpSplit(r); return h&&h.agreement.id===a.id; });
     const avg=matched.length?matched.reduce((t,r)=>t+Number(r.amount||0),0)/matched.length:0;
-    const byYear={}; s.rows.forEach(x=>{ const ty=hpTaxYear(x.date); byYear[ty]=(byYear[ty]||0)+x.interest; });
+    const byYear={}; inUse.forEach(x=>{ const ty=hpTaxYear(x.date); byYear[ty]=(byYear[ty]||0)+x.interest; });
     const lastDate=s.rows[s.rows.length-1].date;
+    const interestToEnd=inUse.reduce((t,x)=>t+x.interest,0);
     const mismatch=matched.length&&Math.abs(avg-s.payment)>1;
+    const depositText=a.price?`${money(a.price)} car, ${money(a.deposit||0)} cash deposit${Number(a.part_exchange)?`, ${money(a.part_exchange)} part exchange`:""}, `:"";
+    const endedText=!ended?"":ended.how==="part_exchange"
+      ?`Part exchanged on ${fmtD(ended.date)} for ${money(ended.value)}: ${money(ended.settlement)} paid off this finance and ${money(ended.towards)} went towards the next car's deposit. Payments after that date aren't counted here.`
+      :`Sold on ${fmtD(ended.date)} for ${money(ended.value)}${Number(ended.settlement)?`, with ${money(ended.settlement)} paying off this finance`:""}. Payments after that date aren't counted here.`;
     return `<div style="border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem;margin-bottom:.6rem">
-      <strong>${esc(a.label||"Car")}</strong>
-      <p class="muted" style="margin:.3rem 0 .5rem">${a.price?`${money(a.price)} car, ${money(a.deposit||0)} deposit, `:""}${money(a.amount)} borrowed at ${Number(a.apr)}% APR · ${s.rows.length} monthly payments from ${fmtD(a.first_payment)} to ${fmtD(lastDate)}${Number(a.balloon)?` · final payment ${money(a.balloon)}`:""}</p>
-      <p style="margin:0 0 .3rem">Monthly payment these figures give: <strong>${money(s.payment)}</strong> · total interest <strong>${money(s.totalInterest)}</strong></p>
+      <strong>${esc(a.label||"Car")}</strong>${ended?` <span class="chip chip-wait">${ended.how==="part_exchange"?"Part exchanged":"Sold"}</span>`:""}
+      <p class="muted" style="margin:.3rem 0 .5rem">${depositText}${money(a.amount)} borrowed at ${Number(a.apr)}% APR · ${s.rows.length} monthly payments from ${fmtD(a.first_payment)} to ${fmtD(lastDate)}${Number(a.balloon)?` · final payment ${money(a.balloon)}`:""}</p>
+      ${endedText?`<p style="margin:0 0 .45rem;font-size:.86rem">${endedText}</p>`:""}
+      <p style="margin:0 0 .3rem">Monthly payment these figures give: <strong>${money(s.payment)}</strong> · ${ended?`interest up to the ${ended.how==="part_exchange"?"part exchange":"sale"} <strong>${money(interestToEnd)}</strong>`:`total interest <strong>${money(s.totalInterest)}</strong>`}</p>
       <p class="muted" style="margin:0 0 .5rem">${matched.length} Car HP payment${matched.length===1?"":"s"} in your Finances ${matched.length===1?"falls":"fall"} in this agreement${matched.length?` (recorded ${money(avg)} on average)`:""}.</p>
       ${mismatch?`<div style="padding:.55rem .7rem;border-radius:10px;background:#FFF7E8;color:#92400e;font-size:.84rem;margin-bottom:.5rem">Your recorded payments (${money(avg)}) don't match the ${money(s.payment)} these figures give, so the interest split may be out. Check the amount borrowed, APR and number of payments against your agreement.</div>`:""}
       <table><thead><tr><th>Tax year</th><th style="text-align:right">Interest (claimable)</th></tr></thead><tbody>
@@ -883,6 +896,14 @@ function openCarHpDetails(editId){
     </div>`;
   }).join("");
   const v=(k,d)=>edit&&edit[k]!==undefined&&edit[k]!==null?esc(String(edit[k])):(d||"");
+  // A part exchange waiting to go towards the next car: the latest agreement
+  // marked part exchanged whose amount no other agreement has used yet.
+  const pendingPx=edit?null:carHpAgreements
+    .filter(x=>x.ended&&x.ended.how==="part_exchange"&&Number(x.ended.towards)>0&&!carHpAgreements.some(y=>y.part_ex_from===x.id))
+    .sort((x,y)=>x.ended.date<y.ended.date?1:-1)[0]||null;
+  const partexVal=edit?(Number(edit.part_exchange)?esc(String(edit.part_exchange)):""):(pendingPx?Number(pendingPx.ended.towards).toFixed(2):"");
+  const partexFrom=edit?(edit.part_ex_from||""):(pendingPx?pendingPx.id:"");
+  const partexNote=(!edit&&pendingPx)?`<div class="muted" style="font-size:.75rem;margin-top:.2rem">Filled in from part exchanging the ${esc(pendingPx.label||"previous car")}.</div>`:"";
   openModal(`<h2 style="margin-bottom:.3rem">Car HP details</h2>
     <p class="muted" style="margin-bottom:.9rem">A hire purchase payment is mostly paying off the car, which isn't claimable, plus interest, which is. Add your agreement and each Car HP payment is split for you: the interest goes under Interest on bank and other loans in the Tax summary. It's an estimate from the APR; your finance company's statement shows the exact interest.</p>
     ${cards||'<p class="muted">No agreements added yet.</p>'}
@@ -891,7 +912,8 @@ function openCarHpDetails(editId){
     <div class="two">
       <div class="field"><label>Name (e.g. the car)</label><input id="hp-label" value="${v("label")}" placeholder="Ford Fiesta"></div>
       <div class="field"><label>Car price (£)</label><input id="hp-price" type="number" step="0.01" min="0" value="${edit?esc(String(edit.price!=null?edit.price:edit.amount)):""}" oninput="hpFormPreview()"></div>
-      <div class="field"><label>Deposit, including any part exchange (£)</label><input id="hp-deposit" type="number" step="0.01" min="0" value="${edit&&Number(edit.deposit)?v("deposit"):""}" placeholder="0" oninput="hpFormPreview()"></div>
+      <div class="field"><label>Cash deposit (£)</label><input id="hp-deposit" type="number" step="0.01" min="0" value="${edit&&Number(edit.deposit)?v("deposit"):""}" placeholder="0" oninput="hpFormPreview()"></div>
+      <div class="field"><label>Part exchange (£)</label><input id="hp-partex" type="number" step="0.01" min="0" value="${partexVal}" placeholder="0" oninput="hpFormPreview()">${partexNote}<input type="hidden" id="hp-partex-from" value="${esc(partexFrom)}"></div>
       <div class="field"><label>APR (%)</label><input id="hp-apr" type="number" step="0.01" min="0" value="${v("apr")}" placeholder="9.9" oninput="hpFormPreview()"></div>
       <div class="field"><label>Number of monthly payments</label><input id="hp-months" type="number" step="1" min="1" max="120" value="${v("months")}" placeholder="48" oninput="hpFormPreview()"></div>
       <div class="field"><label>First monthly payment date</label><input id="hp-first" type="date" value="${v("first_payment")}"></div>
@@ -912,8 +934,8 @@ function openCarHpDetails(editId){
 function hpFormPreview(){
   const el=document.getElementById("hp-preview"); if(!el) return;
   const num=id=>{ const x=document.getElementById(id); return x&&x.value.trim()!==""?Number(x.value):NaN; };
-  const price=num("hp-price"), deposit=isNaN(num("hp-deposit"))?0:num("hp-deposit");
-  const borrowed=Math.round((price-deposit)*100)/100;
+  const price=num("hp-price"), deposit=isNaN(num("hp-deposit"))?0:num("hp-deposit"), partex=isNaN(num("hp-partex"))?0:num("hp-partex");
+  const borrowed=Math.round((price-deposit-partex)*100)/100;
   if(!(borrowed>0)){ el.textContent=""; return; }
   let txt=`Amount borrowed: £${borrowed.toFixed(2)}`;
   const apr=num("hp-apr"), months=num("hp-months"), balloon=isNaN(num("hp-balloon"))?0:num("hp-balloon");
@@ -933,11 +955,14 @@ async function storeCarHp(list){
 async function saveCarHp(){
   const g=id=>document.getElementById(id).value.trim();
   const err=document.getElementById("hp-err"); err.textContent="";
-  const price=Number(g("hp-price")), deposit=g("hp-deposit")===""?0:Number(g("hp-deposit"));
-  const a={id:g("hp-id")||("hp"+Date.now().toString(36)), label:g("hp-label")||"Car", price, deposit, amount:Math.round((price-deposit)*100)/100, apr:Number(g("hp-apr")),
+  const price=Number(g("hp-price")), deposit=g("hp-deposit")===""?0:Number(g("hp-deposit")), partex=g("hp-partex")===""?0:Number(g("hp-partex"));
+  const a={id:g("hp-id")||("hp"+Date.now().toString(36)), label:g("hp-label")||"Car", price, deposit, part_exchange:partex, part_ex_from:partex>0?(g("hp-partex-from")||null):null,
+    amount:Math.round((price-deposit-partex)*100)/100, apr:Number(g("hp-apr")),
     months:Math.round(Number(g("hp-months"))), first_payment:g("hp-first"), balloon:g("hp-balloon")===""?0:Number(g("hp-balloon"))};
+  // Editing keeps a sale or part exchange already recorded.
+  const prev=carHpAgreements.find(x=>x.id===a.id); if(prev&&prev.ended) a.ended=prev.ended;
   if(!(price>0)){ err.textContent="Enter the car's price."; return; }
-  if(!(deposit>=0&&deposit<price)){ err.textContent="The deposit must be less than the car's price. Leave it blank if you didn't pay one."; return; }
+  if(!(deposit>=0&&partex>=0&&deposit+partex<price)){ err.textContent="The cash deposit and part exchange together must be less than the car's price. Leave them blank if there weren't any."; return; }
   if(g("hp-apr")===""||!(a.apr>=0&&a.apr<100)){ err.textContent="Enter the APR from your agreement, for example 9.9."; return; }
   if(!(a.months>=1&&a.months<=120)){ err.textContent="Enter the number of monthly payments, for example 48."; return; }
   if(!/^\d{4}-\d{2}-\d{2}$/.test(a.first_payment)){ err.textContent="Enter the date of the first monthly payment."; return; }
@@ -951,6 +976,59 @@ async function deleteCarHp(id){
   if(!confirm("Remove this agreement? Its Car HP payments will count in full as not claimable again.")) return;
   const e=await storeCarHp(carHpAgreements.filter(x=>x.id!==id));
   if(e) return alert("Could not remove: "+e.message);
+  openCarHpDetails();
+}
+// Sold or part exchanged (Dale, 12 Sep 2026): Car HP payments after the date
+// stop being split for that agreement, and a part exchange's amount towards the
+// next car fills in the Part exchange box when that car's agreement is added.
+function openCarHpEnd(id,how){
+  const a=carHpAgreements.find(x=>x.id===id); if(!a) return;
+  const px=how==="part_exchange";
+  const idArg=JSON.stringify(id).replace(/'/g,"&#39;");
+  openModal(`<h2 style="margin-bottom:.3rem">${px?"Part exchanged":"Sold"}: ${esc(a.label||"Car")}</h2>
+    <p class="muted" style="margin-bottom:.9rem">Car HP payments after this date stop being counted for this agreement.${px?" The amount towards your next car fills in the Part exchange box when you add that car's agreement.":""}</p>
+    <div class="two">
+      <div class="field"><label>Date ${px?"part exchanged":"sold"}</label><input id="hpe-date" type="date"></div>
+      <div class="field"><label>${px?"Part exchange value (£)":"Sold for (£)"}</label><input id="hpe-value" type="number" step="0.01" min="0" oninput="hpEndPreview()"></div>
+      <div class="field"><label>Paid off the finance (£)${px?"":", if any"}</label><input id="hpe-settle" type="number" step="0.01" min="0" placeholder="0" oninput="hpEndPreview()"></div>
+      ${px?`<div class="field"><label>Towards the new car's deposit (£)</label><input id="hpe-towards" type="number" step="0.01" min="0" oninput="this.dataset.typed='1'"></div>`:""}
+    </div>
+    <div class="err" id="hpe-err" style="display:block;text-align:left;margin:.3rem 0"></div>
+    <div class="actions" style="margin-top:.6rem">
+      <button class="btn btn-navy btn-sm" onclick='saveCarHpEnd(${idArg},"${px?"part_exchange":"sold"}")'>Save</button>
+      <button class="btn-outline" onclick="openCarHpDetails()">Back</button>
+    </div>`);
+}
+// Towards the new car starts as the value less what paid off the finance,
+// until it's typed over.
+function hpEndPreview(){
+  const t=document.getElementById("hpe-towards"); if(!t||t.dataset.typed) return;
+  const val=Number(document.getElementById("hpe-value").value||0), settle=Number(document.getElementById("hpe-settle").value||0);
+  t.value=val>0?Math.max(0,Math.round((val-settle)*100)/100).toFixed(2):"";
+}
+async function saveCarHpEnd(id,how){
+  const a=carHpAgreements.find(x=>x.id===id); if(!a) return;
+  const px=how==="part_exchange";
+  const err=document.getElementById("hpe-err"); err.textContent="";
+  const g=k=>{ const el=document.getElementById(k); return el?el.value.trim():""; };
+  const date=g("hpe-date"), value=g("hpe-value")===""?NaN:Number(g("hpe-value")), settle=g("hpe-settle")===""?0:Number(g("hpe-settle"));
+  const towards=px?(g("hpe-towards")===""?Math.max(0,value-settle):Number(g("hpe-towards"))):0;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){ err.textContent=`Enter the date the car was ${px?"part exchanged":"sold"}.`; return; }
+  if(date<a.first_payment){ err.textContent="That date is before the first payment on this agreement."; return; }
+  if(!(value>=0)){ err.textContent=px?"Enter the part exchange value.":"Enter how much the car sold for."; return; }
+  if(!(settle>=0)){ err.textContent="Enter how much paid off the finance, or leave it blank."; return; }
+  if(px&&!(towards>=0)){ err.textContent="Enter how much went towards the new car's deposit."; return; }
+  const ended={how:px?"part_exchange":"sold", date, value:Math.round(value*100)/100, settlement:Math.round(settle*100)/100};
+  if(px) ended.towards=Math.round(towards*100)/100;
+  const e=await storeCarHp(carHpAgreements.map(x=>x.id===id?Object.assign({},x,{ended}):x));
+  if(e){ err.textContent="Could not save: "+e.message; return; }
+  openCarHpDetails();
+}
+async function undoCarHpEnd(id){
+  const a=carHpAgreements.find(x=>x.id===id); if(!a||!a.ended) return;
+  if(!confirm(`Undo the ${a.ended.how==="part_exchange"?"part exchange":"sale"} of the ${a.label||"car"}? Its later Car HP payments will be split again.`)) return;
+  const e=await storeCarHp(carHpAgreements.map(x=>{ if(x.id!==id) return x; const c=Object.assign({},x); delete c.ended; return c; }));
+  if(e) return alert("Could not save: "+e.message);
   openCarHpDetails();
 }
 

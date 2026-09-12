@@ -77,6 +77,7 @@ tbody tr:hover td{background:#f8fafc}
 .list-row{display:flex;justify-content:space-between;align-items:flex-start;gap:.8rem;padding:.9rem 0;border-bottom:1px solid #eef2f6;font-size:.92rem}
 .list-row:last-child{border-bottom:none}
 .muted{color:var(--muted);font-size:.84rem}.actions{display:flex;flex-wrap:wrap;gap:.4rem}
+.muted a{color:inherit;text-decoration:underline}
 .tabs-sub{display:inline-flex;gap:.2rem;margin-bottom:1rem;flex-wrap:wrap;background:#f1f5f9;border-radius:12px;padding:.25rem}
 .tabs-sub button{border:none;background:transparent;border-radius:9px;padding:.45rem .95rem;font-size:.82rem;font-weight:600;cursor:pointer;font-family:var(--fb);color:var(--muted);transition:background .15s,color .15s}
 .tabs-sub button:hover{color:var(--ink)}
@@ -3749,7 +3750,7 @@ function taxFigures(from,to){
   const own=(txCache||[]).filter(r=>!(r.instructor_id && r.instructor_id!==currentUserId));
   const rows=own.filter(r=>{ const d=r.transaction_date||(r.created_at||"").slice(0,10)||""; return d&&d>=from&&d<=to; });
   const heads={}; const flagged={};
-  let turnoverGross=0, refunds=0, otherInc=0, notBusiness=0, hpInterest=0, hpUncovered=0, hpInterestEntries=0;
+  let turnoverGross=0, refunds=0, otherInc=0, notBusiness=0, hpInterest=0, hpUncovered=0, hpInterestEntries=0, privateShare=0;
   rows.forEach(r=>{
     const exp=isExpense(r); const cat=r.category||r.type||"";
     const info=catInfo(cat,exp); const amt=Number(r.amount||0);
@@ -3769,6 +3770,7 @@ function taxFigures(from,to){
     if(HP_CATS.has(cat)&&!hp&&usesHpSplit()) hpUncovered++;
     // Business use % and the mileage rate take the private share off.
     const f=businessFactor(r);
+    privateShare+=amt*(1-f);
     if(hp){
       hpInterest+=hp.interest*f;
       const ih=heads.interestOnBankOtherLoans||(heads.interestOnBankOtherLoans={total:0,notClaim:0});
@@ -3787,7 +3789,8 @@ function taxFigures(from,to){
   const totClaim=totExp-totNot;
   return {from,to,own,rows,flagged,turnoverGross,refunds,turnover,otherInc,notBusiness,heads,usedHeadings,totExp,totNot,totClaim,
     hpInterest,hpUncovered,hpInterestEntries,
-    profitTax:turnover+otherInc-totClaim, profitAll:turnover+otherInc-totExp};
+    // All expenses still leaves out the private share of the car and phone.
+    profitTax:turnover+otherInc-totClaim, profitAll:turnover+otherInc-(totExp-privateShare)};
 }
 // My Tax Digital's Bridging import reads figures by cell position from its
 // SA103F template (MTD_SA103_template.xlsx, downloaded 12 Sep 2026). A CSV
@@ -3938,23 +3941,38 @@ function estimateSoleTraderTax(profit,taxYearStart){
   const c4=Math.max(0,Math.min(P,R.c4High)-R.c4Low)*R.c4Main+Math.max(0,P-R.c4High)*R.c4Upper;
   return {incomeTax:Math.round(incomeTax*100)/100,classFour:Math.round(c4*100)/100,total:Math.round(incomeTax*100)/100+Math.round(c4*100)/100};
 }
-function taxSetAsideHtml(from,to,y,profit){
+// Part way through a tax year the profit so far is scaled up to a whole year
+// at the same rate (Dale, 12 Sep 2026: £5,000 by the end of quarter 1 means
+// about £20,000 for the year), the tax is worked out on that, and the share of
+// the year gone is what should be put aside by then. Taxing the profit so far
+// as if it were the whole year showed nothing early on (under the personal
+// allowance) and then a big jump later in the year.
+function taxSetAsideHtml(y,to){
   const accr=businessType.type==="sole_accruals";
-  const cap=accr?capitalFigures(from,to):null;
-  const taxable=profit-(cap?cap.allowances-cap.charges:0);
+  const yearFrom=`${y}-04-06`, yearTo=`${y+1}-04-05`;
+  const today=new Date().toISOString().slice(0,10);
+  const upTo=[to,today,yearTo].sort()[0];
+  const day=86400000;
+  const share=Math.min(1,Math.max(1,(Date.parse(upTo)-Date.parse(yearFrom))/day+1)/((Date.parse(yearTo)-Date.parse(yearFrom))/day+1));
+  const soFar=taxFigures(yearFrom,upTo).profitTax;
+  const projected=share>=1?soFar:soFar/share;
+  const cap=accr?capitalFigures(yearFrom,upTo):null;
+  const taxable=projected-(cap?cap.allowances-cap.charges:0);
   const t=estimateSoleTraderTax(taxable,y);
+  const setAside=Math.round(t.total*share*100)/100;
   const money=n=>(n<0?"-£":"£")+Math.abs(n).toFixed(2);
   const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  const whole=share>=1;
   return `<div style="border:1px solid var(--line);border-radius:12px;padding:.8rem 1rem;margin:0 0 1.2rem">
     <h3 style="margin:0 0 .5rem">Tax to set aside (estimate)</h3>
     <div class="metric-row" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:.5rem">
-      <div class="metric"><div class="v">${money(Math.max(0,taxable))}</div><div class="l">${accr?"Taxable profit":"Profit"}</div></div>
-      <div class="metric"><div class="v">${money(t.incomeTax)}</div><div class="l">Income tax</div></div>
-      <div class="metric"><div class="v">${money(t.classFour)}</div><div class="l">Class 4 National Insurance</div></div>
-      <div class="metric"><div class="v bad">${money(t.total)}</div><div class="l">Set aside</div></div>
+      <div class="metric"><div class="v">${money(soFar)}</div><div class="l">${whole?"Profit for the year":`Profit so far (to ${fmtD(upTo)})`}</div></div>
+      ${whole?"":`<div class="metric"><div class="v">${money(projected)}</div><div class="l">Profit for the year at this rate</div></div>`}
+      <div class="metric"><div class="v">${money(t.total)}</div><div class="l">Tax for the year (estimate)</div></div>
+      ${whole?"":`<div class="metric"><div class="v bad">${money(setAside)}</div><div class="l">Set aside by ${fmtD(upTo)}</div></div>`}
     </div>
-    ${cap&&(cap.allowances||cap.charges)?`<p style="margin:0 0 .4rem;font-size:.84rem">Takes off ${money(cap.allowances)} for cars and equipment bought${cap.charges?` and adds back ${money(cap.charges)} for ones sold`:""}.</p>`:""}
-    <p class="muted" style="margin:0;font-size:.78rem;line-height:1.5">Worked out on the profit from ${fmtD(from)} to ${fmtD(to)}, as if you had no other income such as a job or pension, at England, Wales and Northern Ireland rates (Scotland's income tax rates are different). If your bill is over £1,000, HMRC usually also asks for two payments towards next year, each half of this year's bill, due 31 January and 31 July.</p>
+    <p style="margin:0 0 .4rem;font-size:.84rem">Tax for the year: income tax ${money(t.incomeTax)} and Class 4 National Insurance ${money(t.classFour)}.${cap&&(cap.allowances||cap.charges)?` It takes off ${money(cap.allowances)} for cars and equipment bought${cap.charges?` and adds back ${money(cap.charges)} for ones sold`:""}.`:""}</p>
+    <p class="muted" style="margin:0;font-size:.78rem;line-height:1.5">${whole?"":`Worked out as if you keep making profit at the same rate for the rest of the tax year: ${money(soFar)} by ${fmtD(upTo)} is about ${money(projected)} for the year. That year's tax is spread across the year, so by ${fmtD(upTo)} you'd have ${money(setAside)} of it put aside. It changes as your profit does. `}It assumes no other income such as a job or pension, and England, Wales and Northern Ireland rates (Scotland's income tax rates are different). If your bill is over £1,000, HMRC usually also asks for two payments towards next year, each half of this year's bill, due 31 January and 31 July.</p>
   </div>`;
 }
 // Cars and equipment bought and sold in a period, from Car HP details and the
@@ -4014,7 +4032,7 @@ function renderTaxSummary(){
       <div class="metric"><div class="v">${money(profitTax)}</div><div class="l">Profit (claimable expenses)</div></div>
       <div class="metric"><div class="v">${money(profitAll)}</div><div class="l">Profit (all expenses)</div></div>
     </div>
-    ${taxSetAsideHtml(from,to,y,profitTax)}
+    ${taxSetAsideHtml(y,to)}
     <table><thead><tr><th>Income</th><th style="text-align:right">Amount</th></tr></thead><tbody>
       <tr><td>Lessons, test fees and other takings</td><td style="text-align:right">${money(turnoverGross)}</td></tr>
       <tr><td>Refunds taken off</td><td style="text-align:right">${refunds?"-"+money(refunds):money(0)}</td></tr>
@@ -4026,6 +4044,10 @@ function renderTaxSummary(){
     <table><thead><tr><th>Expenses (HMRC heading)</th><th style="text-align:right">Total</th><th style="text-align:right">Not claimable</th><th style="text-align:right">Claimable</th></tr></thead><tbody>
       ${usedHeadings.map(k=>{ const h=heads[k]||{total:0,notClaim:0}; return `<tr><td>${esc(TAX_HEADINGS[k])}</td><td style="text-align:right">${money(h.total)}</td><td style="text-align:right">${h.notClaim?money(h.notClaim):"–"}</td><td style="text-align:right">${money(h.total-h.notClaim)}</td></tr>`; }).join("")}
     </tbody><tfoot><tr style="background:var(--soft);font-weight:700"><td>Total expenses</td><td style="text-align:right">${money(totExp)}</td><td style="text-align:right">${money(totNot)}</td><td style="text-align:right">${money(totClaim)}</td></tr></tfoot></table>
+    <div style="margin-top:.9rem">${[["Profit (claimable expenses)",profitTax],["Profit (all expenses)",profitAll]].map(([label,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:#fff;border-radius:12px;padding:.85rem 1rem;margin-top:.6rem">
+      <span style="font-family:var(--fb);text-transform:uppercase;font-size:.72rem;letter-spacing:.05em;font-weight:700">${label}</span>
+      <span style="font-family:var(--fm);font-size:1.05rem;font-weight:700">${money(v)}</span>
+    </div>`).join("")}</div>
     ${flagCount?`<div style="margin-top:.9rem;padding:.75rem .9rem;border-radius:12px;background:#FFF7E8;color:#92400e;font-size:.85rem">${flagCount} entr${flagCount===1?"y uses":"ies use"} an old category and ${flagCount===1?"is":"are"} counted under the heading shown in Finances: ${flagList.map(([c,n])=>`${esc(c)} (${n})`).join(", ")}. Edit an entry to move it to a current category.</div>`:""}
     ${(hpInterest||hpUncovered)?`<div style="margin-top:.9rem;padding:.75rem .9rem;border-radius:12px;background:#EFF6FF;color:#1e3a8a;font-size:.85rem;line-height:1.5">${hpInterest?`${money(hpInterest)} of your Car HP payments is interest, worked out from your Car HP details, and is counted as claimable under Interest on bank and other loans. The rest of each payment is paying off the car.`:""}${hpUncovered?` ${hpUncovered} Car HP payment${hpUncovered===1?" isn't":"s aren't"} covered by your Car HP details, so ${hpUncovered===1?"it counts":"they count"} in full as not claimable.`:""}${hpInterest&&hpInterestEntries?` You also have ${hpInterestEntries} Car HP interest entr${hpInterestEntries===1?"y":"ies"} in this period, so check the interest isn't counted twice.`:""} <a href="#" onclick="openCarHpDetails();return false">Car HP details</a></div>`:""}
     <div class="muted" style="margin-top:.9rem;font-size:.8rem;line-height:1.5">

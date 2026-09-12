@@ -383,6 +383,7 @@ tbody tr:hover td{background:#334263}
       <div id="dash-owed" class="hidden"></div>
       <div id="dash-franchise" class="hidden"></div>
       <div id="dash-company" class="hidden"></div>
+      <div id="dash-car-reminders" class="hidden"></div>
       <div class="stat-row">
         <button type="button" class="stat" onclick="goTab('pupils','active')"><strong id="n-active">–</strong><span>Active pupils</span></button>
         <button type="button" class="stat" onclick="goTab('pupils','waiting')"><strong id="n-waiting">–</strong><span>Waiting list</span></button>
@@ -455,6 +456,7 @@ tbody tr:hover td{background:#334263}
     <section id="tab-enquiries" class="hidden"><div class="panel"><h2>Website enquiries</h2><div id="enquiry-list">Loading…</div></div></section>
 
     <section id="tab-diary" class="hidden">
+      <div id="diary-car-expired" class="hidden"></div>
       <div class="panel" style="padding:0;overflow:hidden">
         <div class="d-head">
           <button class="btn-outline d-nav" onclick="shiftWeek(-1)">‹</button>
@@ -848,7 +850,9 @@ function outsideProfit(r){ const h=catInfo(r.category||r.type||"",isExpense(r)).
 //   sole_cash      sole trader, cash basis (the normal way for sole traders)
 //   sole_accruals  sole trader, traditional (accruals) accounting
 //   company        limited company: Corporation Tax and its own year end
-// dual_controls: HMRC doesn't treat a driving school car fitted with dual
+// dual_controls (always true: every driving instructor's car has dual controls,
+// Dale 12 Sep 2026, so there's no tick; dual-control cars can't use the mileage
+// rate either, GOV.UK simplified expenses): HMRC doesn't treat a driving school car fitted with dual
 // controls as a car (Capital Allowances Manual CA23510, Bourne v Auto School
 // of Motoring), so on the cash basis its whole hire purchase payment is an
 // allowable expense. Everyone else splits the payment: the interest is
@@ -868,8 +872,8 @@ function normaliseBusinessType(v,saved){
   v=v||{};
   const pct=x=>{ const n=Math.round(Number(x)); return x!==undefined&&x!==null&&x!==""&&n>=0&&n<=100?n:100; };
   const md=x=>/^\d{2}-\d{2}$/.test(x||"")?x:null;
-  return {type:BUSINESS_TYPES[v.type]?v.type:"sole_cash",dual_controls:v.dual_controls!==false,year_end:md(v.year_end)||"03-31",
-    car_pct:pct(v.car_pct),phone_pct:pct(v.phone_pct),car_costs:v.car_costs==="mileage"?"mileage":"actual",
+  return {type:BUSINESS_TYPES[v.type]?v.type:"sole_cash",dual_controls:true,year_end:md(v.year_end)||"03-31",
+    car_pct:pct(v.car_pct),phone_pct:pct(v.phone_pct),car_costs:"actual",
     cs_date:md(v.cs_date),saved:!!saved};
 }
 async function loadBusinessType(){
@@ -919,10 +923,8 @@ function applyBusinessTypeUi(){
   if(card){
     const t=businessType, bits=[];
     if(co) bits.push(`Year end ${fmtYearEnd(t.year_end)}`);
-    bits.push(t.dual_controls?"Dual controls fitted":"No dual controls");
     if(!co&&t.car_pct<100) bits.push(`Car ${t.car_pct}% business`);
     if(!co&&t.phone_pct<100) bits.push(`Phone ${t.phone_pct}% business`);
-    if(!co&&t.car_costs==="mileage") bits.push("Mileage rate");
     card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:.9rem">
       <div><div class="muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Business type</div>
         <div style="font-weight:700;margin:.1rem 0">${esc(BUSINESS_TYPES[t.type].label)}</div>
@@ -932,7 +934,8 @@ function applyBusinessTypeUi(){
   renderCompanyDeadlines();
 }
 function carHpIntro(){
-  const auto="Add each car with its finance, insurance and car tax. Tick Add automatically and each payment goes into your expenses on the day it leaves your bank, or the next working day if that's a weekend or bank holiday.";
+  const auto="Add each car with its finance, insurance, car tax and MOT. Tick Add automatically and each payment goes into your expenses on the day it leaves your bank, or the next working day if that's a weekend or bank holiday. MOT, car tax and insurance renewals remind you from 30 days before."
+    +(isSchoolAdminUser&&currentSchoolId?" Give a car to one of your instructors and they see its dates and get the reminders too.":"");
   if(!usesHpSplit()) return auto;
   const how=" Each Car HP payment is also split into interest and paying off the car, worked out from the APR (your finance company's statement shows the exact interest).";
   if(isCompany()) return auto+" For a limited company only the interest in a hire purchase payment is an expense; the car's price is claimed as a capital allowance at the year end."+how;
@@ -961,6 +964,8 @@ async function loadCarHp(){
     carHpAgreements=Array.isArray(data&&data.value&&data.value.agreements)?data.value.agreements:[];
     bankHolidays=new Set((hols||[]).map(h=>h.holiday));
   }catch(e){ carHpAgreements=[]; }
+  await loadSchoolCarsForMe();
+  renderCarReminders();
 }
 // The day a payment actually leaves the bank: a weekend or England and Wales
 // bank holiday moves it to the next working day (same rule as next_working_day in the database).
@@ -1040,19 +1045,60 @@ function claimablePart(r){
 function notClaimablePart(r){ return Math.round((Number(r.amount||0)-claimablePart(r))*100)/100; }
 function hpTaxYear(iso){ const y=Number(iso.slice(0,4)); return iso.slice(5)>="04-06"?y:y-1; }
 // --- Your cars (Dale, 12 Sep 2026) -----------------------------------------
-// Each car with its finance, insurance and car tax. Payments ticked "Add
-// automatically" are added to the owner's expenses by the database every
-// morning (run_car_auto_expenses), dated the day they leave the bank: the next
-// working day when one is due on a weekend or bank holiday. Saved as extra
-// fields on each car in app_settings "car_hp": reg, has_finance,
-// monthly_payment, finance_auto, insurance {every,amount,start,auto},
-// car_tax {every,amount,start,auto}.
-function carFinanceOn(a){ return !!a && a.has_finance!==false && /^\d{4}-\d{2}-\d{2}$/.test(a.first_payment||"") && Number(a.months)>0; }
+// Each car with its finance (hire purchase, PCP or lease), insurance, car tax
+// and MOT. Payments ticked "Add automatically" are added to the owner's
+// expenses by the database every morning (run_car_auto_expenses), dated the
+// day they leave the bank: the next working day when due on a weekend or bank
+// holiday. MOT, car tax and insurance renewal dates give reminders from 30 days
+// before until Done is pressed. Saved as fields on each car in app_settings
+// "car_hp": reg, finance_type, has_finance, monthly_payment, finance_auto,
+// lease_initial, lease_includes, insurance {pay, company, renewal, amount,
+// deposit, deposit_date, instalments, first_date, first_amount, last_amount,
+// auto}, car_tax {every, amount, start, renewal, auto}, mot {due},
+// reminders_done {"kind:due": when}.
+const FINANCE_TYPES={hp:"Hire purchase",pcp:"PCP",lease:"Lease (contract hire)",none:"Owned outright"};
+const ISO_DATE=/^\d{4}-\d{2}-\d{2}$/;
+function carFinanceType(a){
+  if(!a) return "none";
+  if(FINANCE_TYPES[a.finance_type]) return a.finance_type;
+  return a.has_finance===false||!a.first_payment?"none":"hp";
+}
+// Hire purchase or PCP: the car is being bought (capital allowances, interest split).
+function carFinanceOn(a){ const t=carFinanceType(a); return (t==="hp"||t==="pcp")&&ISO_DATE.test(a.first_payment||"")&&Number(a.months)>0; }
+function carLeaseOn(a){ return carFinanceType(a)==="lease"&&ISO_DATE.test(a.first_payment||"")&&Number(a.months)>0; }
+function carLeaseIncludes(a,kind){ return carFinanceType(a)==="lease"&&!!(a.lease_includes&&a.lease_includes[kind]); }
+// Insurance in the current shape; older cars saved {every, amount, start}.
+function carInsurance(a){
+  const c=a&&a.insurance; if(!c) return null;
+  if(c.pay==="yearly"||c.pay==="monthly") return c;
+  if(!Number(c.every)) return null;
+  return Number(c.every)===12
+    ?{pay:"yearly",renewal:c.start,amount:c.amount,auto:c.auto}
+    :{pay:"monthly",first_date:c.start,instalments:12,amount:c.amount,auto:c.auto};
+}
+// Every payment of the current insurance policy, with the day each leaves the bank.
+function insurancePayments(ins){
+  const out=[];
+  if(!ins) return out;
+  if(ins.pay==="yearly"){
+    if(ISO_DATE.test(ins.renewal||"")&&Number(ins.amount)>0) out.push({nominal:ins.renewal,amount:Number(ins.amount),what:"yearly payment"});
+  } else {
+    if(Number(ins.deposit)>0&&ISO_DATE.test(ins.deposit_date||"")) out.push({nominal:ins.deposit_date,amount:Number(ins.deposit),what:"deposit"});
+    const n=Math.max(1,Math.min(12,Math.round(Number(ins.instalments)||12)));
+    if(ISO_DATE.test(ins.first_date||"")&&Number(ins.amount)>0){
+      for(let k=0;k<n;k++){
+        const amount=k===0&&Number(ins.first_amount)>0?Number(ins.first_amount):k===n-1&&Number(ins.last_amount)>0?Number(ins.last_amount):Number(ins.amount);
+        out.push({nominal:hpAddMonths(ins.first_date,k),amount,what:`payment ${k+1} of ${n}`});
+      }
+    }
+  }
+  return out.map(p=>Object.assign(p,{paid:nextWorkingDay(p.nominal)})).sort((x,y)=>x.paid<y.paid?-1:1);
+}
 // Where a regular payment stands today: how many have left the bank, the next one, and the last one.
 function carPaymentProgress(start,every,times,endedIso){
   const today=new Date().toISOString().slice(0,10);
   let made=0, next=null;
-  if(/^\d{4}-\d{2}-\d{2}$/.test(start||"")&&every>0){
+  if(ISO_DATE.test(start||"")&&every>0){
     for(let k=0;k<(times||1200);k++){
       const nominal=hpAddMonths(start,k*every);
       if(endedIso&&nominal>endedIso) break;
@@ -1061,10 +1107,108 @@ function carPaymentProgress(start,every,times,endedIso){
       next={k,paid}; break;
     }
   }
-  const last=times&&start?nextWorkingDay(hpAddMonths(start,(times-1)*every)):null;
+  const last=times&&ISO_DATE.test(start||"")?nextWorkingDay(hpAddMonths(start,(times-1)*every)):null;
   return {made,next,last};
 }
 function ordinalDay(n){ const s=["th","st","nd","rd"], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+
+// Reminders: MOT due, car tax renewal and insurance renewal, from 30 days
+// before until Done is pressed (a car that's been sold or part exchanged has none).
+const REMINDER_LABELS={mot:"MOT",car_tax:"Car tax",insurance:"Insurance renewal"};
+// School cars (Dale, 12 Sep 2026): a driving school's cars can be given to one
+// of its instructors (driver_id / driver_name). That instructor sees the car's
+// MOT, car tax and insurance dates and reminders (my_school_cars); the school
+// pays for it and presses Done.
+let schoolCarsForMe=[];
+async function loadSchoolCarsForMe(){
+  schoolCarsForMe=[];
+  if(!currentSchoolId||isSchoolAdminUser) return;
+  try{ const {data,error}=await sb.rpc("my_school_cars"); if(!error&&Array.isArray(data)) schoolCarsForMe=data; }catch(e){}
+}
+function carReminderDue(a,kind){
+  if(kind==="mot") return a.mot&&a.mot.due;
+  if(kind==="car_tax") return a.car_tax&&a.car_tax.renewal;
+  return (carInsurance(a)||{}).renewal;
+}
+function carReminders(){
+  const today=new Date().toISOString().slice(0,10);
+  const out=[];
+  (carHpAgreements||[]).map(a=>({a,readOnly:false})).concat((schoolCarsForMe||[]).map(a=>({a,readOnly:true}))).forEach(({a,readOnly})=>{
+    if(a.ended&&a.ended.date) return;
+    const done=a.reminders_done||{};
+    ["mot","car_tax","insurance"].forEach(kind=>{
+      const due=carReminderDue(a,kind);
+      if(!ISO_DATE.test(due||"")||done[`${kind}:${due}`]) return;
+      if(kind!=="mot"&&carLeaseIncludes(a,kind)) return;
+      const days=Math.round((Date.parse(due)-Date.parse(today))/86400000);
+      if(days>30) return;
+      out.push({car:a,kind,due,days,readOnly,name:`${readOnly?"the school's ":""}${a.label||"Car"}${a.reg?" "+a.reg:""}${!readOnly&&a.driver_name&&a.driver_name!=="You"?` (${a.driver_name})`:""}`});
+    });
+  });
+  return out.sort((x,y)=>x.days-y.days);
+}
+function renderCarReminders(){
+  const list=carReminders();
+  const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  const text=r=>{
+    const what=`${REMINDER_LABELS[r.kind]} for ${esc(r.name)}`;
+    if(r.days<0) return `<strong>${what} expired on ${fmtD(r.due)}</strong>`;
+    if(r.days===0) return `<strong>${what} is due today</strong>`;
+    return `${what} is due on ${fmtD(r.due)} (${r.days} day${r.days===1?"":"s"})`;
+  };
+  const row=r=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.35rem 0;flex-wrap:wrap"><span style="flex:1;min-width:200px">${r.days<0?"⚠️":"🔔"} ${text(r)}</span>${r.readOnly?'<span class="muted" style="font-size:.8rem">Your school marks it done</span>':`<button class="btn-outline btn-sm" onclick='carReminderDone(${JSON.stringify(r.car.id).replace(/'/g,"&#39;")},"${r.kind}")'>Done</button>`}</div>`;
+  const dash=document.getElementById("dash-car-reminders");
+  if(dash){
+    if(list.length){
+      dash.className="panel";
+      dash.style.cssText=`margin-bottom:1rem;border-left:4px solid ${list.some(r=>r.days<0)?"#dc2626":"#d97706"}`;
+      dash.innerHTML=`<h2 style="margin-bottom:.4rem">Car reminders</h2>${list.map(row).join("")}`;
+    } else { dash.className="hidden"; dash.innerHTML=""; }
+  }
+  const diary=document.getElementById("diary-car-expired");
+  const expired=list.filter(r=>r.days<0);
+  if(diary){
+    if(expired.length){
+      diary.className="panel";
+      diary.style.cssText="margin-bottom:1rem;border-left:4px solid #dc2626;background:rgba(220,38,38,.12)";
+      diary.innerHTML=`<h2 style="margin-bottom:.4rem;color:#dc2626">Expired</h2>${expired.map(row).join("")}`;
+    } else { diary.className="hidden"; diary.innerHTML=""; }
+  }
+}
+function carReminderDone(carId,kind){
+  const a=carHpAgreements.find(x=>x.id===carId); if(!a) return;
+  const due=carReminderDue(a,kind); if(!ISO_DATE.test(due||"")) return;
+  const idArg=JSON.stringify(carId).replace(/'/g,"&#39;");
+  const next=addMonthsIso(due,12);
+  const label=REMINDER_LABELS[kind];
+  const after=kind==="insurance"?"Your cars opens next so you can update the new insurance payments."
+    :kind==="car_tax"?"If the car tax amount has changed, update it in Your cars.":"";
+  openModal(`<h2 style="margin-bottom:.3rem">${label} done: ${esc(a.label||"Car")}</h2>
+    <p class="muted" style="margin-bottom:.9rem">The reminder stops. ${after}</p>
+    <div class="field" style="max-width:280px"><label>${kind==="mot"?"Next MOT due":kind==="car_tax"?"Next car tax renewal":"Next insurance renewal"}</label><input id="rem-next" type="date" value="${next}"></div>
+    <div class="err" id="rem-err" style="display:block;text-align:left;margin:.3rem 0"></div>
+    <div class="actions" style="margin-top:.6rem">
+      <button class="btn btn-navy btn-sm" onclick='saveCarReminderDone(${idArg},"${kind}")'>Save</button>
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+async function saveCarReminderDone(carId,kind){
+  const a=carHpAgreements.find(x=>x.id===carId); if(!a) return;
+  const err=document.getElementById("rem-err"); err.textContent="";
+  const next=(document.getElementById("rem-next").value||"").trim();
+  const due=carReminderDue(a,kind);
+  if(!ISO_DATE.test(next)||next<=due){ err.textContent="Enter the next date, after the one just done."; return; }
+  const c=JSON.parse(JSON.stringify(a));
+  c.reminders_done=Object.assign({},c.reminders_done,{[`${kind}:${due}`]:new Date().toISOString()});
+  if(kind==="mot") c.mot=Object.assign({},c.mot,{due:next});
+  else if(kind==="car_tax") c.car_tax=Object.assign({},c.car_tax,{renewal:next});
+  else c.insurance=Object.assign({},carInsurance(c),{renewal:next});
+  const e=await storeCarHp(carHpAgreements.map(x=>x.id===carId?c:x));
+  if(e){ err.textContent="Could not save: "+e.message; return; }
+  closeModal();
+  if(kind==="insurance") openCarHpDetails(carId);
+}
+
 function openCarHpDetails(editId,opts){
   const edit=editId?carHpAgreements.find(a=>a.id===editId):null;
   // The form only shows after + Add a car or Edit, at the top where it can't get lost below the cars.
@@ -1072,41 +1216,62 @@ function openCarHpDetails(editId,opts){
   const split=usesHpSplit();
   const money=v=>"£"+Number(v||0).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  const today=new Date().toISOString().slice(0,10);
   const hpRows=(txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId)&&isExpense(r)&&HP_CATS.has(r.category||""));
   const uncovered=split?hpRows.filter(r=>!hpSplit(r)).length:0;
   const everyText={1:"a month",6:"every 6 months",12:"a year"};
   const autoChip=on=>on?' <span class="chip chip-ok">Added automatically</span>':' <span class="chip chip-info">Not added automatically</span>';
-  const sortKey=a=>a.start_date||a.first_payment||(a.insurance&&a.insurance.start)||"";
+  const sortKey=a=>a.start_date||a.first_payment||"";
+  const reminders=carReminders().filter(r=>!r.readOnly);
+  // An instructor driving one of the school's cars sees its dates (the school looks after the rest).
+  const schoolCarsHtml=(schoolCarsForMe||[]).length?`<h3 style="margin:.2rem 0 .5rem">Your school's car${schoolCarsForMe.length===1?"":"s"}</h3>${schoolCarsForMe.map(c=>{
+      const ins=carInsurance(c);
+      const bits=[c.mot&&c.mot.due?`MOT due ${fmtD(c.mot.due)}`:"",c.car_tax&&c.car_tax.renewal&&!carLeaseIncludes(c,"car_tax")?`car tax renews ${fmtD(c.car_tax.renewal)}`:"",ins&&ins.renewal&&!carLeaseIncludes(c,"insurance")?`insurance${ins.company?" ("+esc(ins.company)+")":""} renews ${fmtD(ins.renewal)}`:""].filter(Boolean);
+      return `<div style="border:1px solid var(--line);border-radius:12px;padding:.65rem .9rem;margin-bottom:.6rem"><strong>${esc(c.label||"Car")}</strong>${c.reg?` <span class="muted">${esc(c.reg)}</span>`:""}<p class="muted" style="margin:.3rem 0 0">${bits.length?bits.join(" · "):"No dates added yet."} Your school pays for this car and keeps its details up to date.</p></div>`;
+    }).join("")}<h3 style="margin:1rem 0 .5rem">Your own cars</h3>`:"";
   // Newest car first.
   const cards=carHpAgreements.slice().sort((x,y)=>sortKey(x)<sortKey(y)?1:-1).map(a=>{
     const idArg=JSON.stringify(a.id).replace(/'/g,"&#39;");
     const ended=a.ended&&a.ended.date?a.ended:null;
+    const ftype=carFinanceType(a);
     const endBtns=ended
       ?`<button class="btn-outline" onclick='undoCarHpEnd(${idArg})'>Undo ${ended.how==="part_exchange"?"part exchange":"sale"}</button>`
       :`<button class="btn-outline" onclick='openCarHpEnd(${idArg},"sold")'>Sold</button><button class="btn-outline" onclick='openCarHpEnd(${idArg},"part_exchange")'>Part exchanged</button>`;
     const actions=`<div class="actions" style="margin-top:.5rem"><button class="btn-outline" onclick='openCarHpDetails(${idArg})'>Edit</button>${endBtns}<button class="btn-danger" onclick='deleteCarHp(${idArg})'>Remove</button></div>`;
     const lines=[];
-    if(carFinanceOn(a)){
-      const months=Math.round(Number(a.months)), monthly=Number(a.monthly_payment)||0, balloon=Number(a.balloon||0);
+    if(carFinanceOn(a)||carLeaseOn(a)){
+      const lease=ftype==="lease", months=Math.round(Number(a.months)), monthly=Number(a.monthly_payment)||0, balloon=lease?0:Number(a.balloon||0);
       const p=carPaymentProgress(a.first_payment,1,months,ended&&ended.date);
       const left=ended?0:Math.max(0,months-p.made);
-      const leftToPay=left*monthly+(left>0?balloon:0);
-      const priceText=Number(a.price)?`${money(a.price)} car${Number(a.deposit)?`, ${money(a.deposit)} deposit`:""}${Number(a.part_exchange)?`, ${money(a.part_exchange)} part exchange`:""} · `:"";
-      lines.push(`<p style="margin:.4rem 0 .15rem"><strong>Finance:</strong> ${priceText}${monthly?`${money(monthly)} a month`:"monthly payment not added"} on the ${ordinalDay(Number(a.first_payment.slice(8,10)))}${balloon?` (last payment ${money(monthly+balloon)})`:""}${ended?"":autoChip(a.finance_auto)}</p>`);
+      const leftToPay=left*monthly+(left>0&&ftype==="hp"?balloon:0);
+      const priceText=!lease&&Number(a.price)?`${money(a.price)} car${Number(a.deposit)?`, ${money(a.deposit)} deposit`:""}${Number(a.part_exchange)?`, ${money(a.part_exchange)} part exchange`:""} · `:"";
+      const extra=ftype==="hp"&&balloon?` (last payment ${money(monthly+balloon)})`:ftype==="pcp"&&balloon?` · optional final payment ${money(balloon)}`:lease&&Number(a.lease_initial)?` · initial payment ${money(a.lease_initial)}`:"";
+      const incl=lease&&a.lease_includes?["insurance","car_tax","servicing"].filter(k=>a.lease_includes[k]).map(k=>({insurance:"insurance",car_tax:"car tax",servicing:"servicing"})[k]):[];
+      lines.push(`<p style="margin:.4rem 0 .15rem"><strong>${FINANCE_TYPES[ftype]}:</strong> ${priceText}${monthly?`${money(monthly)} a month`:"monthly payment not added"} on the ${ordinalDay(Number(a.first_payment.slice(8,10)))}${extra}${ended?"":autoChip(a.finance_auto)}</p>`);
       lines.push(`<p class="muted" style="margin:0 0 .3rem">${ended
         ?`${p.made} of ${months} payments made before the ${ended.how==="part_exchange"?"part exchange":"sale"}`
-        :`${p.made} of ${months} payments made · ${left} left${monthly?` · ${money(leftToPay)} left to pay`:""}${p.last?` · last payment ${fmtD(p.last)}`:""}${p.next?` · next ${fmtD(p.next.paid)}`:""}`}</p>`);
+        :`${p.made} of ${months} payments made · ${left} left${monthly?` · ${money(leftToPay)} left to pay`:""}${p.last?` · last payment ${fmtD(p.last)}`:""}${p.next?` · next ${fmtD(p.next.paid)}`:""}`}${incl.length?` · includes ${incl.join(", ")}`:""}</p>`);
     }
-    [["insurance","Insurance"],["car_tax","Car tax"]].forEach(([kind,name])=>{
-      const c=a[kind]; if(!c||!Number(c.every)) return;
-      const p=carPaymentProgress(c.start,Number(c.every),null,ended&&ended.date);
-      lines.push(`<p style="margin:.25rem 0"><strong>${name}:</strong> ${money(c.amount)} ${everyText[c.every]||""}${!ended&&p.next?` · next ${fmtD(p.next.paid)}`:""}${ended?"":autoChip(c.auto)}</p>`);
-    });
-    if(!lines.length) lines.push('<p class="muted" style="margin:.4rem 0">No finance, insurance or car tax added yet. Press Edit to add them.</p>');
+    const ins=carInsurance(a);
+    if(carLeaseIncludes(a,"insurance")) lines.push('<p style="margin:.25rem 0"><strong>Insurance:</strong> included in the lease</p>');
+    else if(ins){
+      const pays=insurancePayments(ins), next=pays.find(p=>p.paid>=today);
+      const how=ins.pay==="yearly"?`${money(ins.amount)} a year`:`${money(ins.amount)} a month for ${Math.round(Number(ins.instalments)||12)} months${Number(ins.first_amount)?` (first ${money(ins.first_amount)})`:""}${Number(ins.last_amount)?` (last ${money(ins.last_amount)})`:""}${Number(ins.deposit)?`, ${money(ins.deposit)} deposit`:""}`;
+      lines.push(`<p style="margin:.25rem 0"><strong>Insurance:</strong> ${ins.company?esc(ins.company)+" · ":""}${how}${ins.renewal?` · renews ${fmtD(ins.renewal)}`:""}${!ended&&next?` · next: ${next.what} on ${fmtD(next.paid)}`:""}${ended?"":autoChip(ins.auto)}</p>`);
+    }
+    const tax=a.car_tax;
+    if(carLeaseIncludes(a,"car_tax")) lines.push('<p style="margin:.25rem 0"><strong>Car tax:</strong> included in the lease</p>');
+    else if(tax&&(Number(tax.every)||tax.renewal)){
+      const p=Number(tax.every)?carPaymentProgress(tax.start,Number(tax.every),null,ended&&ended.date):{next:null};
+      lines.push(`<p style="margin:.25rem 0"><strong>Car tax:</strong> ${Number(tax.every)?`${money(tax.amount)} ${everyText[tax.every]||""}`:"payments not added"}${tax.renewal?` · renews ${fmtD(tax.renewal)}`:""}${!ended&&p.next?` · next ${fmtD(p.next.paid)}`:""}${ended||!Number(tax.every)?"":autoChip(tax.auto)}</p>`);
+    }
+    if(a.mot&&ISO_DATE.test(a.mot.due||"")) lines.push(`<p style="margin:.25rem 0"><strong>MOT:</strong> due ${fmtD(a.mot.due)}</p>`);
+    reminders.filter(r=>r.car.id===a.id).forEach(r=>lines.push(`<div style="margin:.35rem 0;padding:.45rem .6rem;border-radius:10px;font-size:.85rem;background:${r.days<0?"rgba(220,38,38,.12)":"rgba(217,119,6,.12)"}">${r.days<0?"⚠️":"🔔"} ${REMINDER_LABELS[r.kind]} ${r.days<0?`expired on ${fmtD(r.due)}`:r.days===0?"due today":`due in ${r.days} day${r.days===1?"":"s"}`} <button class="btn-outline btn-sm" style="margin-left:.4rem" onclick='carReminderDone(${idArg},"${r.kind}")'>Done</button></div>`));
+    if(!lines.length) lines.push('<p class="muted" style="margin:.4rem 0">No finance, insurance, car tax or MOT added yet. Press Edit to add them.</p>');
     const endedText=!ended?"":ended.how==="part_exchange"
       ?`Part exchanged on ${fmtD(ended.date)} for ${money(ended.value)}: ${money(ended.settlement)} cleared this finance and ${money(ended.towards)} went towards the next car.${businessType.type==="sole_cash"?" On the cash basis that comes to £0 for your profit, so nothing needs adding to your Finances.":""}`
       :`Sold on ${fmtD(ended.date)} for ${money(ended.value)}${Number(ended.settlement)?`, with ${money(ended.settlement)} clearing the finance`:""}.`;
-    // The interest split only matters for traditional accounting, companies and cars without dual controls.
+    // The interest split only matters for traditional accounting and companies.
     let interestHtml="";
     if(split&&carFinanceOn(a)){
       const s=a.apr!=null&&a.apr!==""?hpSchedule(a):null;
@@ -1126,7 +1291,7 @@ function openCarHpDetails(editId,opts){
       }
     }
     return `<div style="border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem;margin-bottom:.6rem">
-      <strong>${esc(a.label||"Car")}</strong>${a.reg?` <span class="muted">${esc(a.reg)}</span>`:""}${ended?` <span class="chip chip-wait">${ended.how==="part_exchange"?"Part exchanged":"Sold"}</span>`:""}
+      <strong>${esc(a.label||"Car")}</strong>${a.reg?` <span class="muted">${esc(a.reg)}</span>`:""}${a.driver_name&&isSchoolAdminUser&&currentSchoolId?` <span class="chip chip-info">Driven by ${esc(a.driver_name)}</span>`:""}${ended?` <span class="chip chip-wait">${ended.how==="part_exchange"?"Part exchanged":"Sold"}</span>`:""}
       ${lines.join("")}
       ${endedText?`<p style="margin:.3rem 0;font-size:.86rem">${endedText}</p>`:""}
       ${interestHtml}
@@ -1134,6 +1299,7 @@ function openCarHpDetails(editId,opts){
     </div>`;
   }).join("");
   const v=(k,d)=>edit&&edit[k]!==undefined&&edit[k]!==null?esc(String(edit[k])):(d||"");
+  const vv=(val)=>val!==undefined&&val!==null&&val!==""?esc(String(val)):"";
   // A part exchange waiting to go towards the next car: the latest car marked
   // part exchanged whose amount no other car has used yet. Editing a car that
   // was added before the part exchange into it was recorded fills it in too.
@@ -1146,43 +1312,72 @@ function openCarHpDetails(editId,opts){
   const partexVal=pendingPx?Number(pendingPx.ended.towards).toFixed(2):(edit&&Number(edit.part_exchange)?esc(String(edit.part_exchange)):"");
   const partexFrom=pendingPx?pendingPx.id:(edit?(edit.part_ex_from||""):"");
   const partexNote=pendingPx?`<div class="muted" style="font-size:.75rem;margin-top:.2rem">Filled in from part exchanging the ${esc(pendingPx.label||"previous car")}.${edit?" Adjust the car price or cash deposit so the amount borrowed still matches your agreement.":""}</div>`:"";
-  const finOn=edit?(carFinanceOn(edit)||edit.has_finance===true):true;
-  const ins=(edit&&edit.insurance)||{}, tax=(edit&&edit.car_tax)||{};
-  const sel=(id,opts,val)=>`<select id="${id}" onchange="carFormToggle()">${opts.map(([o,l])=>`<option value="${o}" ${String(Number(val)||0)===String(o)?"selected":""}>${l}</option>`).join("")}</select>`;
-  const tick=(id,on,text,cls)=>`<label class="${cls||""}" style="display:flex;gap:.5rem;align-items:center;font-weight:normal;margin:.2rem 0 .4rem"><input type="checkbox" id="${id}" ${on?"checked":""}> ${text}</label>`;
-  const regular=(p,c,label,opts)=>`<div class="two">
-      <div class="field"><label>How you pay</label>${sel(p+"-every",opts,c.every)}</div>
-      <div class="field ${p}-on"><label>Amount (£)</label><input id="${p}-amount" type="number" step="0.01" min="0" value="${Number(c.amount)?esc(String(c.amount)):""}"></div>
-      <div class="field ${p}-on"><label>First or next payment date</label><input id="${p}-start" type="date" value="${esc(c.start||"")}"><div class="muted" style="font-size:.75rem;margin-top:.2rem">Later ${label} payments come out on the same day.</div></div>
-    </div>
-    ${tick(p+"-auto",c.every?!!c.auto:true,"Add each payment to my expenses automatically",p+"-on")}`;
+  const ftype=edit?carFinanceType(edit):"hp";
+  const ins=(edit&&carInsurance(edit))||{}, tax=(edit&&edit.car_tax)||{}, incl=(edit&&edit.lease_includes)||{};
+  const select=(id,opts,val)=>`<select id="${id}" onchange="carFormToggle()">${opts.map(([o,l])=>`<option value="${o}" ${String(val)===String(o)?"selected":""}>${l}</option>`).join("")}</select>`;
+  const tick=(id,on,text,cls,change)=>`<label class="${cls||""}" style="display:flex;gap:.5rem;align-items:center;font-weight:normal;margin:.2rem 0 .4rem"><input type="checkbox" id="${id}" ${on?"checked":""}${change?' onchange="carFormToggle()"':""}> ${text}</label>`;
+  const field=(label,input,cls,hint)=>`<div class="field ${cls||""}"><label>${label}</label>${input}${hint?`<div class="muted" style="font-size:.75rem;margin-top:.2rem">${hint}</div>`:""}</div>`;
+  const num=(id,val,extra)=>`<input id="${id}" type="number" step="0.01" min="0" value="${val}"${extra||""}>`;
+  const date=(id,val,extra)=>`<input id="${id}" type="date" value="${esc(val||"")}"${extra||""}>`;
   const formHtml=`<div style="border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem;margin-bottom:.9rem">
     <h3 style="margin:0 0 .5rem">${edit?`Edit ${esc(edit.label||"car")}`:"Add a car"}</h3>
     <div class="two">
-      <div class="field"><label>Car</label><input id="hp-label" value="${v("label")}" placeholder="Ford Fiesta"></div>
-      <div class="field"><label>Registration (optional)</label><input id="hp-reg" value="${v("reg")}" placeholder="AB12 CDE"></div>
-      <div class="field"><label>Date you got the car (optional)</label><input id="hp-start" type="date" value="${v("start_date")}" onchange="hpFormPreview()"></div>
+      ${field("Car",`<input id="hp-label" value="${v("label")}" placeholder="Ford Fiesta">`)}
+      ${field("Registration (optional)",`<input id="hp-reg" value="${v("reg")}" placeholder="AB12 CDE">`)}
+      ${field("Date you got the car (optional)",date("hp-start",edit&&edit.start_date,' onchange="hpFormPreview()"'))}
+      ${field("MOT due date (optional)",date("hp-mot",edit&&edit.mot&&edit.mot.due),"","You'll get a reminder from 30 days before.")}
+      ${isSchoolAdminUser&&currentSchoolId?field("Driven by (optional)",`<select id="hp-driver"><option value="">Not given to an instructor</option>${[{id:currentUserId,full_name:"You"}].concat((schoolInstructorsCache||[]).filter(i=>i.id!==currentUserId)).map(i=>`<option value="${esc(i.id)}" ${edit&&edit.driver_id===i.id?"selected":""}>${esc(i.full_name||i.email||"Instructor")}</option>`).join("")}</select>`,"","The instructor with this car sees its MOT, car tax and insurance dates and gets the reminders too."):""}
     </div>
     <h4 style="margin:1rem 0 .3rem">Finance</h4>
-    ${tick("hp-has-finance",finOn,"This car is on finance (hire purchase)").replace('type="checkbox"','type="checkbox" onchange="carFormToggle()"')}
-    <div id="hp-finance-wrap">
+    <div class="two">${field("How the car is paid for",select("hp-type",Object.entries(FINANCE_TYPES),ftype))}</div>
+    <div class="fin-any">
       <div class="two">
-        <div class="field"><label>Car price (£)</label><input id="hp-price" type="number" step="0.01" min="0" value="${edit&&carFinanceOn(edit)?esc(String(edit.price!=null?edit.price:edit.amount)):""}" oninput="hpFormPreview()"></div>
-        <div class="field"><label>Cash deposit (£)</label><input id="hp-deposit" type="number" step="0.01" min="0" value="${edit&&Number(edit.deposit)?v("deposit"):""}" placeholder="0" oninput="hpFormPreview()"></div>
-        <div class="field"><label>Part exchange (£)</label><input id="hp-partex" type="number" step="0.01" min="0" value="${partexVal}" placeholder="0" oninput="hpFormPreview()">${partexNote}<input type="hidden" id="hp-partex-from" value="${esc(partexFrom)}"></div>
-        <div class="field"><label>Monthly payment (£)</label><input id="hp-monthly" type="number" step="0.01" min="0" value="${edit&&Number(edit.monthly_payment)?v("monthly_payment"):""}" oninput="hpFormPreview()"></div>
-        <div class="field"><label>Number of monthly payments</label><input id="hp-months" type="number" step="1" min="1" max="120" value="${edit&&Number(edit.months)?v("months"):""}" placeholder="48" oninput="hpFormPreview()"></div>
-        <div class="field"><label>First payment date</label><input id="hp-first" type="date" value="${v("first_payment")}" onchange="hpFormPreview()"><div class="muted" style="font-size:.75rem;margin-top:.2rem">Your Direct Debit comes out on this day each month.</div></div>
-        <div class="field"><label>Extra on the last payment, if any (£)</label><input id="hp-balloon" type="number" step="0.01" min="0" value="${edit&&Number(edit.balloon)?v("balloon"):""}" oninput="hpFormPreview()"></div>
-        <div class="field"><label>APR (%)${split?"":" (optional)"}</label><input id="hp-apr" type="number" step="0.01" min="0" value="${v("apr")}" placeholder="9.9" oninput="hpFormPreview()"></div>
+        ${field("Car price (£)",num("hp-price",edit&&carFinanceOn(edit)?vv(edit.price!=null?edit.price:edit.amount):"",' oninput="hpFormPreview()"'),"fin-buy")}
+        ${field("Cash deposit (£)",num("hp-deposit",edit&&Number(edit.deposit)?v("deposit"):"",' placeholder="0" oninput="hpFormPreview()"'),"fin-buy")}
+        ${field("Part exchange (£)",num("hp-partex",partexVal,' placeholder="0" oninput="hpFormPreview()"')+partexNote+`<input type="hidden" id="hp-partex-from" value="${esc(partexFrom)}">`,"fin-buy")}
+        ${field(`<span class="fin-buy">Monthly payment (£)</span><span class="fin-lease">Monthly rental (£)</span>`,num("hp-monthly",edit&&Number(edit.monthly_payment)?v("monthly_payment"):"",' oninput="hpFormPreview()"'))}
+        ${field("Number of monthly payments",`<input id="hp-months" type="number" step="1" min="1" max="120" value="${edit&&Number(edit.months)?v("months"):""}" placeholder="48" oninput="hpFormPreview()">`)}
+        ${field("First payment date",date("hp-first",edit&&edit.first_payment,' onchange="hpFormPreview()"'),"","Your Direct Debit comes out on this day each month.")}
+        ${field(`<span class="fin-hp">Extra on the last payment, if any (£)</span><span class="fin-pcp">Optional final payment, if you keep the car (£)</span>`,num("hp-balloon",edit&&Number(edit.balloon)?v("balloon"):"",' oninput="hpFormPreview()"'),"fin-buy")}
+        ${field(`APR (%)${split?"":" (optional)"}`,`<input id="hp-apr" type="number" step="0.01" min="0" value="${v("apr")}" placeholder="9.9" oninput="hpFormPreview()">`,"fin-buy")}
+        ${field("Initial payment, if any (£)",num("hp-lease-initial",edit&&Number(edit.lease_initial)?v("lease_initial"):""),"fin-lease","Paid on the date you got the car.")}
+      </div>
+      <div class="fin-lease" style="margin:.2rem 0 .3rem"><div class="muted" style="font-size:.85rem;margin-bottom:.2rem">The lease includes:</div>
+        ${tick("hp-incl-insurance",incl.insurance,"Insurance","",true)}${tick("hp-incl-tax",incl.car_tax,"Car tax","",true)}${tick("hp-incl-servicing",incl.servicing,"Servicing and repairs")}
       </div>
       ${tick("hp-fin-auto",edit?!!edit.finance_auto:true,"Add each payment to my expenses automatically")}
-      <p id="hp-preview" style="margin:.2rem 0 0;font-size:.88rem"></p>
+      <p class="fin-pcp muted" style="margin:.1rem 0 .3rem;font-size:.8rem">The optional final payment isn't added automatically. Add it yourself if you keep the car.</p>
+      <p id="hp-preview" class="fin-buy" style="margin:.2rem 0 0;font-size:.88rem"></p>
     </div>
-    <h4 style="margin:1rem 0 .3rem">Insurance</h4>
-    ${regular("hp-ins",ins,"insurance",[[0,"Not added"],[1,"Monthly"],[12,"Yearly"]])}
-    <h4 style="margin:1rem 0 .3rem">Car tax</h4>
-    ${regular("hp-tax",tax,"car tax",[[0,"Not added"],[1,"Monthly"],[6,"Every 6 months"],[12,"Yearly"]])}
+    <div id="hp-ins-section">
+      <h4 style="margin:1rem 0 .3rem">Insurance</h4>
+      <div class="two">
+        ${field("How you pay",select("hp-ins-pay",[["none","Not added"],["yearly","Yearly"],["monthly","Monthly"]],ins.pay||"none"))}
+        ${field("Insurance company (optional)",`<input id="hp-ins-company" value="${vv(ins.company)}">`,"ins-any")}
+        ${field("Renewal date",date("hp-ins-renewal",ins.renewal),"ins-any","You'll get a reminder from 30 days before.")}
+        ${field("Yearly amount (£)",num("hp-ins-amount-yearly",ins.pay==="yearly"&&Number(ins.amount)?vv(ins.amount):""),"ins-yearly","Paid on the renewal date.")}
+        ${field("Deposit, if any (£)",num("hp-ins-deposit",Number(ins.deposit)?vv(ins.deposit):""),"ins-monthly")}
+        ${field("Date the deposit was paid",date("hp-ins-deposit-date",ins.deposit_date),"ins-monthly")}
+        ${field("Number of monthly payments",`<select id="hp-ins-instalments">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${Number(ins.instalments||12)===i+1?"selected":""}>${i+1}</option>`).join("")}</select>`,"ins-monthly")}
+        ${field("First monthly payment date",date("hp-ins-first",ins.first_date),"ins-monthly","Later payments come out on the same day each month.")}
+        ${field("Monthly amount (£)",num("hp-ins-amount",ins.pay==="monthly"&&Number(ins.amount)?vv(ins.amount):""),"ins-monthly")}
+        ${field("First payment, if different (£)",num("hp-ins-first-amount",Number(ins.first_amount)?vv(ins.first_amount):""),"ins-monthly")}
+        ${field("Last payment, if different (£)",num("hp-ins-last-amount",Number(ins.last_amount)?vv(ins.last_amount):""),"ins-monthly")}
+      </div>
+      ${tick("hp-ins-auto",ins.pay?!!ins.auto:true,"Add each payment to my expenses automatically","ins-any")}
+    </div>
+    <p id="hp-ins-included" class="muted hidden" style="margin:1rem 0 0">Insurance is included in the lease.</p>
+    <div id="hp-tax-section">
+      <h4 style="margin:1rem 0 .3rem">Car tax</h4>
+      <div class="two">
+        ${field("How you pay",select("hp-tax-every",[[0,"Not added"],[1,"Monthly"],[6,"Every 6 months"],[12,"Yearly"]],Number(tax.every)||0))}
+        ${field("Amount (£)",num("hp-tax-amount",Number(tax.amount)?vv(tax.amount):""),"tax-on")}
+        ${field("First or next payment date",date("hp-tax-start",tax.start),"tax-on","Later payments come out on the same day.")}
+        ${field("Renewal date (optional)",date("hp-tax-renewal",tax.renewal),"","When it's due to be renewed, or usually goes up. You'll get a reminder from 30 days before.")}
+      </div>
+      ${tick("hp-tax-auto",Number(tax.every)?!!tax.auto:true,"Add each payment to my expenses automatically","tax-on")}
+    </div>
+    <p id="hp-tax-included" class="muted hidden" style="margin:1rem 0 0">Car tax is included in the lease.</p>
     <input type="hidden" id="hp-id" value="${edit?esc(edit.id):""}">
     <div class="err" id="hp-err" style="display:block;text-align:left;margin:.3rem 0"></div>
     <div class="actions" style="margin-top:.6rem">
@@ -1192,6 +1387,7 @@ function openCarHpDetails(editId,opts){
   </div>`;
   openModal(`<h2 style="margin-bottom:.3rem">Your cars</h2>
     <p class="muted" style="margin-bottom:.9rem">${carHpIntro()}</p>
+    ${schoolCarsHtml}
     ${showForm?formHtml:`<div class="actions" style="margin:0 0 .9rem"><button class="btn btn-navy btn-sm" onclick="openCarHpDetails(null,{add:true})">+ Add a car</button></div>`}
     ${uncovered?`<p style="font-size:.85rem;color:#92400e;margin:.2rem 0 .9rem">${uncovered} Car HP payment${uncovered===1?" isn't":"s aren't"} covered by a car's finance here, so ${uncovered===1?"it counts":"they count"} in full as not claimable.</p>`:""}
     ${cards||'<p class="muted">No cars added yet.</p>'}
@@ -1200,13 +1396,25 @@ function openCarHpDetails(editId,opts){
   if(showForm) carFormToggle();
 }
 function carFormToggle(){
-  const fin=document.getElementById("hp-has-finance"), wrap=document.getElementById("hp-finance-wrap");
-  if(fin&&wrap) wrap.classList.toggle("hidden",!fin.checked);
-  ["hp-ins","hp-tax"].forEach(p=>{ const s=document.getElementById(p+"-every"); if(!s) return; document.querySelectorAll("."+p+"-on").forEach(el=>el.classList.toggle("hidden",s.value==="0")); });
+  const $=id=>document.getElementById(id);
+  const show=(sel,on)=>document.querySelectorAll(sel).forEach(el=>el.classList.toggle("hidden",!on));
+  const t=($("hp-type")||{}).value||"none";
+  show(".fin-any",t!=="none");
+  show(".fin-buy",t==="hp"||t==="pcp");
+  show(".fin-hp",t==="hp");
+  show(".fin-pcp",t==="pcp");
+  show(".fin-lease",t==="lease");
+  const inclIns=t==="lease"&&$("hp-incl-insurance")&&$("hp-incl-insurance").checked;
+  const inclTax=t==="lease"&&$("hp-incl-tax")&&$("hp-incl-tax").checked;
+  show("#hp-ins-section",!inclIns); show("#hp-ins-included",inclIns);
+  show("#hp-tax-section",!inclTax); show("#hp-tax-included",inclTax);
+  const pay=($("hp-ins-pay")||{}).value||"none";
+  show(".ins-any",pay!=="none"); show(".ins-yearly",pay==="yearly"); show(".ins-monthly",pay==="monthly");
+  show(".tax-on",(($("hp-tax-every")||{}).value||"0")!=="0");
   hpFormPreview();
 }
-// Live line under the finance: what's borrowed, and with an APR the monthly
-// payment those figures give, so it can be checked against the agreement.
+// Live line under hire purchase or PCP: what's borrowed, and with an APR the
+// monthly payment those figures give, so it can be checked against the agreement.
 function hpFormPreview(){
   const el=document.getElementById("hp-preview"); if(!el) return;
   const num=id=>{ const x=document.getElementById(id); return x&&x.value.trim()!==""?Number(x.value):NaN; };
@@ -1215,7 +1423,7 @@ function hpFormPreview(){
   const parts=[];
   if(borrowed>0) parts.push(`Amount borrowed: £${borrowed.toFixed(2)}`);
   const apr=num("hp-apr"), months=num("hp-months"), balloon=isNaN(num("hp-balloon"))?0:num("hp-balloon"), monthly=num("hp-monthly");
-  if(monthly>0&&months>0) parts.push(`Total of payments: £${(monthly*months+balloon).toFixed(2)}`);
+  if(monthly>0&&months>0) parts.push(`Total of monthly payments: £${(monthly*months).toFixed(2)}`);
   if(borrowed>0&&!isNaN(apr)&&months>0){
     const first=(document.getElementById("hp-first")||{}).value||"2000-01-01", start=(document.getElementById("hp-start")||{}).value||"";
     const s=hpSchedule({amount:borrowed,apr,months,first_payment:first,balloon,start_date:start&&start<first?start:""});
@@ -1227,51 +1435,98 @@ async function storeCarHp(list){
   const {error}=await sb.from("app_settings").upsert({id:"car_hp",owner_id:currentUserId,value:{agreements:list},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
   if(error) return error;
   carHpAgreements=list; hpScheduleCache={};
+  renderCarReminders();
   if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
   return null;
 }
 async function saveCarHp(){
   const g=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
+  const checked=id=>{ const el=document.getElementById(id); return !!(el&&el.checked); };
+  const money2=x=>Math.round(Number(x)*100)/100;
   const err=document.getElementById("hp-err"); err.textContent="";
   const id=g("hp-id")||("hp"+Date.now().toString(36));
   const prev=carHpAgreements.find(x=>x.id===id);
-  const a={id,label:g("hp-label")||"Car",reg:g("hp-reg"),start_date:g("hp-start")};
+  // Keeps anything this form doesn't show (a sale, reminders already done).
+  const a=Object.assign({},prev||{},{id,label:g("hp-label")||"Car",reg:g("hp-reg"),start_date:g("hp-start")});
   const split=usesHpSplit();
-  a.has_finance=document.getElementById("hp-has-finance").checked;
-  if(a.has_finance){
+  const fail=m=>{ err.textContent=m; return false; };
+  const mot=g("hp-mot");
+  if(mot&&!ISO_DATE.test(mot)) return fail("Enter the MOT due date, or leave it blank.");
+  a.mot=mot?Object.assign({},prev&&prev.mot,{due:mot}):null;
+  if(isSchoolAdminUser&&currentSchoolId){
+    const drv=g("hp-driver"), who=(schoolInstructorsCache||[]).find(i=>i.id===drv);
+    a.driver_id=drv||null;
+    a.driver_name=!drv?null:drv===currentUserId?"You":((who&&(who.full_name||who.email))||"Instructor");
+  }
+  const type=g("hp-type")||"none";
+  a.finance_type=type; a.has_finance=type!=="none";
+  if(type==="hp"||type==="pcp"){
     const price=Number(g("hp-price")), deposit=g("hp-deposit")===""?0:Number(g("hp-deposit")), partex=g("hp-partex")===""?0:Number(g("hp-partex"));
     Object.assign(a,{price,deposit,part_exchange:partex,part_ex_from:partex>0?(g("hp-partex-from")||null):null,
-      amount:Math.round((price-deposit-partex)*100)/100, apr:g("hp-apr")===""?null:Number(g("hp-apr")),
+      amount:money2(price-deposit-partex), apr:g("hp-apr")===""?null:Number(g("hp-apr")),
       months:Math.round(Number(g("hp-months"))), first_payment:g("hp-first"), balloon:g("hp-balloon")===""?0:Number(g("hp-balloon")),
-      monthly_payment:g("hp-monthly")===""?null:Math.round(Number(g("hp-monthly"))*100)/100,
-      finance_auto:document.getElementById("hp-fin-auto").checked});
-    if(!(price>0)){ err.textContent="Enter the car's price."; return; }
-    if(!(deposit>=0&&partex>=0&&deposit+partex<price)){ err.textContent="The cash deposit and part exchange together must be less than the car's price. Leave them blank if there weren't any."; return; }
-    if(split&&a.apr===null){ err.textContent="Enter the APR from your agreement, for example 9.9. It's needed to split each payment into interest."; return; }
-    if(a.apr!==null&&!(a.apr>=0&&a.apr<100)){ err.textContent="Enter the APR from your agreement, for example 9.9, or leave it blank."; return; }
-    if(!(a.months>=1&&a.months<=120)){ err.textContent="Enter the number of monthly payments, for example 48."; return; }
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(a.first_payment)){ err.textContent="Enter the date of the first monthly payment."; return; }
-    if(a.start_date && a.start_date>=a.first_payment){ err.textContent="The date you got the car must be before the first payment. Leave it blank if you're not sure."; return; }
-    if(!(a.balloon>=0&&a.balloon<a.amount)){ err.textContent="The extra on the last payment must be less than the amount borrowed. Leave it blank if there isn't one."; return; }
+      monthly_payment:g("hp-monthly")===""?null:money2(g("hp-monthly")), finance_auto:checked("hp-fin-auto"),
+      lease_initial:null, lease_includes:null});
+    if(!(price>0)) return fail("Enter the car's price.");
+    if(!(deposit>=0&&partex>=0&&deposit+partex<price)) return fail("The cash deposit and part exchange together must be less than the car's price. Leave them blank if there weren't any.");
+    if(split&&a.apr===null) return fail("Enter the APR from your agreement, for example 9.9. It's needed to split each payment into interest.");
+    if(a.apr!==null&&!(a.apr>=0&&a.apr<100)) return fail("Enter the APR from your agreement, for example 9.9, or leave it blank.");
+    if(!(a.months>=1&&a.months<=120)) return fail("Enter the number of monthly payments, for example 48.");
+    if(!ISO_DATE.test(a.first_payment)) return fail("Enter the date of the first monthly payment.");
+    if(a.start_date&&a.start_date>=a.first_payment) return fail("The date you got the car must be before the first payment. Leave it blank if you're not sure.");
+    if(!(a.balloon>=0&&a.balloon<a.amount)) return fail(type==="pcp"?"The optional final payment must be less than the amount borrowed.":"The extra on the last payment must be less than the amount borrowed. Leave it blank if there isn't one.");
     if(!(a.monthly_payment>0)){
       const s=a.apr!==null?hpSchedule(a):null;
-      if(s) a.monthly_payment=Math.round(s.payment*100)/100;
-      else{ err.textContent="Enter your monthly payment."; return; }
+      if(s) a.monthly_payment=money2(s.payment);
+      else return fail("Enter your monthly payment.");
     }
+  } else if(type==="lease"){
+    Object.assign(a,{price:null,deposit:0,part_exchange:0,part_ex_from:null,amount:0,apr:null,balloon:0,
+      months:Math.round(Number(g("hp-months"))), first_payment:g("hp-first"),
+      monthly_payment:g("hp-monthly")===""?null:money2(g("hp-monthly")), finance_auto:checked("hp-fin-auto"),
+      lease_initial:g("hp-lease-initial")===""?null:money2(g("hp-lease-initial")),
+      lease_includes:{insurance:checked("hp-incl-insurance"),car_tax:checked("hp-incl-tax"),servicing:checked("hp-incl-servicing")}});
+    if(!(a.monthly_payment>0)) return fail("Enter your monthly rental.");
+    if(!(a.months>=1&&a.months<=120)) return fail("Enter the number of monthly payments, for example 36.");
+    if(!ISO_DATE.test(a.first_payment)) return fail("Enter the date of the first monthly payment.");
+    if(a.lease_initial!==null&&!(a.lease_initial>=0)) return fail("Enter the initial payment, or leave it blank.");
+    if(a.lease_initial>0&&!ISO_DATE.test(a.start_date||"")) return fail("Enter the date you got the car: that's when the initial payment is added.");
   } else {
-    Object.assign(a,{amount:0,months:0,first_payment:"",balloon:0,monthly_payment:null,finance_auto:false});
+    Object.assign(a,{amount:0,months:0,first_payment:"",balloon:0,apr:null,monthly_payment:null,finance_auto:false,lease_initial:null,lease_includes:null});
   }
-  const readRegular=(p,name)=>{
-    const every=Number(g(p+"-every")); if(!every) return null;
-    const amount=Number(g(p+"-amount")), start=g(p+"-start");
-    if(!(amount>0)) throw `Enter the ${name} amount.`;
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(start)) throw `Enter the date of a ${name} payment.`;
-    return {every,amount:Math.round(amount*100)/100,start,auto:document.getElementById(p+"-auto").checked};
-  };
-  try{ a.insurance=readRegular("hp-ins","insurance"); a.car_tax=readRegular("hp-tax","car tax"); }
-  catch(m){ err.textContent=String(m); return; }
-  // Editing keeps a sale or part exchange already recorded.
-  if(prev&&prev.ended) a.ended=prev.ended;
+  // Insurance
+  const insIncluded=carLeaseIncludes(a,"insurance");
+  const pay=g("hp-ins-pay");
+  if(insIncluded||pay==="none"||!pay) a.insurance=null;
+  else{
+    const ins={pay,company:g("hp-ins-company"),renewal:g("hp-ins-renewal"),auto:checked("hp-ins-auto")};
+    if(!ISO_DATE.test(ins.renewal)) return fail("Enter the insurance renewal date.");
+    if(pay==="yearly"){
+      ins.amount=money2(g("hp-ins-amount-yearly"));
+      if(!(ins.amount>0)) return fail("Enter the yearly insurance amount.");
+    } else {
+      Object.assign(ins,{amount:money2(g("hp-ins-amount")),instalments:Math.round(Number(g("hp-ins-instalments"))||12),first_date:g("hp-ins-first"),
+        deposit:g("hp-ins-deposit")===""?null:money2(g("hp-ins-deposit")),deposit_date:g("hp-ins-deposit-date"),
+        first_amount:g("hp-ins-first-amount")===""?null:money2(g("hp-ins-first-amount")),last_amount:g("hp-ins-last-amount")===""?null:money2(g("hp-ins-last-amount"))});
+      if(!(ins.amount>0)) return fail("Enter the monthly insurance amount.");
+      if(!ISO_DATE.test(ins.first_date)) return fail("Enter the date of the first monthly insurance payment.");
+      if(ins.deposit>0&&!ISO_DATE.test(ins.deposit_date||"")) return fail("Enter the date the insurance deposit was paid.");
+    }
+    a.insurance=ins;
+  }
+  // Car tax
+  const taxIncluded=carLeaseIncludes(a,"car_tax");
+  const every=Number(g("hp-tax-every")), renewal=g("hp-tax-renewal");
+  if(taxIncluded) a.car_tax=null;
+  else{
+    if(renewal&&!ISO_DATE.test(renewal)) return fail("Enter the car tax renewal date, or leave it blank.");
+    if(every){
+      const tax={every,amount:money2(g("hp-tax-amount")),start:g("hp-tax-start"),renewal:renewal||null,auto:checked("hp-tax-auto")};
+      if(!(tax.amount>0)) return fail("Enter the car tax amount.");
+      if(!ISO_DATE.test(tax.start)) return fail("Enter the date of a car tax payment.");
+      a.car_tax=tax;
+    } else a.car_tax=renewal?{every:0,renewal}:null;
+  }
   const key=x=>x.first_payment||x.start_date||"";
   const list=carHpAgreements.filter(x=>x.id!==a.id).concat([a]).sort((x,y)=>key(x)<key(y)?-1:1);
   const e=await storeCarHp(list);
@@ -1279,20 +1534,20 @@ async function saveCarHp(){
   openCarHpDetails();
 }
 async function deleteCarHp(id){
-  if(!confirm(`Remove this car? Its automatic payments stop, and entries already in your Finances stay as they are.${usesHpSplit()?" Its Car HP payments will count in full as not claimable again.":""}`)) return;
+  if(!confirm(`Remove this car? Its automatic payments and reminders stop, and entries already in your Finances stay as they are.${usesHpSplit()?" Its Car HP payments will count in full as not claimable again.":""}`)) return;
   const e=await storeCarHp(carHpAgreements.filter(x=>x.id!==id));
   if(e) return alert("Could not remove: "+e.message);
   openCarHpDetails();
 }
-// Sold or part exchanged: the car's automatic payments stop after the date, and
-// a part exchange's amount towards the next car fills in that car's Part exchange box.
+// Sold or part exchanged: the car's automatic payments and reminders stop after
+// the date, and a part exchange's amount towards the next car fills in that car's Part exchange box.
 function openCarHpEnd(id,how){
   const a=carHpAgreements.find(x=>x.id===id); if(!a) return;
   const px=how==="part_exchange";
   const idArg=JSON.stringify(id).replace(/'/g,"&#39;");
   const cash=businessType.type==="sole_cash";
   openModal(`<h2 style="margin-bottom:.3rem">${px?"Part exchanged":"Sold"}: ${esc(a.label||"Car")}</h2>
-    <p class="muted" style="margin-bottom:.9rem">Automatic payments for this car stop after this date.${px?" The amount towards your next car fills in the Part exchange box when you add that car.":""}${cash?(px?" On the cash basis a part exchange comes to £0 for your profit, so nothing is added to your Finances.":" What you're left with after clearing any finance counts as business income, and you'll be asked whether to add it."):""}</p>
+    <p class="muted" style="margin-bottom:.9rem">Automatic payments and reminders for this car stop after this date.${px?" The amount towards your next car fills in the Part exchange box when you add that car.":""}${cash?(px?" On the cash basis a part exchange comes to £0 for your profit, so nothing is added to your Finances.":" What you're left with after clearing any finance counts as business income, and you'll be asked whether to add it."):""}</p>
     <div class="two">
       <div class="field"><label>Date ${px?"part exchanged":"sold"}</label><input id="hpe-date" type="date"></div>
       <div class="field"><label>${px?"Part exchange value (£)":"Sold for (£)"}</label><input id="hpe-value" type="number" step="0.01" min="0" oninput="hpEndPreview()"></div>
@@ -1318,8 +1573,8 @@ async function saveCarHpEnd(id,how){
   const g=k=>{ const el=document.getElementById(k); return el?el.value.trim():""; };
   const date=g("hpe-date"), value=g("hpe-value")===""?NaN:Number(g("hpe-value")), settle=g("hpe-settle")===""?0:Number(g("hpe-settle"));
   const towards=px?(g("hpe-towards")===""?Math.max(0,value-settle):Number(g("hpe-towards"))):0;
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){ err.textContent=`Enter the date the car was ${px?"part exchanged":"sold"}.`; return; }
-  if(carFinanceOn(a)&&date<a.first_payment){ err.textContent="That date is before the first finance payment for this car."; return; }
+  if(!ISO_DATE.test(date)){ err.textContent=`Enter the date the car was ${px?"part exchanged":"sold"}.`; return; }
+  if((carFinanceOn(a)||carLeaseOn(a))&&date<a.first_payment){ err.textContent="That date is before the first finance payment for this car."; return; }
   if(!(value>=0)){ err.textContent=px?"Enter the part exchange value.":"Enter how much the car sold for."; return; }
   if(!(settle>=0)){ err.textContent="Enter how much paid off the finance, or leave it blank."; return; }
   if(px&&!(towards>=0)){ err.textContent="Enter how much went towards the new car's deposit."; return; }
@@ -1339,7 +1594,7 @@ async function saveCarHpEnd(id,how){
 }
 async function undoCarHpEnd(id){
   const a=carHpAgreements.find(x=>x.id===id); if(!a||!a.ended) return;
-  if(!confirm(`Undo the ${a.ended.how==="part_exchange"?"part exchange":"sale"} of the ${a.label||"car"}? Its automatic payments start again.`)) return;
+  if(!confirm(`Undo the ${a.ended.how==="part_exchange"?"part exchange":"sale"} of the ${a.label||"car"}? Its automatic payments and reminders start again.`)) return;
   const e=await storeCarHp(carHpAgreements.map(x=>{ if(x.id!==id) return x; const c=Object.assign({},x); delete c.ended; return c; }));
   if(e) return alert("Could not save: "+e.message);
   openCarHpDetails();
@@ -8294,7 +8549,6 @@ function openBusinessTypeModal(){
         </div>
         <div class="muted" style="font-size:.78rem;margin-top:.25rem">The date your last confirmation statement was made up to, shown on Companies House. It adds that deadline to your dashboard.</div>
       </div>
-      <label style="display:flex;gap:.5rem;align-items:flex-start;margin:1rem 0;font-weight:normal"><input type="checkbox" id="biz-dual" ${t.dual_controls?"checked":""} onchange="bizTypeFormUpdate()" style="margin-top:.3rem"><span><strong>My tuition cars have dual controls fitted</strong><br><span class="muted" style="font-size:.85rem" id="biz-dual-hint"></span></span></label>
       <div id="biz-sole-wrap">
         <h4 style="margin:1.2rem 0 .3rem">Business use</h4>
         <p class="muted" style="font-size:.85rem;margin-bottom:.5rem">If you also use these privately, only the business share can be claimed. Leave them at 100% if you don't.</p>
@@ -8302,9 +8556,6 @@ function openBusinessTypeModal(){
           <div class="field"><label>Car (% business use)</label><input id="biz-car-pct" type="number" min="0" max="100" step="1" value="${t.car_pct}"></div>
           <div class="field"><label>Phone and internet (% business use)</label><input id="biz-phone-pct" type="number" min="0" max="100" step="1" value="${t.phone_pct}"></div>
         </div>
-        <h4 style="margin:1.2rem 0 .4rem">Car costs</h4>
-        ${radio("biz-carcosts","actual",t.car_costs!=="mileage","Actual costs","Fuel, insurance, repairs and hire purchase, as you pay them.")}
-        ${radio("biz-carcosts","mileage",t.car_costs==="mileage","Mileage rate","45p a mile for the first 10,000 business miles a year, then 25p, instead of the car's own costs (parking and tolls still count). Once you use it for a car you have to keep using it for that car, and you can't switch to it for a car whose costs you've already claimed.")}
       </div>
       <div class="err" id="biz-err" style="margin-top:.5rem;display:block;text-align:left"></div>
       <div class="actions" style="margin-top:.8rem"><button class="btn btn-navy btn-sm" onclick="saveBusinessType()">Save</button><button class="btn-outline" onclick="closeModal()">Cancel</button></div>`);
@@ -8315,19 +8566,11 @@ function bizTypeFormUpdate(){
   const sel=document.querySelector('input[name="biz-type"]:checked'); const type=sel?sel.value:"sole_cash";
   const wrap=document.getElementById("biz-yearend-wrap"); if(wrap) wrap.classList.toggle("hidden",type!=="company");
   const soleWrap=document.getElementById("biz-sole-wrap"); if(soleWrap) soleWrap.classList.toggle("hidden",type==="company");
-  const dual=document.getElementById("biz-dual"), hint=document.getElementById("biz-dual-hint"); if(!hint) return;
-  const d=!!(dual&&dual.checked);
-  hint.textContent=type==="sole_cash"
-    ?(d?"HMRC doesn't treat a driving school car with dual controls as a car for tax, so on the cash basis your whole hire purchase payment is claimable."
-       :"Without dual controls your car counts as a car for tax: only the interest in each hire purchase payment is claimable, worked out from Your cars.")
-    :(d?"HMRC doesn't treat a driving school car with dual controls as a car for tax, so its price can usually be claimed in full in the year it's bought. Only the interest in each hire purchase payment is an expense."
-       :"Only the interest in each hire purchase payment is an expense. The car's price is claimed at 18% or 6% a year depending on its CO2.");
 }
 async function saveBusinessType(){
   const err=document.getElementById("biz-err"); err.textContent="";
   const sel=document.querySelector('input[name="biz-type"]:checked');
   const type=sel?sel.value:"sole_cash";
-  const dual=document.getElementById("biz-dual").checked;
   const m=Number(document.getElementById("biz-ye-month").value), d=Number(document.getElementById("biz-ye-day").value);
   const last=new Date(Date.UTC(2000,m,0)).getUTCDate();
   if(type==="company"&&d>last){ err.textContent="That month doesn't have that many days."; return; }
@@ -8338,10 +8581,10 @@ async function saveBusinessType(){
   const csD=val("biz-cs-day"), csM=val("biz-cs-month");
   if(type==="company"&&((csD==="")!==(csM===""))){ err.textContent="Choose both the day and the month of the confirmation statement date, or neither."; return; }
   const csLast=csM?new Date(Date.UTC(2000,Number(csM),0)).getUTCDate():31;
-  const value={type,dual_controls:dual,year_end,
+  const value={type,dual_controls:true,year_end,
     car_pct:pctOk(val("biz-car-pct"))?Math.round(Number(val("biz-car-pct"))):100,
     phone_pct:pctOk(val("biz-phone-pct"))?Math.round(Number(val("biz-phone-pct"))):100,
-    car_costs:(document.querySelector('input[name="biz-carcosts"]:checked')||{}).value==="mileage"?"mileage":"actual",
+    car_costs:"actual",
     cs_date:csD&&csM?`${String(csM).padStart(2,"0")}-${String(Math.min(Number(csD),csLast)).padStart(2,"0")}`:null};
   const {error}=await sb.from("app_settings").upsert({id:"business_type",owner_id:currentUserId,value,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
   if(error){ err.textContent="Could not save: "+error.message; return; }

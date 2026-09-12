@@ -503,6 +503,7 @@ tbody tr:hover td{background:#334263}
           <button class="btn btn-navy btn-sm" onclick="applyFinance()">Apply</button>
           <button class="btn-outline btn-sm hidden" id="fin-pay-instr-btn" onclick="openPayInstructor()">Pay instructor</button>
           <button class="btn-outline" onclick="exportFinance()">Export CSV</button>
+          <button class="btn-outline" onclick="openCarHpDetails()" title="Split Car HP payments into claimable interest and paying off the car">Car HP details</button>
           <button class="btn-outline" onclick="document.getElementById('import-file').click()">Import CSV</button>
           <input type="file" id="import-file" accept=".csv,text/csv" class="hidden" onchange="importCsv(event)">
         </div>
@@ -784,6 +785,152 @@ function catInfo(cat,isExp){
 }
 function isClaimable(r){ return r.claimable!==false }
 
+// --- Car HP details (Dale, 12 Sep 2026) ------------------------------------
+// A hire purchase payment is mostly paying off the car (not claimable) plus
+// interest (claimable, under "Interest on bank and other loans"). With the
+// agreement saved here (amount borrowed after deposit, APR, number of monthly
+// payments, first payment date, any final balloon payment), each Car HP payment
+// is split using a normal repayment schedule: each month's interest is what is
+// still owed times the monthly rate from the APR. The finance company's
+// statement is the exact figure; this is an estimate that follows it closely.
+// Saved on app_settings id "car_hp" for the signed-in account.
+const HP_CATS=new Set(["Car HP payment","Car Finance"]);
+let carHpAgreements=[], hpScheduleCache={};
+async function loadCarHp(){
+  hpScheduleCache={};
+  try{
+    const {data}=await sb.from("app_settings").select("value").eq("id","car_hp").eq("owner_id",currentUserId).maybeSingle();
+    carHpAgreements=Array.isArray(data&&data.value&&data.value.agreements)?data.value.agreements:[];
+  }catch(e){ carHpAgreements=[]; }
+}
+function hpAddMonths(iso,k){
+  const y=Number(iso.slice(0,4)), m=Number(iso.slice(5,7))-1, d=Number(iso.slice(8,10));
+  const t=new Date(Date.UTC(y,m+k,1));
+  const last=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth()+1,0)).getUTCDate();
+  t.setUTCDate(Math.min(d,last));
+  return t.toISOString().slice(0,10);
+}
+function hpSchedule(a){
+  const key=JSON.stringify([a.amount,a.apr,a.months,a.first_payment,a.balloon]);
+  if(hpScheduleCache[key]!==undefined) return hpScheduleCache[key];
+  const L=Number(a.amount||0), n=Math.round(Number(a.months||0)), B=Number(a.balloon||0);
+  const r=Math.pow(1+Number(a.apr||0)/100,1/12)-1;
+  let out=null;
+  if(L>0 && n>0 && n<=120 && B>=0 && B<L && /^\d{4}-\d{2}-\d{2}$/.test(a.first_payment||"")){
+    const pay=r>0?(L-B/Math.pow(1+r,n))*r/(1-Math.pow(1+r,-n)):(L-B)/n;
+    let bal=L; const rows=[];
+    for(let k=1;k<=n;k++){
+      const interest=bal*r, due=pay+(k===n?B:0);
+      bal=bal+interest-due;
+      rows.push({n:k,date:hpAddMonths(a.first_payment,k-1),payment:due,interest,balance:Math.max(0,bal)});
+    }
+    out={payment:pay,rows,totalInterest:rows.reduce((s,x)=>s+x.interest,0)};
+  }
+  hpScheduleCache[key]=out;
+  return out;
+}
+// The split of one Car HP payment, or null when no saved agreement covers its month.
+function hpSplit(r){
+  if(!r||!carHpAgreements.length||!isExpense(r)||!HP_CATS.has(r.category||"")) return null;
+  const d=r.transaction_date||""; if(!d) return null;
+  for(const a of carHpAgreements){
+    const s=hpSchedule(a); if(!s) continue;
+    const k=(Number(d.slice(0,4))-Number(a.first_payment.slice(0,4)))*12+(Number(d.slice(5,7))-Number(a.first_payment.slice(5,7)))+1;
+    if(k<1||k>s.rows.length) continue;
+    const amt=Number(r.amount||0);
+    const interest=Math.round(Math.min(amt,Math.max(0,s.rows[k-1].interest))*100)/100;
+    return {interest,capital:Math.round((amt-interest)*100)/100,agreement:a,n:k,of:s.rows.length};
+  }
+  return null;
+}
+// How much of an expense counts for tax: normally all or nothing, but the
+// interest in a covered Car HP payment is always claimable.
+function claimablePart(r){
+  const hp=hpSplit(r);
+  if(hp) return hp.interest+(isClaimable(r)?hp.capital:0);
+  return isClaimable(r)?Number(r.amount||0):0;
+}
+function notClaimablePart(r){ return Math.round((Number(r.amount||0)-claimablePart(r))*100)/100; }
+function hpTaxYear(iso){ const y=Number(iso.slice(0,4)); return iso.slice(5)>="04-06"?y:y-1; }
+function openCarHpDetails(editId){
+  const edit=editId?carHpAgreements.find(a=>a.id===editId):null;
+  const money=v=>"£"+Number(v||0).toFixed(2);
+  const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  const hpRows=(txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId)&&isExpense(r)&&HP_CATS.has(r.category||""));
+  const uncovered=hpRows.filter(r=>!hpSplit(r)).length;
+  const cards=carHpAgreements.map(a=>{
+    const s=hpSchedule(a);
+    const idArg=JSON.stringify(a.id).replace(/'/g,"&#39;");
+    const actions=`<div class="actions" style="margin-top:.5rem"><button class="btn-outline" onclick='openCarHpDetails(${idArg})'>Edit</button><button class="btn-danger" onclick='deleteCarHp(${idArg})'>Remove</button></div>`;
+    if(!s) return `<div style="border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem;margin-bottom:.6rem"><strong>${esc(a.label||"Car")}</strong><p class="muted" style="margin:.3rem 0 0">These figures are incomplete, so nothing is being split. Edit them to fix it.</p>${actions}</div>`;
+    const matched=hpRows.filter(r=>{ const h=hpSplit(r); return h&&h.agreement.id===a.id; });
+    const avg=matched.length?matched.reduce((t,r)=>t+Number(r.amount||0),0)/matched.length:0;
+    const byYear={}; s.rows.forEach(x=>{ const ty=hpTaxYear(x.date); byYear[ty]=(byYear[ty]||0)+x.interest; });
+    const lastDate=s.rows[s.rows.length-1].date;
+    const mismatch=matched.length&&Math.abs(avg-s.payment)>1;
+    return `<div style="border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem;margin-bottom:.6rem">
+      <strong>${esc(a.label||"Car")}</strong>
+      <p class="muted" style="margin:.3rem 0 .5rem">${money(a.amount)} borrowed at ${Number(a.apr)}% APR · ${s.rows.length} monthly payments from ${fmtD(a.first_payment)} to ${fmtD(lastDate)}${Number(a.balloon)?` · final payment ${money(a.balloon)}`:""}</p>
+      <p style="margin:0 0 .3rem">Monthly payment these figures give: <strong>${money(s.payment)}</strong> · total interest <strong>${money(s.totalInterest)}</strong></p>
+      <p class="muted" style="margin:0 0 .5rem">${matched.length} Car HP payment${matched.length===1?"":"s"} in your Finances ${matched.length===1?"falls":"fall"} in this agreement${matched.length?` (recorded ${money(avg)} on average)`:""}.</p>
+      ${mismatch?`<div style="padding:.55rem .7rem;border-radius:10px;background:#FFF7E8;color:#92400e;font-size:.84rem;margin-bottom:.5rem">Your recorded payments (${money(avg)}) don't match the ${money(s.payment)} these figures give, so the interest split may be out. Check the amount borrowed, APR and number of payments against your agreement.</div>`:""}
+      <table><thead><tr><th>Tax year</th><th style="text-align:right">Interest (claimable)</th></tr></thead><tbody>
+        ${Object.keys(byYear).sort().map(ty=>`<tr><td>${ty}–${String(Number(ty)+1).slice(2)}</td><td style="text-align:right">${money(byYear[ty])}</td></tr>`).join("")}
+      </tbody></table>
+      ${actions}
+    </div>`;
+  }).join("");
+  const v=(k,d)=>edit&&edit[k]!==undefined&&edit[k]!==null?esc(String(edit[k])):(d||"");
+  openModal(`<h2 style="margin-bottom:.3rem">Car HP details</h2>
+    <p class="muted" style="margin-bottom:.9rem">A hire purchase payment is mostly paying off the car, which isn't claimable, plus interest, which is. Add your agreement and each Car HP payment is split for you: the interest goes under Interest on bank and other loans in the Tax summary. It's an estimate from the APR; your finance company's statement shows the exact interest.</p>
+    ${cards||'<p class="muted">No agreements added yet.</p>'}
+    ${uncovered?`<p style="font-size:.85rem;color:#92400e;margin:.2rem 0 .9rem">${uncovered} Car HP payment${uncovered===1?" isn't":"s aren't"} covered by an agreement here, so ${uncovered===1?"it counts":"they count"} in full as not claimable.</p>`:""}
+    <h3 style="margin:1rem 0 .5rem">${edit?"Edit agreement":"Add an agreement"}</h3>
+    <div class="two">
+      <div class="field"><label>Name (e.g. the car)</label><input id="hp-label" value="${v("label")}" placeholder="Ford Fiesta"></div>
+      <div class="field"><label>Amount borrowed (£, after any deposit)</label><input id="hp-amount" type="number" step="0.01" min="0" value="${v("amount")}"></div>
+      <div class="field"><label>APR (%)</label><input id="hp-apr" type="number" step="0.01" min="0" value="${v("apr")}" placeholder="9.9"></div>
+      <div class="field"><label>Number of monthly payments</label><input id="hp-months" type="number" step="1" min="1" max="120" value="${v("months")}" placeholder="48"></div>
+      <div class="field"><label>First monthly payment date</label><input id="hp-first" type="date" value="${v("first_payment")}"></div>
+      <div class="field"><label>Final (balloon) payment, if any (£)</label><input id="hp-balloon" type="number" step="0.01" min="0" value="${edit&&Number(edit.balloon)?v("balloon"):""}"></div>
+    </div>
+    <input type="hidden" id="hp-id" value="${edit?esc(edit.id):""}">
+    <div class="err" id="hp-err" style="display:block;text-align:left;margin:.3rem 0"></div>
+    <div class="actions" style="margin-top:.6rem">
+      <button class="btn btn-navy btn-sm" onclick="saveCarHp()">${edit?"Save changes":"Add agreement"}</button>
+      ${edit?`<button class="btn-outline" onclick="openCarHpDetails()">Cancel edit</button>`:""}
+      <button class="btn-outline" onclick="closeModal()">Close</button>
+    </div>`);
+}
+async function storeCarHp(list){
+  const {error}=await sb.from("app_settings").upsert({id:"car_hp",owner_id:currentUserId,value:{agreements:list},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+  if(error) return error;
+  carHpAgreements=list; hpScheduleCache={};
+  if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
+  return null;
+}
+async function saveCarHp(){
+  const g=id=>document.getElementById(id).value.trim();
+  const err=document.getElementById("hp-err"); err.textContent="";
+  const a={id:g("hp-id")||("hp"+Date.now().toString(36)), label:g("hp-label")||"Car", amount:Number(g("hp-amount")), apr:Number(g("hp-apr")),
+    months:Math.round(Number(g("hp-months"))), first_payment:g("hp-first"), balloon:g("hp-balloon")===""?0:Number(g("hp-balloon"))};
+  if(!(a.amount>0)){ err.textContent="Enter the amount borrowed (the car price less any deposit)."; return; }
+  if(g("hp-apr")===""||!(a.apr>=0&&a.apr<100)){ err.textContent="Enter the APR from your agreement, for example 9.9."; return; }
+  if(!(a.months>=1&&a.months<=120)){ err.textContent="Enter the number of monthly payments, for example 48."; return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(a.first_payment)){ err.textContent="Enter the date of the first monthly payment."; return; }
+  if(!(a.balloon>=0&&a.balloon<a.amount)){ err.textContent="The final payment must be less than the amount borrowed. Leave it blank if there isn't one."; return; }
+  const list=carHpAgreements.filter(x=>x.id!==a.id).concat([a]).sort((x,y)=>x.first_payment<y.first_payment?-1:1);
+  const e=await storeCarHp(list);
+  if(e){ err.textContent="Could not save: "+e.message; return; }
+  openCarHpDetails();
+}
+async function deleteCarHp(id){
+  if(!confirm("Remove this agreement? Its Car HP payments will count in full as not claimable again.")) return;
+  const e=await storeCarHp(carHpAgreements.filter(x=>x.id!==id));
+  if(e) return alert("Could not remove: "+e.message);
+  openCarHpDetails();
+}
+
 let pupilsCache=[], unassignedCache=[], schoolPupilsCache=[], txCache=[], testsCache=[], weekStart=startOfWeek(new Date()), pupilStatusFilter="active";
 // Diary parity with the app (src/pages/Diary.tsx) — hide-cancelled toggle,
 // the currently-rendered week's lessons (so block clicks can look up the
@@ -968,6 +1115,7 @@ async function enterApp(user,prof){
   document.getElementById("pupil-filter-waiting").classList.toggle("hidden", !!(isSchoolAdminUser && currentSchoolId && !isSuperAdminUser));
   document.getElementById("nav-messages-btn").classList.remove("hidden"); // everyone: school/instructors + own pupils
   await loadSchoolInstructors();
+  await loadCarHp();
   await refresh();
   if(!window.__dmwRefreshTimer){
     window.__dmwRefreshTimer=setInterval(()=>refresh({tick:true}),30000);
@@ -3178,7 +3326,7 @@ function showFin(mode,btn){
   const sumInc=inc.reduce((s,r)=>s+Number(r.amount||0),0); const sumExp=exp.reduce((s,r)=>s+Number(r.amount||0),0);
   // Two profits (Dale, 12 Sep 2026): HMRC only lets claimable expenses come
   // off; Universal Credit counts every business outgoing.
-  const sumNot=exp.filter(r=>!isClaimable(r)).reduce((s,r)=>s+Number(r.amount||0),0);
+  const sumNot=exp.reduce((s,r)=>s+notClaimablePart(r),0);
   const profitTax=sumInc-(sumExp-sumNot), profitAll=sumInc-sumExp;
   const {from,to}=getFinRange();
   const totalBar=(label,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:#fff;border-radius:12px;padding:.85rem 1rem;margin-top:.6rem">
@@ -3226,13 +3374,13 @@ function financeCategoryTable(rows,standardCats,label,isExp){
     const c=r.category||r.type||"Uncategorised";
     if(!byCat[c]) byCat[c]={count:0,amount:0,notClaim:0};
     byCat[c].count++; byCat[c].amount+=Number(r.amount||0);
-    if(isExp&&!isClaimable(r)) byCat[c].notClaim+=Number(r.amount||0);
+    if(isExp) byCat[c].notClaim+=notClaimablePart(r);
   });
   const known=new Set(standardCats);
   const extra=Object.keys(byCat).filter(c=>!known.has(c)).sort();
   const allCats=[...standardCats,...extra];
   const total=rows.reduce((s,r)=>s+Number(r.amount||0),0);
-  const totalNot=isExp?rows.filter(r=>!isClaimable(r)).reduce((s,r)=>s+Number(r.amount||0),0):0;
+  const totalNot=isExp?rows.reduce((s,r)=>s+notClaimablePart(r),0):0;
   const body=allCats.map(c=>{
     const d=byCat[c]||{count:0,amount:0,notClaim:0};
     const flagged=extra.includes(c);
@@ -3274,7 +3422,7 @@ function taxFigures(from,to){
   const own=(txCache||[]).filter(r=>!(r.instructor_id && r.instructor_id!==currentUserId));
   const rows=own.filter(r=>{ const d=r.transaction_date||(r.created_at||"").slice(0,10)||""; return d&&d>=from&&d<=to; });
   const heads={}; const flagged={};
-  let turnoverGross=0, refunds=0, otherInc=0, notBusiness=0;
+  let turnoverGross=0, refunds=0, otherInc=0, notBusiness=0, hpInterest=0, hpUncovered=0, hpInterestEntries=0;
   rows.forEach(r=>{
     const exp=isExpense(r); const cat=r.category||r.type||"";
     const info=catInfo(cat,exp); const amt=Number(r.amount||0);
@@ -3286,6 +3434,19 @@ function taxFigures(from,to){
       return;
     }
     if(info.heading==="refunds"){ refunds+=amt; return; }
+    if(cat==="Car HP interest") hpInterestEntries++;
+    // A Car HP payment covered by Car HP details: the interest is claimable
+    // under its own heading, the rest stays where the payment is filed.
+    const hp=HP_CATS.has(cat)?hpSplit(r):null;
+    if(HP_CATS.has(cat)&&!hp) hpUncovered++;
+    if(hp){
+      hpInterest+=hp.interest;
+      const ih=heads.interestOnBankOtherLoans||(heads.interestOnBankOtherLoans={total:0,notClaim:0});
+      ih.total+=hp.interest;
+      const hh=heads[info.heading]||(heads[info.heading]={total:0,notClaim:0});
+      hh.total+=hp.capital; if(!isClaimable(r)) hh.notClaim+=hp.capital;
+      return;
+    }
     const h=heads[info.heading]||(heads[info.heading]={total:0,notClaim:0});
     h.total+=amt; if(!isClaimable(r)) h.notClaim+=amt;
   });
@@ -3295,6 +3456,7 @@ function taxFigures(from,to){
   const totNot=Object.values(heads).reduce((s,h)=>s+h.notClaim,0);
   const totClaim=totExp-totNot;
   return {from,to,own,rows,flagged,turnoverGross,refunds,turnover,otherInc,notBusiness,heads,usedHeadings,totExp,totNot,totClaim,
+    hpInterest,hpUncovered,hpInterestEntries,
     profitTax:turnover+otherInc-totClaim, profitAll:turnover+otherInc-totExp};
 }
 // My Tax Digital's Bridging import reads figures by cell position from its
@@ -3349,7 +3511,7 @@ function renderTaxSummary(){
   const {y,q,ytd}=taxSum;
   const qb=taxQuarterBounds(y,q);
   const from=(q===0||ytd)?`${y}-04-06`:qb.from, to=qb.to;
-  const {own,rows,flagged,turnoverGross,refunds,turnover,otherInc,notBusiness,heads,usedHeadings,totExp,totNot,totClaim,profitTax,profitAll}=taxFigures(from,to);
+  const {own,rows,flagged,turnoverGross,refunds,turnover,otherInc,notBusiness,heads,usedHeadings,totExp,totNot,totClaim,profitTax,profitAll,hpInterest,hpUncovered,hpInterestEntries}=taxFigures(from,to);
   const cy=Number(taxYearBounds(0).from.slice(0,4));
   const earliest=own.reduce((m,r)=>{ const d=r.transaction_date||""; return d&&d<m?d:m; },`${cy}-04-06`);
   let ey=Number(earliest.slice(0,4)); if(earliest.slice(5)<"04-06") ey--;
@@ -3386,6 +3548,7 @@ function renderTaxSummary(){
       ${usedHeadings.map(k=>{ const h=heads[k]||{total:0,notClaim:0}; return `<tr><td>${esc(TAX_HEADINGS[k])}</td><td style="text-align:right">${money(h.total)}</td><td style="text-align:right">${h.notClaim?money(h.notClaim):"–"}</td><td style="text-align:right">${money(h.total-h.notClaim)}</td></tr>`; }).join("")}
     </tbody><tfoot><tr style="background:var(--soft);font-weight:700"><td>Total expenses</td><td style="text-align:right">${money(totExp)}</td><td style="text-align:right">${money(totNot)}</td><td style="text-align:right">${money(totClaim)}</td></tr></tfoot></table>
     ${flagCount?`<div style="margin-top:.9rem;padding:.75rem .9rem;border-radius:12px;background:#FFF7E8;color:#92400e;font-size:.85rem">${flagCount} entr${flagCount===1?"y uses":"ies use"} an old category and ${flagCount===1?"is":"are"} counted under the heading shown in Finances: ${flagList.map(([c,n])=>`${esc(c)} (${n})`).join(", ")}. Edit an entry to move it to a current category.</div>`:""}
+    ${(hpInterest||hpUncovered)?`<div style="margin-top:.9rem;padding:.75rem .9rem;border-radius:12px;background:#EFF6FF;color:#1e3a8a;font-size:.85rem;line-height:1.5">${hpInterest?`${money(hpInterest)} of your Car HP payments is interest, worked out from your Car HP details, and is counted as claimable under Interest on bank and other loans. The rest of each payment is paying off the car.`:""}${hpUncovered?` ${hpUncovered} Car HP payment${hpUncovered===1?" isn't":"s aren't"} covered by your Car HP details, so ${hpUncovered===1?"it counts":"they count"} in full as not claimable.`:""}${hpInterest&&hpInterestEntries?` You also have ${hpInterestEntries} Car HP interest entr${hpInterestEntries===1?"y":"ies"} in this period, so check the interest isn't counted twice.`:""} <a href="#" onclick="openCarHpDetails();return false">Car HP details</a></div>`:""}
     <div class="muted" style="margin-top:.9rem;font-size:.8rem;line-height:1.5">
       If your business income is under £90,000 a year, a quarterly update can give one total for expenses instead of each heading: ${money(totExp)}, of which ${money(totNot)} isn't claimable.<br>
       This is a guide to the figures only. Drive My Way doesn't send anything to HMRC: use HMRC-recognised software or your accountant. Year-end items such as capital allowances, the mileage rate and private use aren't included.
@@ -3484,7 +3647,8 @@ function tablePay(rows,inModal){
       const who=txWho(r);
       const main=who||pupil||r.category||r.type||r.notes||"";
       const sub=(who&&!inModal)?(r.category||""):"";
-      const noClaim=isExpense(r)&&!isClaimable(r)?'<div style="font-size:.7rem;font-weight:700;color:#b45309">Not claimable</div>':"";
+      const hpS=isExpense(r)?hpSplit(r):null;
+      const noClaim=hpS?`<div style="font-size:.7rem;font-weight:700;color:#1d4ed8">Interest £${hpS.interest.toFixed(2)} claimable</div>`:(isExpense(r)&&!isClaimable(r)?'<div style="font-size:.7rem;font-weight:700;color:#b45309">Not claimable</div>':"");
       const receiptBtn=r.receipt_url?`<button class="btn-outline" onclick="event.stopPropagation();viewReceipt('${String(r.receipt_url).replace(/'/g,"&#39;")}','${r.id}')" title="View receipt">🧾</button>`:"";
       return `<tr style="cursor:pointer" onclick="openTxDetail('${r.id}')" title="Click to see who this payment was from and the full details"><td>${esc(r.transaction_date||"")}</td><td>${esc(main)}${sub?`<div class="muted" style="font-size:.75rem">${esc(sub)}</div>`:""}${noClaim}</td>
         <td>£${Number(r.amount||0).toFixed(2)}</td><td>${esc(r.payment_method||"–")}</td>
@@ -3530,7 +3694,9 @@ function openTxDetail(id){
     <div style="overflow-x:auto"><table style="width:100%">
       ${row("Date", esc(r.transaction_date||""))}
       ${row("Category", esc(r.category||r.type||"")+catHint(r.category||""))}
-      ${exp?row("Claimable", isClaimable(r)?"Yes":"<strong>No</strong>, not counted in Profit (claimable expenses)"):""}
+      ${exp?(()=>{ const hp=hpSplit(r); return hp
+        ? row("Claimable", `Interest £${hp.interest.toFixed(2)} is claimable (Interest on bank and other loans). Paying off the car £${hp.capital.toFixed(2)} is ${isClaimable(r)?"claimable":"not claimable"}. Payment ${hp.n} of ${hp.of} on ${esc(hp.agreement.label||"your agreement")}, worked out from <a href="#" onclick="openCarHpDetails();return false">Car HP details</a>.`)
+        : row("Claimable", isClaimable(r)?"Yes":"<strong>No</strong>, not counted in Profit (claimable expenses)"); })():""}
       ${row("HMRC heading", esc(TAX_HEADINGS[catInfo(r.category||r.type||"",exp).heading]||""))}
       ${people}
       ${row("Method", esc(r.payment_method||"–"))}
@@ -3677,11 +3843,12 @@ async function delPay(id){
 }
 function exportFinance(){
   const rows=filteredPayments(); const {from,to}=getFinRange();
-  const lines=["date,type,category,amount,method,notes,pupil,claimable,hmrc_heading"];
+  const lines=["date,type,category,amount,method,notes,pupil,claimable,hmrc_heading,claimable_amount,hp_interest"];
   rows.forEach(r=>{
     const pupil=r.pupil?`${r.pupil.first_name||""} ${r.pupil.last_name||""}`.trim():"";
     const exp=isExpense(r);
-    lines.push([r.transaction_date||"",r.type||"",r.category||"",r.amount??"",r.payment_method||"",(r.notes||"").replace(/,/g,";"),pupil,exp?(isClaimable(r)?"yes":"no"):"",'"'+(TAX_HEADINGS[catInfo(r.category||r.type||"",exp).heading]||"")+'"'].join(","));
+    const hp=exp?hpSplit(r):null;
+    lines.push([r.transaction_date||"",r.type||"",r.category||"",r.amount??"",r.payment_method||"",(r.notes||"").replace(/,/g,";"),pupil,exp?(isClaimable(r)?"yes":"no"):"",'"'+(TAX_HEADINGS[catInfo(r.category||r.type||"",exp).heading]||"")+'"',exp?claimablePart(r).toFixed(2):"",hp?hp.interest.toFixed(2):""].join(","));
   });
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));
   a.download=`dmw-finance_${from||"all"}_${to||"all"}.csv`; a.click();

@@ -3195,19 +3195,11 @@ function taxSummaryDefaults(){
   for(let i=1;i<=4;i++){ const b=taxQuarterBounds(y,i); if(today>=b.from&&today<=b.to) q=i; }
   return {y,q,ytd:true};
 }
-function renderTaxSummary(){
-  const el=document.getElementById("fin-tax"); if(!el) return;
-  if(!taxSum) taxSum=taxSummaryDefaults();
-  const {y,q,ytd}=taxSum;
-  const qb=taxQuarterBounds(y,q);
-  const from=(q===0||ytd)?`${y}-04-06`:qb.from, to=qb.to;
+// The Tax summary's figures for any date range: the Tax summary tab and the
+// My Tax Digital download both use this, so the two can never disagree.
+function taxFigures(from,to){
   const own=(txCache||[]).filter(r=>!(r.instructor_id && r.instructor_id!==currentUserId));
   const rows=own.filter(r=>{ const d=r.transaction_date||(r.created_at||"").slice(0,10)||""; return d&&d>=from&&d<=to; });
-  const cy=Number(taxYearBounds(0).from.slice(0,4));
-  const earliest=own.reduce((m,r)=>{ const d=r.transaction_date||""; return d&&d<m?d:m; },`${cy}-04-06`);
-  let ey=Number(earliest.slice(0,4)); if(earliest.slice(5)<"04-06") ey--;
-  const years=[]; for(let yy=cy; yy>=Math.min(ey,y); yy--) years.push(yy);
-  const money=n=>(n<0?"-£":"£")+Math.abs(n).toFixed(2);
   const heads={}; const flagged={};
   let turnoverGross=0, refunds=0, otherInc=0, notBusiness=0;
   rows.forEach(r=>{
@@ -3229,7 +3221,67 @@ function renderTaxSummary(){
   const totExp=Object.values(heads).reduce((s,h)=>s+h.total,0);
   const totNot=Object.values(heads).reduce((s,h)=>s+h.notClaim,0);
   const totClaim=totExp-totNot;
-  const profitTax=turnover+otherInc-totClaim, profitAll=turnover+otherInc-totExp;
+  return {from,to,own,rows,flagged,turnoverGross,refunds,turnover,otherInc,notBusiness,heads,usedHeadings,totExp,totNot,totClaim,
+    profitTax:turnover+otherInc-totClaim, profitAll:turnover+otherInc-totExp};
+}
+// My Tax Digital's Bridging import reads figures by cell position from its
+// SA103F template (MTD_SA103_template.xlsx, downloaded 12 Sep 2026). A CSV
+// with the same cell positions imports the same way, and a figure in the wrong
+// cell imports as blank with no warning. Each box's figure sits two rows under
+// its label: turnover (box 15) D7, other business income (16) J7, and every
+// expense heading's total in column D with its disallowable part in column J.
+// [heading, box, disallowable box, figure row]
+const MTD_SA103_EXPENSES=[
+  ["costOfGoods","17","32",19],["wagesAndStaffCosts","19","34",27],["carVanTravelExpenses","20","35",31],
+  ["premisesRunningCosts","21","36",35],["maintenanceCosts","22","37",39],["adminCosts","23","38",43],
+  ["advertisingCosts","24a","39a",47],["interestOnBankOtherLoans","25","40",55],["financeCharges","26","41",59],
+  ["professionalFees","28","43",67],["otherExpenses","30","45",75]
+];
+function downloadMyTaxDigital(){
+  if(!taxSum) taxSum=taxSummaryDefaults();
+  const {y,q}=taxSum;
+  // Quarterly updates are always the running total from 6 April.
+  const F=taxFigures(`${y}-04-06`,taxQuarterBounds(y,q).to);
+  const grid=Array.from({length:79},()=>Array(12).fill(""));
+  const put=(col,row,val)=>{ grid[row-1][col.charCodeAt(0)-65]=val; };
+  const n=v=>Number(v||0).toFixed(2);
+  const heads={};
+  const mapped=new Set(MTD_SA103_EXPENSES.map(e=>e[0]));
+  Object.entries(F.heads).forEach(([k,h])=>{
+    const key=mapped.has(k)?k:"otherExpenses";
+    const t=heads[key]||(heads[key]={total:0,notClaim:0});
+    t.total+=h.total; t.notClaim+=h.notClaim;
+  });
+  put("D",1,"Self Employment (SA103F) Cumulative Income & Expenses");
+  put("A",2,`From Drive My Way: running total ${F.from} to ${F.to}. In My Tax Digital, Bridging mode, upload this file with the "to" date ${F.to} and check every figure before submitting.`);
+  put("A",3,"Business income");
+  put("A",5,"15"); put("B",5,TAX_HEADINGS.turnover+" (after refunds)"); put("G",5,"16"); put("H",5,TAX_HEADINGS.otherIncome);
+  put("B",7,"£"); put("D",7,n(F.turnover)); put("H",7,"£"); put("J",7,n(F.otherInc));
+  put("A",13,"Business expenses"); put("B",14,"Total expenses"); put("H",14,"Disallowable expenses (not claimable)");
+  MTD_SA103_EXPENSES.forEach(([key,box,disBox,row])=>{
+    const h=heads[key]||{total:0,notClaim:0};
+    put("A",row-2,box); put("B",row-2,TAX_HEADINGS[key]); put("G",row-2,disBox);
+    put("B",row,"£"); put("D",row,n(h.total)); put("H",row,"£"); put("J",row,n(h.notClaim));
+  });
+  // Box 31 stays empty so consolidated expenses are never sent as well as the headings.
+  put("A",77,"31"); put("B",77,"Consolidated expenses (left empty: the headings above are used)");
+  const cell=v=>/[",\r\n]/.test(v)?'"'+String(v).replace(/"/g,'""')+'"':v;
+  const csv=grid.map(r=>r.map(cell).join(",")).join("\r\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download=`my-tax-digital-SA103_${F.from}_${F.to}.csv`; a.click();
+}
+function renderTaxSummary(){
+  const el=document.getElementById("fin-tax"); if(!el) return;
+  if(!taxSum) taxSum=taxSummaryDefaults();
+  const {y,q,ytd}=taxSum;
+  const qb=taxQuarterBounds(y,q);
+  const from=(q===0||ytd)?`${y}-04-06`:qb.from, to=qb.to;
+  const {own,rows,flagged,turnoverGross,refunds,turnover,otherInc,notBusiness,heads,usedHeadings,totExp,totNot,totClaim,profitTax,profitAll}=taxFigures(from,to);
+  const cy=Number(taxYearBounds(0).from.slice(0,4));
+  const earliest=own.reduce((m,r)=>{ const d=r.transaction_date||""; return d&&d<m?d:m; },`${cy}-04-06`);
+  let ey=Number(earliest.slice(0,4)); if(earliest.slice(5)<"04-06") ey--;
+  const years=[]; for(let yy=cy; yy>=Math.min(ey,y); yy--) years.push(yy);
+  const money=n=>(n<0?"-£":"£")+Math.abs(n).toFixed(2);
   const qLabel=["Whole tax year","Quarter 1 · 6 Apr – 5 Jul","Quarter 2 · 6 Jul – 5 Oct","Quarter 3 · 6 Oct – 5 Jan","Quarter 4 · 6 Jan – 5 Apr"];
   const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
   const flagList=Object.entries(flagged);
@@ -3239,6 +3291,7 @@ function renderTaxSummary(){
       <div class="field"><label>Update</label><select id="tax-q" onchange="taxSum.q=Number(this.value);renderTaxSummary()">${[1,2,3,4,0].map(i=>`<option value="${i}" ${i===q?"selected":""}>${qLabel[i]}</option>`).join("")}</select></div>
       ${q?`<div class="field"><label>Figures</label><select id="tax-ytd" onchange="taxSum.ytd=this.value==='1';renderTaxSummary()"><option value="1" ${ytd?"selected":""}>Running total from 6 April</option><option value="0" ${ytd?"":"selected"}>This quarter only</option></select></div>`:""}
       <button class="btn-outline" onclick="downloadTaxSummary()">Download tax summary</button>
+      <button class="btn-outline" onclick="downloadMyTaxDigital()" title="Laid out like My Tax Digital's SA103 template, always the running total from 6 April to the end of the chosen quarter">Download for My Tax Digital</button>
     </div>
     <p class="muted" style="margin-bottom:.9rem">${fmtD(from)} → ${fmtD(to)} · ${rows.length} entr${rows.length===1?"y":"ies"}${q&&ytd?" · Making Tax Digital quarterly updates are a running total for the tax year so far":""}</p>
     <div class="metric-row" style="margin-bottom:1.2rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">

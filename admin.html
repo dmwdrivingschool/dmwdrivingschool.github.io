@@ -381,6 +381,7 @@ tbody tr:hover td{background:#334263}
       <div id="dash-pdi" class="hidden"></div>
       <div id="dash-owed" class="hidden"></div>
       <div id="dash-franchise" class="hidden"></div>
+      <div id="dash-company" class="hidden"></div>
       <div class="stat-row">
         <button type="button" class="stat" onclick="goTab('pupils','active')"><strong id="n-active">–</strong><span>Active pupils</span></button>
         <button type="button" class="stat" onclick="goTab('pupils','waiting')"><strong id="n-waiting">–</strong><span>Waiting list</span></button>
@@ -412,6 +413,7 @@ tbody tr:hover td{background:#334263}
         <h2 style="margin-bottom:.75rem">Settings &amp; tools</h2>
         <div class="dash-settings-grid">
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('reminders')"><span class="ico">⏰</span><div><strong>Reminders</strong><span>Lesson reminder timing for pupils</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('business')"><span class="ico">🏢</span><div><strong>Business type</strong><span>Sole trader or limited company, and how your finances are worked out</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('paycats')"><span class="ico">💷</span><div><strong>Finance categories</strong><span>Fixed categories and their HMRC headings</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('workinghours')"><span class="ico">🕘</span><div><strong>Working hours</strong><span>Days &amp; times you teach — drives the enquiry form</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('syllabus')"><span class="ico">🎓</span><div><strong>Progress syllabus</strong><span>The topics you track pupil progress against</span></div></button>
@@ -487,6 +489,7 @@ tbody tr:hover td{background:#334263}
     <section id="tab-finance" class="hidden">
       <div class="panel">
         <h2>Finances</h2>
+        <p class="muted" id="fin-biz-line" style="margin:-.3rem 0 .8rem;font-size:.85rem"></p>
         <div class="filters">
           <div class="field"><label>Period</label>
             <select id="fin-period" onchange="onPeriodChange()">
@@ -503,21 +506,23 @@ tbody tr:hover td{background:#334263}
           <button class="btn btn-navy btn-sm" onclick="applyFinance()">Apply</button>
           <button class="btn-outline btn-sm hidden" id="fin-pay-instr-btn" onclick="openPayInstructor()">Pay instructor</button>
           <button class="btn-outline" onclick="exportFinance()">Export CSV</button>
-          <button class="btn-outline" onclick="openCarHpDetails()" title="Split Car HP payments into claimable interest and paying off the car">Car HP details</button>
+          <button class="btn-outline" id="fin-carhp-btn" onclick="openCarHpDetails()" title="Split Car HP payments into claimable interest and paying off the car">Car HP details</button>
           <button class="btn-outline" onclick="document.getElementById('import-file').click()">Import CSV</button>
           <input type="file" id="import-file" accept=".csv,text/csv" class="hidden" onchange="importCsv(event)">
         </div>
         <div class="tabs-sub">
-          <button class="on" onclick="showFin('summary',this)">Summary</button>
-          <button onclick="showFin('income',this)">Income</button>
-          <button onclick="showFin('expense',this)">Expenses</button>
-          <button onclick="showFin('tax',this)">Tax summary</button>
-          <button onclick="showFin('add',this)">Add entry</button>
+          <button class="on" data-fin="summary" onclick="showFin('summary',this)">Summary</button>
+          <button data-fin="income" onclick="showFin('income',this)">Income</button>
+          <button data-fin="expense" onclick="showFin('expense',this)">Expenses</button>
+          <button data-fin="tax" id="fin-tax-btn" onclick="showFin('tax',this)">Tax summary</button>
+          <button data-fin="uc" id="fin-uc-btn" class="hidden" onclick="showFin('uc',this)">Profit with all expenses</button>
+          <button data-fin="add" onclick="showFin('add',this)">Add entry</button>
         </div>
         <div id="fin-summary"></div>
         <div id="fin-income" class="hidden"></div>
         <div id="fin-expense" class="hidden"></div>
         <div id="fin-tax" class="hidden"></div>
+        <div id="fin-uc" class="hidden"></div>
         <div id="fin-add" class="hidden">
           <div class="two">
             <div class="field"><label>Type</label>
@@ -532,6 +537,8 @@ tbody tr:hover td{background:#334263}
             <div class="field" id="pay-pupil-wrap"><label>Pupil (for lesson/test income)</label>
               <select id="pay-pupil"><option value="">— none —</option></select>
             </div>
+            <div class="field" id="pay-miles-wrap" style="display:none"><label>Business miles</label><input id="pay-miles" type="number" step="1" min="0" oninput="onPayMilesInput()"><div class="muted" id="pay-miles-note" style="font-size:.75rem;margin-top:.2rem"></div></div>
+            <div class="field" id="pay-home-wrap" style="display:none"><label>Hours worked at home that month</label><select id="pay-home" onchange="onPayHomeChange()"><option value="10">25 to 50 hours (£10)</option><option value="18">51 to 100 hours (£18)</option><option value="26">101 hours or more (£26)</option></select></div>
             <div class="field"><label>Amount (£)</label><input id="pay-amt" type="number" step="0.01"></div>
             <div class="field"><label>Date</label><input id="pay-date" type="date"></div>
             <div class="field"><label>Method</label>
@@ -669,6 +676,7 @@ tbody tr:hover td{background:#334263}
         <div class="settings-list" id="settings-menu">
           <button type="button" onclick="openSettings('profile')">Your profile</button>
           <button type="button" onclick="openSettings('reminders')">Reminders</button>
+          <button type="button" onclick="openSettings('business')">Business type</button>
           <button type="button" onclick="openSettings('paycats')">Finance categories</button>
           <button type="button" onclick="openSettings('workinghours')">Working hours</button>
           <button type="button" onclick="openSettings('syllabus')">Progress syllabus</button>
@@ -705,14 +713,19 @@ let isSuperAdminUser=false, isSchoolAdminUser=false, canSeeVideosTab=false, canS
 // Finance categories are fixed (Dale, 12 Sep 2026): nobody can add or delete
 // one, so every entry lines up with an HMRC Making Tax Digital heading and the
 // Tax summary adds up the way HMRC asks for it. Each category carries its HMRC
-// heading; expenses also say whether they start as claimable (hire purchase
-// repayments don't). Older entries can still carry a retired category (the app
+// heading; expenses also say whether they start as claimable (a Car HP payment
+// depends on the business type, see businessType). Some categories only apply
+// to one business type ("only"). Older entries can still carry a retired category (the app
 // offers its old list until its next build); LEGACY_CATS says how those count.
 const SCHOOL_MONEY_CATS={income:"School payment", expense:"Instructor payment"};
 const TAX_HEADINGS={
   turnover:"Turnover",
   otherIncome:"Other business income",
   notBusiness:"Not business income",
+  notIncome:"Not income (money put into the company)",
+  notExpense:"Not an expense (money taken out of the business)",
+  capital:"Car or equipment bought (capital allowances)",
+  capitalSale:"Car or equipment sold (capital allowances)",
   refunds:"Refunds (taken off turnover)",
   costOfGoods:"Cost of goods bought for resale or goods used",
   wagesAndStaffCosts:"Wages, salaries and other staff costs",
@@ -733,7 +746,12 @@ const INCOME_CAT_DEFS=[
   {name:"Pupil Test Fee",heading:"turnover"},
   {name:"School payment",heading:"turnover"},
   {name:"Franchise fee",heading:"turnover"},
-  {name:"Bank Interest",heading:"notBusiness"},
+  // A company's bank interest is its own income; a sole trader's goes on the savings part of the tax return.
+  {name:"Bank Interest",heading:"notBusiness",companyHeading:"otherIncome"},
+  // Cash basis: what a car or equipment sells for is income when its cost was claimed as an expense (s96A ITTOIA 2005).
+  // Traditional accounting and companies: a sale goes through capital allowances instead.
+  {name:"Car or equipment sold",heading:"otherIncome",headingBy:{sole_accruals:"capitalSale",company:"capitalSale"}},
+  {name:"Director's loan (money put in)",heading:"notIncome",only:["company"]},
   {name:"Other",heading:"otherIncome"}
 ];
 const EXPENSE_CAT_DEFS=[
@@ -758,6 +776,23 @@ const EXPENSE_CAT_DEFS=[
   {name:"Lesson Refund",heading:"refunds",claimable:true},
   {name:"Pupil Test Fee",heading:"costOfGoods",claimable:true},
   {name:"Instructor payment",heading:"otherExpenses",claimable:true},
+  // Sole traders (Dale, 12 Sep 2026): HMRC's mileage rate (worked out from the
+  // miles) and the flat rate for working from home.
+  {name:"Business mileage",heading:"carVanTravelExpenses",claimable:true,only:["sole_cash","sole_accruals"],mileage:true},
+  {name:"Working from home (flat rate)",heading:"premisesRunningCosts",claimable:true,only:["sole_cash","sole_accruals"],homeRate:true},
+  {name:"Income tax & NI paid to HMRC",heading:"notExpense",claimable:false,only:["sole_cash","sole_accruals"]},
+  // Bought outright (not on HP). On the cash basis a dual-control car is an
+  // expense; otherwise both go through capital allowances.
+  {name:"Car bought outright",heading:"capital",headingBy:{sole_cash:"carVanTravelExpenses"},claimable:true},
+  {name:"Equipment bought outright",heading:"capital",claimable:false,only:["sole_accruals","company"]},
+  // Limited companies only (Dale, 12 Sep 2026).
+  {name:"Director's salary",heading:"wagesAndStaffCosts",claimable:true,only:["company"]},
+  {name:"Employer's National Insurance",heading:"wagesAndStaffCosts",claimable:true,only:["company"]},
+  {name:"Pension contributions",heading:"wagesAndStaffCosts",claimable:true,only:["company"]},
+  {name:"Mileage paid to director",heading:"carVanTravelExpenses",claimable:true,only:["company"],mileage:true},
+  {name:"Dividends paid",heading:"notExpense",claimable:false,only:["company"]},
+  {name:"Corporation Tax paid",heading:"notExpense",claimable:false,only:["company"]},
+  {name:"Director's loan (money taken out)",heading:"notExpense",claimable:false,only:["company"]},
   {name:"Miscellaneous",heading:"otherExpenses",claimable:true}
 ];
 const LEGACY_CATS={
@@ -775,17 +810,125 @@ const LEGACY_CATS={
 };
 const INCOME_CATS=INCOME_CAT_DEFS.map(c=>c.name);
 const EXPENSE_CATS=EXPENSE_CAT_DEFS.map(c=>c.name);
+// The categories offered for this account's business type.
+// Business mileage only shows for a sole trader using the mileage rate, or
+// one without dual controls who claims Universal Credit (which only allows
+// the mileage rate for such a car).
+function catDefsFor(isExp){
+  return (isExp?EXPENSE_CAT_DEFS:INCOME_CAT_DEFS).filter(d=>(!d.only||d.only.includes(businessType.type))
+    &&!(d.mileage&&!isCompany()&&businessType.car_costs!=="mileage"&&!(!businessType.dual_controls&&businessType.uc_day)));
+}
+function catsFor(isExp){ return catDefsFor(isExp).map(d=>d.name); }
 // Where a category sits for tax: its own definition, a retired category's
 // mapping, or (anything else, e.g. an imported label) other income / other
 // business expenses.
 function catInfo(cat,isExp){
   const def=(isExp?EXPENSE_CAT_DEFS:INCOME_CAT_DEFS).find(c=>c.name===cat);
-  if(def) return {heading:def.heading,claimable:isExp?def.claimable!==false:true,known:true};
+  // A Car HP payment starts as claimable only when the whole payment is (cash basis, dual controls).
+  if(def){
+    const heading=(def.headingBy&&def.headingBy[businessType.type])||(isCompany()&&def.companyHeading)||def.heading;
+    let claimable=true;
+    if(isExp){
+      if(HP_CATS.has(cat)) claimable=!usesHpSplit();
+      else if(cat==="Car bought outright") claimable=heading!=="capital"&&businessType.dual_controls;
+      else if(def.mileage&&!isCompany()) claimable=businessType.car_costs==="mileage";
+      else claimable=heading!=="notExpense"&&heading!=="capital"&&def.claimable!==false;
+    }
+    return {heading,claimable,known:true};
+  }
   const old=LEGACY_CATS[isExp?"expense":"income"][cat];
-  if(old) return {heading:old.heading,claimable:old.claimable,legacy:true,now:old.now};
+  if(old) return {heading:old.heading,claimable:HP_CATS.has(cat)?!usesHpSplit():old.claimable,legacy:true,now:old.now};
   return {heading:isExp?"otherExpenses":"otherIncome",claimable:true,unknown:true};
 }
 function isClaimable(r){ return r.claimable!==false }
+// Money put into or taken out of a company (dividends, Corporation Tax, director's loan) isn't income or an expense.
+function outsideProfit(r){ const h=catInfo(r.category||r.type||"",isExpense(r)).heading; return h==="notIncome"||h==="notExpense"||h==="capital"||h==="capitalSale"; }
+
+// --- Business type (Dale, 12 Sep 2026) -------------------------------------
+// How this account's books are taxed decides what Finances works out and
+// shows, so only what applies appears:
+//   sole_cash      sole trader, cash basis (the normal way for sole traders)
+//   sole_accruals  sole trader, traditional (accruals) accounting
+//   company        limited company: Corporation Tax and its own year end
+// dual_controls: HMRC doesn't treat a driving school car fitted with dual
+// controls as a car (Capital Allowances Manual CA23510, Bourne v Auto School
+// of Motoring), so on the cash basis its whole hire purchase payment is an
+// allowable expense. Everyone else splits the payment: the interest is
+// claimable and the car's price goes through capital allowances.
+// Saved on app_settings id "business_type"; nothing saved = sole_cash with dual controls.
+const BUSINESS_TYPES={
+  sole_cash:{label:"Sole trader, cash basis",hint:"You count money when it comes in and goes out. This is the normal way for self-employed instructors."},
+  sole_accruals:{label:"Sole trader, traditional accounting",hint:"You count income when it's earned and costs when they're owed, usually with an accountant."},
+  company:{label:"Limited company",hint:"Your business is a company registered at Companies House and pays Corporation Tax."}
+};
+// Also saved there: car_pct / phone_pct (business use, sole traders),
+// car_costs ("actual" or "mileage"), uc_day (Universal Credit assessment period
+// start day, or null), uc_hp ("full" or "exclude"), cs_date (company
+// confirmation statement date, MM-DD, or null).
+const BUSINESS_TYPE_DEFAULTS={type:"sole_cash",dual_controls:true,year_end:"03-31",car_pct:100,phone_pct:100,car_costs:"actual",uc_day:null,uc_hp:"full",cs_date:null,saved:false};
+let businessType=Object.assign({},BUSINESS_TYPE_DEFAULTS);
+function normaliseBusinessType(v,saved){
+  v=v||{};
+  const pct=x=>{ const n=Math.round(Number(x)); return x!==undefined&&x!==null&&x!==""&&n>=0&&n<=100?n:100; };
+  const md=x=>/^\d{2}-\d{2}$/.test(x||"")?x:null;
+  return {type:BUSINESS_TYPES[v.type]?v.type:"sole_cash",dual_controls:v.dual_controls!==false,year_end:md(v.year_end)||"03-31",
+    car_pct:pct(v.car_pct),phone_pct:pct(v.phone_pct),car_costs:v.car_costs==="mileage"?"mileage":"actual",
+    uc_day:Number(v.uc_day)>=1&&Number(v.uc_day)<=31?Number(v.uc_day):null,uc_hp:v.uc_hp==="exclude"?"exclude":"full",cs_date:md(v.cs_date),saved:!!saved};
+}
+async function loadBusinessType(){
+  let v=null, saved=false;
+  try{
+    const {data}=await sb.from("app_settings").select("value").eq("id","business_type").eq("owner_id",currentUserId).maybeSingle();
+    if(data){ v=data.value||{}; saved=true; }
+  }catch(e){}
+  businessType=normaliseBusinessType(v,saved);
+  applyBusinessTypeUi();
+}
+function isCompany(){ return businessType.type==="company"; }
+function usesHpSplit(){ return !(businessType.type==="sole_cash"&&businessType.dual_controls); }
+// Sole traders: only the business share of car and phone costs counts, and
+// with HMRC's mileage rate the car's own costs don't count at all (the rate
+// covers them; parking and tolls still count). A company's private use is a
+// benefit in kind for the director instead, so nothing is taken off here.
+const CAR_COST_CATS=new Set(["Fuel","Motor Expenses","Car insurance","Car HP payment","Car Finance","Car lease / rental","Insurance","Car bought outright"]);
+const PHONE_CATS=new Set(["Telephone & Internet"]);
+function businessFactor(r){
+  if(isCompany()||!isExpense(r)) return 1;
+  const c=r.category||"";
+  if(CAR_COST_CATS.has(c)) return businessType.car_costs==="mileage"?0:businessType.car_pct/100;
+  if(PHONE_CATS.has(c)) return businessType.phone_pct/100;
+  return 1;
+}
+// The company's accounting year containing today (offset 0), or earlier ones.
+function companyYearBounds(offset){
+  const [mm,dd]=businessType.year_end.split("-").map(Number);
+  const endFor=y=>{ const last=new Date(Date.UTC(y,mm,0)).getUTCDate(); return `${y}-${String(mm).padStart(2,"0")}-${String(Math.min(dd,last)).padStart(2,"0")}`; };
+  const today=new Date().toISOString().slice(0,10);
+  let y=Number(today.slice(0,4)); if(endFor(y)<today) y++;
+  y+=offset||0;
+  const start=new Date(endFor(y-1)+"T00:00:00Z"); start.setUTCDate(start.getUTCDate()+1);
+  return {from:start.toISOString().slice(0,10),to:endFor(y)};
+}
+function fmtYearEnd(md){ const [m,d]=md.split("-").map(Number); return new Date(Date.UTC(2000,m-1,d)).toLocaleDateString("en-GB",{day:"numeric",month:"long",timeZone:"UTC"}); }
+// Shows and hides the Finances parts that don't apply to this business type.
+function applyBusinessTypeUi(){
+  const co=isCompany();
+  const byId=id=>document.getElementById(id);
+  const hp=byId("fin-carhp-btn"); if(hp) hp.classList.toggle("hidden",!usesHpSplit());
+  const tb=byId("fin-tax-btn"); if(tb) tb.textContent=co?"Year end":"Tax summary";
+  const ucb=byId("fin-uc-btn"); if(ucb) ucb.classList.toggle("hidden",co||!businessType.uc_day);
+  const per=byId("fin-period");
+  if(per) [...per.options].forEach(o=>{ if(o.value==="this_tax") o.textContent=co?"This company year":"This tax year"; if(o.value==="last_tax") o.textContent=co?"Last company year":"Last tax year"; });
+  const line=byId("fin-biz-line");
+  if(line) line.innerHTML=`Business type: <strong>${esc(BUSINESS_TYPES[businessType.type].label)}</strong>${co?` · year end ${esc(fmtYearEnd(businessType.year_end))}`:""}${businessType.saved?"":" (not set yet, so this is assumed)"} · <a href="#" onclick="goTab('settings');openSettings('business');return false">${businessType.saved?"Change":"Set your business type"}</a>`;
+  renderCompanyDeadlines();
+}
+function carHpIntro(){
+  const how="Add your agreement and each Car HP payment is split for you. It's an estimate from the APR; your finance company's statement shows the exact interest.";
+  if(isCompany()) return "For a limited company, a hire purchase payment isn't an expense. The interest in it is, and the car's price is claimed as a capital allowance at the year end (with dual controls, usually in full in the year the car is bought). "+how;
+  if(businessType.type==="sole_accruals") return "On traditional accounting, a hire purchase payment isn't an expense. The interest in it is, and the car's price is claimed through capital allowances. "+how;
+  return "Your car doesn't have dual controls, so for tax it counts as a car: only the interest in each hire purchase payment is claimable, and the car's price is claimed through capital allowances. "+how;
+}
 
 // --- Car HP details (Dale, 12 Sep 2026) ------------------------------------
 // A hire purchase payment is mostly paying off the car (not claimable) plus
@@ -843,8 +986,8 @@ function hpSchedule(a){
   return out;
 }
 // The split of one Car HP payment, or null when no saved agreement covers its month.
-function hpSplit(r){
-  if(!r||!carHpAgreements.length||!isExpense(r)||!HP_CATS.has(r.category||"")) return null;
+function hpSplit(r,force){
+  if(!r||(!force&&!usesHpSplit())||!carHpAgreements.length||!isExpense(r)||!HP_CATS.has(r.category||"")) return null;
   const d=r.transaction_date||""; if(!d) return null;
   const amt=Number(r.amount||0);
   let best=null;
@@ -868,9 +1011,10 @@ function hpSplit(r){
 // How much of an expense counts for tax: normally all or nothing, but the
 // interest in a covered Car HP payment is always claimable.
 function claimablePart(r){
+  if(outsideProfit(r)) return 0;
   const hp=hpSplit(r);
-  if(hp) return hp.interest+(isClaimable(r)?hp.capital:0);
-  return isClaimable(r)?Number(r.amount||0):0;
+  const base=hp?hp.interest+(isClaimable(r)?hp.capital:0):(isClaimable(r)?Number(r.amount||0):0);
+  return Math.round(base*businessFactor(r)*100)/100;
 }
 function notClaimablePart(r){ return Math.round((Number(r.amount||0)-claimablePart(r))*100)/100; }
 function hpTaxYear(iso){ const y=Number(iso.slice(0,4)); return iso.slice(5)>="04-06"?y:y-1; }
@@ -954,7 +1098,7 @@ function openCarHpDetails(editId,opts){
     </div>
   </div>`;
   openModal(`<h2 style="margin-bottom:.3rem">Car HP details</h2>
-    <p class="muted" style="margin-bottom:.9rem">A hire purchase payment is mostly paying off the car, which isn't claimable, plus interest, which is. Add your agreement and each Car HP payment is split for you: the interest goes under Interest on bank and other loans in the Tax summary. It's an estimate from the APR; your finance company's statement shows the exact interest.</p>
+    <p class="muted" style="margin-bottom:.9rem">${carHpIntro()}</p>
     ${showForm?formHtml:`<div class="actions" style="margin:0 0 .9rem"><button class="btn btn-navy btn-sm" onclick="openCarHpDetails(null,{add:true})">+ Add an agreement</button></div>`}
     ${uncovered?`<p style="font-size:.85rem;color:#92400e;margin:.2rem 0 .9rem">${uncovered} Car HP payment${uncovered===1?" isn't":"s aren't"} covered by an agreement here, so ${uncovered===1?"it counts":"they count"} in full as not claimable.</p>`:""}
     ${cards||'<p class="muted">No agreements added yet.</p>'}
@@ -1251,6 +1395,7 @@ async function enterApp(user,prof){
   document.getElementById("pupil-filter-waiting").classList.toggle("hidden", !!(isSchoolAdminUser && currentSchoolId && !isSuperAdminUser));
   document.getElementById("nav-messages-btn").classList.remove("hidden"); // everyone: school/instructors + own pupils
   await loadSchoolInstructors();
+  await loadBusinessType();
   await loadCarHp();
   await refresh();
   if(!window.__dmwRefreshTimer){
@@ -2279,7 +2424,7 @@ function renderPupilPayments(){
 function pupilEditPayment(id){
   const t=pupilDetail.txs.find(x=>x.id===id);
   if(!t) return;
-  const allCats=[...new Set([...INCOME_CATS,t.category].filter(Boolean))];
+  const allCats=[...new Set([...catsFor(false),t.category].filter(Boolean))];
   openModal(`<h2 style="margin-bottom:1rem">Edit payment</h2>
     <div class="two">
       <div class="field"><label>Category</label>
@@ -3337,8 +3482,8 @@ function onPeriodChange(){
 function getFinRange(){
   const p=document.getElementById("fin-period").value; const now=new Date();
   if(p==="all") return {from:null,to:null};
-  if(p==="this_tax") return taxYearBounds(0);
-  if(p==="last_tax") return taxYearBounds(-1);
+  if(p==="this_tax") return isCompany()?companyYearBounds(0):taxYearBounds(0);
+  if(p==="last_tax") return isCompany()?companyYearBounds(-1):taxYearBounds(-1);
   if(p==="this_month") return {from:now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01",to:now.toISOString().slice(0,10)};
   if(p==="last_month"){const d=new Date(now.getFullYear(),now.getMonth()-1,1);const e=new Date(now.getFullYear(),now.getMonth(),0);return{from:d.toISOString().slice(0,10),to:e.toISOString().slice(0,10)}}
   return {from:document.getElementById("fin-from").value||null,to:document.getElementById("fin-to").value||null};
@@ -3354,7 +3499,7 @@ function filteredPayments(){
 function isExpense(r){const t=(r.type||r.category||"").toLowerCase(); return t.includes("expense")||t.includes("cost")}
 function fillCats(keepCat){
   const type=document.getElementById("pay-type").value;
-  const standard=type==="expense"?EXPENSE_CATS:INCOME_CATS;
+  const standard=catsFor(type==="expense");
   // An older entry being edited keeps its retired category until it's moved.
   const extra=keepCat&&!standard.includes(keepCat)?[keepCat]:[];
   document.getElementById("pay-cat").innerHTML=standard.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("")+
@@ -3374,11 +3519,46 @@ function onPayCatChange(setDefault){
   document.getElementById("pay-pupil-wrap").style.display=show?"block":"none";
   document.getElementById("pay-hours-wrap").style.display=show?"block":"none";
   document.getElementById("pay-receipt-wrap").style.display=type==="expense"?"block":"none";
-  document.getElementById("pay-claim-wrap").style.display=type==="expense"?"block":"none";
+  // Dividends, Corporation Tax and director's loan money aren't expenses, so claimable doesn't apply.
+  const notExp=type==="expense"&&outsideProfit({type:"expense",category:cat});
+  document.getElementById("pay-claim-wrap").style.display=type==="expense"&&!notExp?"block":"none";
+  const mil=type==="expense"&&isMileageCat(cat), home=type==="expense"&&cat===HOME_RATE_CAT;
+  document.getElementById("pay-miles-wrap").style.display=mil?"block":"none";
+  document.getElementById("pay-home-wrap").style.display=home?"block":"none";
+  document.getElementById("pay-date").onchange=()=>{ if(isMileageCat(document.getElementById("pay-cat").value)) onPayMilesInput(); };
+  if(mil) onPayMilesInput();
+  if(home&&setDefault) onPayHomeChange();
   // A new entry, or a category picked by hand, starts as that category's usual
   // setting; opening an entry to edit keeps what it was saved as.
   if(setDefault) document.getElementById("pay-claimable").value=catInfo(cat,type==="expense").claimable?"true":"false";
 }
+// Mileage (Dale, 12 Sep 2026): HMRC's rate is 45p a mile for the first 10,000
+// business miles in a tax year (6 April to 5 April), then 25p. The miles are
+// kept in the entry's notes as "(123 miles)", the same way as lesson hours.
+function milesFromNotes(n){ const m=String(n||"").match(/\((\d+(?:\.\d+)?)\s*miles\)/i); return m?Number(m[1]):0; }
+function stripMilesNote(n){ return String(n||"").replace(/\s*\(\d+(?:\.\d+)?\s*miles\)/ig,"").trim(); }
+function isMileageCat(cat){ const d=EXPENSE_CAT_DEFS.find(x=>x.name===cat); return !!(d&&d.mileage); }
+function taxYearOf(iso){ const y=Number(iso.slice(0,4)); const s=iso.slice(5)>="04-06"?y:y-1; return {from:`${s}-04-06`,to:`${s+1}-04-05`}; }
+function mileageAmount(miles,date,cat,excludeId){
+  const {from}=taxYearOf(date);
+  const before=(txCache||[]).filter(r=>r.id!==excludeId&&!(r.instructor_id&&r.instructor_id!==currentUserId)&&(r.category||"")===cat
+    &&(r.transaction_date||"")>=from&&(r.transaction_date||"")<date).reduce((s,r)=>s+milesFromNotes(r.notes),0);
+  const at45=Math.max(0,Math.min(miles,10000-before));
+  return {amount:Math.round((at45*0.45+(miles-at45)*0.25)*100)/100,before,at45};
+}
+function onPayMilesInput(){
+  const cat=document.getElementById("pay-cat").value, miles=Number(document.getElementById("pay-miles").value||0);
+  const date=document.getElementById("pay-date").value||new Date().toISOString().slice(0,10);
+  const note=document.getElementById("pay-miles-note");
+  if(!(miles>0)){ note.textContent="45p a mile for the first 10,000 business miles in a tax year, then 25p. The amount is worked out for you."; return; }
+  const m=mileageAmount(miles,date,cat,document.getElementById("pay-edit-id").value);
+  document.getElementById("pay-amt").value=m.amount.toFixed(2);
+  note.textContent=`£${m.amount.toFixed(2)}: ${m.at45} miles at 45p${miles-m.at45?` and ${miles-m.at45} at 25p`:""} (${m.before} business miles before this in the tax year).`;
+}
+// HMRC's flat rate for working from home: £10, £18 or £26 a month by hours.
+const HOME_RATE_CAT="Working from home (flat rate)";
+const HOME_BANDS={"10":"25 to 50 hours","18":"51 to 100 hours","26":"101 hours or more"};
+function onPayHomeChange(){ document.getElementById("pay-amt").value=Number(document.getElementById("pay-home").value).toFixed(2); }
 let pendingReceiptFile=null, pendingReceiptExistingPath=null;
 // Phone photos arrive at 10-15 MB. Receipts are shrunk to 2000px on the long
 // side as a JPEG before upload (usually well under 1 MB and still easy to
@@ -3451,40 +3631,49 @@ async function viewReceipt(path,txId,fromDetail){
 }
 function applyFinance(){
   const on=document.querySelector("#tab-finance .tabs-sub button.on");
-  const mode=on&&/tax/i.test(on.textContent)?"tax":on&&/income/i.test(on.textContent)?"income":on&&/expense/i.test(on.textContent)?"expense":on&&/add/i.test(on.textContent)?"add":"summary";
+  const mode=(on&&on.dataset.fin)||"summary";
   showFin(mode);
 }
 function showFin(mode,btn){
   if(btn){btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));btn.classList.add("on")}
-  ["summary","income","expense","tax","add"].forEach(m=>document.getElementById("fin-"+m).classList.toggle("hidden",m!==mode));
+  ["summary","income","expense","tax","uc","add"].forEach(m=>document.getElementById("fin-"+m).classList.toggle("hidden",m!==mode));
   const rows=filteredPayments();
-  const inc=rows.filter(r=>!isExpense(r)); const exp=rows.filter(isExpense);
+  // Money put into or taken out of a company is listed on its own, outside income, expenses and profit.
+  const moves=rows.filter(outsideProfit);
+  const inc=rows.filter(r=>!isExpense(r)&&!outsideProfit(r)); const exp=rows.filter(r=>isExpense(r)&&!outsideProfit(r));
   const sumInc=inc.reduce((s,r)=>s+Number(r.amount||0),0); const sumExp=exp.reduce((s,r)=>s+Number(r.amount||0),0);
   // Two profits (Dale, 12 Sep 2026): HMRC only lets claimable expenses come
   // off; Universal Credit counts every business outgoing.
   const sumNot=exp.reduce((s,r)=>s+notClaimablePart(r),0);
-  const profitTax=sumInc-(sumExp-sumNot), profitAll=sumInc-sumExp;
+  const profitTax=sumInc-(sumExp-sumNot), profitAll=sumInc-exp.reduce((s,r)=>s+Number(r.amount||0)*businessFactor(r),0);
   const {from,to}=getFinRange();
   const totalBar=(label,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:#fff;border-radius:12px;padding:.85rem 1rem;margin-top:.6rem">
       <span style="font-family:var(--fb);text-transform:uppercase;font-size:.72rem;letter-spacing:.05em;font-weight:700">${label}</span>
       <span style="font-family:var(--fm);font-size:1.05rem;font-weight:700">£${v.toFixed(2)}</span>
     </div>`;
+  // A limited company has one profit (before tax); the all-expenses profit is for a sole trader's Universal Credit.
+  const co=isCompany();
   document.getElementById("fin-summary").innerHTML=`<p class="muted" style="margin-bottom:.75rem">${from||"all"} → ${to||"all"} · ${rows.length} entries</p>
+    ${hpClaimableMismatch()}
     <div class="metric-row" style="margin-bottom:.8rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
       <div class="metric"><div class="v good">£${sumInc.toFixed(2)}</div><div class="l">Income</div></div>
       <div class="metric"><div class="v bad">£${sumExp.toFixed(2)}</div><div class="l">Expenses</div></div>
       <div class="metric"><div class="v">£${sumNot.toFixed(2)}</div><div class="l">of which not claimable</div></div>
-      <div class="metric"><div class="v">£${profitTax.toFixed(2)}</div><div class="l">Profit (claimable expenses)</div></div>
-      <div class="metric"><div class="v">£${profitAll.toFixed(2)}</div><div class="l">Profit (all expenses)</div></div>
+      <div class="metric"><div class="v">£${profitTax.toFixed(2)}</div><div class="l">${co?"Profit before tax":"Profit (claimable expenses)"}</div></div>
+      ${co?"":`<div class="metric"><div class="v">£${profitAll.toFixed(2)}</div><div class="l">Profit (all expenses)</div></div>`}
     </div>
-    <p class="muted" style="margin-bottom:1rem;font-size:.78rem">Profit (claimable expenses) only takes off expenses you can claim for tax, the figure HMRC works from. Profit (all expenses) takes off every business outgoing, including ones that aren't claimable such as hire purchase repayments, for example for Universal Credit.</p>
-    ${financeCategoryTable(inc,INCOME_CATS,"Income",false)}
+    <p class="muted" style="margin-bottom:1rem;font-size:.78rem">${co
+      ?"Profit before tax takes off the expenses the company can claim. It's before capital allowances (such as a car bought this year) and Corporation Tax, which the Year end tab works out."
+      :"Profit (claimable expenses) only takes off expenses you can claim for tax, the figure HMRC works from. Profit (all expenses) takes off every business outgoing, including ones that aren't claimable."}</p>
+    ${financeCategoryTable(inc,catsFor(false),"Income",false)}
     <div style="height:.9rem"></div>
-    ${financeCategoryTable(exp,EXPENSE_CATS,"Expenses",true)}
-    <div style="margin-top:.9rem">${totalBar("Profit (claimable expenses)",profitTax)}${totalBar("Profit (all expenses)",profitAll)}</div>`;
+    ${financeCategoryTable(exp,catsFor(true),"Expenses",true)}
+    ${(co||moves.length)?`<div style="height:.9rem"></div>${moneyMovesTable(moves)}`:""}
+    <div style="margin-top:.9rem">${co?totalBar("Profit before tax",profitTax):totalBar("Profit (claimable expenses)",profitTax)+totalBar("Profit (all expenses)",profitAll)}</div>`;
   document.getElementById("fin-income").innerHTML=tablePay(inc);
   document.getElementById("fin-expense").innerHTML=tablePay(exp);
-  if(mode==="tax") renderTaxSummary();
+  if(mode==="tax"){ if(isCompany()) renderCompanyYearEnd(); else renderTaxSummary(); }
+  if(mode==="uc") renderUniversalCredit();
   if(!document.getElementById("pay-date").value) document.getElementById("pay-date").value=new Date().toISOString().slice(0,10);
   fillCats();
 }
@@ -3523,7 +3712,7 @@ function financeCategoryTable(rows,standardCats,label,isExp){
     const d=byCat[c]||{count:0,amount:0,notClaim:0,hpInterest:0};
     const flagged=extra.includes(c);
     const info=catInfo(c,isExp);
-    const flagText=info.legacy?"· old category, counted as "+info.now:"· not a standard category";
+    const flagText=info.legacy?"· old category, counted as "+info.now:info.known?"· not used for your business type":"· not a standard category";
     const catArg=JSON.stringify(c).replace(/'/g,"&#39;");
     return `<tr style="cursor:pointer${flagged?";background:#FFF7E8":""}" onclick='showFinCategoryModal(${catArg},${isExp?"true":"false"})' title="Click to see every entry in this category">
       <td>${esc(c)}${catHint(c)}${d.hpInterest?` <span class="muted" style="font-size:.75rem;font-weight:400">(includes £${d.hpInterest.toFixed(2)} interest, claimable, worked out from your Car HP details)</span>`:""}${flagged?` <span style="color:#b45309;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">${esc(flagText)}</span>`:""}</td>
@@ -3565,6 +3754,7 @@ function taxFigures(from,to){
     const exp=isExpense(r); const cat=r.category||r.type||"";
     const info=catInfo(cat,exp); const amt=Number(r.amount||0);
     if(info.legacy||info.unknown) flagged[cat]=(flagged[cat]||0)+1;
+    if(outsideProfit(r)) return;
     if(!exp){
       if(info.heading==="turnover") turnoverGross+=amt;
       else if(info.heading==="notBusiness") notBusiness+=amt;
@@ -3576,17 +3766,19 @@ function taxFigures(from,to){
     // A Car HP payment covered by Car HP details: the interest is claimable
     // under its own heading, the rest stays where the payment is filed.
     const hp=HP_CATS.has(cat)?hpSplit(r):null;
-    if(HP_CATS.has(cat)&&!hp) hpUncovered++;
+    if(HP_CATS.has(cat)&&!hp&&usesHpSplit()) hpUncovered++;
+    // Business use % and the mileage rate take the private share off.
+    const f=businessFactor(r);
     if(hp){
-      hpInterest+=hp.interest;
+      hpInterest+=hp.interest*f;
       const ih=heads.interestOnBankOtherLoans||(heads.interestOnBankOtherLoans={total:0,notClaim:0});
-      ih.total+=hp.interest;
+      ih.total+=hp.interest; ih.notClaim+=hp.interest*(1-f);
       const hh=heads[info.heading]||(heads[info.heading]={total:0,notClaim:0});
-      hh.total+=hp.capital; if(!isClaimable(r)) hh.notClaim+=hp.capital;
+      hh.total+=hp.capital; hh.notClaim+=isClaimable(r)?hp.capital*(1-f):hp.capital;
       return;
     }
     const h=heads[info.heading]||(heads[info.heading]={total:0,notClaim:0});
-    h.total+=amt; if(!isClaimable(r)) h.notClaim+=amt;
+    h.total+=amt; h.notClaim+=isClaimable(r)?amt*(1-f):amt;
   });
   const turnover=turnoverGross-refunds;
   const usedHeadings=TAX_EXPENSE_ORDER.filter(k=>heads[k]||k==="interestOnBankOtherLoans"||EXPENSE_CAT_DEFS.some(d=>d.heading===k));
@@ -3643,6 +3835,152 @@ function downloadMyTaxDigital(){
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
   a.download=`my-tax-digital-SA103_${F.from}_${F.to}.csv`; a.click();
 }
+// Universal Credit (Dale, 12 Sep 2026): self-employed earnings for each monthly
+// assessment period under Universal Credit's own rules, which differ from
+// HMRC's: loan interest is capped at £41 a month and loan repayments aren't
+// allowed; a car that isn't specially adapted (no dual controls) only gets the
+// flat mileage rate (45p for the first 833 miles a period, then 25p); income
+// tax and National Insurance paid to HMRC in the period come off.
+let ucOffset=0;
+function ucPeriodBounds(offset){
+  const day=businessType.uc_day||1;
+  const dateFor=(y,m)=>{ const last=new Date(Date.UTC(y,m+1,0)).getUTCDate(); return new Date(Date.UTC(y,m,Math.min(day,last))); };
+  const t=new Date(new Date().toISOString().slice(0,10)+"T00:00:00Z");
+  let y=t.getUTCFullYear(), m=t.getUTCMonth();
+  if(dateFor(y,m)>t){ m--; if(m<0){ m=11; y--; } }
+  m+=offset||0; while(m<0){ m+=12; y--; } while(m>11){ m-=12; y++; }
+  const start=dateFor(y,m);
+  const end=dateFor(m===11?y+1:y,m===11?0:m+1); end.setUTCDate(end.getUTCDate()-1);
+  return {from:start.toISOString().slice(0,10),to:end.toISOString().slice(0,10)};
+}
+function ucFigures(from,to){
+  const own=(txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId)&&(r.transaction_date||"")>=from&&(r.transaction_date||"")<=to);
+  let receipts=0, expenses=0, taxPaid=0, hpLeftOut=0, carLeftOut=0, miles=0, interest=0;
+  own.forEach(r=>{
+    const amt=Number(r.amount||0), cat=r.category||"";
+    if(!isExpense(r)){
+      const h=catInfo(cat,false).heading;
+      if(h!=="notBusiness"&&h!=="notIncome") receipts+=amt;
+      return;
+    }
+    if(cat==="Income tax & NI paid to HMRC"){ taxPaid+=amt; return; }
+    if(catInfo(cat,true).heading==="notExpense") return;
+    if(cat==="Business mileage"){ miles+=milesFromNotes(r.notes); return; }
+    const share=amt*businessFactor(r);
+    if(CAR_COST_CATS.has(cat)&&!businessType.dual_controls){ carLeftOut+=share; return; }
+    if(HP_CATS.has(cat)&&businessType.uc_hp==="exclude"){
+      const s=hpSplit(r,true); const i=s&&amt?s.interest*share/amt:0;
+      interest+=i; hpLeftOut+=share-i; return;
+    }
+    if(cat==="Car HP interest"){ interest+=share; return; }
+    expenses+=share;
+  });
+  const mileage=Math.min(miles,833)*0.45+Math.max(0,miles-833)*0.25;
+  const interestAllowed=Math.min(interest,41);
+  const allowed=expenses+mileage+interestAllowed;
+  return {from,to,receipts,expenses,miles,mileage,interest,interestAllowed,hpLeftOut,carLeftOut,taxPaid,allowed,earnings:receipts-allowed-taxPaid};
+}
+function renderUniversalCredit(){
+  const el=document.getElementById("fin-uc"); if(!el) return;
+  const money=n=>(n<0?"-£":"£")+Math.abs(n).toFixed(2);
+  const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  if(!businessType.uc_day){ el.innerHTML=`<p class="muted">Turn on profit with all expenses month by month in <a href="#" onclick="goTab('settings');openSettings('business');return false">Business type</a> to see this.</p>`; return; }
+  const periods=[]; for(let o=0;o>=-11;o--){ const b=ucPeriodBounds(o); periods.push(ucFigures(b.from,b.to)); }
+  if(ucOffset>0||ucOffset<-11) ucOffset=0;
+  const F=periods[-ucOffset];
+  el.innerHTML=`<div class="filters"><div class="field"><label>Month</label><select id="uc-period" onchange="ucOffset=Number(this.value);renderUniversalCredit()">${periods.map((p,i)=>`<option value="${-i}" ${-i===ucOffset?"selected":""}>${fmtD(p.from)} – ${fmtD(p.to)}</option>`).join("")}</select></div></div>
+    <div class="metric-row" style="margin-bottom:1rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      <div class="metric"><div class="v good">${money(F.receipts)}</div><div class="l">Money in</div></div>
+      <div class="metric"><div class="v bad">${money(F.allowed)}</div><div class="l">Expenses counted</div></div>
+      <div class="metric"><div class="v">${money(F.taxPaid)}</div><div class="l">Tax and NI paid</div></div>
+      <div class="metric"><div class="v">${money(F.earnings)}</div><div class="l">Profit with all expenses</div></div>
+    </div>
+    <table><thead><tr><th>How it's worked out</th><th style="text-align:right">Amount</th></tr></thead><tbody>
+      <tr><td>Money in</td><td style="text-align:right">${money(F.receipts)}</td></tr>
+      <tr><td>Business expenses${businessType.car_pct<100||businessType.phone_pct<100?" (business share of car and phone)":""}</td><td style="text-align:right">-${money(F.expenses)}</td></tr>
+      ${F.miles?`<tr><td>Mileage: ${F.miles} miles (45p for the first 833, then 25p)</td><td style="text-align:right">-${money(F.mileage)}</td></tr>`:""}
+      ${F.interest?`<tr><td>Loan interest${F.interest>41?` (${money(F.interest)}, capped at £41)`:""}</td><td style="text-align:right">-${money(F.interestAllowed)}</td></tr>`:""}
+      <tr><td>Income tax and National Insurance paid to HMRC</td><td style="text-align:right">-${money(F.taxPaid)}</td></tr>
+      <tr style="font-weight:700"><td>Profit with all expenses</td><td style="text-align:right">${money(F.earnings)}</td></tr>
+    </tbody></table>
+    ${F.carLeftOut?`<p style="margin:.5rem 0 0;font-size:.84rem">${money(F.carLeftOut)} of car costs left out: without dual controls only the mileage rate counts here, so add Business mileage entries for your miles.</p>`:""}
+    ${F.hpLeftOut?`<p style="margin:.5rem 0 0;font-size:.84rem">${money(F.hpLeftOut)} of Car HP payments left out, as set in Business type.</p>`:""}
+    <div style="height:.9rem"></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Month</th><th style="text-align:right">Money in</th><th style="text-align:right">Expenses counted</th><th style="text-align:right">Tax and NI</th><th style="text-align:right">Profit</th></tr></thead><tbody>
+      ${periods.map((p,i)=>`<tr style="cursor:pointer${-i===ucOffset?";font-weight:700":""}" onclick="ucOffset=${-i};renderUniversalCredit()"><td>${fmtD(p.from)} – ${fmtD(p.to)}</td><td style="text-align:right">${money(p.receipts)}</td><td style="text-align:right">${money(p.allowed)}</td><td style="text-align:right">${money(p.taxPaid)}</td><td style="text-align:right">${money(p.earnings)}</td></tr>`).join("")}
+    </tbody></table></div>
+    <div class="muted" style="margin-top:.9rem;font-size:.8rem;line-height:1.5">
+      Your profit with all business expenses taken off, month by month, counted this way: loan interest up to £41 a month, no loan repayments, only the mileage rate (45p for the first 833 miles a month, then 25p) for a car without dual controls, and income tax and National Insurance paid to HMRC taken off. ${businessType.uc_hp==="exclude"?"Car HP payments are left out, apart from their interest.":"Car HP payments are counted in full."} You can change this in <a href="#" onclick="goTab('settings');openSettings('business');return false">Business type</a>. Losses aren't carried from one month to the next.
+    </div>`;
+}
+// Tax to set aside (Dale, 12 Sep 2026): income tax and Class 4 National
+// Insurance on a sole trader's profit at England, Wales and Northern Ireland
+// rates, assuming no other income. Class 2 isn't included (not charged from
+// April 2024; before that a small flat weekly amount). Keyed by the year a
+// tax year starts; later years use the latest rates.
+const SA_RATES={
+  2020:{pa:12500,band:37500,addl:150000,c4Low:9500,c4High:50000,c4Main:0.09,c4Upper:0.02},
+  2021:{pa:12570,band:37700,addl:150000,c4Low:9568,c4High:50270,c4Main:0.09,c4Upper:0.02},
+  2022:{pa:12570,band:37700,addl:150000,c4Low:11908,c4High:50270,c4Main:0.0973,c4Upper:0.0273},
+  2023:{pa:12570,band:37700,addl:125140,c4Low:12570,c4High:50270,c4Main:0.09,c4Upper:0.02},
+  2024:{pa:12570,band:37700,addl:125140,c4Low:12570,c4High:50270,c4Main:0.06,c4Upper:0.02}
+};
+function estimateSoleTraderTax(profit,taxYearStart){
+  const years=Object.keys(SA_RATES).map(Number).sort((a,b)=>a-b);
+  const R=SA_RATES[years.filter(k=>k<=taxYearStart).pop()||years[0]];
+  const P=Math.max(0,Math.floor(profit));
+  const pa=Math.max(0,R.pa-Math.max(0,Math.floor((P-100000)/2)));
+  const taxable=Math.max(0,P-pa);
+  const addlPart=Math.max(0,taxable-R.addl);
+  const basic=Math.min(taxable,R.band);
+  const higher=Math.max(0,Math.min(taxable,R.addl)-R.band);
+  const incomeTax=basic*0.2+higher*0.4+addlPart*0.45;
+  const c4=Math.max(0,Math.min(P,R.c4High)-R.c4Low)*R.c4Main+Math.max(0,P-R.c4High)*R.c4Upper;
+  return {incomeTax:Math.round(incomeTax*100)/100,classFour:Math.round(c4*100)/100,total:Math.round(incomeTax*100)/100+Math.round(c4*100)/100};
+}
+function taxSetAsideHtml(from,to,y,profit){
+  const accr=businessType.type==="sole_accruals";
+  const cap=accr?capitalFigures(from,to):null;
+  const taxable=profit-(cap?cap.allowances-cap.charges:0);
+  const t=estimateSoleTraderTax(taxable,y);
+  const money=n=>(n<0?"-£":"£")+Math.abs(n).toFixed(2);
+  const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  return `<div style="border:1px solid var(--line);border-radius:12px;padding:.8rem 1rem;margin:0 0 1.2rem">
+    <h3 style="margin:0 0 .5rem">Tax to set aside (estimate)</h3>
+    <div class="metric-row" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:.5rem">
+      <div class="metric"><div class="v">${money(Math.max(0,taxable))}</div><div class="l">${accr?"Taxable profit":"Profit"}</div></div>
+      <div class="metric"><div class="v">${money(t.incomeTax)}</div><div class="l">Income tax</div></div>
+      <div class="metric"><div class="v">${money(t.classFour)}</div><div class="l">Class 4 National Insurance</div></div>
+      <div class="metric"><div class="v bad">${money(t.total)}</div><div class="l">Set aside</div></div>
+    </div>
+    ${cap&&(cap.allowances||cap.charges)?`<p style="margin:0 0 .4rem;font-size:.84rem">Takes off ${money(cap.allowances)} for cars and equipment bought${cap.charges?` and adds back ${money(cap.charges)} for ones sold`:""}.</p>`:""}
+    <p class="muted" style="margin:0;font-size:.78rem;line-height:1.5">Worked out on the profit from ${fmtD(from)} to ${fmtD(to)}, as if you had no other income such as a job or pension, at England, Wales and Northern Ireland rates (Scotland's income tax rates are different). If your bill is over £1,000, HMRC usually also asks for two payments towards next year, each half of this year's bill, due 31 January and 31 July.</p>
+  </div>`;
+}
+// Cars and equipment bought and sold in a period, from Car HP details and the
+// "bought outright" / "sold" entries (traditional accounting and companies).
+// Equipment, and a car with dual controls, is plant and machinery: its whole
+// price is claimed in the year it's bought (Annual Investment Allowance) and
+// what it later sells for is added back. A car without dual controls is
+// claimed at 18% or 6% a year, which is left to the accountant.
+function capitalFigures(from,to){
+  const dual=businessType.dual_controls;
+  const own=(txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId)&&(r.transaction_date||"")>=from&&(r.transaction_date||"")<=to);
+  const bought=[
+    ...carHpAgreements.filter(a=>{ const d=a.start_date||a.first_payment||""; return d>=from&&d<=to; })
+      .map(a=>({label:a.label||"Car",kind:"car",how:"hire purchase",date:a.start_date||a.first_payment,price:Number(a.price!=null?a.price:a.amount)||0})),
+    ...own.filter(r=>isExpense(r)&&(r.category==="Car bought outright"||r.category==="Equipment bought outright"))
+      .map(r=>({label:r.notes||r.category,kind:r.category==="Car bought outright"?"car":"equipment",how:"bought outright",date:r.transaction_date,price:Number(r.amount)||0}))
+  ];
+  const sold=[
+    ...carHpAgreements.filter(a=>a.ended&&a.ended.date>=from&&a.ended.date<=to)
+      .map(a=>({label:a.label||"Car",kind:"car",how:a.ended.how,date:a.ended.date,value:Number(a.ended.value)||0})),
+    ...own.filter(r=>!isExpense(r)&&r.category==="Car or equipment sold")
+      .map(r=>({label:r.notes||r.category,kind:"sale",how:"sold",date:r.transaction_date,value:Number(r.amount)||0}))
+  ];
+  const counts=x=>x.kind!=="car"||dual;
+  return {bought,sold,counts,allowances:bought.filter(counts).reduce((s,c)=>s+c.price,0),charges:sold.filter(counts).reduce((s,c)=>s+c.value,0)};
+}
 function renderTaxSummary(){
   const el=document.getElementById("fin-tax"); if(!el) return;
   if(!taxSum) taxSum=taxSummaryDefaults();
@@ -3664,6 +4002,8 @@ function renderTaxSummary(){
       <div class="field"><label>Update</label><select id="tax-q" onchange="taxSum.q=Number(this.value);renderTaxSummary()">${[1,2,3,4,0].map(i=>`<option value="${i}" ${i===q?"selected":""}>${qLabel[i]}</option>`).join("")}</select></div>
       ${q?`<div class="field"><label>Figures</label><select id="tax-ytd" onchange="taxSum.ytd=this.value==='1';renderTaxSummary()"><option value="1" ${ytd?"selected":""}>Running total from 6 April</option><option value="0" ${ytd?"":"selected"}>This quarter only</option></select></div>`:""}
       <button class="btn-outline" onclick="downloadTaxSummary()">Download tax summary</button>
+      <button class="btn-outline" onclick="downloadAccountantPack(taxSum.last.from,taxSum.last.to)">Download for your accountant</button>
+      <button class="btn-outline" onclick="downloadReceiptsZip(taxSum.last.from,taxSum.last.to)">Download receipts</button>
       <button class="btn-outline" onclick="downloadMyTaxDigital()" title="Laid out like My Tax Digital's SA103 template, always the running total from 6 April to the end of the chosen quarter">Download for My Tax Digital</button>
     </div>
     <p class="muted" style="margin-bottom:.9rem">${fmtD(from)} → ${fmtD(to)} · ${rows.length} entr${rows.length===1?"y":"ies"}${q&&ytd?" · Making Tax Digital quarterly updates are a running total for the tax year so far":""}</p>
@@ -3674,6 +4014,7 @@ function renderTaxSummary(){
       <div class="metric"><div class="v">${money(profitTax)}</div><div class="l">Profit (claimable expenses)</div></div>
       <div class="metric"><div class="v">${money(profitAll)}</div><div class="l">Profit (all expenses)</div></div>
     </div>
+    ${taxSetAsideHtml(from,to,y,profitTax)}
     <table><thead><tr><th>Income</th><th style="text-align:right">Amount</th></tr></thead><tbody>
       <tr><td>Lessons, test fees and other takings</td><td style="text-align:right">${money(turnoverGross)}</td></tr>
       <tr><td>Refunds taken off</td><td style="text-align:right">${refunds?"-"+money(refunds):money(0)}</td></tr>
@@ -3689,7 +4030,7 @@ function renderTaxSummary(){
     ${(hpInterest||hpUncovered)?`<div style="margin-top:.9rem;padding:.75rem .9rem;border-radius:12px;background:#EFF6FF;color:#1e3a8a;font-size:.85rem;line-height:1.5">${hpInterest?`${money(hpInterest)} of your Car HP payments is interest, worked out from your Car HP details, and is counted as claimable under Interest on bank and other loans. The rest of each payment is paying off the car.`:""}${hpUncovered?` ${hpUncovered} Car HP payment${hpUncovered===1?" isn't":"s aren't"} covered by your Car HP details, so ${hpUncovered===1?"it counts":"they count"} in full as not claimable.`:""}${hpInterest&&hpInterestEntries?` You also have ${hpInterestEntries} Car HP interest entr${hpInterestEntries===1?"y":"ies"} in this period, so check the interest isn't counted twice.`:""} <a href="#" onclick="openCarHpDetails();return false">Car HP details</a></div>`:""}
     <div class="muted" style="margin-top:.9rem;font-size:.8rem;line-height:1.5">
       If your business income is under £90,000 a year, a quarterly update can give one total for expenses instead of each heading: ${money(totExp)}, of which ${money(totNot)} isn't claimable.<br>
-      This is a guide to the figures only. Drive My Way doesn't send anything to HMRC: use HMRC-recognised software or your accountant. Year-end items such as capital allowances, the mileage rate and private use aren't included.
+      This is a guide to the figures only. Drive My Way doesn't send anything to HMRC: use HMRC-recognised software or your accountant. Your business use percentages and car costs choice from <a href="#" onclick="goTab('settings');openSettings('business');return false">Business type</a> are included${businessType.type==="sole_accruals"?", and capital allowances are only estimated (for equipment and cars with dual controls)":""}.
     </div>`;
   taxSum.last={from,to,turnoverGross,refunds,turnover,otherInc,notBusiness,heads,usedHeadings,totExp,totNot,totClaim,profitTax,profitAll};
 }
@@ -3713,6 +4054,289 @@ function downloadTaxSummary(){
   ];
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));
   a.download=`tax-summary_${L.from}_${L.to}.csv`; a.click();
+}
+// A company's money in and out that isn't income or an expense: dividends,
+// Corporation Tax and the director's loan.
+function moneyMovesTable(rows){
+  const by={};
+  const add=(name,exp)=>{ const k=(exp?"e:":"i:")+name; return by[k]||(by[k]={name,exp,count:0,amount:0}); };
+  catDefsFor(false).filter(d=>outsideProfit({type:"income",category:d.name})).forEach(d=>add(d.name,false));
+  catDefsFor(true).filter(d=>outsideProfit({type:"expense",category:d.name})).forEach(d=>add(d.name,true));
+  rows.forEach(r=>{ const t=add(r.category||"",isExpense(r)); t.count++; t.amount+=Number(r.amount||0); });
+  return `<table><thead><tr><th>Not income or expenses</th><th style="text-align:right">Qty</th><th style="text-align:right">Money in</th><th style="text-align:right">Money out</th></tr></thead><tbody>
+    ${Object.values(by).map(d=>{ const catArg=JSON.stringify(d.name).replace(/'/g,"&#39;"); return `<tr style="cursor:pointer" onclick='showFinCategoryModal(${catArg},${d.exp?"true":"false"})' title="Click to see every entry in this category"><td>${esc(d.name)}</td><td style="text-align:right">${d.count}</td><td style="text-align:right">${d.exp?"–":"£"+d.amount.toFixed(2)}</td><td style="text-align:right">${d.exp?"£"+d.amount.toFixed(2):"–"}</td></tr>`; }).join("")}
+  </tbody></table>
+  <p class="muted" style="margin:.4rem 0 0;font-size:.78rem">${isCompany()
+    ?"Dividends, Corporation Tax and money you put in or take out as a director don't change the company's profit. Cars and equipment bought or sold outright go through capital allowances instead (see Year end). Money you take out that isn't salary or dividends is owed back to the company."
+    :"These don't change your profit. Cars and equipment bought or sold outright go through capital allowances instead, and tax you pay HMRC isn't a business expense."}</p>`;
+}
+// Car HP payments saved the other way (e.g. before the business type was set):
+// one click brings them in line with this business type.
+function hpClaimableMismatchIds(){
+  const want=!usesHpSplit();
+  return (txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId)&&isExpense(r)&&HP_CATS.has(r.category||"")&&isClaimable(r)!==want).map(r=>r.id);
+}
+function hpClaimableMismatch(){
+  const n=hpClaimableMismatchIds().length; if(!n) return "";
+  const want=!usesHpSplit();
+  return `<div style="padding:.7rem .9rem;border-radius:12px;background:#FFF7E8;color:#92400e;font-size:.85rem;margin-bottom:.8rem;line-height:1.5">${n} Car HP payment${n===1?" is":"s are"} marked ${want?"not claimable":"claimable in full"}. ${want
+    ?"As a sole trader on the cash basis with dual-control cars, the whole hire purchase payment is claimable."
+    :"For your business type only the interest is claimable, worked out from Car HP details. The part paying off the car isn't."} <button class="btn-outline btn-sm" style="margin-left:.3rem" onclick="fixHpClaimable()">Mark ${n===1?"it":"them"} ${want?"claimable":"not claimable"}</button></div>`;
+}
+async function fixHpClaimable(){
+  const ids=hpClaimableMismatchIds(); if(!ids.length) return;
+  const want=!usesHpSplit();
+  if(!confirm(`Mark ${ids.length} Car HP payment${ids.length===1?"":"s"} as ${want?"claimable":"not claimable"}?`)) return;
+  for(let i=0;i<ids.length;i+=100){
+    const {error}=await sb.from("transactions").update({claimable:want}).in("id",ids.slice(i,i+100));
+    if(error) return alert("Could not update: "+error.message);
+  }
+  await loadPayments(); applyFinance();
+}
+// Year end for a limited company (Dale, 12 Sep 2026): the company's own
+// accounting year, profit before tax, capital allowances on cars from Car HP
+// details and an estimated Corporation Tax. Nothing goes to HMRC or Companies
+// House from here: the accountant prepares the accounts and the CT600.
+function fmtShortDate(iso){ return new Date(iso+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); }
+// Adds months (and days) to a date; a month-end date stays at month end, the
+// way Companies House and HMRC count deadlines.
+function addMonthsIso(iso,months,days){
+  const y=Number(iso.slice(0,4)), m=Number(iso.slice(5,7))-1, d=Number(iso.slice(8,10));
+  const monthEnd=d===new Date(Date.UTC(y,m+1,0)).getUTCDate();
+  const t=new Date(Date.UTC(y,m+months,1));
+  const last=new Date(Date.UTC(t.getUTCFullYear(),t.getUTCMonth()+1,0)).getUTCDate();
+  t.setUTCDate((monthEnd?last:Math.min(d,last))+(days||0));
+  return t.toISOString().slice(0,10);
+}
+// Company deadlines (Dale, 12 Sep 2026) from the year end: accounts to
+// Companies House 9 months after it, Corporation Tax payment 9 months and a
+// day after, the CT600 return 12 months after, and the confirmation statement
+// within 14 days of each anniversary of its date. A company's first accounts
+// can be due at a different time.
+function companyDeadlines(){
+  const out=[];
+  [-1,0].forEach(o=>{
+    const b=companyYearBounds(o), yr=`year to ${fmtShortDate(b.to)}`;
+    out.push({what:`Accounts to Companies House (${yr})`,due:addMonthsIso(b.to,9)});
+    out.push({what:`Corporation Tax payment (${yr})`,due:addMonthsIso(b.to,9,1)});
+    out.push({what:`Corporation Tax return, CT600 (${yr})`,due:addMonthsIso(b.to,12)});
+  });
+  if(businessType.cs_date){
+    const today=new Date().toISOString().slice(0,10);
+    const [cm,cd]=businessType.cs_date.split("-").map(Number);
+    const reviewFor=y=>`${y}-${String(cm).padStart(2,"0")}-${String(Math.min(cd,new Date(Date.UTC(y,cm,0)).getUTCDate())).padStart(2,"0")}`;
+    let y=Number(today.slice(0,4)); let due=addMonthsIso(reviewFor(y),0,14);
+    if(due<today) due=addMonthsIso(reviewFor(y+1),0,14);
+    out.push({what:"Confirmation statement to Companies House",due});
+  }
+  return out;
+}
+function renderCompanyDeadlines(){
+  const el=document.getElementById("dash-company"); if(!el) return;
+  if(!isCompany()){ el.className="hidden"; el.innerHTML=""; return; }
+  const today=new Date().toISOString().slice(0,10);
+  const list=companyDeadlines().filter(d=>d.due>=today).sort((a,b)=>a.due<b.due?-1:1).slice(0,4);
+  el.className="panel"; el.style.marginBottom="1rem";
+  el.innerHTML=`<h2 style="margin-bottom:.6rem">Company deadlines</h2>
+    <div style="overflow-x:auto"><table><tbody>${list.map(d=>{ const days=Math.round((Date.parse(d.due)-Date.parse(today))/86400000); return `<tr><td>${esc(d.what)}</td><td style="text-align:right;white-space:nowrap${days<=30?";color:#b45309;font-weight:700":""}">${fmtShortDate(d.due)} · ${days===0?"today":days===1?"tomorrow":days+" days"}</td></tr>`; }).join("")}</tbody></table></div>
+    <p class="muted" style="margin:.5rem 0 0;font-size:.78rem">Worked out from your year end${businessType.cs_date?" and confirmation statement date":""} in <a href="#" onclick="goTab('settings');openSettings('business');return false">Business type</a>. A company's first accounts can have a different deadline, so check with your accountant.${businessType.cs_date?"":" Add your confirmation statement date to see that deadline too."}</p>`;
+}
+// Director's loan balance and dividend check (Dale, 12 Sep 2026), across every
+// year of entries up to the chosen year end.
+function directorLoanBalance(upTo){
+  return (txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId)&&(r.transaction_date||"")<=upTo).reduce((s,r)=>{
+    if(r.category==="Director's loan (money taken out)") return s+Number(r.amount||0);
+    if(r.category==="Director's loan (money put in)") return s-Number(r.amount||0);
+    return s;
+  },0);
+}
+function companyChecksHtml(F){
+  const money=n=>(n<0?"-£":"£")+Math.abs(n).toFixed(2);
+  const dla=directorLoanBalance(F.to);
+  // Profits available for dividends: each year's profit before tax less its
+  // estimated Corporation Tax, from the first year with entries, less every dividend paid so far.
+  const own=(txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId));
+  const earliest=own.reduce((m,r)=>{ const d=r.transaction_date||""; return d&&d<m?d:m; },F.from);
+  let retained=0, dividends=0;
+  for(let o=coYearOffset;o>=coYearOffset-40;o--){
+    const b=companyYearBounds(o); const Y=companyYearFigures(b.from,b.to);
+    retained+=Y.profit-Y.ct;
+    dividends+=Y.rows.filter(r=>r.category==="Dividends paid").reduce((s,r)=>s+Number(r.amount||0),0);
+    if(b.from<=earliest) break;
+  }
+  const warn=t=>`<div style="margin-top:.6rem;padding:.7rem .9rem;border-radius:12px;background:#FFF7E8;color:#92400e;font-size:.85rem;line-height:1.5">${t}</div>`;
+  return `<div style="height:.9rem"></div>
+    <table><thead><tr><th>Checks at the year end</th><th style="text-align:right">Amount</th></tr></thead><tbody>
+      <tr><td>Director's loan: ${dla>0.004?"you owe the company":dla<-0.004?"the company owes you":"nothing owed either way"}</td><td style="text-align:right">${money(Math.abs(dla))}</td></tr>
+      <tr><td>Profits available for dividends (after estimated Corporation Tax, all years so far)</td><td style="text-align:right">${money(retained)}</td></tr>
+      <tr><td>Dividends paid (all years so far)</td><td style="text-align:right">${money(dividends)}</td></tr>
+    </tbody></table>
+    ${dla>0.004?warn(`You owe the company ${money(dla)} on your director's loan. If it isn't repaid within 9 months of the year end (by ${fmtShortDate(addMonthsIso(F.to,9))}), the company pays an extra 33.75% tax on what's still owed, which it gets back once you repay. A loan of over £10,000 at any time can also mean tax for you as a benefit in kind. Speak to your accountant.`):""}
+    ${dividends>retained+0.004?warn(`Dividends paid (${money(dividends)}) are more than the profits available (${money(retained)}). A company can only pay dividends out of its profits, so speak to your accountant before paying any more.`):""}
+    <p class="muted" style="margin:.4rem 0 0;font-size:.78rem">Worked out from your entries in Drive My Way since ${fmtShortDate(earliest)}, so anything from before then isn't included. Your accountant's figures for available profits may differ, for example because of depreciation.</p>`;
+}
+let coYearOffset=0;
+function companyYearFigures(from,to){
+  const own=(txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId));
+  const rows=own.filter(r=>{ const d=r.transaction_date||(r.created_at||"").slice(0,10)||""; return d&&d>=from&&d<=to; });
+  const moves=rows.filter(outsideProfit);
+  const inc=rows.filter(r=>!isExpense(r)&&!outsideProfit(r)), exp=rows.filter(r=>isExpense(r)&&!outsideProfit(r));
+  const income=inc.reduce((s,r)=>s+Number(r.amount||0),0);
+  const claimable=exp.reduce((s,r)=>s+claimablePart(r),0);
+  const hpInterest=exp.reduce((s,r)=>{ const h=hpSplit(r); return s+(h?h.interest:0); },0);
+  const profit=income-claimable;
+  const {bought,sold,counts,allowances,charges}=capitalFigures(from,to);
+  const taxable=profit-allowances+charges;
+  return {from,to,rows,moves,income,claimable,hpInterest,profit,bought,sold,counts,allowances,charges,taxable,ct:estimateCorporationTax(taxable,to)};
+}
+// A 12-month year with no associated companies. From 1 April 2023: 19% up to
+// £50,000, 25% from £250,000, marginal relief in between (25% less 3/200 of
+// the amount under £250,000). Years ending before then: 19%.
+function estimateCorporationTax(p,to){
+  if(!(p>0)) return 0;
+  if(to<"2023-04-01"||p<=50000) return Math.round(p*19)/100;
+  if(p>=250000) return Math.round(p*25)/100;
+  return Math.round((p*0.25-(250000-p)*3/200)*100)/100;
+}
+function renderCompanyYearEnd(){
+  const el=document.getElementById("fin-tax"); if(!el) return;
+  const own=(txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId));
+  const earliest=own.reduce((m,r)=>{ const d=r.transaction_date||""; return d&&d<m?d:m; },companyYearBounds(0).from);
+  const years=[]; for(let o=0;o>=-30;o--){ const b=companyYearBounds(o); years.push({o,b}); if(b.from<=earliest) break; }
+  if(!years.some(y=>y.o===coYearOffset)) coYearOffset=0;
+  const b=companyYearBounds(coYearOffset);
+  const F=companyYearFigures(b.from,b.to);
+  const dual=businessType.dual_controls;
+  const money=n=>(n<0?"-£":"£")+Math.abs(n).toFixed(2);
+  const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  const carRows=[
+    ...F.bought.map(c=>`<tr><td>${esc(c.label)}</td><td>${c.how==="hire purchase"?"Bought on hire purchase":"Bought outright"} ${fmtD(c.date)}</td><td style="text-align:right">${money(c.price)}</td><td style="text-align:right">${F.counts(c)?"-"+money(c.price):"–"}</td></tr>`),
+    ...F.sold.map(c=>`<tr><td>${esc(c.label)}</td><td>${c.how==="part_exchange"?"Part exchanged":"Sold"} ${fmtD(c.date)}</td><td style="text-align:right">${money(c.value)}</td><td style="text-align:right">${F.counts(c)?"+"+money(c.value):"–"}</td></tr>`)
+  ].join("");
+  el.innerHTML=`<div class="filters">
+      <div class="field"><label>Company year</label><select id="co-year" onchange="coYearOffset=Number(this.value);renderCompanyYearEnd()">${years.map(y=>`<option value="${y.o}" ${y.o===coYearOffset?"selected":""}>${fmtD(y.b.from)} – ${fmtD(y.b.to)}</option>`).join("")}</select></div>
+      <button class="btn-outline" onclick="downloadAccountantPack('${F.from}','${F.to}')">Download for your accountant</button>
+      <button class="btn-outline" onclick="downloadReceiptsZip('${F.from}','${F.to}')">Download receipts</button>
+    </div>
+    <p class="muted" style="margin-bottom:.9rem">${fmtD(F.from)} → ${fmtD(F.to)} · ${F.rows.length} entr${F.rows.length===1?"y":"ies"} · year end ${esc(fmtYearEnd(businessType.year_end))} (<a href="#" onclick="goTab('settings');openSettings('business');return false">change</a>)</p>
+    <div class="metric-row" style="margin-bottom:1.2rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      <div class="metric"><div class="v good">${money(F.income)}</div><div class="l">Income</div></div>
+      <div class="metric"><div class="v bad">${money(F.claimable)}</div><div class="l">Claimable expenses</div></div>
+      <div class="metric"><div class="v">${money(F.profit)}</div><div class="l">Profit before tax</div></div>
+      <div class="metric"><div class="v">${money(Math.max(0,F.taxable))}</div><div class="l">Taxable profit (estimate)</div></div>
+      <div class="metric"><div class="v">${money(F.ct)}</div><div class="l">Corporation Tax (estimate)</div></div>
+    </div>
+    <table><thead><tr><th>How it's worked out</th><th style="text-align:right">Amount</th></tr></thead><tbody>
+      <tr><td>Income</td><td style="text-align:right">${money(F.income)}</td></tr>
+      <tr><td>Claimable expenses${F.hpInterest?` (includes ${money(F.hpInterest)} hire purchase interest)`:""}</td><td style="text-align:right">-${money(F.claimable)}</td></tr>
+      <tr style="font-weight:700"><td>Profit before tax</td><td style="text-align:right">${money(F.profit)}</td></tr>
+      <tr><td>${dual?"Cars and equipment":"Equipment"} bought this year, price claimed in full</td><td style="text-align:right">-${money(F.allowances)}</td></tr>
+      <tr><td>${dual?"Cars and equipment":"Equipment"} sold or part exchanged this year, value added back</td><td style="text-align:right">+${money(F.charges)}</td></tr>
+      <tr style="font-weight:700"><td>Taxable profit (estimate)</td><td style="text-align:right">${money(F.taxable)}</td></tr>
+      <tr style="font-weight:700"><td>Corporation Tax (estimate)</td><td style="text-align:right">${money(F.ct)}</td></tr>
+    </tbody></table>
+    ${F.taxable<0?`<p style="margin:.5rem 0 0;font-size:.85rem">That's a loss of ${money(-F.taxable)}, which can usually be set against the company's profits in later years.</p>`:""}
+    <div style="height:.9rem"></div>
+    <table><thead><tr><th>Cars and equipment</th><th>This year</th><th style="text-align:right">Price or value</th><th style="text-align:right">Tax effect</th></tr></thead><tbody>
+      ${carRows||'<tr><td colspan="4" class="muted">No cars or equipment bought, sold or part exchanged in this year. <a href="#" onclick="openCarHpDetails();return false">Car HP details</a></td></tr>'}
+    </tbody></table>
+    ${dual?"":`<p class="muted" style="margin:.4rem 0 0;font-size:.8rem">Your cars don't have dual controls, so their price is claimed at 18% or 6% a year depending on CO2. That isn't included above: your accountant works it out.</p>`}
+    <div style="height:.9rem"></div>
+    ${moneyMovesTable(F.moves)}
+    ${companyChecksHtml(F)}
+    <div class="muted" style="margin-top:.9rem;font-size:.8rem;line-height:1.5">
+      This is an estimate to help you and your accountant. It assumes a 12-month year, no other companies connected to yours, and that a car sold or part exchanged had its price claimed in full when it was bought. Cars bought outright and other equipment aren't included, so give those to your accountant. Your accountant prepares the company accounts for Companies House and the Corporation Tax return (CT600). Drive My Way doesn't send anything to HMRC or Companies House.
+    </div>`;
+}
+// Receipts bundle (Dale, 12 Sep 2026): every receipt photo in a period in one
+// zip, named by date, category and amount, with a list. JSZip loads from
+// jsDelivr (allowed by the Control Centre's content security policy) only
+// when it's needed.
+async function downloadReceiptsZip(from,to){
+  if(!from||!to) return;
+  const rows=(txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId)&&r.receipt_url&&(r.transaction_date||"")>=from&&(r.transaction_date||"")<=to)
+    .sort((a,b)=>(a.transaction_date||"")<(b.transaction_date||"")?-1:1);
+  if(!rows.length) return alert("There are no receipt photos between those dates.");
+  if(!window.JSZip){
+    await new Promise(res=>{ const s=document.createElement("script"); s.src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"; s.onload=res; s.onerror=res; document.head.appendChild(s); });
+  }
+  if(!window.JSZip) return alert("Couldn't prepare the download. Check your connection and try again.");
+  openModal(`<h2 style="margin-bottom:.4rem">Preparing your receipts</h2><p class="muted" id="rz-progress">0 of ${rows.length}</p>`);
+  const zip=new JSZip(), used={}, q=s=>'"'+String(s==null?"":s).replace(/"/g,'""')+'"';
+  const list=["date,category,amount,file,notes"]; let missing=0;
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i];
+    const clean=String(r.receipt_url).split("?")[0].replace(/^https?:\/\/[^/]+\/storage\/v1\/object\/(?:public|sign|authenticated)\/receipts\//,"");
+    const {data,error}=await sb.storage.from("receipts").download(clean);
+    const p=document.getElementById("rz-progress"); if(p) p.textContent=`${i+1} of ${rows.length}`;
+    let name=`${r.transaction_date}_${String(r.category||"expense").replace(/[^A-Za-z0-9]+/g,"-")}_${Number(r.amount||0).toFixed(2)}`;
+    used[name]=(used[name]||0)+1; if(used[name]>1) name+=`_${used[name]}`;
+    const ext=((clean.split(".").pop()||"").toLowerCase().replace(/[^a-z0-9]/g,""))||"jpg";
+    if(error||!data||!data.size){ missing++; list.push([r.transaction_date,q(r.category),Number(r.amount||0).toFixed(2),q("photo not saved"),q(r.notes)].join(",")); continue; }
+    zip.file(`${name}.${ext}`,data);
+    list.push([r.transaction_date,q(r.category),Number(r.amount||0).toFixed(2),q(`${name}.${ext}`),q(r.notes)].join(","));
+  }
+  zip.file("receipts-list.csv",list.join("\r\n"));
+  const blob=await zip.generateAsync({type:"blob"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`receipts_${from}_${to}.zip`; a.click();
+  closeModal();
+  if(missing) alert(`${missing} receipt photo${missing===1?" wasn't":"s weren't"} saved, so ${missing===1?"it's":"they're"} in receipts-list.csv without a photo.`);
+}
+// "Download for your accountant" (Dale, 12 Sep 2026): one CSV with the
+// period's totals by category, hire purchase interest, cars bought and sold,
+// the company estimate, and every entry, for whichever business type this is.
+function downloadAccountantPack(from,to){
+  if(!from||!to) return;
+  const co=isCompany();
+  const q=s=>'"'+String(s==null?"":s).replace(/"/g,'""')+'"';
+  const n=v=>Number(v||0).toFixed(2);
+  const own=(txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId));
+  const rows=own.filter(r=>{ const d=r.transaction_date||(r.created_at||"").slice(0,10)||""; return d&&d>=from&&d<=to; })
+    .sort((a,b)=>(a.transaction_date||"")<(b.transaction_date||"")?-1:1);
+  const lines=[q("Drive My Way: for your accountant"),
+    [q("Business type"),q(BUSINESS_TYPES[businessType.type].label)].join(","),
+    [q("Period"),q(from+" to "+to)].join(","),
+    [q("Tuition cars have dual controls"),q(businessType.dual_controls?"Yes":"No")].join(","),
+    "","section,category,entries,total,not_claimable,claimable"];
+  const byCat={};
+  rows.forEach(r=>{
+    const exp=isExpense(r), cat=r.category||r.type||"Uncategorised";
+    const section=outsideProfit(r)?(exp?"money_out_not_expense":"money_in_not_income"):(exp?"expense":"income");
+    const t=byCat[section+"|"+cat]||(byCat[section+"|"+cat]={section,cat,count:0,total:0,not:0});
+    t.count++; t.total+=Number(r.amount||0); if(section==="expense") t.not+=notClaimablePart(r);
+  });
+  const order={income:0,expense:1,money_in_not_income:2,money_out_not_expense:3};
+  Object.values(byCat).sort((a,b)=>order[a.section]-order[b.section]||a.cat.localeCompare(b.cat)).forEach(t=>{
+    lines.push([t.section,q(t.cat),t.count,n(t.total),t.section==="expense"?n(t.not):"",t.section==="expense"?n(t.total-t.not):""].join(","));
+  });
+  const inc=rows.filter(r=>!isExpense(r)&&!outsideProfit(r)).reduce((s,r)=>s+Number(r.amount||0),0);
+  const exps=rows.filter(r=>isExpense(r)&&!outsideProfit(r));
+  const claim=exps.reduce((s,r)=>s+claimablePart(r),0);
+  const hpInt=exps.reduce((s,r)=>{ const h=hpSplit(r); return s+(h?h.interest:0); },0);
+  lines.push("",["totals",q("Income"),"",n(inc),"",""].join(","),["totals",q("Claimable expenses"),"",n(claim),"",""].join(","));
+  if(usesHpSplit()) lines.push(["totals",q("of which hire purchase interest (worked out from the APR)"),"",n(hpInt),"",""].join(","));
+  lines.push(["totals",q(co?"Profit before tax":"Profit (claimable expenses)"),"",n(inc-claim),"",""].join(","));
+  if(usesHpSplit()){
+    const cap=capitalFigures(from,to);
+    lines.push("","section,item,how,date,amount,claimed_in_full_estimate");
+    cap.bought.forEach(c=>lines.push(["bought",q(c.label),q(c.how),c.date,n(c.price),cap.counts(c)?"yes":"no"].join(",")));
+    cap.sold.forEach(c=>lines.push(["sold",q(c.label),q(c.how==="part_exchange"?"part exchanged":"sold"),c.date,n(c.value),cap.counts(c)?"yes":"no"].join(",")));
+    carHpAgreements.forEach(a=>lines.push(["hire_purchase",q(a.label||"Car"),q(`${n(a.amount)} borrowed at ${a.apr}% APR over ${a.months} months from ${a.first_payment}`),"","",""].join(",")));
+  }
+  if(co){
+    const F=companyYearFigures(from,to);
+    lines.push("",["estimate",q("Dual-control cars bought, price claimed in full"),"",n(F.allowances),"",""].join(","),
+      ["estimate",q("Dual-control cars sold or part exchanged, value added back"),"",n(F.charges),"",""].join(","),
+      ["estimate",q("Taxable profit"),"",n(F.taxable),"",""].join(","),
+      ["estimate",q("Corporation Tax"),"",n(F.ct),"",""].join(","));
+  }
+  lines.push("","section,date,type,category,amount,claimable_amount,hp_interest,method,notes");
+  rows.forEach(r=>{
+    const exp=isExpense(r), h=exp?hpSplit(r):null;
+    lines.push(["entry",r.transaction_date||"",r.type||"",q(r.category||""),n(r.amount),exp&&!outsideProfit(r)?n(claimablePart(r)):"",h?n(h.interest):"",q(r.payment_method||""),q(r.notes||"")].join(","));
+  });
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\r\n")],{type:"text/csv"}));
+  a.download=`for-your-accountant_${from}_${to}.csv`; a.click();
 }
 // Clicking a category row in the Summary tab opens every entry filed under
 // that exact category (within the currently-selected date range), each with
@@ -3774,6 +4398,7 @@ function startAddPayForCategory(cat,isExp){
   document.getElementById("pay-pupil").value="";
   document.getElementById("pay-hrs").value="";
   document.getElementById("pay-mins").value="";
+  document.getElementById("pay-miles").value="";
   resetReceiptField();
   onPayCatChange(true);
 }
@@ -3794,7 +4419,7 @@ function tablePay(rows,inModal){
       const main=who||pupil||r.category||r.type||r.notes||"";
       const sub=(who&&!inModal)?(r.category||""):"";
       const hpS=isExpense(r)?hpSplit(r):null;
-      const noClaim=hpS?`<div style="font-size:.7rem;font-weight:700;color:#1d4ed8">Interest £${hpS.interest.toFixed(2)} claimable</div>`:(isExpense(r)&&!isClaimable(r)?'<div style="font-size:.7rem;font-weight:700;color:#b45309">Not claimable</div>':"");
+      const noClaim=outsideProfit(r)?`<div style="font-size:.7rem;font-weight:700;color:#475569">Not ${isExpense(r)?"an expense":"income"}</div>`:hpS?`<div style="font-size:.7rem;font-weight:700;color:#1d4ed8">Interest £${hpS.interest.toFixed(2)} claimable</div>`:(isExpense(r)&&!isClaimable(r)?'<div style="font-size:.7rem;font-weight:700;color:#b45309">Not claimable</div>':"");
       const receiptBtn=r.receipt_url?`<button class="btn-outline" onclick="event.stopPropagation();viewReceipt('${String(r.receipt_url).replace(/'/g,"&#39;")}','${r.id}')" title="View receipt">🧾</button>`:"";
       return `<tr style="cursor:pointer" onclick="openTxDetail('${r.id}')" title="Click to see who this payment was from and the full details"><td>${esc(r.transaction_date||"")}</td><td>${esc(main)}${sub?`<div class="muted" style="font-size:.75rem">${esc(sub)}</div>`:""}${noClaim}</td>
         <td>£${Number(r.amount||0).toFixed(2)}</td><td>${esc(r.payment_method||"–")}</td>
@@ -3840,7 +4465,7 @@ function openTxDetail(id){
     <div style="overflow-x:auto"><table style="width:100%">
       ${row("Date", esc(r.transaction_date||""))}
       ${row("Category", esc(r.category||r.type||"")+catHint(r.category||""))}
-      ${exp?(()=>{ const hp=hpSplit(r); return hp
+      ${outsideProfit(r)?row("Counted", `Not ${exp?"an expense":"income"}, so it isn't in income, expenses or profit`):exp?(()=>{ const hp=hpSplit(r); return hp
         ? row("Claimable", `Interest £${hp.interest.toFixed(2)} is claimable (Interest on bank and other loans). Paying off the car £${hp.capital.toFixed(2)} is ${isClaimable(r)?"claimable":"not claimable"}. Payment ${hp.n} of ${hp.of} on ${esc(hp.agreement.label||"your agreement")}, worked out from <a href="#" onclick="openCarHpDetails();return false">Car HP details</a>.`)
         : row("Claimable", isClaimable(r)?"Yes":"<strong>No</strong>, not counted in Profit (claimable expenses)"); })():""}
       ${row("HMRC heading", esc(TAX_HEADINGS[catInfo(r.category||r.type||"",exp).heading]||""))}
@@ -3868,7 +4493,11 @@ function startEditPay(r){
   document.getElementById("pay-amt").value=r.amount||"";
   document.getElementById("pay-date").value=(r.transaction_date||"").slice(0,10);
   document.getElementById("pay-method").value=r.payment_method||"Bank Transfer";
-  document.getElementById("pay-notes").value=r.notes||"";
+  const milesCat=isMileageCat(r.category||"");
+  document.getElementById("pay-notes").value=milesCat?stripMilesNote(r.notes):(r.notes||"");
+  document.getElementById("pay-miles").value=milesCat?(milesFromNotes(r.notes)||""):"";
+  const homeBand=String(r.notes||"").match(/\((25 to 50 hours|51 to 100 hours|101 hours or more) at home\)/);
+  if(homeBand) document.getElementById("pay-home").value=Object.keys(HOME_BANDS).find(k=>HOME_BANDS[k]===homeBand[1]);
   document.getElementById("pay-pupil").value=r.pupil_id||"";
   const oldHrs=hoursFromTxDescription(r.notes||"");
   document.getElementById("pay-edit-old-hrs").value=oldHrs||"";
@@ -3915,6 +4544,15 @@ async function savePayment(){
   const hrsVal=document.getElementById("pay-hrs").value, minsVal=document.getElementById("pay-mins").value;
   if(isLesson&&(hrsVal||minsVal)){
     notes=(notes?notes+" ":"")+`(${hrsVal||0}h ${minsVal||0}m)`;
+  }
+  if(type==="expense"&&isMileageCat(cat)){
+    const milesVal=Number(document.getElementById("pay-miles").value||0);
+    if(!(milesVal>0)) return alert("Enter the business miles");
+    notes=[stripMilesNote(notes),`(${milesVal} miles)`].filter(Boolean).join(" ");
+  }
+  if(type==="expense"&&cat===HOME_RATE_CAT){
+    const band=HOME_BANDS[document.getElementById("pay-home").value];
+    notes=[String(notes||"").replace(/\s*\((25 to 50 hours|51 to 100 hours|101 hours or more) at home\)/g,"").trim(),`(${band} at home)`].filter(Boolean).join(" ");
   }
   if(document.getElementById("pay-amt").value===""||isNaN(amount)) return alert("Amount is required (enter 0 for a free lesson/entry)");
   if(!date) return alert("Date is required");
@@ -3972,6 +4610,7 @@ async function savePayment(){
   document.getElementById("pay-hrs").value="";
   document.getElementById("pay-mins").value="";
   document.getElementById("pay-pupil").value="";
+  document.getElementById("pay-miles").value="";
   resetReceiptField();
   await loadPupils(); await loadPayments(); applyFinance(); alert("Saved");
 }
@@ -4160,10 +4799,58 @@ async function openSettings(which){
         </div>
       </div>
       <button class="btn btn-navy btn-sm" onclick="saveWorkingHours()">Save</button>`;
+  } else if(which==="business"){
+    const t=businessType;
+    const [ym,yd]=t.year_end.split("-").map(Number);
+    const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const [cm,cd]=t.cs_date?t.cs_date.split("-").map(Number):[0,0];
+    const dayOpts=sel=>Array.from({length:31},(_,i)=>`<option value="${i+1}" ${sel===i+1?"selected":""}>${i+1}</option>`).join("");
+    const radio=(name,val,checked,title,hint)=>`<label style="display:flex;gap:.6rem;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:.6rem .85rem;margin-bottom:.45rem;font-weight:normal;cursor:pointer"><input type="radio" name="${name}" value="${val}" ${checked?"checked":""} style="margin-top:.25rem"><span><strong>${title}</strong><br><span class="muted" style="font-size:.85rem">${hint}</span></span></label>`;
+    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
+      <h3 style="margin:1rem 0 .5rem">Business type</h3>
+      <p class="muted" style="margin-bottom:1rem">This decides how Finances works out your profit and what it shows, so you only see what applies to your business.</p>
+      ${Object.entries(BUSINESS_TYPES).map(([k,v])=>`<label style="display:flex;gap:.6rem;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:.7rem .85rem;margin-bottom:.5rem;font-weight:normal;cursor:pointer"><input type="radio" name="biz-type" value="${k}" ${t.type===k?"checked":""} onchange="bizTypeFormUpdate()" style="margin-top:.25rem"><span><strong>${esc(v.label)}</strong><br><span class="muted" style="font-size:.85rem">${esc(v.hint)}</span></span></label>`).join("")}
+      <div id="biz-yearend-wrap" class="${t.type==="company"?"":"hidden"}" style="margin:.8rem 0">
+        <label style="font-weight:600">Company year end</label>
+        <div style="display:flex;gap:.5rem;max-width:320px;margin-top:.3rem">
+          <select id="biz-ye-day" style="flex:0 0 5rem">${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${yd===i+1?"selected":""}>${i+1}</option>`).join("")}</select>
+          <select id="biz-ye-month" style="flex:1">${months.map((m,i)=>`<option value="${i+1}" ${ym===i+1?"selected":""}>${m}</option>`).join("")}</select>
+        </div>
+        <div class="muted" style="font-size:.78rem;margin-top:.25rem">The company's accounting year end (its "accounting reference date"), shown on Companies House.</div>
+        <label style="font-weight:600;display:block;margin-top:.9rem">Confirmation statement date (optional)</label>
+        <div style="display:flex;gap:.5rem;max-width:320px;margin-top:.3rem">
+          <select id="biz-cs-day" style="flex:0 0 5rem"><option value="">–</option>${dayOpts(cd)}</select>
+          <select id="biz-cs-month" style="flex:1"><option value="">–</option>${months.map((m,i)=>`<option value="${i+1}" ${cm===i+1?"selected":""}>${m}</option>`).join("")}</select>
+        </div>
+        <div class="muted" style="font-size:.78rem;margin-top:.25rem">The date your last confirmation statement was made up to, shown on Companies House. It adds that deadline to your dashboard.</div>
+      </div>
+      <label style="display:flex;gap:.5rem;align-items:flex-start;margin:1rem 0;font-weight:normal"><input type="checkbox" id="biz-dual" ${t.dual_controls?"checked":""} onchange="bizTypeFormUpdate()" style="margin-top:.3rem"><span><strong>My tuition cars have dual controls fitted</strong><br><span class="muted" style="font-size:.85rem" id="biz-dual-hint"></span></span></label>
+      <div id="biz-sole-wrap">
+        <h4 style="margin:1.2rem 0 .3rem">Business use</h4>
+        <p class="muted" style="font-size:.85rem;margin-bottom:.5rem">If you also use these privately, only the business share can be claimed. Leave them at 100% if you don't.</p>
+        <div class="two">
+          <div class="field"><label>Car (% business use)</label><input id="biz-car-pct" type="number" min="0" max="100" step="1" value="${t.car_pct}"></div>
+          <div class="field"><label>Phone and internet (% business use)</label><input id="biz-phone-pct" type="number" min="0" max="100" step="1" value="${t.phone_pct}"></div>
+        </div>
+        <h4 style="margin:1.2rem 0 .4rem">Car costs</h4>
+        ${radio("biz-carcosts","actual",t.car_costs!=="mileage","Actual costs","Fuel, insurance, repairs and hire purchase, as you pay them.")}
+        ${radio("biz-carcosts","mileage",t.car_costs==="mileage","Mileage rate","45p a mile for the first 10,000 business miles a year, then 25p, instead of the car's own costs (parking and tolls still count). Once you use it for a car you have to keep using it for that car, and you can't switch to it for a car whose costs you've already claimed.")}
+        <h4 style="margin:1.2rem 0 .3rem">Profit with all expenses, month by month</h4>
+        <label style="display:flex;gap:.5rem;align-items:center;font-weight:normal;margin-bottom:.5rem"><input type="checkbox" id="biz-uc" ${t.uc_day?"checked":""} onchange="bizTypeFormUpdate()"> Show my profit with all expenses month by month</label>
+        <div id="biz-uc-wrap">
+          <div class="field" style="max-width:260px"><label>Each month starts on day</label><select id="biz-uc-day">${dayOpts(t.uc_day||1)}</select></div>
+          <div class="field"><label>Car HP payments in the monthly view</label><select id="biz-uc-hp"><option value="full" ${t.uc_hp!=="exclude"?"selected":""}>Count them in full</option><option value="exclude" ${t.uc_hp==="exclude"?"selected":""}>Leave them out, apart from the interest</option></select>
+            <div class="muted" style="font-size:.78rem;margin-top:.2rem">Repayments of a business loan aren't counted in this view, and it isn't clear whether hire purchase counts as one, so check with whoever you give this figure to.</div></div>
+        </div>
+      </div>
+      <button class="btn btn-navy btn-sm" onclick="saveBusinessType()">Save</button>
+      <span id="biz-ok" style="display:none;margin-left:.5rem;color:#0a7a3d;font-weight:700">✓ Saved</span>
+      <div class="err" id="biz-err" style="margin-top:.5rem;display:block;text-align:left"></div>`;
+    bizTypeFormUpdate();
   } else if(which==="paycats"){
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Finance categories</h3>
-      <p class="muted" style="margin-bottom:1rem">These are fixed, so every entry lines up with HMRC's Making Tax Digital headings. Each expense starts as claimable or not claimable as shown, and you can change that on any entry.</p>
+      <p class="muted" style="margin-bottom:1rem">${isCompany()?"These are fixed, so every entry is grouped the way your accountant needs it.":"These are fixed, so every entry lines up with HMRC's Making Tax Digital headings."} They're the ones for your <a href="#" onclick="openSettings('business');return false">business type</a>. Each expense starts as claimable or not claimable as shown, and you can change that on any entry.</p>
       <div id="paycats-lists"></div>
       <div class="err" id="paycats-err" style="margin-top:.5rem"></div>`;
     renderPayCats();
@@ -7519,15 +8206,59 @@ async function saveWorkingHours(){
 // Finance categories are fixed (INCOME_CAT_DEFS / EXPENSE_CAT_DEFS), so
 // Settings only shows them, with their HMRC heading and whether an expense
 // starts as claimable, plus how retired categories on older entries count.
+function bizTypeFormUpdate(){
+  const sel=document.querySelector('input[name="biz-type"]:checked'); const type=sel?sel.value:"sole_cash";
+  const wrap=document.getElementById("biz-yearend-wrap"); if(wrap) wrap.classList.toggle("hidden",type!=="company");
+  const soleWrap=document.getElementById("biz-sole-wrap"); if(soleWrap) soleWrap.classList.toggle("hidden",type==="company");
+  const uc=document.getElementById("biz-uc"), ucWrap=document.getElementById("biz-uc-wrap"); if(ucWrap) ucWrap.classList.toggle("hidden",!(uc&&uc.checked));
+  const dual=document.getElementById("biz-dual"), hint=document.getElementById("biz-dual-hint"); if(!hint) return;
+  const d=!!(dual&&dual.checked);
+  hint.textContent=type==="sole_cash"
+    ?(d?"HMRC doesn't treat a driving school car with dual controls as a car for tax, so on the cash basis your whole hire purchase payment is claimable."
+       :"Without dual controls your car counts as a car for tax: only the interest in each hire purchase payment is claimable, worked out from Car HP details.")
+    :(d?"HMRC doesn't treat a driving school car with dual controls as a car for tax, so its price can usually be claimed in full in the year it's bought. Only the interest in each hire purchase payment is an expense."
+       :"Only the interest in each hire purchase payment is an expense. The car's price is claimed at 18% or 6% a year depending on its CO2.");
+}
+async function saveBusinessType(){
+  const err=document.getElementById("biz-err"); err.textContent="";
+  const sel=document.querySelector('input[name="biz-type"]:checked');
+  const type=sel?sel.value:"sole_cash";
+  const dual=document.getElementById("biz-dual").checked;
+  const m=Number(document.getElementById("biz-ye-month").value), d=Number(document.getElementById("biz-ye-day").value);
+  const last=new Date(Date.UTC(2000,m,0)).getUTCDate();
+  if(type==="company"&&d>last){ err.textContent="That month doesn't have that many days."; return; }
+  const year_end=`${String(m).padStart(2,"0")}-${String(Math.min(d,last)).padStart(2,"0")}`;
+  const val=id=>document.getElementById(id).value;
+  const pctOk=v=>v!==""&&Number(v)>=0&&Number(v)<=100;
+  if(type!=="company"&&(!pctOk(val("biz-car-pct"))||!pctOk(val("biz-phone-pct")))){ err.textContent="Business use must be between 0 and 100%."; return; }
+  const csD=val("biz-cs-day"), csM=val("biz-cs-month");
+  if(type==="company"&&((csD==="")!==(csM===""))){ err.textContent="Choose both the day and the month of the confirmation statement date, or neither."; return; }
+  const csLast=csM?new Date(Date.UTC(2000,Number(csM),0)).getUTCDate():31;
+  const value={type,dual_controls:dual,year_end,
+    car_pct:pctOk(val("biz-car-pct"))?Math.round(Number(val("biz-car-pct"))):100,
+    phone_pct:pctOk(val("biz-phone-pct"))?Math.round(Number(val("biz-phone-pct"))):100,
+    car_costs:(document.querySelector('input[name="biz-carcosts"]:checked')||{}).value==="mileage"?"mileage":"actual",
+    uc_day:document.getElementById("biz-uc").checked?Number(val("biz-uc-day")):null,
+    uc_hp:val("biz-uc-hp")==="exclude"?"exclude":"full",
+    cs_date:csD&&csM?`${String(csM).padStart(2,"0")}-${String(Math.min(Number(csD),csLast)).padStart(2,"0")}`:null};
+  const {error}=await sb.from("app_settings").upsert({id:"business_type",owner_id:currentUserId,value,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+  if(error){ err.textContent="Could not save: "+error.message; return; }
+  businessType=normaliseBusinessType(value,true);
+  taxSum=null; coYearOffset=0;
+  applyBusinessTypeUi();
+  const ok=document.getElementById("biz-ok"); if(ok){ ok.style.display="inline"; setTimeout(()=>{ ok.style.display="none"; },2500); }
+  // Car HP payments already saved the other way can be brought in line straight away.
+  if(hpClaimableMismatchIds().length) await fixHpClaimable();
+}
 function renderPayCats(){
   const el=document.getElementById("paycats-lists");
   if(!el) return;
   const table=(defs,isExp)=>`<h4 style="margin:${isExp?"1.25rem":"0"} 0 .5rem">${isExp?"Expense":"Income"} categories</h4>
     <table><thead><tr><th>Category</th><th>HMRC heading</th>${isExp?"<th>Starts as</th>":""}</tr></thead><tbody>
-      ${defs.map(d=>`<tr><td>${esc(d.name)}</td><td>${esc(TAX_HEADINGS[d.heading]||"")}</td>${isExp?`<td>${d.claimable===false?"Not claimable":"Claimable"}</td>`:""}</tr>`).join("")}
+      ${defs.map(d=>{ const info=catInfo(d.name,isExp); return `<tr><td>${esc(d.name)}</td><td>${esc(TAX_HEADINGS[info.heading]||"")}</td>${isExp?`<td>${info.heading==="notExpense"?"Not an expense":info.claimable?"Claimable":"Not claimable"}</td>`:""}</tr>`; }).join("")}
     </tbody></table>`;
   const old=Object.entries(LEGACY_CATS.expense).map(([name,o])=>`<li>${esc(name)}: counted as ${esc(o.now)}</li>`).join("");
-  el.innerHTML=table(INCOME_CAT_DEFS,false)+table(EXPENSE_CAT_DEFS,true)+
+  el.innerHTML=table(catDefsFor(false),false)+table(catDefsFor(true),true)+
     `<p class="muted" style="margin-top:1rem;font-size:.82rem">Older entries under a retired expense category still count, as shown below. Edit an entry to move it to a current category.</p><ul class="muted" style="font-size:.82rem;margin:.3rem 0 0 1.1rem">${old}</ul>`;
 }
 

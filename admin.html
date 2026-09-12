@@ -3393,9 +3393,9 @@ function financeCategoryTable(rows,standardCats,label,isExp){
   const byCat={};
   rows.forEach(r=>{
     const c=r.category||r.type||"Uncategorised";
-    if(!byCat[c]) byCat[c]={count:0,amount:0,notClaim:0};
+    if(!byCat[c]) byCat[c]={count:0,amount:0,notClaim:0,hpInterest:0};
     byCat[c].count++; byCat[c].amount+=Number(r.amount||0);
-    if(isExp) byCat[c].notClaim+=notClaimablePart(r);
+    if(isExp){ byCat[c].notClaim+=notClaimablePart(r); const hp=hpSplit(r); if(hp) byCat[c].hpInterest+=hp.interest; }
   });
   const known=new Set(standardCats);
   const extra=Object.keys(byCat).filter(c=>!known.has(c)).sort();
@@ -3403,13 +3403,13 @@ function financeCategoryTable(rows,standardCats,label,isExp){
   const total=rows.reduce((s,r)=>s+Number(r.amount||0),0);
   const totalNot=isExp?rows.reduce((s,r)=>s+notClaimablePart(r),0):0;
   const body=allCats.map(c=>{
-    const d=byCat[c]||{count:0,amount:0,notClaim:0};
+    const d=byCat[c]||{count:0,amount:0,notClaim:0,hpInterest:0};
     const flagged=extra.includes(c);
     const info=catInfo(c,isExp);
     const flagText=info.legacy?"· old category, counted as "+info.now:"· not a standard category";
     const catArg=JSON.stringify(c).replace(/'/g,"&#39;");
     return `<tr style="cursor:pointer${flagged?";background:#FFF7E8":""}" onclick='showFinCategoryModal(${catArg},${isExp?"true":"false"})' title="Click to see every entry in this category">
-      <td>${esc(c)}${catHint(c)}${flagged?` <span style="color:#b45309;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">${esc(flagText)}</span>`:""}</td>
+      <td>${esc(c)}${catHint(c)}${d.hpInterest?` <span class="muted" style="font-size:.75rem;font-weight:400">(includes £${d.hpInterest.toFixed(2)} interest, claimable)</span>`:""}${flagged?` <span style="color:#b45309;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">${esc(flagText)}</span>`:""}</td>
       <td style="text-align:right">${d.count}</td>
       <td style="text-align:right">£${d.amount.toFixed(2)}</td>
       ${isExp?`<td style="text-align:right">${d.notClaim?"£"+d.notClaim.toFixed(2):"–"}</td>`:""}

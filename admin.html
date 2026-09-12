@@ -414,7 +414,6 @@ tbody tr:hover td{background:#334263}
         <h2 style="margin-bottom:.75rem">Settings &amp; tools</h2>
         <div class="dash-settings-grid">
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('reminders')"><span class="ico">⏰</span><div><strong>Reminders</strong><span>Lesson reminder timing for pupils</span></div></button>
-          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('business')"><span class="ico">🏢</span><div><strong>Business type</strong><span>Sole trader or limited company, and how your finances are worked out</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('paycats')"><span class="ico">💷</span><div><strong>Finance categories</strong><span>Fixed categories and their HMRC headings</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('workinghours')"><span class="ico">🕘</span><div><strong>Working hours</strong><span>Days &amp; times you teach — drives the enquiry form</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('syllabus')"><span class="ico">🎓</span><div><strong>Progress syllabus</strong><span>The topics you track pupil progress against</span></div></button>
@@ -489,8 +488,10 @@ tbody tr:hover td{background:#334263}
 
     <section id="tab-finance" class="hidden">
       <div class="panel">
-        <h2>Finances</h2>
-        <p class="muted" id="fin-biz-line" style="margin:-.3rem 0 .8rem;font-size:.85rem"></p>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem">
+          <h2 style="margin:0">Finances</h2>
+          <div id="fin-biz-card" style="border:1px solid var(--line);border-radius:12px;padding:.6rem .85rem;min-width:240px;max-width:440px;flex:0 1 auto"></div>
+        </div>
         <div class="filters">
           <div class="field"><label>Period</label>
             <select id="fin-period" onchange="onPeriodChange()">
@@ -516,14 +517,12 @@ tbody tr:hover td{background:#334263}
           <button data-fin="income" onclick="showFin('income',this)">Income</button>
           <button data-fin="expense" onclick="showFin('expense',this)">Expenses</button>
           <button data-fin="tax" id="fin-tax-btn" onclick="showFin('tax',this)">Tax summary</button>
-          <button data-fin="uc" id="fin-uc-btn" class="hidden" onclick="showFin('uc',this)">Profit with all expenses</button>
           <button data-fin="add" onclick="showFin('add',this)">Add entry</button>
         </div>
         <div id="fin-summary"></div>
         <div id="fin-income" class="hidden"></div>
         <div id="fin-expense" class="hidden"></div>
         <div id="fin-tax" class="hidden"></div>
-        <div id="fin-uc" class="hidden"></div>
         <div id="fin-add" class="hidden">
           <div class="two">
             <div class="field"><label>Type</label>
@@ -677,7 +676,6 @@ tbody tr:hover td{background:#334263}
         <div class="settings-list" id="settings-menu">
           <button type="button" onclick="openSettings('profile')">Your profile</button>
           <button type="button" onclick="openSettings('reminders')">Reminders</button>
-          <button type="button" onclick="openSettings('business')">Business type</button>
           <button type="button" onclick="openSettings('paycats')">Finance categories</button>
           <button type="button" onclick="openSettings('workinghours')">Working hours</button>
           <button type="button" onclick="openSettings('syllabus')">Progress syllabus</button>
@@ -812,12 +810,10 @@ const LEGACY_CATS={
 const INCOME_CATS=INCOME_CAT_DEFS.map(c=>c.name);
 const EXPENSE_CATS=EXPENSE_CAT_DEFS.map(c=>c.name);
 // The categories offered for this account's business type.
-// Business mileage only shows for a sole trader using the mileage rate, or
-// one without dual controls who claims Universal Credit (which only allows
-// the mileage rate for such a car).
+// Business mileage only shows for a sole trader using the mileage rate.
 function catDefsFor(isExp){
   return (isExp?EXPENSE_CAT_DEFS:INCOME_CAT_DEFS).filter(d=>(!d.only||d.only.includes(businessType.type))
-    &&!(d.mileage&&!isCompany()&&businessType.car_costs!=="mileage"&&!(!businessType.dual_controls&&businessType.uc_day)));
+    &&!(d.mileage&&!isCompany()&&businessType.car_costs!=="mileage"));
 }
 function catsFor(isExp){ return catDefsFor(isExp).map(d=>d.name); }
 // Where a category sits for tax: its own definition, a retired category's
@@ -863,10 +859,9 @@ const BUSINESS_TYPES={
   company:{label:"Limited company",hint:"Your business is a company registered at Companies House and pays Corporation Tax."}
 };
 // Also saved there: car_pct / phone_pct (business use, sole traders),
-// car_costs ("actual" or "mileage"), uc_day (Universal Credit assessment period
-// start day, or null), uc_hp ("full" or "exclude"), cs_date (company
+// car_costs ("actual" or "mileage"), cs_date (company
 // confirmation statement date, MM-DD, or null).
-const BUSINESS_TYPE_DEFAULTS={type:"sole_cash",dual_controls:true,year_end:"03-31",car_pct:100,phone_pct:100,car_costs:"actual",uc_day:null,uc_hp:"full",cs_date:null,saved:false};
+const BUSINESS_TYPE_DEFAULTS={type:"sole_cash",dual_controls:true,year_end:"03-31",car_pct:100,phone_pct:100,car_costs:"actual",cs_date:null,saved:false};
 let businessType=Object.assign({},BUSINESS_TYPE_DEFAULTS);
 function normaliseBusinessType(v,saved){
   v=v||{};
@@ -874,7 +869,7 @@ function normaliseBusinessType(v,saved){
   const md=x=>/^\d{2}-\d{2}$/.test(x||"")?x:null;
   return {type:BUSINESS_TYPES[v.type]?v.type:"sole_cash",dual_controls:v.dual_controls!==false,year_end:md(v.year_end)||"03-31",
     car_pct:pct(v.car_pct),phone_pct:pct(v.phone_pct),car_costs:v.car_costs==="mileage"?"mileage":"actual",
-    uc_day:Number(v.uc_day)>=1&&Number(v.uc_day)<=31?Number(v.uc_day):null,uc_hp:v.uc_hp==="exclude"?"exclude":"full",cs_date:md(v.cs_date),saved:!!saved};
+    cs_date:md(v.cs_date),saved:!!saved};
 }
 async function loadBusinessType(){
   let v=null, saved=false;
@@ -917,11 +912,23 @@ function applyBusinessTypeUi(){
   const byId=id=>document.getElementById(id);
   const hp=byId("fin-carhp-btn"); if(hp) hp.classList.toggle("hidden",!usesHpSplit());
   const tb=byId("fin-tax-btn"); if(tb) tb.textContent=co?"Year end":"Tax summary";
-  const ucb=byId("fin-uc-btn"); if(ucb) ucb.classList.toggle("hidden",co||!businessType.uc_day);
   const per=byId("fin-period");
   if(per) [...per.options].forEach(o=>{ if(o.value==="this_tax") o.textContent=co?"This company year":"This tax year"; if(o.value==="last_tax") o.textContent=co?"Last company year":"Last tax year"; });
-  const line=byId("fin-biz-line");
-  if(line) line.innerHTML=`Business type: <strong>${esc(BUSINESS_TYPES[businessType.type].label)}</strong>${co?` · year end ${esc(fmtYearEnd(businessType.year_end))}`:""}${businessType.saved?"":" (not set yet, so this is assumed)"} · <a href="#" onclick="goTab('settings');openSettings('business');return false">${businessType.saved?"Change":"Set your business type"}</a>`;
+  // Business type lives on the Finances tab, since that's what it changes (Dale, 12 Sep 2026).
+  const card=byId("fin-biz-card");
+  if(card){
+    const t=businessType, bits=[];
+    if(co) bits.push(`Year end ${fmtYearEnd(t.year_end)}`);
+    bits.push(t.dual_controls?"Dual controls fitted":"No dual controls");
+    if(!co&&t.car_pct<100) bits.push(`Car ${t.car_pct}% business`);
+    if(!co&&t.phone_pct<100) bits.push(`Phone ${t.phone_pct}% business`);
+    if(!co&&t.car_costs==="mileage") bits.push("Mileage rate");
+    card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:.9rem">
+      <div><div class="muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Business type</div>
+        <div style="font-weight:700;margin:.1rem 0">${esc(BUSINESS_TYPES[t.type].label)}</div>
+        <div class="muted" style="font-size:.8rem">${t.saved?esc(bits.join(" · ")):"Not set yet, so this is assumed"}</div></div>
+      <button class="btn-outline btn-sm" onclick="openBusinessTypeModal()">${t.saved?"Change":"Set up"}</button></div>`;
+  }
   renderCompanyDeadlines();
 }
 function carHpIntro(){
@@ -987,8 +994,8 @@ function hpSchedule(a){
   return out;
 }
 // The split of one Car HP payment, or null when no saved agreement covers its month.
-function hpSplit(r,force){
-  if(!r||(!force&&!usesHpSplit())||!carHpAgreements.length||!isExpense(r)||!HP_CATS.has(r.category||"")) return null;
+function hpSplit(r){
+  if(!r||!usesHpSplit()||!carHpAgreements.length||!isExpense(r)||!HP_CATS.has(r.category||"")) return null;
   const d=r.transaction_date||""; if(!d) return null;
   const amt=Number(r.amount||0);
   let best=null;
@@ -2670,8 +2677,8 @@ async function setTheoryOverride(ownerType, ownerId, val){
 
 /** Small status chip for a subscription row — reused across Teams rows and
  * the instructor/school detail panels, matching the Billing tab's existing
- * chip classes. */
-function renderStatusChip(status){
+ * chip classes. A trial also says how many days it has left. */
+function renderStatusChip(status,trialEndsAt){
   const map={
     pdi_free:["PDI","chip-info"],
     trialing:["Trial","chip-wait"],
@@ -2680,7 +2687,11 @@ function renderStatusChip(status){
     mandate_failed:["Mandate failed","chip-bad"],
     canceled:["Cancelled","chip-bad"]
   };
-  const [label,cls]=map[status]||[status,"chip-info"];
+  let [label,cls]=map[status]||[status,"chip-info"];
+  if(status==="trialing"&&trialEndsAt){
+    const days=Math.ceil((new Date(trialEndsAt).getTime()-Date.now())/86400000);
+    label+=days>1?` · ${days} days left`:days===1?" · 1 day left":days===0?" · ends today":" · ended";
+  }
   return `<span class="chip ${cls}">${esc(label)}</span>`;
 }
 
@@ -3637,22 +3648,22 @@ function applyFinance(){
 }
 function showFin(mode,btn){
   if(btn){btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.remove("on"));btn.classList.add("on")}
-  ["summary","income","expense","tax","uc","add"].forEach(m=>document.getElementById("fin-"+m).classList.toggle("hidden",m!==mode));
+  ["summary","income","expense","tax","add"].forEach(m=>document.getElementById("fin-"+m).classList.toggle("hidden",m!==mode));
   const rows=filteredPayments();
   // Money put into or taken out of a company is listed on its own, outside income, expenses and profit.
   const moves=rows.filter(outsideProfit);
   const inc=rows.filter(r=>!isExpense(r)&&!outsideProfit(r)); const exp=rows.filter(r=>isExpense(r)&&!outsideProfit(r));
   const sumInc=inc.reduce((s,r)=>s+Number(r.amount||0),0); const sumExp=exp.reduce((s,r)=>s+Number(r.amount||0),0);
   // Two profits (Dale, 12 Sep 2026): HMRC only lets claimable expenses come
-  // off; Universal Credit counts every business outgoing.
+  // off; the all-expenses profit counts every business outgoing.
   const sumNot=exp.reduce((s,r)=>s+notClaimablePart(r),0);
   const profitTax=sumInc-(sumExp-sumNot), profitAll=sumInc-exp.reduce((s,r)=>s+Number(r.amount||0)*businessFactor(r),0);
   const {from,to}=getFinRange();
-  const totalBar=(label,v)=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:#fff;border-radius:12px;padding:.85rem 1rem;margin-top:.6rem">
+  const totalBar=(label,v,bg)=>`<div style="display:flex;justify-content:space-between;align-items:center;background:${bg||"var(--navy)"};color:#fff;border-radius:12px;padding:.85rem 1rem;margin-top:.6rem">
       <span style="font-family:var(--fb);text-transform:uppercase;font-size:.72rem;letter-spacing:.05em;font-weight:700">${label}</span>
       <span style="font-family:var(--fm);font-size:1.05rem;font-weight:700">£${v.toFixed(2)}</span>
     </div>`;
-  // A limited company has one profit (before tax); the all-expenses profit is for a sole trader's Universal Credit.
+  // A limited company has one profit (before tax); the all-expenses profit is only shown to sole traders.
   const co=isCompany();
   document.getElementById("fin-summary").innerHTML=`<p class="muted" style="margin-bottom:.75rem">${from||"all"} → ${to||"all"} · ${rows.length} entries</p>
     ${hpClaimableMismatch()}
@@ -3670,11 +3681,10 @@ function showFin(mode,btn){
     <div style="height:.9rem"></div>
     ${financeCategoryTable(exp,catsFor(true),"Expenses",true)}
     ${(co||moves.length)?`<div style="height:.9rem"></div>${moneyMovesTable(moves)}`:""}
-    <div style="margin-top:.9rem">${co?totalBar("Profit before tax",profitTax):totalBar("Profit (claimable expenses)",profitTax)+totalBar("Profit (all expenses)",profitAll)}</div>`;
+    <div style="margin-top:.9rem">${co?totalBar("Profit before tax",profitTax,PROFIT_COLOURS.claimable):totalBar("Profit (claimable expenses)",profitTax,PROFIT_COLOURS.claimable)+totalBar("Profit (all expenses)",profitAll,PROFIT_COLOURS.all)}</div>`;
   document.getElementById("fin-income").innerHTML=tablePay(inc);
   document.getElementById("fin-expense").innerHTML=tablePay(exp);
   if(mode==="tax"){ if(isCompany()) renderCompanyYearEnd(); else renderTaxSummary(); }
-  if(mode==="uc") renderUniversalCredit();
   if(!document.getElementById("pay-date").value) document.getElementById("pay-date").value=new Date().toISOString().slice(0,10);
   fillCats();
 }
@@ -3838,84 +3848,6 @@ function downloadMyTaxDigital(){
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
   a.download=`my-tax-digital-SA103_${F.from}_${F.to}.csv`; a.click();
 }
-// Universal Credit (Dale, 12 Sep 2026): self-employed earnings for each monthly
-// assessment period under Universal Credit's own rules, which differ from
-// HMRC's: loan interest is capped at £41 a month and loan repayments aren't
-// allowed; a car that isn't specially adapted (no dual controls) only gets the
-// flat mileage rate (45p for the first 833 miles a period, then 25p); income
-// tax and National Insurance paid to HMRC in the period come off.
-let ucOffset=0;
-function ucPeriodBounds(offset){
-  const day=businessType.uc_day||1;
-  const dateFor=(y,m)=>{ const last=new Date(Date.UTC(y,m+1,0)).getUTCDate(); return new Date(Date.UTC(y,m,Math.min(day,last))); };
-  const t=new Date(new Date().toISOString().slice(0,10)+"T00:00:00Z");
-  let y=t.getUTCFullYear(), m=t.getUTCMonth();
-  if(dateFor(y,m)>t){ m--; if(m<0){ m=11; y--; } }
-  m+=offset||0; while(m<0){ m+=12; y--; } while(m>11){ m-=12; y++; }
-  const start=dateFor(y,m);
-  const end=dateFor(m===11?y+1:y,m===11?0:m+1); end.setUTCDate(end.getUTCDate()-1);
-  return {from:start.toISOString().slice(0,10),to:end.toISOString().slice(0,10)};
-}
-function ucFigures(from,to){
-  const own=(txCache||[]).filter(r=>!(r.instructor_id&&r.instructor_id!==currentUserId)&&(r.transaction_date||"")>=from&&(r.transaction_date||"")<=to);
-  let receipts=0, expenses=0, taxPaid=0, hpLeftOut=0, carLeftOut=0, miles=0, interest=0;
-  own.forEach(r=>{
-    const amt=Number(r.amount||0), cat=r.category||"";
-    if(!isExpense(r)){
-      const h=catInfo(cat,false).heading;
-      if(h!=="notBusiness"&&h!=="notIncome") receipts+=amt;
-      return;
-    }
-    if(cat==="Income tax & NI paid to HMRC"){ taxPaid+=amt; return; }
-    if(catInfo(cat,true).heading==="notExpense") return;
-    if(cat==="Business mileage"){ miles+=milesFromNotes(r.notes); return; }
-    const share=amt*businessFactor(r);
-    if(CAR_COST_CATS.has(cat)&&!businessType.dual_controls){ carLeftOut+=share; return; }
-    if(HP_CATS.has(cat)&&businessType.uc_hp==="exclude"){
-      const s=hpSplit(r,true); const i=s&&amt?s.interest*share/amt:0;
-      interest+=i; hpLeftOut+=share-i; return;
-    }
-    if(cat==="Car HP interest"){ interest+=share; return; }
-    expenses+=share;
-  });
-  const mileage=Math.min(miles,833)*0.45+Math.max(0,miles-833)*0.25;
-  const interestAllowed=Math.min(interest,41);
-  const allowed=expenses+mileage+interestAllowed;
-  return {from,to,receipts,expenses,miles,mileage,interest,interestAllowed,hpLeftOut,carLeftOut,taxPaid,allowed,earnings:receipts-allowed-taxPaid};
-}
-function renderUniversalCredit(){
-  const el=document.getElementById("fin-uc"); if(!el) return;
-  const money=n=>(n<0?"-£":"£")+Math.abs(n).toFixed(2);
-  const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
-  if(!businessType.uc_day){ el.innerHTML=`<p class="muted">Turn on profit with all expenses month by month in <a href="#" onclick="goTab('settings');openSettings('business');return false">Business type</a> to see this.</p>`; return; }
-  const periods=[]; for(let o=0;o>=-11;o--){ const b=ucPeriodBounds(o); periods.push(ucFigures(b.from,b.to)); }
-  if(ucOffset>0||ucOffset<-11) ucOffset=0;
-  const F=periods[-ucOffset];
-  el.innerHTML=`<div class="filters"><div class="field"><label>Month</label><select id="uc-period" onchange="ucOffset=Number(this.value);renderUniversalCredit()">${periods.map((p,i)=>`<option value="${-i}" ${-i===ucOffset?"selected":""}>${fmtD(p.from)} – ${fmtD(p.to)}</option>`).join("")}</select></div></div>
-    <div class="metric-row" style="margin-bottom:1rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-      <div class="metric"><div class="v good">${money(F.receipts)}</div><div class="l">Money in</div></div>
-      <div class="metric"><div class="v bad">${money(F.allowed)}</div><div class="l">Expenses counted</div></div>
-      <div class="metric"><div class="v">${money(F.taxPaid)}</div><div class="l">Tax and NI paid</div></div>
-      <div class="metric"><div class="v">${money(F.earnings)}</div><div class="l">Profit with all expenses</div></div>
-    </div>
-    <table><thead><tr><th>How it's worked out</th><th style="text-align:right">Amount</th></tr></thead><tbody>
-      <tr><td>Money in</td><td style="text-align:right">${money(F.receipts)}</td></tr>
-      <tr><td>Business expenses${businessType.car_pct<100||businessType.phone_pct<100?" (business share of car and phone)":""}</td><td style="text-align:right">-${money(F.expenses)}</td></tr>
-      ${F.miles?`<tr><td>Mileage: ${F.miles} miles (45p for the first 833, then 25p)</td><td style="text-align:right">-${money(F.mileage)}</td></tr>`:""}
-      ${F.interest?`<tr><td>Loan interest${F.interest>41?` (${money(F.interest)}, capped at £41)`:""}</td><td style="text-align:right">-${money(F.interestAllowed)}</td></tr>`:""}
-      <tr><td>Income tax and National Insurance paid to HMRC</td><td style="text-align:right">-${money(F.taxPaid)}</td></tr>
-      <tr style="font-weight:700"><td>Profit with all expenses</td><td style="text-align:right">${money(F.earnings)}</td></tr>
-    </tbody></table>
-    ${F.carLeftOut?`<p style="margin:.5rem 0 0;font-size:.84rem">${money(F.carLeftOut)} of car costs left out: without dual controls only the mileage rate counts here, so add Business mileage entries for your miles.</p>`:""}
-    ${F.hpLeftOut?`<p style="margin:.5rem 0 0;font-size:.84rem">${money(F.hpLeftOut)} of Car HP payments left out, as set in Business type.</p>`:""}
-    <div style="height:.9rem"></div>
-    <div style="overflow-x:auto"><table><thead><tr><th>Month</th><th style="text-align:right">Money in</th><th style="text-align:right">Expenses counted</th><th style="text-align:right">Tax and NI</th><th style="text-align:right">Profit</th></tr></thead><tbody>
-      ${periods.map((p,i)=>`<tr style="cursor:pointer${-i===ucOffset?";font-weight:700":""}" onclick="ucOffset=${-i};renderUniversalCredit()"><td>${fmtD(p.from)} – ${fmtD(p.to)}</td><td style="text-align:right">${money(p.receipts)}</td><td style="text-align:right">${money(p.allowed)}</td><td style="text-align:right">${money(p.taxPaid)}</td><td style="text-align:right">${money(p.earnings)}</td></tr>`).join("")}
-    </tbody></table></div>
-    <div class="muted" style="margin-top:.9rem;font-size:.8rem;line-height:1.5">
-      Your profit with all business expenses taken off, month by month, counted this way: loan interest up to £41 a month, no loan repayments, only the mileage rate (45p for the first 833 miles a month, then 25p) for a car without dual controls, and income tax and National Insurance paid to HMRC taken off. ${businessType.uc_hp==="exclude"?"Car HP payments are left out, apart from their interest.":"Car HP payments are counted in full."} You can change this in <a href="#" onclick="goTab('settings');openSettings('business');return false">Business type</a>. Losses aren't carried from one month to the next.
-    </div>`;
-}
 // Tax to set aside (Dale, 12 Sep 2026): income tax and Class 4 National
 // Insurance on a sole trader's profit at England, Wales and Northern Ireland
 // rates, assuming no other income. Class 2 isn't included (not charged from
@@ -3947,6 +3879,8 @@ function estimateSoleTraderTax(profit,taxYearStart){
 // the year gone is what should be put aside by then. Taxing the profit so far
 // as if it were the whole year showed nothing early on (under the personal
 // allowance) and then a big jump later in the year.
+// The two profit bars are told apart by colour (Dale, 12 Sep 2026), the same on the Summary and Tax summary.
+const PROFIT_COLOURS={claimable:"#15803d",all:"#6d28d9"};
 function taxSetAsideHtml(y,to){
   const accr=businessType.type==="sole_accruals";
   const yearFrom=`${y}-04-06`, yearTo=`${y+1}-04-05`;
@@ -4036,7 +3970,7 @@ function renderTaxSummary(){
     <table><thead><tr><th>Income</th><th style="text-align:right">Amount</th></tr></thead><tbody>
       <tr><td>Lessons, test fees and other takings</td><td style="text-align:right">${money(turnoverGross)}</td></tr>
       <tr><td>Refunds taken off</td><td style="text-align:right">${refunds?"-"+money(refunds):money(0)}</td></tr>
-      <tr style="font-weight:700"><td>${esc(TAX_HEADINGS.turnover)}</td><td style="text-align:right">${money(turnover)}</td></tr>
+      <tr style="background:var(--soft);font-weight:700"><td>${esc(TAX_HEADINGS.turnover)}</td><td style="text-align:right">${money(turnover)}</td></tr>
       <tr><td>${esc(TAX_HEADINGS.otherIncome)}</td><td style="text-align:right">${money(otherInc)}</td></tr>
     </tbody></table>
     ${notBusiness?`<p class="muted" style="margin:.5rem 0 0;font-size:.8rem">Bank interest of ${money(notBusiness)} isn't business income, so it isn't in these figures. It goes on the savings interest part of your tax return.</p>`:""}
@@ -4044,7 +3978,7 @@ function renderTaxSummary(){
     <table><thead><tr><th>Expenses (HMRC heading)</th><th style="text-align:right">Total</th><th style="text-align:right">Not claimable</th><th style="text-align:right">Claimable</th></tr></thead><tbody>
       ${usedHeadings.map(k=>{ const h=heads[k]||{total:0,notClaim:0}; return `<tr><td>${esc(TAX_HEADINGS[k])}</td><td style="text-align:right">${money(h.total)}</td><td style="text-align:right">${h.notClaim?money(h.notClaim):"–"}</td><td style="text-align:right">${money(h.total-h.notClaim)}</td></tr>`; }).join("")}
     </tbody><tfoot><tr style="background:var(--soft);font-weight:700"><td>Total expenses</td><td style="text-align:right">${money(totExp)}</td><td style="text-align:right">${money(totNot)}</td><td style="text-align:right">${money(totClaim)}</td></tr></tfoot></table>
-    <div style="margin-top:.9rem">${[["Profit (claimable expenses)",profitTax],["Profit (all expenses)",profitAll]].map(([label,v])=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:#fff;border-radius:12px;padding:.85rem 1rem;margin-top:.6rem">
+    <div style="margin-top:.9rem">${[["Profit (claimable expenses)",profitTax,PROFIT_COLOURS.claimable],["Profit (all expenses)",profitAll,PROFIT_COLOURS.all]].map(([label,v,bg])=>`<div style="display:flex;justify-content:space-between;align-items:center;background:${bg};color:#fff;border-radius:12px;padding:.85rem 1rem;margin-top:.6rem">
       <span style="font-family:var(--fb);text-transform:uppercase;font-size:.72rem;letter-spacing:.05em;font-weight:700">${label}</span>
       <span style="font-family:var(--fm);font-size:1.05rem;font-weight:700">${money(v)}</span>
     </div>`).join("")}</div>
@@ -4052,7 +3986,7 @@ function renderTaxSummary(){
     ${(hpInterest||hpUncovered)?`<div style="margin-top:.9rem;padding:.75rem .9rem;border-radius:12px;background:#EFF6FF;color:#1e3a8a;font-size:.85rem;line-height:1.5">${hpInterest?`${money(hpInterest)} of your Car HP payments is interest, worked out from your Car HP details, and is counted as claimable under Interest on bank and other loans. The rest of each payment is paying off the car.`:""}${hpUncovered?` ${hpUncovered} Car HP payment${hpUncovered===1?" isn't":"s aren't"} covered by your Car HP details, so ${hpUncovered===1?"it counts":"they count"} in full as not claimable.`:""}${hpInterest&&hpInterestEntries?` You also have ${hpInterestEntries} Car HP interest entr${hpInterestEntries===1?"y":"ies"} in this period, so check the interest isn't counted twice.`:""} <a href="#" onclick="openCarHpDetails();return false">Car HP details</a></div>`:""}
     <div class="muted" style="margin-top:.9rem;font-size:.8rem;line-height:1.5">
       If your business income is under £90,000 a year, a quarterly update can give one total for expenses instead of each heading: ${money(totExp)}, of which ${money(totNot)} isn't claimable.<br>
-      This is a guide to the figures only. Drive My Way doesn't send anything to HMRC: use HMRC-recognised software or your accountant. Your business use percentages and car costs choice from <a href="#" onclick="goTab('settings');openSettings('business');return false">Business type</a> are included${businessType.type==="sole_accruals"?", and capital allowances are only estimated (for equipment and cars with dual controls)":""}.
+      This is a guide to the figures only. Drive My Way doesn't send anything to HMRC: use HMRC-recognised software or your accountant. Your business use percentages and car costs choice from <a href="#" onclick="openBusinessTypeModal();return false">Business type</a> are included${businessType.type==="sole_accruals"?", and capital allowances are only estimated (for equipment and cars with dual controls)":""}.
     </div>`;
   taxSum.last={from,to,turnoverGross,refunds,turnover,otherInc,notBusiness,heads,usedHeadings,totExp,totNot,totClaim,profitTax,profitAll};
 }
@@ -4161,7 +4095,7 @@ function renderCompanyDeadlines(){
   el.className="panel"; el.style.marginBottom="1rem";
   el.innerHTML=`<h2 style="margin-bottom:.6rem">Company deadlines</h2>
     <div style="overflow-x:auto"><table><tbody>${list.map(d=>{ const days=Math.round((Date.parse(d.due)-Date.parse(today))/86400000); return `<tr><td>${esc(d.what)}</td><td style="text-align:right;white-space:nowrap${days<=30?";color:#b45309;font-weight:700":""}">${fmtShortDate(d.due)} · ${days===0?"today":days===1?"tomorrow":days+" days"}</td></tr>`; }).join("")}</tbody></table></div>
-    <p class="muted" style="margin:.5rem 0 0;font-size:.78rem">Worked out from your year end${businessType.cs_date?" and confirmation statement date":""} in <a href="#" onclick="goTab('settings');openSettings('business');return false">Business type</a>. A company's first accounts can have a different deadline, so check with your accountant.${businessType.cs_date?"":" Add your confirmation statement date to see that deadline too."}</p>`;
+    <p class="muted" style="margin:.5rem 0 0;font-size:.78rem">Worked out from your year end${businessType.cs_date?" and confirmation statement date":""} in <a href="#" onclick="openBusinessTypeModal();return false">Business type</a>. A company's first accounts can have a different deadline, so check with your accountant.${businessType.cs_date?"":" Add your confirmation statement date to see that deadline too."}</p>`;
 }
 // Director's loan balance and dividend check (Dale, 12 Sep 2026), across every
 // year of entries up to the chosen year end.
@@ -4240,7 +4174,7 @@ function renderCompanyYearEnd(){
       <button class="btn-outline" onclick="downloadAccountantPack('${F.from}','${F.to}')">Download for your accountant</button>
       <button class="btn-outline" onclick="downloadReceiptsZip('${F.from}','${F.to}')">Download receipts</button>
     </div>
-    <p class="muted" style="margin-bottom:.9rem">${fmtD(F.from)} → ${fmtD(F.to)} · ${F.rows.length} entr${F.rows.length===1?"y":"ies"} · year end ${esc(fmtYearEnd(businessType.year_end))} (<a href="#" onclick="goTab('settings');openSettings('business');return false">change</a>)</p>
+    <p class="muted" style="margin-bottom:.9rem">${fmtD(F.from)} → ${fmtD(F.to)} · ${F.rows.length} entr${F.rows.length===1?"y":"ies"} · year end ${esc(fmtYearEnd(businessType.year_end))} (<a href="#" onclick="openBusinessTypeModal();return false">change</a>)</p>
     <div class="metric-row" style="margin-bottom:1.2rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
       <div class="metric"><div class="v good">${money(F.income)}</div><div class="l">Income</div></div>
       <div class="metric"><div class="v bad">${money(F.claimable)}</div><div class="l">Claimable expenses</div></div>
@@ -4822,57 +4756,12 @@ async function openSettings(which){
       </div>
       <button class="btn btn-navy btn-sm" onclick="saveWorkingHours()">Save</button>`;
   } else if(which==="business"){
-    const t=businessType;
-    const [ym,yd]=t.year_end.split("-").map(Number);
-    const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
-    const [cm,cd]=t.cs_date?t.cs_date.split("-").map(Number):[0,0];
-    const dayOpts=sel=>Array.from({length:31},(_,i)=>`<option value="${i+1}" ${sel===i+1?"selected":""}>${i+1}</option>`).join("");
-    const radio=(name,val,checked,title,hint)=>`<label style="display:flex;gap:.6rem;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:.6rem .85rem;margin-bottom:.45rem;font-weight:normal;cursor:pointer"><input type="radio" name="${name}" value="${val}" ${checked?"checked":""} style="margin-top:.25rem"><span><strong>${title}</strong><br><span class="muted" style="font-size:.85rem">${hint}</span></span></label>`;
-    panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
-      <h3 style="margin:1rem 0 .5rem">Business type</h3>
-      <p class="muted" style="margin-bottom:1rem">This decides how Finances works out your profit and what it shows, so you only see what applies to your business.</p>
-      ${Object.entries(BUSINESS_TYPES).map(([k,v])=>`<label style="display:flex;gap:.6rem;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:.7rem .85rem;margin-bottom:.5rem;font-weight:normal;cursor:pointer"><input type="radio" name="biz-type" value="${k}" ${t.type===k?"checked":""} onchange="bizTypeFormUpdate()" style="margin-top:.25rem"><span><strong>${esc(v.label)}</strong><br><span class="muted" style="font-size:.85rem">${esc(v.hint)}</span></span></label>`).join("")}
-      <div id="biz-yearend-wrap" class="${t.type==="company"?"":"hidden"}" style="margin:.8rem 0">
-        <label style="font-weight:600">Company year end</label>
-        <div style="display:flex;gap:.5rem;max-width:320px;margin-top:.3rem">
-          <select id="biz-ye-day" style="flex:0 0 5rem">${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${yd===i+1?"selected":""}>${i+1}</option>`).join("")}</select>
-          <select id="biz-ye-month" style="flex:1">${months.map((m,i)=>`<option value="${i+1}" ${ym===i+1?"selected":""}>${m}</option>`).join("")}</select>
-        </div>
-        <div class="muted" style="font-size:.78rem;margin-top:.25rem">The company's accounting year end (its "accounting reference date"), shown on Companies House.</div>
-        <label style="font-weight:600;display:block;margin-top:.9rem">Confirmation statement date (optional)</label>
-        <div style="display:flex;gap:.5rem;max-width:320px;margin-top:.3rem">
-          <select id="biz-cs-day" style="flex:0 0 5rem"><option value="">–</option>${dayOpts(cd)}</select>
-          <select id="biz-cs-month" style="flex:1"><option value="">–</option>${months.map((m,i)=>`<option value="${i+1}" ${cm===i+1?"selected":""}>${m}</option>`).join("")}</select>
-        </div>
-        <div class="muted" style="font-size:.78rem;margin-top:.25rem">The date your last confirmation statement was made up to, shown on Companies House. It adds that deadline to your dashboard.</div>
-      </div>
-      <label style="display:flex;gap:.5rem;align-items:flex-start;margin:1rem 0;font-weight:normal"><input type="checkbox" id="biz-dual" ${t.dual_controls?"checked":""} onchange="bizTypeFormUpdate()" style="margin-top:.3rem"><span><strong>My tuition cars have dual controls fitted</strong><br><span class="muted" style="font-size:.85rem" id="biz-dual-hint"></span></span></label>
-      <div id="biz-sole-wrap">
-        <h4 style="margin:1.2rem 0 .3rem">Business use</h4>
-        <p class="muted" style="font-size:.85rem;margin-bottom:.5rem">If you also use these privately, only the business share can be claimed. Leave them at 100% if you don't.</p>
-        <div class="two">
-          <div class="field"><label>Car (% business use)</label><input id="biz-car-pct" type="number" min="0" max="100" step="1" value="${t.car_pct}"></div>
-          <div class="field"><label>Phone and internet (% business use)</label><input id="biz-phone-pct" type="number" min="0" max="100" step="1" value="${t.phone_pct}"></div>
-        </div>
-        <h4 style="margin:1.2rem 0 .4rem">Car costs</h4>
-        ${radio("biz-carcosts","actual",t.car_costs!=="mileage","Actual costs","Fuel, insurance, repairs and hire purchase, as you pay them.")}
-        ${radio("biz-carcosts","mileage",t.car_costs==="mileage","Mileage rate","45p a mile for the first 10,000 business miles a year, then 25p, instead of the car's own costs (parking and tolls still count). Once you use it for a car you have to keep using it for that car, and you can't switch to it for a car whose costs you've already claimed.")}
-        <h4 style="margin:1.2rem 0 .3rem">Profit with all expenses, month by month</h4>
-        <label style="display:flex;gap:.5rem;align-items:center;font-weight:normal;margin-bottom:.5rem"><input type="checkbox" id="biz-uc" ${t.uc_day?"checked":""} onchange="bizTypeFormUpdate()"> Show my profit with all expenses month by month</label>
-        <div id="biz-uc-wrap">
-          <div class="field" style="max-width:260px"><label>Each month starts on day</label><select id="biz-uc-day">${dayOpts(t.uc_day||1)}</select></div>
-          <div class="field"><label>Car HP payments in the monthly view</label><select id="biz-uc-hp"><option value="full" ${t.uc_hp!=="exclude"?"selected":""}>Count them in full</option><option value="exclude" ${t.uc_hp==="exclude"?"selected":""}>Leave them out, apart from the interest</option></select>
-            <div class="muted" style="font-size:.78rem;margin-top:.2rem">Repayments of a business loan aren't counted in this view, and it isn't clear whether hire purchase counts as one, so check with whoever you give this figure to.</div></div>
-        </div>
-      </div>
-      <button class="btn btn-navy btn-sm" onclick="saveBusinessType()">Save</button>
-      <span id="biz-ok" style="display:none;margin-left:.5rem;color:#0a7a3d;font-weight:700">✓ Saved</span>
-      <div class="err" id="biz-err" style="margin-top:.5rem;display:block;text-align:left"></div>`;
-    bizTypeFormUpdate();
+    // Moved to the Finances tab (openBusinessTypeModal).
+    goTab('finance'); openBusinessTypeModal(); return;
   } else if(which==="paycats"){
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Finance categories</h3>
-      <p class="muted" style="margin-bottom:1rem">${isCompany()?"These are fixed, so every entry is grouped the way your accountant needs it.":"These are fixed, so every entry lines up with HMRC's Making Tax Digital headings."} They're the ones for your <a href="#" onclick="openSettings('business');return false">business type</a>. Each expense starts as claimable or not claimable as shown, and you can change that on any entry.</p>
+      <p class="muted" style="margin-bottom:1rem">${isCompany()?"These are fixed, so every entry is grouped the way your accountant needs it.":"These are fixed, so every entry lines up with HMRC's Making Tax Digital headings."} They're the ones for your <a href="#" onclick="openBusinessTypeModal();return false">business type</a>. Each expense starts as claimable or not claimable as shown, and you can change that on any entry.</p>
       <div id="paycats-lists"></div>
       <div class="err" id="paycats-err" style="margin-top:.5rem"></div>`;
     renderPayCats();
@@ -6572,14 +6461,14 @@ async function loadTeamsPanel(){
     const instrRows = instructors||[];
     const instrIds = instrRows.map(i=>i.id);
     const {data:instrSubs} = instrIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon").eq("owner_type","instructor").in("owner_id",instrIds)
+      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at").eq("owner_type","instructor").in("owner_id",instrIds)
       : {data:[]};
     subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
     schoolsCache = schoolRows;
 
     const schoolIds = schoolRows.map(s=>s.id);
     const {data:schoolSubs} = schoolIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon").eq("owner_type","school").in("owner_id",schoolIds)
+      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at").eq("owner_type","school").in("owner_id",schoolIds)
       : {data:[]};
     const schoolSubsByOwner = Object.fromEntries((schoolSubs||[]).map(s=>[s.owner_id,s]));
 
@@ -6593,7 +6482,7 @@ async function loadTeamsPanel(){
       const nameEsc = esc(s.display_name||s.name).replace(/'/g,"&#39;");
       const lockedBadge = s.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
       const sub = schoolSubsByOwner[s.id];
-      const statusChip = sub ? renderStatusChip(sub.status) : '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>';
+      const statusChip = sub ? renderStatusChip(sub.status,sub.trial_ends_at) : '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>';
       const lockBtn = s.locked_at
         ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockSchool('${s.id}','${nameEsc}')">Unlock</button>`
         : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockSchool('${s.id}','${nameEsc}')">Lock</button>`;
@@ -6646,7 +6535,7 @@ async function loadTeamsPanel(){
     const instrRows = instructors||[];
     const instrIds = instrRows.map(i=>i.id);
     const {data:instrSubs} = instrIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon").eq("owner_type","instructor").in("owner_id",instrIds)
+      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at").eq("owner_type","instructor").in("owner_id",instrIds)
       : {data:[]};
     subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
     try{
@@ -6678,7 +6567,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
   const adminBadge = i.is_school_admin ? ' <span style="font-size:.7rem;font-weight:700;color:#0A4CA1">ADMIN</span>' : "";
   const lockedBadge = i.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
   const sub = subsByOwnerCache[i.id];
-  const statusChip = sub ? renderStatusChip(sub.status) : ((fullControls && !i.school_id) ? '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>' : ((!fullControls && schoolPdiIds.has(i.id)) ? '<span class="chip chip-info">PDI</span>' : ""));
+  const statusChip = sub ? renderStatusChip(sub.status,sub.trial_ends_at) : ((fullControls && !i.school_id) ? '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>' : ((!fullControls && schoolPdiIds.has(i.id)) ? '<span class="chip chip-info">PDI</span>' : ""));
   const isMe = i.id===currentUserId;
   const lockBtn = isMe
     ? '<span class="muted" style="font-size:.75rem">(you)</span>'
@@ -7412,7 +7301,7 @@ async function showInstructorDetail(instructorId){
       extra = `<p class="muted">Last manual payment note: ${esc(sub.manual_payment_note)}</p>`;
     }
     billingBlock = `<div class="field"><label>Billing</label>
-      <p>${renderStatusChip(sub.status)} ${i.school_id ? seatBillingText(i, school, true) : esc(sub.plan)}</p>
+      <p>${renderStatusChip(sub.status,sub.trial_ends_at)} ${i.school_id ? seatBillingText(i, school, true) : esc(sub.plan)}</p>
       ${sub.trial_ends_at?`<p class="muted">Trial ends: ${new Date(sub.trial_ends_at).toLocaleDateString()}</p>`:""}
       ${sub.current_period_end?`<p class="muted">Current period ends: ${new Date(sub.current_period_end).toLocaleDateString()}</p>`:""}
       ${extra}
@@ -7454,7 +7343,7 @@ async function showSchoolDetail(schoolId){
       extra = `<p class="muted">Last manual payment note: ${esc(sub.manual_payment_note)}</p>`;
     }
     billingBlock = `<div class="field"><label>Billing</label>
-      <p>${renderStatusChip(sub.status)} ${sub.seats_purchased} seat${sub.seats_purchased===1?"":"s"}</p>
+      <p>${renderStatusChip(sub.status,sub.trial_ends_at)} ${sub.seats_purchased} seat${sub.seats_purchased===1?"":"s"}</p>
       ${sub.trial_ends_at?`<p class="muted">Trial ends: ${new Date(sub.trial_ends_at).toLocaleDateString()}</p>`:""}
       ${sub.current_period_end?`<p class="muted">Current period ends: ${new Date(sub.current_period_end).toLocaleDateString()}</p>`:""}
       ${extra}
@@ -7943,7 +7832,7 @@ async function loadSuperAdminBilling(){
 
 async function loadAllAccountsBilling(){
   const el=document.getElementById("all-accounts-list");
-  const {data:subs} = await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,cancel_at_period_end,trial_ends_at,current_period_end,cancel_reason,access_until_override").order("created_at",{ascending:false});
+  const {data:subs} = await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,videos_addon,cancel_at_period_end,trial_ends_at,current_period_end,cancel_reason,access_until_override").order("created_at",{ascending:false});
   const rows = subs||[];
   const schoolIds = rows.filter(s=>s.owner_type==="school").map(s=>s.owner_id);
   const instrIds = rows.filter(s=>s.owner_type==="instructor").map(s=>s.owner_id);
@@ -7954,7 +7843,33 @@ async function loadAllAccountsBilling(){
   const schoolById = Object.fromEntries((schools||[]).map(s=>[s.id,s]));
   const instrById = Object.fromEntries((instrs||[]).map(i=>[i.id,i]));
 
-  el.innerHTML = rows.length ? rows.map(s=>{
+  // What each account pays a month at today's prices, and the total
+  // (Dale, 12 Sep 2026). Paying = active or a failed payment still being
+  // chased; trials are shown separately; PDIs, cancelled and cancelling
+  // accounts and unconfirmed Direct Debits aren't counted.
+  const monthlyPence = s => (s.status==="pdi_free"||s.plan==="pdi") ? 0
+    : s.owner_type==="school" ? schoolMonthlyPence(s.seats_purchased||1, s.videos_addon)
+    : 1199 + (s.videos_addon ? VIDEO_ADDON_PENCE : 0);
+  const payingNow = s => !s.cancel_at_period_end && (s.status==="active"||s.status==="past_due");
+  const inTrial = s => !s.cancel_at_period_end && s.status==="trialing";
+  const paying = rows.filter(payingNow), trials = rows.filter(inTrial);
+  const payingPence = paying.reduce((t,s)=>t+monthlyPence(s),0), trialPence = trials.reduce((t,s)=>t+monthlyPence(s),0);
+  const incomeSummary = rows.length ? `<div class="metric-row" style="margin-bottom:.8rem;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+      <div class="metric"><div class="v good">${gbp(payingPence)}</div><div class="l">Estimated monthly income (${paying.length} paying)</div></div>
+      <div class="metric"><div class="v">${gbp(trialPence)}</div><div class="l">From trials once they pay (${trials.length})</div></div>
+      <div class="metric"><div class="v">${gbp(payingPence+trialPence)}</div><div class="l">Monthly if every trial pays</div></div>
+    </div>
+    <p class="muted" style="margin:0 0 .8rem;font-size:.78rem">At today's prices, before GoCardless fees: solo ${gbp(1199)}, driving school ${gbp(SCHOOL_BASE_PENCE)} plus ${gbp(SEAT_PRICE_PENCE)} for each extra seat, and Premium adds ${gbp(VIDEO_ADDON_PENCE)} (per seat for a school). PDIs, cancelled accounts and Direct Debits that aren't set up yet aren't counted.</p>` : "";
+  const priceNote = s => {
+    const p = monthlyPence(s);
+    if(s.status==="pdi_free"||s.plan==="pdi") return " · free while training";
+    if(s.cancel_at_period_end||s.status==="canceled") return ` · was ${gbp(p)} a month, won't renew`;
+    if(s.status==="trialing") return ` · ${gbp(p)} a month after the trial`;
+    if(s.status==="mandate_failed") return ` · ${gbp(p)} a month once their Direct Debit is set up`;
+    if(s.status==="past_due") return ` · ${gbp(p)} a month (payment failed)`;
+    return ` · <strong>${gbp(p)} a month</strong>`;
+  };
+  el.innerHTML = incomeSummary + (rows.length ? rows.map(s=>{
     const name = s.owner_type==="school"
       ? (schoolById[s.owner_id]?.display_name || schoolById[s.owner_id]?.name || "Unknown school")
       : (instrById[s.owner_id]?.full_name || instrById[s.owner_id]?.email || "Unknown instructor");
@@ -7971,14 +7886,14 @@ async function loadAllAccountsBilling(){
     const subBtn = s.cancel_at_period_end
       ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="requestResumeSubscription('${s.owner_type}','${s.owner_id}','${nameEsc}')">Ask to resume</button>`
       : `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="superAdminCancel('${s.owner_type}','${s.owner_id}','${nameEsc}')">Cancel</button>`;
-    return `<div class="list-row"><div><strong>${esc(name)}</strong> ${s.cancel_at_period_end?'<span class="chip chip-wait">CANCELLING</span>':renderStatusChip(s.status)}<div class="muted">${esc(s.plan)}${s.owner_type==="school"?" · "+s.seats_purchased+" seat"+(s.seats_purchased===1?"":"s"):""}</div>${cancelNote}${extNote}</div>
+    return `<div class="list-row"><div><strong>${esc(name)}</strong> ${s.cancel_at_period_end?'<span class="chip chip-wait">CANCELLING</span>':renderStatusChip(s.status,s.trial_ends_at)}<div class="muted">${esc(s.plan)}${s.owner_type==="school"?" · "+s.seats_purchased+" seat"+(s.seats_purchased===1?"":"s"):""}${s.videos_addon?" · Premium":""}${priceNote(s)}</div>${cancelNote}${extNote}</div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap">
         <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showPaymentHistory('${s.id}','${nameEsc}')">Payment history</button>
         <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="superAdminExtendAccess('${s.owner_type}','${s.owner_id}','${nameEsc}')">Extend access</button>
         ${subBtn}
       </div>
     </div>`;
-  }).join("") : '<p class="muted">No subscriptions yet.</p>';
+  }).join("") : '<p class="muted">No subscriptions yet.</p>');
 }
 
 async function showPaymentHistory(subscriptionId, name){
@@ -8228,11 +8143,52 @@ async function saveWorkingHours(){
 // Finance categories are fixed (INCOME_CAT_DEFS / EXPENSE_CAT_DEFS), so
 // Settings only shows them, with their HMRC heading and whether an expense
 // starts as claimable, plus how retired categories on older entries count.
+// Business type form, opened from the Finances tab (Dale, 12 Sep 2026: it's what it changes).
+function openBusinessTypeModal(){
+    const t=businessType;
+    const [ym,yd]=t.year_end.split("-").map(Number);
+    const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const [cm,cd]=t.cs_date?t.cs_date.split("-").map(Number):[0,0];
+    const dayOpts=sel=>Array.from({length:31},(_,i)=>`<option value="${i+1}" ${sel===i+1?"selected":""}>${i+1}</option>`).join("");
+    const radio=(name,val,checked,title,hint)=>`<label style="display:flex;gap:.6rem;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:.6rem .85rem;margin-bottom:.45rem;font-weight:normal;cursor:pointer"><input type="radio" name="${name}" value="${val}" ${checked?"checked":""} style="margin-top:.25rem"><span><strong>${title}</strong><br><span class="muted" style="font-size:.85rem">${hint}</span></span></label>`;
+    openModal(`<h2 style="margin-bottom:.3rem">Business type</h2>
+      <p class="muted" style="margin-bottom:1rem">This decides how Finances works out your profit and what it shows, so you only see what applies to your business. Switching doesn't delete any entries.</p>
+      ${Object.entries(BUSINESS_TYPES).map(([k,v])=>`<label style="display:flex;gap:.6rem;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:.7rem .85rem;margin-bottom:.5rem;font-weight:normal;cursor:pointer"><input type="radio" name="biz-type" value="${k}" ${t.type===k?"checked":""} onchange="bizTypeFormUpdate()" style="margin-top:.25rem"><span><strong>${esc(v.label)}</strong><br><span class="muted" style="font-size:.85rem">${esc(v.hint)}</span></span></label>`).join("")}
+      <div id="biz-yearend-wrap" class="${t.type==="company"?"":"hidden"}" style="margin:.8rem 0">
+        <label style="font-weight:600">Company year end</label>
+        <div style="display:flex;gap:.5rem;max-width:320px;margin-top:.3rem">
+          <select id="biz-ye-day" style="flex:0 0 5rem">${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${yd===i+1?"selected":""}>${i+1}</option>`).join("")}</select>
+          <select id="biz-ye-month" style="flex:1">${months.map((m,i)=>`<option value="${i+1}" ${ym===i+1?"selected":""}>${m}</option>`).join("")}</select>
+        </div>
+        <div class="muted" style="font-size:.78rem;margin-top:.25rem">The company's accounting year end (its "accounting reference date"), shown on Companies House.</div>
+        <label style="font-weight:600;display:block;margin-top:.9rem">Confirmation statement date (optional)</label>
+        <div style="display:flex;gap:.5rem;max-width:320px;margin-top:.3rem">
+          <select id="biz-cs-day" style="flex:0 0 5rem"><option value="">–</option>${dayOpts(cd)}</select>
+          <select id="biz-cs-month" style="flex:1"><option value="">–</option>${months.map((m,i)=>`<option value="${i+1}" ${cm===i+1?"selected":""}>${m}</option>`).join("")}</select>
+        </div>
+        <div class="muted" style="font-size:.78rem;margin-top:.25rem">The date your last confirmation statement was made up to, shown on Companies House. It adds that deadline to your dashboard.</div>
+      </div>
+      <label style="display:flex;gap:.5rem;align-items:flex-start;margin:1rem 0;font-weight:normal"><input type="checkbox" id="biz-dual" ${t.dual_controls?"checked":""} onchange="bizTypeFormUpdate()" style="margin-top:.3rem"><span><strong>My tuition cars have dual controls fitted</strong><br><span class="muted" style="font-size:.85rem" id="biz-dual-hint"></span></span></label>
+      <div id="biz-sole-wrap">
+        <h4 style="margin:1.2rem 0 .3rem">Business use</h4>
+        <p class="muted" style="font-size:.85rem;margin-bottom:.5rem">If you also use these privately, only the business share can be claimed. Leave them at 100% if you don't.</p>
+        <div class="two">
+          <div class="field"><label>Car (% business use)</label><input id="biz-car-pct" type="number" min="0" max="100" step="1" value="${t.car_pct}"></div>
+          <div class="field"><label>Phone and internet (% business use)</label><input id="biz-phone-pct" type="number" min="0" max="100" step="1" value="${t.phone_pct}"></div>
+        </div>
+        <h4 style="margin:1.2rem 0 .4rem">Car costs</h4>
+        ${radio("biz-carcosts","actual",t.car_costs!=="mileage","Actual costs","Fuel, insurance, repairs and hire purchase, as you pay them.")}
+        ${radio("biz-carcosts","mileage",t.car_costs==="mileage","Mileage rate","45p a mile for the first 10,000 business miles a year, then 25p, instead of the car's own costs (parking and tolls still count). Once you use it for a car you have to keep using it for that car, and you can't switch to it for a car whose costs you've already claimed.")}
+      </div>
+      <div class="err" id="biz-err" style="margin-top:.5rem;display:block;text-align:left"></div>
+      <div class="actions" style="margin-top:.8rem"><button class="btn btn-navy btn-sm" onclick="saveBusinessType()">Save</button><button class="btn-outline" onclick="closeModal()">Cancel</button></div>`);
+    bizTypeFormUpdate();
+    ["modal","modal-box"].forEach(id=>{ const el=document.getElementById(id); if(el) el.scrollTop=0; });
+}
 function bizTypeFormUpdate(){
   const sel=document.querySelector('input[name="biz-type"]:checked'); const type=sel?sel.value:"sole_cash";
   const wrap=document.getElementById("biz-yearend-wrap"); if(wrap) wrap.classList.toggle("hidden",type!=="company");
   const soleWrap=document.getElementById("biz-sole-wrap"); if(soleWrap) soleWrap.classList.toggle("hidden",type==="company");
-  const uc=document.getElementById("biz-uc"), ucWrap=document.getElementById("biz-uc-wrap"); if(ucWrap) ucWrap.classList.toggle("hidden",!(uc&&uc.checked));
   const dual=document.getElementById("biz-dual"), hint=document.getElementById("biz-dual-hint"); if(!hint) return;
   const d=!!(dual&&dual.checked);
   hint.textContent=type==="sole_cash"
@@ -8260,17 +8216,16 @@ async function saveBusinessType(){
     car_pct:pctOk(val("biz-car-pct"))?Math.round(Number(val("biz-car-pct"))):100,
     phone_pct:pctOk(val("biz-phone-pct"))?Math.round(Number(val("biz-phone-pct"))):100,
     car_costs:(document.querySelector('input[name="biz-carcosts"]:checked')||{}).value==="mileage"?"mileage":"actual",
-    uc_day:document.getElementById("biz-uc").checked?Number(val("biz-uc-day")):null,
-    uc_hp:val("biz-uc-hp")==="exclude"?"exclude":"full",
     cs_date:csD&&csM?`${String(csM).padStart(2,"0")}-${String(Math.min(Number(csD),csLast)).padStart(2,"0")}`:null};
   const {error}=await sb.from("app_settings").upsert({id:"business_type",owner_id:currentUserId,value,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
   if(error){ err.textContent="Could not save: "+error.message; return; }
   businessType=normaliseBusinessType(value,true);
   taxSum=null; coYearOffset=0;
   applyBusinessTypeUi();
-  const ok=document.getElementById("biz-ok"); if(ok){ ok.style.display="inline"; setTimeout(()=>{ ok.style.display="none"; },2500); }
+  closeModal();
   // Car HP payments already saved the other way can be brought in line straight away.
   if(hpClaimableMismatchIds().length) await fixHpClaimable();
+  if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
 }
 function renderPayCats(){
   const el=document.getElementById("paycats-lists");

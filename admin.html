@@ -3073,6 +3073,31 @@ function onPayCatChange(setDefault){
   if(setDefault) document.getElementById("pay-claimable").value=catInfo(cat,type==="expense").claimable?"true":"false";
 }
 let pendingReceiptFile=null, pendingReceiptExistingPath=null;
+// Phone photos arrive at 10-15 MB. Receipts are shrunk to 2000px on the long
+// side as a JPEG before upload (usually well under 1 MB and still easy to
+// read). Anything the browser can't draw (some HEIC files) uploads as it is.
+async function shrinkReceiptImage(file){
+  try{
+    if(!file||!/^image\//.test(file.type||"")||file.size<700*1024) return file;
+    const bmp=await createImageBitmap(file,{imageOrientation:"from-image"});
+    const scale=Math.min(1,2000/Math.max(bmp.width,bmp.height));
+    const w=Math.round(bmp.width*scale), h=Math.round(bmp.height*scale);
+    const c=document.createElement("canvas"); c.width=w; c.height=h;
+    const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,w,h); g.drawImage(bmp,0,0,w,h);
+    if(bmp.close) bmp.close();
+    const blob=await new Promise(res=>c.toBlob(res,"image/jpeg",0.82));
+    if(!blob||blob.size>=file.size) return file;
+    return new File([blob],(file.name||"receipt").replace(/\.[^.]+$/,"")+".jpg",{type:"image/jpeg"});
+  }catch(e){ return file; }
+}
+// Removes a receipt photo that no entry uses any more (deleted entry or a
+// replaced photo). Storage only lets you remove your own receipts; older
+// entries that saved a full URL instead of a path are skipped.
+function removeReceiptPhoto(path){
+  const p=String(path||"");
+  if(!p||/^https?:/.test(p)) return;
+  sb.storage.from("receipts").remove([p]).then(({error})=>{ if(error) console.warn("Receipt photo not removed:",error.message); });
+}
 function resetReceiptField(){
   pendingReceiptFile=null;
   pendingReceiptExistingPath=null;
@@ -3087,10 +3112,35 @@ function onReceiptFileChosen(ev){
   document.getElementById("pay-receipt-preview").innerHTML=
     `<img src="${URL.createObjectURL(f)}" style="max-width:100%;max-height:10rem;border-radius:.75rem;border:1px solid var(--border,#3a4a6b)">`;
 }
-async function viewReceipt(path){
-  const {data,error}=await sb.storage.from("receipts").createSignedUrl(path,3600);
-  if(error) return alert(error.message);
-  window.open(data.signedUrl,"_blank");
+// Receipts open inside the Control Centre, not in a new tab on the long
+// storage address (Dale, 12 Sep 2026: "keep it drivemyway"). The photo is
+// downloaded with the signed-in session and shown from a local blob, so the
+// address bar never leaves web.drivemyway.co.uk.
+let receiptBlobUrl=null, receiptViewSeq=0;
+async function viewReceipt(path,txId,fromDetail){
+  const seq=++receiptViewSeq;
+  const r=txId?((window.__payRows||{})[txId]||(txCache||[]).find(x=>x.id===txId)):null;
+  const caption=r?`${esc(r.transaction_date||"")} · ${esc(r.category||"")} · £${Number(r.amount||0).toFixed(2)}`:"";
+  const back=(r&&fromDetail)?`<button class="btn-outline" onclick="openTxDetail('${r.id}')">Back</button>`:"";
+  openModal(`<h2 style="margin-bottom:.3rem">🧾 Receipt</h2>${caption?`<p class="muted" style="margin-bottom:.8rem">${caption}</p>`:""}
+    <div id="receipt-view"><p class="muted">Loading the photo…</p></div>
+    <div class="actions" style="margin-top:1rem" id="receipt-actions">${back}<button class="btn-outline" onclick="closeModal()">Close</button></div>`);
+  if(receiptBlobUrl){ URL.revokeObjectURL(receiptBlobUrl); receiptBlobUrl=null; }
+  // Older entries stored a full storage URL instead of the path.
+  const clean=String(path||"").split("?")[0].replace(/^https?:\/\/[^/]+\/storage\/v1\/object\/(?:public|sign|authenticated)\/receipts\//,"");
+  const {data,error}=await sb.storage.from("receipts").download(clean);
+  if(seq!==receiptViewSeq) return;
+  const box=document.getElementById("receipt-view"); if(!box) return;
+  if(error||!data||!data.size){
+    box.innerHTML=`<p style="margin:0">This receipt photo wasn't saved, so there's nothing to show. Edit the entry to attach the photo again.</p>`;
+    return;
+  }
+  receiptBlobUrl=URL.createObjectURL(data);
+  const ext=(clean.split(".").pop()||"jpg").toLowerCase();
+  const name=r?`receipt_${r.transaction_date||""}_${String(r.category||"expense").replace(/[^A-Za-z0-9]+/g,"-")}_${Number(r.amount||0).toFixed(2)}.${ext}`:`receipt.${ext}`;
+  box.innerHTML=`<div style="text-align:center"><img src="${receiptBlobUrl}" alt="Receipt photo" style="max-width:100%;max-height:65vh;object-fit:contain;border-radius:12px;border:1px solid var(--border,#3a4a6b);background:#fff"></div>`;
+  const acts=document.getElementById("receipt-actions");
+  if(acts) acts.insertAdjacentHTML("afterbegin",`<a class="btn btn-navy btn-sm" style="text-decoration:none" href="${receiptBlobUrl}" download="${esc(name)}">Download</a><button class="btn-outline" onclick="window.open(receiptBlobUrl,'_blank')">Open full size</button>`);
 }
 function applyFinance(){
   const on=document.querySelector("#tab-finance .tabs-sub button.on");
@@ -3412,7 +3462,7 @@ function tablePay(rows,inModal){
       const main=who||pupil||r.category||r.type||r.notes||"";
       const sub=(who&&!inModal)?(r.category||""):"";
       const noClaim=isExpense(r)&&!isClaimable(r)?'<div style="font-size:.7rem;font-weight:700;color:#b45309">Not claimable</div>':"";
-      const receiptBtn=r.receipt_url?`<button class="btn-outline" onclick="event.stopPropagation();viewReceipt('${String(r.receipt_url).replace(/'/g,"&#39;")}')" title="View receipt">🧾</button>`:"";
+      const receiptBtn=r.receipt_url?`<button class="btn-outline" onclick="event.stopPropagation();viewReceipt('${String(r.receipt_url).replace(/'/g,"&#39;")}','${r.id}')" title="View receipt">🧾</button>`:"";
       return `<tr style="cursor:pointer" onclick="openTxDetail('${r.id}')" title="Click to see who this payment was from and the full details"><td>${esc(r.transaction_date||"")}</td><td>${esc(main)}${sub?`<div class="muted" style="font-size:.75rem">${esc(sub)}</div>`:""}${noClaim}</td>
         <td>£${Number(r.amount||0).toFixed(2)}</td><td>${esc(r.payment_method||"–")}</td>
         <td class="actions">
@@ -3465,7 +3515,7 @@ function openTxDetail(id){
       ${row("Linked", linked)}
     </table></div>
     <div class="actions" style="margin-top:1rem">
-      ${r.receipt_url?`<button class="btn-outline" onclick="viewReceipt('${String(r.receipt_url).replace(/'/g,"&#39;")}')">🧾 Receipt</button>`:""}
+      ${r.receipt_url?`<button class="btn-outline" onclick="viewReceipt('${String(r.receipt_url).replace(/'/g,"&#39;")}','${r.id}',true)">🧾 Receipt</button>`:""}
       <button class="btn btn-navy btn-sm" onclick="editPayById('${r.id}')">Edit</button>
       ${back}
       <button class="btn-outline" onclick="finCatModal=null;closeModal()">Close</button>
@@ -3493,7 +3543,7 @@ function startEditPay(r){
   if(r.receipt_url){
     pendingReceiptExistingPath=r.receipt_url;
     document.getElementById("pay-receipt-preview").innerHTML=
-      `<button type="button" class="btn-outline" onclick="viewReceipt('${r.receipt_url.replace(/'/g,"&#39;")}')">View attached receipt</button>`;
+      `<button type="button" class="btn-outline" onclick="viewReceipt('${r.receipt_url.replace(/'/g,"&#39;")}','${r.id}')">View attached receipt</button>`;
   }
   onPayCatChange();
   document.getElementById("pay-claimable").value=r.claimable===false?"false":"true";
@@ -3537,14 +3587,19 @@ async function savePayment(){
   // expense, or income not tied to a lesson) — pupil-linked rows are covered
   // by can_access_pupil() instead, so instructor_id doesn't matter there.
   const ownId=pupilId?null:(await sb.auth.getUser()).data.user?.id;
+  // The photo this entry had before, so a replaced photo can be removed once
+  // the new one is saved (otherwise it sits in storage for ever).
+  const oldRow=id?(txCache||[]).find(x=>x.id===id):null;
+  const oldReceipt=oldRow&&oldRow.receipt_url?String(oldRow.receipt_url):null;
   let receiptUrl=pendingReceiptExistingPath;
   if(type==="expense"&&pendingReceiptFile){
-    const ext=pendingReceiptFile.name.split(".").pop()||"jpg";
+    const upFile=await shrinkReceiptImage(pendingReceiptFile);
+    const ext=(upFile.name.split(".").pop()||"jpg").toLowerCase();
     // Path prefixed with the uploader's own id — receipts is a private
     // bucket, mirrors the app's upload path so storage RLS (keyed on the
     // top-level folder matching auth.uid()) allows it.
     const path=`${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const {error:upErr}=await sb.storage.from("receipts").upload(path,pendingReceiptFile,{cacheControl:"3600",upsert:false});
+    const {error:upErr}=await sb.storage.from("receipts").upload(path,upFile,{cacheControl:"3600",upsert:false,contentType:upFile.type||"image/jpeg"});
     if(upErr){
       console.warn("Receipt upload failed:",upErr.message);
       notes=(notes?notes+" | ":"")+"(receipt upload failed)";
@@ -3565,6 +3620,7 @@ async function savePayment(){
     else ({error}=await sb.from("transactions").insert(p2));
   }
   if(error) return alert(error.message);
+  if(receiptUrl&&oldReceipt&&oldReceipt!==receiptUrl) removeReceiptPhoto(oldReceipt);
   if(isLesson&&pupilId){
     const newHrs=hoursFromFields(hrsVal,minsVal);
     if(id){
@@ -3589,6 +3645,7 @@ async function delPay(id){
   const r=(txCache||[]).find(x=>x.id===id);
   const {error}=await sb.from("transactions").delete().eq("id",id);
   if(error){alert(error.message);return}
+  if(r&&r.receipt_url) removeReceiptPhoto(r.receipt_url);
   if(r&&r.type==="income"&&isLessonCat(r.category)&&r.pupil_id){
     const oldHrs=hoursFromTxDescription(r.notes||"");
     if(oldHrs) await adjustPupilCredit(r.pupil_id,-oldHrs);

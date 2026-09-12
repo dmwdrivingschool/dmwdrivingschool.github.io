@@ -927,7 +927,12 @@ async function unlock(){
 }
 async function resolveVideoAccess(prof){
   isSuperAdminUser = prof?.role === "super_admin";
-  isSchoolAdminUser = !isSuperAdminUser && !!prof?.is_school_admin;
+  // A super admin who also runs a school (Dale: DMW Driving School) is that
+  // school's admin too, so they can message their own instructors, charge
+  // franchise fees and pay instructors like any school. The database already
+  // treats them as school admin (is_school_admin() / my_school_id()); only this
+  // page used to switch it off. Super-admin-only screens are unaffected.
+  isSchoolAdminUser = !!prof?.is_school_admin && !!prof?.school_id;
   currentSchoolId = prof?.school_id || null;
   if (isSuperAdminUser) { canSeeVideosTab = true; canSeeTheoryTab = true; return; }
   canSeeVideosTab = false;
@@ -959,7 +964,8 @@ async function enterApp(user,prof){
   document.getElementById("settings-franchise-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
   document.getElementById("fin-pay-instr-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
   // A school's waiting list is the Unassigned pool (assigning makes a pupil active), so no separate Waiting tab for school admins.
-  document.getElementById("pupil-filter-waiting").classList.toggle("hidden", !!(isSchoolAdminUser && currentSchoolId));
+  // Dale still teaches his own waiting pupils, so the super admin keeps the Waiting tab.
+  document.getElementById("pupil-filter-waiting").classList.toggle("hidden", !!(isSchoolAdminUser && currentSchoolId && !isSuperAdminUser));
   document.getElementById("nav-messages-btn").classList.remove("hidden"); // everyone: school/instructors + own pupils
   await loadSchoolInstructors();
   await refresh();

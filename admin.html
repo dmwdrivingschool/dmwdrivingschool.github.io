@@ -835,17 +835,24 @@ function hpSchedule(a){
 function hpSplit(r){
   if(!r||!carHpAgreements.length||!isExpense(r)||!HP_CATS.has(r.category||"")) return null;
   const d=r.transaction_date||""; if(!d) return null;
+  const amt=Number(r.amount||0);
+  let best=null;
   for(const a of carHpAgreements){
     const s=hpSchedule(a); if(!s) continue;
     const k=(Number(d.slice(0,4))-Number(a.first_payment.slice(0,4)))*12+(Number(d.slice(5,7))-Number(a.first_payment.slice(5,7)))+1;
     if(k<1||k>s.rows.length) continue;
     // Sold or part exchanged: payments due after that date aren't this agreement's.
     if(a.ended&&a.ended.date&&s.rows[k-1].date>a.ended.date) continue;
-    const amt=Number(r.amount||0);
-    const interest=Math.round(Math.min(amt,Math.max(0,s.rows[k-1].interest))*100)/100;
-    return {interest,capital:Math.round((amt-interest)*100)/100,agreement:a,n:k,of:s.rows.length};
+    // Two agreements running in the same month (two cars, or a new car starting
+    // before the old one's last payment): the payment belongs to the one whose
+    // monthly payment is closest to what was actually paid (found in the
+    // 12 Sep 2026 test run).
+    const gap=Math.abs(s.rows[k-1].payment-amt);
+    if(!best||gap<best.gap) best={a,s,k,gap};
   }
-  return null;
+  if(!best) return null;
+  const interest=Math.round(Math.min(amt,Math.max(0,best.s.rows[best.k-1].interest))*100)/100;
+  return {interest,capital:Math.round((amt-interest)*100)/100,agreement:best.a,n:best.k,of:best.s.rows.length};
 }
 // How much of an expense counts for tax: normally all or nothing, but the
 // interest in a covered Car HP payment is always claimable.

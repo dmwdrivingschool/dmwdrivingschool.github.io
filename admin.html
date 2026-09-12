@@ -2153,6 +2153,23 @@ async function savePupil(id){
   const dhapEl=document.getElementById("ep-dhap");
   if(dhapEl) payload.delivered_hours_at_pass = dhapEl.value.trim()===""?null:Number(dhapEl.value);
   if(document.getElementById("ep-instr")) payload.instructor_id = document.getElementById("ep-instr").value||null;
+  // Choosing Passed here used to save only the status, so the pupil kept their
+  // lessons, messages, contact details and login (Dale, 12 Sep 2026: passing
+  // deletes those; only name, payments and the test result are kept). Run the
+  // same clean-up as passing from Tests or the app.
+  const prev=[...(pupilsCache||[]),...(unassignedCache||[]),...(schoolPupilsCache||[])].find(x=>x.id===id);
+  if(payload.status==="passed" && (!prev || prev.status!=="passed")){
+    const who=[payload.first_name,payload.last_name].filter(Boolean).join(" ")||"this pupil";
+    if(!confirm(`Mark ${who} as passed?\n\nThis deletes their lessons (apart from the driving test), messages, progress, contact details and app login, the same as passing them anywhere else. Their name, payments and test result are kept.`)) return;
+    const keep={first_name:payload.first_name, last_name:payload.last_name};
+    if("delivered_hours_at_pass" in payload) keep.delivered_hours_at_pass=payload.delivered_hours_at_pass;
+    if("instructor_id" in payload) keep.instructor_id=payload.instructor_id;
+    const {error:keepError}=await sb.from("pupils").update(keep).eq("id",id);
+    if(keepError) return alert(keepError.message);
+    await passResultCleanup(id);
+    closeModal(); await loadPupils(); renderPupils(); loadDash();
+    return;
+  }
   const {error}=await sb.from("pupils").update(payload).eq("id",id);
   if(error) alert(error.message); else {closeModal(); await loadPupils(); renderPupils(); loadDash()}
 }

@@ -898,12 +898,18 @@ function openCarHpDetails(editId){
   const v=(k,d)=>edit&&edit[k]!==undefined&&edit[k]!==null?esc(String(edit[k])):(d||"");
   // A part exchange waiting to go towards the next car: the latest agreement
   // marked part exchanged whose amount no other agreement has used yet.
-  const pendingPx=edit?null:carHpAgreements
-    .filter(x=>x.ended&&x.ended.how==="part_exchange"&&Number(x.ended.towards)>0&&!carHpAgreements.some(y=>y.part_ex_from===x.id))
+  // Editing a car that was added before the part exchange into it was recorded
+  // (Dale: the Seat Leon went in before the Astra was marked part exchanged)
+  // fills it in too, from a part exchange that ended by that car's first payment.
+  const editNeedsPx=!!(edit && !Number(edit.part_exchange) && !edit.part_ex_from);
+  const pendingPx=(edit&&!editNeedsPx)?null:carHpAgreements
+    .filter(x=>x.ended&&x.ended.how==="part_exchange"&&Number(x.ended.towards)>0
+      &&(!edit||(x.id!==edit.id&&x.ended.date<=edit.first_payment))
+      &&!carHpAgreements.some(y=>y.part_ex_from===x.id))
     .sort((x,y)=>x.ended.date<y.ended.date?1:-1)[0]||null;
-  const partexVal=edit?(Number(edit.part_exchange)?esc(String(edit.part_exchange)):""):(pendingPx?Number(pendingPx.ended.towards).toFixed(2):"");
-  const partexFrom=edit?(edit.part_ex_from||""):(pendingPx?pendingPx.id:"");
-  const partexNote=(!edit&&pendingPx)?`<div class="muted" style="font-size:.75rem;margin-top:.2rem">Filled in from part exchanging the ${esc(pendingPx.label||"previous car")}.</div>`:"";
+  const partexVal=pendingPx?Number(pendingPx.ended.towards).toFixed(2):(edit&&Number(edit.part_exchange)?esc(String(edit.part_exchange)):"");
+  const partexFrom=pendingPx?pendingPx.id:(edit?(edit.part_ex_from||""):"");
+  const partexNote=pendingPx?`<div class="muted" style="font-size:.75rem;margin-top:.2rem">Filled in from part exchanging the ${esc(pendingPx.label||"previous car")}.${edit?" Adjust the car price or cash deposit so the amount borrowed still matches your agreement.":""}</div>`:"";
   openModal(`<h2 style="margin-bottom:.3rem">Car HP details</h2>
     <p class="muted" style="margin-bottom:.9rem">A hire purchase payment is mostly paying off the car, which isn't claimable, plus interest, which is. Add your agreement and each Car HP payment is split for you: the interest goes under Interest on bank and other loans in the Tax summary. It's an estimate from the APR; your finance company's statement shows the exact interest.</p>
     ${cards||'<p class="muted">No agreements added yet.</p>'}

@@ -813,16 +813,27 @@ function hpAddMonths(iso,k){
   return t.toISOString().slice(0,10);
 }
 function hpSchedule(a){
-  const key=JSON.stringify([a.amount,a.apr,a.months,a.first_payment,a.balloon]);
+  const key=JSON.stringify([a.amount,a.apr,a.months,a.first_payment,a.balloon,a.start_date||""]);
   if(hpScheduleCache[key]!==undefined) return hpScheduleCache[key];
   const L=Number(a.amount||0), n=Math.round(Number(a.months||0)), B=Number(a.balloon||0);
   const r=Math.pow(1+Number(a.apr||0)/100,1/12)-1;
   let out=null;
   if(L>0 && n>0 && n<=120 && B>=0 && B<L && /^\d{4}-\d{2}-\d{2}$/.test(a.first_payment||"")){
-    const pay=r>0?(L-B/Math.pow(1+r,n))*r/(1-Math.pow(1+r,-n)):(L-B)/n;
+    // The first payment is normally a month after getting the car. With a
+    // "date you got the car" further back (Dale, 12 Sep 2026), interest for
+    // that first gap runs for the real number of days, which also makes every
+    // monthly payment slightly higher. Blank = one month, the same as before.
+    let f1=1+r;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(a.start_date||"") && a.start_date<a.first_payment){
+      const days=(Date.parse(a.first_payment+"T00:00:00Z")-Date.parse(a.start_date+"T00:00:00Z"))/86400000;
+      f1=Math.pow(1+Number(a.apr||0)/100,days/365);
+    }
+    const vn1=Math.pow(1+r,-(n-1));
+    const ann=r>0?(1-vn1)/r:(n-1);
+    const pay=(L*f1-B*vn1)/(1+ann);
     let bal=L; const rows=[];
     for(let k=1;k<=n;k++){
-      const interest=bal*r, due=pay+(k===n?B:0);
+      const interest=k===1?bal*(f1-1):bal*r, due=pay+(k===n?B:0);
       bal=bal+interest-due;
       rows.push({n:k,date:hpAddMonths(a.first_payment,k-1),payment:due,interest,balance:Math.max(0,bal)});
     }
@@ -895,7 +906,7 @@ function openCarHpDetails(editId,opts){
       :`Sold on ${fmtD(ended.date)} for ${money(ended.value)}${Number(ended.settlement)?`, with ${money(ended.settlement)} paying off this finance`:""}. Payments after that date aren't counted here.`;
     return `<div style="border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem;margin-bottom:.6rem">
       <strong>${esc(a.label||"Car")}</strong>${ended?` <span class="chip chip-wait">${ended.how==="part_exchange"?"Part exchanged":"Sold"}</span>`:""}
-      <p class="muted" style="margin:.3rem 0 .5rem">${depositText}${money(a.amount)} borrowed at ${Number(a.apr)}% APR · ${s.rows.length} monthly payments from ${fmtD(a.first_payment)} to ${fmtD(lastDate)}${Number(a.balloon)?` · final payment ${money(a.balloon)}`:""}</p>
+      <p class="muted" style="margin:.3rem 0 .5rem">${depositText}${money(a.amount)} borrowed at ${Number(a.apr)}% APR · ${s.rows.length} monthly payments from ${fmtD(a.first_payment)} to ${fmtD(lastDate)}${Number(a.balloon)?` · final payment ${money(a.balloon)}`:""}${a.start_date?` · got the car ${fmtD(a.start_date)}`:""}</p>
       ${endedText?`<p style="margin:0 0 .45rem;font-size:.86rem">${endedText}</p>`:""}
       <p style="margin:0 0 .3rem">Monthly payment these figures give: <strong>${money(s.payment)}</strong> · ${ended?`interest up to the ${ended.how==="part_exchange"?"part exchange":"sale"} <strong>${money(interestToEnd)}</strong>`:`total interest <strong>${money(s.totalInterest)}</strong>`}</p>
       <p class="muted" style="margin:0 0 .5rem">${matched.length} Car HP payment${matched.length===1?"":"s"} in your Finances ${matched.length===1?"falls":"fall"} in this agreement${matched.length?` (recorded ${money(avg)} on average)`:""}.</p>
@@ -930,7 +941,8 @@ function openCarHpDetails(editId,opts){
       <div class="field"><label>Part exchange (£)</label><input id="hp-partex" type="number" step="0.01" min="0" value="${partexVal}" placeholder="0" oninput="hpFormPreview()">${partexNote}<input type="hidden" id="hp-partex-from" value="${esc(partexFrom)}"></div>
       <div class="field"><label>APR (%)</label><input id="hp-apr" type="number" step="0.01" min="0" value="${v("apr")}" placeholder="9.9" oninput="hpFormPreview()"></div>
       <div class="field"><label>Number of monthly payments</label><input id="hp-months" type="number" step="1" min="1" max="120" value="${v("months")}" placeholder="48" oninput="hpFormPreview()"></div>
-      <div class="field"><label>First monthly payment date</label><input id="hp-first" type="date" value="${v("first_payment")}"></div>
+      <div class="field"><label>First monthly payment date</label><input id="hp-first" type="date" value="${v("first_payment")}" onchange="hpFormPreview()"></div>
+      <div class="field"><label>Date you got the car (optional)</label><input id="hp-start" type="date" value="${v("start_date")}" onchange="hpFormPreview()"><div class="muted" style="font-size:.75rem;margin-top:.2rem">Only needed if your first payment was more than a month after you got the car.</div></div>
       <div class="field"><label>Final (balloon) payment, if any (£)</label><input id="hp-balloon" type="number" step="0.01" min="0" value="${edit&&Number(edit.balloon)?v("balloon"):""}" oninput="hpFormPreview()"></div>
     </div>
     <p id="hp-preview" style="margin:.4rem 0 0;font-size:.88rem"></p>
@@ -961,7 +973,8 @@ function hpFormPreview(){
   let txt=`Amount borrowed: £${borrowed.toFixed(2)}`;
   const apr=num("hp-apr"), months=num("hp-months"), balloon=isNaN(num("hp-balloon"))?0:num("hp-balloon");
   if(!isNaN(apr) && months>0){
-    const s=hpSchedule({amount:borrowed,apr,months,first_payment:"2000-01-01",balloon});
+    const first=(document.getElementById("hp-first")||{}).value||"2000-01-01", start=(document.getElementById("hp-start")||{}).value||"";
+    const s=hpSchedule({amount:borrowed,apr,months,first_payment:first,balloon,start_date:start&&start<first?start:""});
     if(s) txt+=` · Monthly payment these figures give: £${s.payment.toFixed(2)} (check it matches your agreement) · Total interest: £${s.totalInterest.toFixed(2)}`;
   }
   el.textContent=txt;
@@ -979,7 +992,7 @@ async function saveCarHp(){
   const price=Number(g("hp-price")), deposit=g("hp-deposit")===""?0:Number(g("hp-deposit")), partex=g("hp-partex")===""?0:Number(g("hp-partex"));
   const a={id:g("hp-id")||("hp"+Date.now().toString(36)), label:g("hp-label")||"Car", price, deposit, part_exchange:partex, part_ex_from:partex>0?(g("hp-partex-from")||null):null,
     amount:Math.round((price-deposit-partex)*100)/100, apr:Number(g("hp-apr")),
-    months:Math.round(Number(g("hp-months"))), first_payment:g("hp-first"), balloon:g("hp-balloon")===""?0:Number(g("hp-balloon"))};
+    months:Math.round(Number(g("hp-months"))), first_payment:g("hp-first"), start_date:g("hp-start"), balloon:g("hp-balloon")===""?0:Number(g("hp-balloon"))};
   // Editing keeps a sale or part exchange already recorded.
   const prev=carHpAgreements.find(x=>x.id===a.id); if(prev&&prev.ended) a.ended=prev.ended;
   if(!(price>0)){ err.textContent="Enter the car's price."; return; }
@@ -987,6 +1000,7 @@ async function saveCarHp(){
   if(g("hp-apr")===""||!(a.apr>=0&&a.apr<100)){ err.textContent="Enter the APR from your agreement, for example 9.9."; return; }
   if(!(a.months>=1&&a.months<=120)){ err.textContent="Enter the number of monthly payments, for example 48."; return; }
   if(!/^\d{4}-\d{2}-\d{2}$/.test(a.first_payment)){ err.textContent="Enter the date of the first monthly payment."; return; }
+  if(a.start_date && a.start_date>=a.first_payment){ err.textContent="The date you got the car must be before the first payment. Leave it blank if your first payment was a month later."; return; }
   if(!(a.balloon>=0&&a.balloon<a.amount)){ err.textContent="The final payment must be less than the amount borrowed. Leave it blank if there isn't one."; return; }
   const list=carHpAgreements.filter(x=>x.id!==a.id).concat([a]).sort((x,y)=>x.first_payment<y.first_payment?-1:1);
   const e=await storeCarHp(list);

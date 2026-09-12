@@ -32,6 +32,15 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);min-height:100
 .btn-outline:hover{border-color:var(--navy);color:var(--navy);background:var(--soft)}
 .btn-danger{background:#fff1f2;color:#be123c;border:none;padding:.45rem .78rem;font-size:.78rem;border-radius:10px;cursor:pointer;font-weight:600}
 .btn-danger:hover{background:#ffe4e6}
+/* Your cars: a sold car's card is red and a part exchanged car's yellow, so neither is taken for a current car. */
+.car-card-sold{background:#fff1f2;border-color:#fda4af !important}
+.car-card-sold>strong{color:#be123c}
+.car-card-px{background:#fef3c7;border-color:#fcd34d !important}
+.car-card-px>strong{color:#92400e}
+.car-card-sold .muted,.car-card-px .muted{color:#475569}
+.car-card-sold .car-ended-chip{background:#be123c;color:#fff}
+.car-card-px .car-ended-chip{background:#b45309;color:#fff}
+.car-card-sold .btn-danger,.car-card-px .btn-danger{border:1px solid currentColor}
 .err{color:var(--bad);font-size:.85rem;font-weight:600;display:none;margin-top:.6rem;text-align:center}
 #app{display:none}
 .top{background:#fff;color:var(--ink);display:flex;align-items:center;justify-content:space-between;padding:.9rem 1.4rem;gap:1rem;flex-wrap:wrap;border-bottom:1px solid var(--line)}
@@ -205,6 +214,11 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .btn-outline:hover{background:#2a527c;color:#93c5fd;border-color:#3b82f6}
 .btn-gold{background:#38486b;color:#cbd5e1}
 .btn-danger{background:#3f1d2b;color:#fda4af}
+.car-card-sold{background:#3f1d2b;border-color:#9f1239 !important}
+.car-card-sold>strong{color:#fda4af}
+.car-card-px{background:#451a03;border-color:#b45309 !important}
+.car-card-px>strong{color:#fcd34d}
+.car-card-sold .muted,.car-card-px .muted{color:#e2d5c8}
 .metric,.matrix-head,.matrix-drawer{background:#263450}
 .matrix-head:hover{background:#38486b}
 .matrix-table,.matrix-table td.vname{background:#2a3859;color:var(--text)}
@@ -1290,8 +1304,10 @@ function openCarHpDetails(editId,opts){
           </tbody></table>`;
       }
     }
-    return `<div style="border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem;margin-bottom:.6rem">
-      <strong>${esc(a.label||"Car")}</strong>${a.reg?` <span class="muted">${esc(a.reg)}</span>`:""}${a.driver_name&&isSchoolAdminUser&&currentSchoolId?` <span class="chip chip-info">Driven by ${esc(a.driver_name)}</span>`:""}${ended?` <span class="chip chip-wait">${ended.how==="part_exchange"?"Part exchanged":"Sold"}</span>`:""}
+    // A sold or part exchanged car keeps its record, but its card turns red (sold) or yellow (part
+    // exchanged) so it's never taken for a current car (Dale, 12 Sep 2026).
+    return `<div class="${ended?(ended.how==="part_exchange"?"car-card-px":"car-card-sold"):""}" style="border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem;margin-bottom:.6rem">
+      <strong>${esc(a.label||"Car")}</strong>${a.reg?` <span class="muted">${esc(a.reg)}</span>`:""}${a.driver_name&&isSchoolAdminUser&&currentSchoolId?` <span class="chip chip-info">Driven by ${esc(a.driver_name)}</span>`:""}${ended?` <span class="chip car-ended-chip">${ended.how==="part_exchange"?"Part exchanged":"Sold"}</span>`:""}
       ${lines.join("")}
       ${endedText?`<p style="margin:.3rem 0;font-size:.86rem">${endedText}</p>`:""}
       ${interestHtml}

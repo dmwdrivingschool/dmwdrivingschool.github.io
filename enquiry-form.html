@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Driving lesson enquiry</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <!-- Direct link to an instructor's or driving school's enquiry form (Dale,
+       13 Sep 2026): enquiry-form.html?i=<instructor id>[&s=<driving school id>].
+       The form itself comes from enquiry-widget.js, the same code as the embed. -->
+  <style>
+    body { margin: 0; background: #eef2f6; font-family: "Segoe UI", system-ui, sans-serif; color: #1e293b; }
+    .top { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 18px 16px 14px; text-align: center; }
+    .top img { max-height: 64px; max-width: 220px; display: block; margin: 0 auto 8px; }
+    .top h1 { margin: 0; font-size: 1.2rem; color: #062F63; }
+    .top p { margin: 2px 0 0; color: #64748b; font-size: .9rem; }
+    .wrap { max-width: 480px; margin: 20px auto; padding: 0 14px 32px; }
+    .card { background: #fff; border-radius: 16px; padding: 22px 20px; box-shadow: 0 8px 28px rgba(0,0,0,.06); }
+    .card #dmw-enquiry-widget { max-width: none !important; }
+    .msg { text-align: center; color: #475569; margin: 8px 0; line-height: 1.5; }
+    footer { text-align: center; font-size: .78rem; color: #94a3b8; padding: 0 14px 24px; }
+    footer a { color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="top" id="top" hidden></div>
+  <div class="wrap"><div class="card" id="form"><p class="msg">Loading…</p></div></div>
+  <footer>Enquiry form by <a href="https://drivemyway.co.uk" target="_blank" rel="noopener">Drive My Way</a></footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="enquiry-widget.js"></script>
+  <script>
+    const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+    const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4Y3FteXhicGp1ZWV6YXBrbmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUxNzAsImV4cCI6MjEwMTY4MTE3MH0.Qk46wzUGpDHlsqGvsImE9HdrrosL3ERKVbxDUsP4A30";
+    (function () {
+      const box = document.getElementById("form");
+      const q = new URLSearchParams(location.search);
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const i = (q.get("i") || "").trim(), s = (q.get("s") || "").trim();
+      const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      // Never show a form that would send the enquiry to the wrong place.
+      const fail = () => { box.innerHTML = '<p class="msg">This enquiry link isn’t working. Please ask your driving instructor or driving school for their link.</p>'; };
+      if (!uuid.test(i) || (s && !uuid.test(s)) || !window.supabase || typeof buildEnquirySnippet !== "function") return fail();
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+      // A connection problem isn't a bad link, so it says to try again rather than ask for a new link.
+      const retry = () => { box.innerHTML = '<p class="msg">Couldn’t load the enquiry form just now. Please check your connection and refresh the page.</p>'; };
+      sb.rpc("enquiry_form_info", { p_instructor: i, p_school: s || null }).then(({ data, error }) => {
+        if (error) return retry();
+        if (!data || !data.name) return fail();
+        const top = document.getElementById("top");
+        top.innerHTML = (data.logo_url && /^https:\/\//.test(data.logo_url) ? `<img src="${esc(data.logo_url)}" alt="">` : "")
+          + `<h1>${esc(data.name)}</h1>` + (data.school ? `<p>${esc(data.school)}</p>` : "");
+        top.hidden = false;
+        document.title = "Enquiry | " + (data.school || data.name);
+        run(buildEnquirySnippet(i, s || undefined));
+      }, () => retry());
+
+      // innerHTML doesn't run scripts, so the form's own script is re-added
+      // (supabase-js is already loaded on this page).
+      function run(html) {
+        box.innerHTML = html;
+        box.querySelectorAll("script").forEach(old => {
+          if (old.src) { old.remove(); return; }
+          const n = document.createElement("script");
+          n.textContent = old.textContent;
+          old.replaceWith(n);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -435,6 +435,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('workinghours')"><span class="ico">🕘</span><div><strong>Working hours</strong><span>Days &amp; times you teach — drives the enquiry form</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('syllabus')"><span class="ico">🎓</span><div><strong>Progress syllabus</strong><span>The topics you track pupil progress against</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('diary')"><span class="ico">📅</span><div><strong>Diary options</strong><span>How your diary is displayed</span></div></button>
+          <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('lessontypes')"><span class="ico">🗂️</span><div><strong>Lesson types</strong><span>Which types you can book, and their order</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('resources')"><span class="ico">📚</span><div><strong>Resources</strong><span>The links pupils see in their app</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('reflect')"><span class="ico">📝</span><div><strong>Reflective logs</strong><span>Wording of the reflective log questions</span></div></button>
           <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('branding')"><span class="ico">🎨</span><div><strong>Branding</strong><span>Your logo &amp; school name in the pupil app</span></div></button>
@@ -699,6 +700,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('workinghours')">Working hours</button>
           <button type="button" onclick="openSettings('syllabus')">Progress syllabus</button>
           <button type="button" onclick="openSettings('diary')">Diary options</button>
+          <button type="button" onclick="openSettings('lessontypes')">Lesson types</button>
           <button type="button" onclick="openSettings('resources')">Resources</button>
           <button type="button" onclick="openSettings('reflect')">Reflective logs</button>
           <button type="button" onclick="openSettings('branding')">Branding</button>
@@ -2268,7 +2270,7 @@ async function refresh(opts){
     if(currentUserId && await enforceLock(currentUserId)) return;
     const full = !tick || Date.now()-lastPaymentsLoadAt > FULL_DATA_EVERY_MS;
     const jobs=[loadPupils(),loadTests()];
-    if(full) jobs.push(loadPayments(),loadWorkingHours(),loadSyllabus());
+    if(full) jobs.push(loadPayments(),loadWorkingHours(),loadSyllabus(),loadLessonTypes());
     await Promise.all(jobs);
     lastRefreshAt=Date.now();
     loadDash(); loadEnquiries(); loadGaps(); loadActivity(); updateMessagesBadge();
@@ -2604,8 +2606,35 @@ function renderPupilSummary(){
     </div>`;
 }
 
-// Theory Test removed (Dale, 13 Sep 2026: instructors don't attend them; the theory date lives on the pupil).
-const LESSON_TYPES=["lesson","mock_test","driving_test","pass_plus","refresher","motorway","private","gap"];
+// Lesson types: which show in the Type lists and in what order (Dale, 13 Sep 2026). The same app_settings row
+// (id 'lesson_types', {order, hidden}) as the app's Settings → Diary Colours & Types, so changing it in either
+// place changes both. Lesson can't be hidden. Theory Test was removed as a type.
+const LESSON_TYPE_DEFS=[["lesson","Lesson"],["mock_test","Mock Test"],["driving_test","Driving Test"],["pass_plus","Pass Plus"],["refresher","Refresher"],["motorway","Motorway"]];
+const LESSON_TYPE_OTHER_LABELS={private:"Private / Other",gap:"Gap",student_away:"Away",lesson_offer:"Lesson offer",theory_test:"Theory Test"};
+let lessonTypeSettings={order:LESSON_TYPE_DEFS.map(d=>d[0]),hidden:[]};
+function normaliseLessonTypes(v){
+  const known=LESSON_TYPE_DEFS.map(d=>d[0]);
+  const order=(Array.isArray(v&&v.order)?v.order:[]).filter((k,i,a)=>known.includes(k)&&a.indexOf(k)===i);
+  known.forEach(k=>{ if(!order.includes(k)) order.push(k); });
+  const hidden=(Array.isArray(v&&v.hidden)?v.hidden:[]).filter((k,i,a)=>known.includes(k)&&k!=="lesson"&&a.indexOf(k)===i);
+  return {order,hidden};
+}
+async function loadLessonTypes(){
+  try{
+    const {data}=await sb.from("app_settings").select("value").eq("id","lesson_types").eq("owner_id",currentUserId).maybeSingle();
+    lessonTypeSettings=normaliseLessonTypes(data&&data.value);
+  }catch(e){}
+}
+function lessonTypeLabel(t){
+  const d=LESSON_TYPE_DEFS.find(x=>x[0]===t);
+  return d?d[1]:(LESSON_TYPE_OTHER_LABELS[t]||String(t||"lesson").replace(/_/g," "));
+}
+// <option>s for a Type list: shown types in the saved order, the lesson's own type if it's hidden, then extras.
+function lessonTypeOptions(current,extras){
+  const keys=lessonTypeSettings.order.filter(k=>!lessonTypeSettings.hidden.includes(k));
+  if(current&&!keys.includes(current)&&!extras.includes(current)) keys.push(current);
+  return [...keys,...extras].map(k=>`<option value="${k}" ${current===k?"selected":""}>${esc(lessonTypeLabel(k))}</option>`).join("");
+}
 // --- Next lesson card + cancellation (mirrors the app: PupilDetail.tsx
 // "Next lesson + quick actions" and CancelLessonModal.tsx). ---------------
 function renderNextLessonCard(){
@@ -2727,7 +2756,7 @@ function pupilEditLesson(id){
     <div class="two">
       <div class="field"><label>Date</label><input type="date" id="pl-date" value="${dateStr}"></div>
       <div class="field"><label>Type</label>
-        <select id="pl-type">${LESSON_TYPES.map(t=>`<option value="${t}" ${l.lesson_type===t?"selected":""}>${t.replace(/_/g," ")}</option>`).join("")}</select>
+        <select id="pl-type">${lessonTypeOptions(l.lesson_type,["private","gap"])}</select>
       </div>
       <div class="field"><label>Start time</label><input type="time" id="pl-start" value="${startStr}"></div>
       <div class="field"><label>End time</label><input type="time" id="pl-end" value="${endStr}"></div>
@@ -3336,7 +3365,7 @@ function openDiaryAddLesson(prefill){
       </div>
       <div class="field"><label>Type</label>
         <select id="dl-type">
-          ${LESSON_TYPES.filter(t=>t!=="gap").map(t=>`<option value="${t}">${t.replace(/_/g," ")}</option>`).join("")}
+          ${lessonTypeOptions(null,["private"])}
           <option value="student_away">away</option>
         </select>
       </div>
@@ -3633,7 +3662,7 @@ function openDiaryEditLesson(id){
     <div class="two">
       <div class="field"><label>Date</label><input type="date" id="dl2-date" value="${dateStr}"></div>
       <div class="field"><label>Type</label>
-        <select id="dl2-type">${LESSON_TYPES.map(t=>`<option value="${t}" ${l.lesson_type===t?"selected":""}>${t.replace(/_/g," ")}</option>`).join("")}</select>
+        <select id="dl2-type">${lessonTypeOptions(l.lesson_type,["private","gap"])}</select>
       </div>
       <div class="field"><label>Start time</label><input type="time" id="dl2-start" value="${startStr}"></div>
       <div class="field"><label>End time</label><input type="time" id="dl2-end" value="${endStr}"></div>
@@ -5667,6 +5696,19 @@ async function openSettings(which){
         <option value="month" ${view==="month"?"selected":""}>Month</option></select>
       </div>
       <button class="btn btn-navy btn-sm" onclick="localStorage.setItem('dmw_diary_view',document.getElementById('dv').value);alert('Saved (applies on this browser)')">Save</button>`;
+  } else if(which==="lessontypes"){
+    await loadLessonTypes();
+    lessonTypesDraft=normaliseLessonTypes(lessonTypeSettings);
+    panel.innerHTML=`<button class="btn-outline" onclick="leaveLessonTypes()">← Back</button>
+      <h3 style="margin:1rem 0 .75rem">Lesson types</h3>
+      <p class="muted" style="margin-bottom:1rem">Choose which lesson types you can pick when adding or editing a lesson, and the order they're listed in. It's the same setting as Diary Colours &amp; Types in your instructor app, so changing it in either place changes both. Lessons already booked as a hidden type keep their type. Lesson is always shown.</p>
+      <div id="lessontypes-list"></div>
+      <div style="position:sticky;bottom:0;background:var(--card);padding:.6rem 0;margin-top:.5rem;display:flex;gap:.5rem;align-items:center;border-top:1px solid var(--line)">
+        <button class="btn btn-navy btn-sm" onclick="saveLessonTypes()">Save</button>
+        <span id="lt-ok" style="display:none;color:#0a7a3d;font-weight:700">✓ Saved</span>
+        <span class="err" id="lt-err" style="display:inline;text-align:left"></span>
+      </div>`;
+    renderLessonTypesList();
   } else if(which==="resources"){
     const {data}=await sb.from("resources").select("*").order("sort_order");
     const rows=data||[];
@@ -8809,6 +8851,64 @@ function renderPayCats(){
   const old=Object.entries(LEGACY_CATS.expense).map(([name,o])=>`<li>${esc(name)}: counted as ${esc(o.now)}</li>`).join("");
   el.innerHTML=table(catDefsFor(false),false)+table(catDefsFor(true),true)+
     `<p class="muted" style="margin-top:1rem;font-size:.82rem">Older entries under a retired expense category still count, as shown below. Edit an entry to move it to a current category.</p><ul class="muted" style="font-size:.82rem;margin:.3rem 0 0 1.1rem">${old}</ul>`;
+}
+
+// Lesson types editor (Settings → Lesson types). Show ticks and ↑ / ↓ change a draft; Save stores it for the
+// account (mirrors the app's Diary Colours & Types). Back asks before dropping unsaved changes.
+let lessonTypesDraft=null;
+function renderLessonTypesList(){
+  const el=document.getElementById("lessontypes-list");
+  if(!el||!lessonTypesDraft) return;
+  const order=lessonTypesDraft.order;
+  el.innerHTML=order.map((k,idx)=>{
+    const hidden=lessonTypesDraft.hidden.includes(k);
+    const show=k==="lesson"
+      ? '<span class="muted" style="font-size:.78rem">Always shown</span>'
+      : `<label style="display:flex;align-items:center;gap:.35rem;font-size:.82rem;font-weight:600;cursor:pointer"><input type="checkbox" ${hidden?"":"checked"} onchange="lessonTypeToggle('${k}',this.checked)"> Show</label>`;
+    return `<div style="display:flex;align-items:center;gap:.5rem;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;margin-bottom:.4rem">
+      <div style="flex:1;min-width:0;${hidden?"opacity:.55":""}"><strong>${esc(lessonTypeLabel(k))}</strong>${hidden?'<div class="muted" style="font-size:.76rem">Hidden from the Type lists</div>':""}</div>
+      ${show}
+      <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move up" onclick="lessonTypeMove('${k}',-1)" ${idx===0?"disabled":""}>↑</button>
+      <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move down" onclick="lessonTypeMove('${k}',1)" ${idx===order.length-1?"disabled":""}>↓</button>
+    </div>`;
+  }).join("");
+}
+function lessonTypeToggle(k,show){
+  if(!lessonTypesDraft||k==="lesson") return;
+  const hidden=lessonTypesDraft.hidden.filter(x=>x!==k);
+  if(!show) hidden.push(k);
+  lessonTypesDraft.hidden=hidden;
+  const ok=document.getElementById("lt-ok"); if(ok) ok.style.display="none";
+  renderLessonTypesList();
+}
+function lessonTypeMove(k,dir){
+  if(!lessonTypesDraft) return;
+  const order=lessonTypesDraft.order.slice();
+  const i=order.indexOf(k), j=i+dir;
+  if(i<0||j<0||j>=order.length) return;
+  const tmp=order[i]; order[i]=order[j]; order[j]=tmp;
+  lessonTypesDraft.order=order;
+  const ok=document.getElementById("lt-ok"); if(ok) ok.style.display="none";
+  renderLessonTypesList();
+}
+async function saveLessonTypes(){
+  if(!lessonTypesDraft) return;
+  const value=normaliseLessonTypes(lessonTypesDraft);
+  const err=document.getElementById("lt-err");
+  const {error}=await sb.from("app_settings").upsert({id:"lesson_types",owner_id:currentUserId,value,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+  if(error){ if(err) err.textContent="Could not save: "+error.message; return; }
+  lessonTypeSettings=value;
+  lessonTypesDraft=normaliseLessonTypes(value);
+  if(err) err.textContent="";
+  const ok=document.getElementById("lt-ok");
+  if(ok){ ok.style.display="inline"; setTimeout(()=>{ ok.style.display="none"; },2500); }
+  renderLessonTypesList();
+}
+function leaveLessonTypes(){
+  const changed=lessonTypesDraft&&JSON.stringify(normaliseLessonTypes(lessonTypesDraft))!==JSON.stringify(lessonTypeSettings);
+  if(changed&&!confirm("You have changes that haven't been saved. Leave without saving?")) return;
+  lessonTypesDraft=null;
+  goTab('dash');
 }
 
 // Progress syllabus editor — flat, drag-sortable list of {id,name,group}

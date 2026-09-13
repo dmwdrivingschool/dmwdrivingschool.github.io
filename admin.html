@@ -2226,7 +2226,8 @@ async function enforceLock(userId){
 }
 
 sb.auth.getSession().then(async ({data})=>{
-  if(!data.session) return;
+  // ?signup=1 (the website's "Start your free 30 days" button) opens the signup form straight away.
+  if(!data.session){ if(new URLSearchParams(location.search).get("signup")) showSignup(); return; }
   if(await enforceLock(data.session.user.id)) return;
   if(pendingSignupConfirm && data.session.user.user_metadata && data.session.user.user_metadata.role==="pupil") pendingRecovery=true;
   if(pendingRecovery){ showRecoveryForm(); return; }

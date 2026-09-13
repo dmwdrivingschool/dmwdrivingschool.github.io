@@ -2604,7 +2604,8 @@ function renderPupilSummary(){
     </div>`;
 }
 
-const LESSON_TYPES=["lesson","driving_test","mock_test","theory_test","pass_plus","refresher","motorway","private","gap"];
+// Theory Test removed (Dale, 13 Sep 2026: instructors don't attend them; the theory date lives on the pupil).
+const LESSON_TYPES=["lesson","mock_test","driving_test","pass_plus","refresher","motorway","private","gap"];
 // --- Next lesson card + cancellation (mirrors the app: PupilDetail.tsx
 // "Next lesson + quick actions" and CancelLessonModal.tsx). ---------------
 function renderNextLessonCard(){
@@ -3607,18 +3608,8 @@ async function doLessonSwap(){
     if(error) throw error;
     ({error}=await sb.from("lessons").update({start_time:newBStart,end_time:newBEnd}).eq("id",lessonB.id));
     if(error) throw error;
-    async function notify(pupilId,newStart){
-      const when=new Date(newStart).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
-      const time=new Date(newStart).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
-      const {data:msg}=await sb.from("messages").insert({
-        pupil_id:pupilId, direction:"outbound", subject:"Lesson time changed",
-        body:`Your lesson has been swapped with another pupil's slot — it's now on ${when} at ${time}.`,
-        delivered_at:new Date().toISOString()
-      }).select("id").maybeSingle();
-      if(msg?.id) triggerMsgPush(msg.id);
-    }
-    await notify(pupilAId,newAStart);
-    await notify(pupilBId,newBStart);
+    // Both pupils are told by the database ("Lesson time changed", trigger trg_lessons_notify_pupil_of_change),
+    // the same as for any moved lesson, so nothing is sent from here.
     closeModal();
     renderDiary();
   }catch(e){ alert(e.message||"Could not swap these lessons"); }

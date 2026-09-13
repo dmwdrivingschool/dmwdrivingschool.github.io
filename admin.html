@@ -2619,11 +2619,15 @@ function normaliseLessonTypes(v){
   const hidden=(Array.isArray(v&&v.hidden)?v.hidden:[]).filter((k,i,a)=>known.includes(k)&&k!=="lesson"&&a.indexOf(k)===i);
   return {order,hidden};
 }
+// True when loaded. A failed load keeps the last good settings rather than falling back to the defaults, which a
+// Save would then write over the account's real choice (and so the app's).
 async function loadLessonTypes(){
   try{
-    const {data}=await sb.from("app_settings").select("value").eq("id","lesson_types").eq("owner_id",currentUserId).maybeSingle();
+    const {data,error}=await sb.from("app_settings").select("value").eq("id","lesson_types").eq("owner_id",currentUserId).maybeSingle();
+    if(error) return false;
     lessonTypeSettings=normaliseLessonTypes(data&&data.value);
-  }catch(e){}
+    return true;
+  }catch(e){ return false; }
 }
 function lessonTypeLabel(t){
   const d=LESSON_TYPE_DEFS.find(x=>x[0]===t);
@@ -3365,8 +3369,8 @@ function openDiaryAddLesson(prefill){
       </div>
       <div class="field"><label>Type</label>
         <select id="dl-type">
-          ${lessonTypeOptions(null,["private"])}
-          <option value="student_away">away</option>
+          ${lessonTypeOptions("lesson",["private"])}
+          <option value="student_away">Away</option>
         </select>
       </div>
       <div class="field"><label>Date</label><input type="date" id="dl-date" value="${today}"></div>
@@ -5697,7 +5701,12 @@ async function openSettings(which){
       </div>
       <button class="btn btn-navy btn-sm" onclick="localStorage.setItem('dmw_diary_view',document.getElementById('dv').value);alert('Saved (applies on this browser)')">Save</button>`;
   } else if(which==="lessontypes"){
-    await loadLessonTypes();
+    if(!(await loadLessonTypes())){
+      panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
+        <h3 style="margin:1rem 0 .75rem">Lesson types</h3>
+        <p class="muted">Couldn't load your lesson types. Check your connection and try again.</p>`;
+      return;
+    }
     lessonTypesDraft=normaliseLessonTypes(lessonTypeSettings);
     panel.innerHTML=`<button class="btn-outline" onclick="leaveLessonTypes()">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Lesson types</h3>
@@ -8905,7 +8914,8 @@ async function saveLessonTypes(){
   renderLessonTypesList();
 }
 function leaveLessonTypes(){
-  const changed=lessonTypesDraft&&JSON.stringify(normaliseLessonTypes(lessonTypesDraft))!==JSON.stringify(lessonTypeSettings);
+  const same=(s)=>{ const n=normaliseLessonTypes(s); return JSON.stringify({order:n.order,hidden:n.hidden.slice().sort()}); };
+  const changed=lessonTypesDraft&&same(lessonTypesDraft)!==same(lessonTypeSettings);
   if(changed&&!confirm("You have changes that haven't been saved. Leave without saving?")) return;
   lessonTypesDraft=null;
   goTab('dash');

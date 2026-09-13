@@ -4130,8 +4130,10 @@ function financeCategoryTable(rows,standardCats,label,isExp){
     const info=catInfo(c,isExp);
     const flagText=info.legacy?"· old category, counted as "+info.now:info.known?"· not used for your business type":"· not a standard category";
     const catArg=JSON.stringify(c).replace(/'/g,"&#39;");
-    return `<tr style="cursor:pointer${flagged?";background:#FFF7E8":""}" onclick='showFinCategoryModal(${catArg},${isExp?"true":"false"})' title="Click to see every entry in this category">
-      <td>${esc(c)}${catHint(c)}${d.hpInterest?` <span class="muted" style="font-size:.75rem;font-weight:400">(includes £${d.hpInterest.toFixed(2)} interest, claimable, worked out from Your cars)</span>`:""}${flagged?` <span style="color:#b45309;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">${esc(flagText)}</span>`:""}</td>
+    // A see-through amber tint rather than a fixed cream background, so the row stays readable in the
+    // dark theme too (Dale, 13 Sep 2026: the text vanished on the cream).
+    return `<tr style="cursor:pointer${flagged?";background:rgba(245,158,11,.16)":""}" onclick='showFinCategoryModal(${catArg},${isExp?"true":"false"})' title="Click to see every entry in this category">
+      <td>${esc(c)}${catHint(c)}${d.hpInterest?` <span class="muted" style="font-size:.75rem;font-weight:400">(includes £${d.hpInterest.toFixed(2)} interest, claimable, worked out from Your cars)</span>`:""}${flagged?` <span style="color:#d97706;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em">${esc(flagText)}</span>`:""}</td>
       <td style="text-align:right">${d.count}</td>
       <td style="text-align:right">£${d.amount.toFixed(2)}</td>
       ${isExp?`<td style="text-align:right">${d.notClaim>0.004?"£"+d.notClaim.toFixed(2):"–"}</td><td style="text-align:right">${(d.amount-d.notClaim)>0.004?"£"+(d.amount-d.notClaim).toFixed(2):"–"}</td>`:""}

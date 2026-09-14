@@ -7603,10 +7603,12 @@ async function loadTeamsPanel(){
             sub ? manageItem(sub.videos_addon ? "Switch Premium to Basic" : "Switch Basic to Premium", `setPlanAddon(${!sub.videos_addon},'school','${s.id}')`) : "",
             renderVideosOverrideSelect('school', s.id),
             renderTheoryOverrideSelect('school', s.id),
+            // Stops the school's Direct Debit payments; once cancelled, Delete becomes available (Dale, 14 Sep 2026).
+            schoolPaysByDD ? manageItem("Cancel subscription", `superAdminCancel('school','${s.id}','${nameEsc}')`, "danger") : "",
           ]},
           { label: "Delete", items: [
             schoolPaysByDD
-              ? manageItem("Delete school (cancel its Direct Debit first)", `alert('This driving school still pays by Direct Debit. Cancel its subscription first, then delete.')`, "unavailable")
+              ? manageItem("Delete school (cancel its subscription first)", `alert('This driving school still pays by Direct Debit. Use Cancel subscription above first (it stops the payments), then delete.')`, "unavailable")
               : manageItem("Delete school", `deleteSchool('${s.id}')`, "danger"),
           ]},
         ],
@@ -7891,6 +7893,9 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
     billing.push(renderVideosOverrideSelect('instructor', i.id));
     billing.push(renderTheoryOverrideSelect('instructor', i.id));
   }
+  // Stops their Direct Debit payments (same cancel as on Billing; they keep access to the end of what they've paid
+  // for). Once cancelled, Delete becomes available (Dale, 14 Sep 2026).
+  if(paysByDD) billing.push(manageItem("Cancel subscription", `superAdminCancel('instructor','${i.id}','${nameEsc}')`, "danger"));
 
   return manageRowHtml({
     info,
@@ -7908,7 +7913,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
       { label: school ? "Billing" : "Billing and access", items: billing },
       { label: "Delete", items: [
         isMe ? "" : (paysByDD
-          ? manageItem("Delete (cancel their Direct Debit first)", `alert('This instructor still pays by Direct Debit. Cancel their subscription first, then delete.')`, "unavailable")
+          ? manageItem("Delete (cancel their subscription first)", `alert('This instructor still pays by Direct Debit. Use Cancel subscription above first (it stops their payments), then delete.')`, "unavailable")
           : manageItem("Delete instructor", `deleteInstructor('${i.id}','${nameEsc}')`, "danger")),
       ]},
     ],
@@ -9104,8 +9109,17 @@ async function doCancelSubscription(ownerType, ownerId){
   }
   closeModal();
   const until = data?.access_ends_at ? new Date(data.access_ends_at).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : null;
-  alert(until ? `Cancelled. No further payments will be taken, and access continues until ${until}. Your Direct Debit stays in place until then so you can restart with one click, then it's removed.` : "Cancelled. No further payments will be taken, and your Direct Debit will be removed.");
-  if(isSuperAdminUser) await loadBillingPanel(); else await loadBillingPanel();
+  // Drive My Way cancelling someone else's (from Billing or the Instructors page's Manage menu).
+  const forSomeoneElse = !!(ownerType && ownerId);
+  alert(forSomeoneElse
+    ? (until
+        ? `Cancelled. Their payments have stopped, and they keep access until ${until}. Their Direct Debit is removed after that. You can delete the account now if you need to.`
+        : "Cancelled. Their payments have stopped and their Direct Debit will be removed. You can delete the account now if you need to.")
+    : (until
+        ? `Cancelled. No further payments will be taken, and access continues until ${until}. Your Direct Debit stays in place until then so you can restart with one click, then it's removed.`
+        : "Cancelled. No further payments will be taken, and your Direct Debit will be removed."));
+  const teamsTab = document.getElementById("tab-teams");
+  if(teamsTab && !teamsTab.classList.contains("hidden")) await loadTeamsPanel(); else await loadBillingPanel();
 }
 
 // Restart billing after a cancellation — for "we talked, they're staying".

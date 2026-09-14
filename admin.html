@@ -7528,7 +7528,11 @@ async function loadTeamsPanel(){
     content.innerHTML=`
       <div class="err" id="teams-err" style="margin:0 0 .5rem;display:block;text-align:left"></div>
       <div style="margin:0 0 1rem">
-        <input id="teams-search" type="search" placeholder="Search driving schools and instructors by name, email or label" oninput="filterTeams()" style="width:100%;max-width:520px;padding:.55rem .75rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);font:inherit">
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+          <input id="teams-search" type="search" placeholder="Search driving schools and instructors by name, email or label" oninput="filterTeams()" style="flex:1 1 320px;max-width:520px;padding:.55rem .75rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);font:inherit">
+          <button class="btn-outline btn-sm hidden" id="teams-hidden-btn" onclick="toggleHiddenAccounts()"></button>
+        </div>
+        <p class="muted hidden" id="teams-hidden-note" style="margin:.4rem 0 0;font-size:.8rem">Accounts are hidden 30 days after their access ends, and come back if they restart. The search box finds them too.</p>
         <p class="muted" id="teams-search-none" hidden style="margin:.5rem 0 0">Nothing matches that search.</p>
       </div>
       <section style="border:1px solid var(--line);border-radius:14px;padding:1rem 1.1rem;margin-bottom:1.5rem">
@@ -7561,7 +7565,7 @@ async function loadTeamsPanel(){
     const instrRows = instructors||[];
     const instrIds = instrRows.map(i=>i.id);
     const {data:instrSubs} = instrIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at,gocardless_subscription_id,gocardless_mandate_id,cancel_at_period_end").eq("owner_type","instructor").in("owner_id",instrIds)
+      ? await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,videos_addon,plan_after_trial,trial_ends_at,current_period_end,cancel_at_period_end,cancel_reason,access_until_override,gocardless_subscription_id,gocardless_mandate_id").eq("owner_type","instructor").in("owner_id",instrIds)
       : {data:[]};
     subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
     try{
@@ -7572,9 +7576,10 @@ async function loadTeamsPanel(){
 
     const schoolIds = schoolRows.map(s=>s.id);
     const {data:schoolSubs} = schoolIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at,gocardless_subscription_id,gocardless_mandate_id,cancel_at_period_end").eq("owner_type","school").in("owner_id",schoolIds)
+      ? await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,videos_addon,plan_after_trial,trial_ends_at,current_period_end,cancel_at_period_end,cancel_reason,access_until_override,gocardless_subscription_id,gocardless_mandate_id").eq("owner_type","school").in("owner_id",schoolIds)
       : {data:[]};
     const schoolSubsByOwner = Object.fromEntries((schoolSubs||[]).map(s=>[s.owner_id,s]));
+    await loadAccountExtras();
 
     const {data:pfRows} = await sb.from("premium_features").select("owner_type,owner_id,videos_enabled,videos_override,theory_enabled,theory_override");
     videoFeaturesCache = Object.fromEntries((pfRows||[]).map(r=>[r.owner_type+":"+r.owner_id, r]));
@@ -7586,14 +7591,14 @@ async function loadTeamsPanel(){
       const nameEsc = esc(s.display_name||s.name).replace(/'/g,"&#39;");
       const lockedBadge = s.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
       const sub = schoolSubsByOwner[s.id];
-      const statusChip = sub ? renderStatusChip(sub.status,sub.trial_ends_at) : '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>';
+      const statusChip = sub ? accountStatusChip(sub,'school',s.id) : '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>';
       const members = instrRows.filter(i=>i.school_id===s.id);
       const schoolPaysByDD = !!(sub && (sub.gocardless_subscription_id || sub.gocardless_mandate_id) && !sub.cancel_at_period_end);
       // Replies to schools are by email (Dale, 14 Sep 2026): email or copy the school's admin address(es).
       const adminEmails = members.filter(m=>m.is_school_admin && m.email).map(m=>esc(m.email));
       const schoolRow = manageRowHtml({
         extraStyle: "border-bottom:none",
-        info: `<strong>${esc(nameCase(s.display_name||s.name))}</strong>${lockedBadge} ${statusChip}${schoolPaysByDD?' <span class="chip chip-ok">Direct Debit</span>':""}${adminEmails.length?`<div class="muted">${adminEmails.join(", ")}</div>`:""}`,
+        info: `<strong>${esc(nameCase(s.display_name||s.name))}</strong>${lockedBadge} ${statusChip}${schoolPaysByDD?' <span class="chip chip-ok">Direct Debit</span>':""}${accountChips('school',s.id)}${adminEmails.length?`<div class="muted">${adminEmails.join(", ")}</div>`:""}${accountBillingLines(sub,'school',s.id)}`,
         buttons: `<button class="btn-outline" id="members-btn-${s.id}" data-count="${count}" aria-expanded="false" aria-controls="members-${s.id}" onclick="toggleSchoolMembers('${s.id}')">Instructors (${count}) ▾</button><button class="btn-outline" onclick="showSchoolDetail('${s.id}')">Details</button>`,
         groups: [
           { label: "School", items: [
@@ -7606,8 +7611,9 @@ async function loadTeamsPanel(){
             sub ? manageItem(sub.videos_addon ? "Switch Premium to Basic" : "Switch Basic to Premium", `setPlanAddon(${!sub.videos_addon},'school','${s.id}')`) : "",
             renderVideosOverrideSelect('school', s.id),
             renderTheoryOverrideSelect('school', s.id),
-            // Stops the school's Direct Debit payments; once cancelled, Delete becomes available (Dale, 14 Sep 2026).
-            schoolPaysByDD ? manageItem("Cancel subscription", `superAdminCancel('school','${s.id}','${nameEsc}')`, "danger") : "",
+            // Payment history, Extend access, Ask to resume and Cancel (which stops the Direct Debit payments; once
+            // cancelled, Delete becomes available), moved here from Billing (Dale, 14 Sep 2026).
+            ...accountBillingItems(sub,'school',s.id,nameEsc),
           ]},
           { label: "Delete", items: [
             schoolPaysByDD
@@ -7616,7 +7622,7 @@ async function loadTeamsPanel(){
           ]},
         ],
       });
-      return `<div class="school-block" data-school-id="${s.id}" style="border-bottom:1px solid var(--line);margin-bottom:.35rem;padding-bottom:.35rem">${schoolRow}
+      return `<div class="school-block" data-school-id="${s.id}" data-hidden="${accountHidden('school',s.id)?1:0}" style="border-bottom:1px solid var(--line);margin-bottom:.35rem;padding-bottom:.35rem">${schoolRow}
         <div class="school-members" id="members-${s.id}" hidden style="margin:0 0 .25rem 1rem;padding-left:.85rem;border-left:3px solid var(--line)">${members.length ? members.map(i=>renderInstructorRow(i, schoolRows, true, {hideSchool:true})).join("") : '<p class="muted" style="font-size:.85rem;padding:.35rem 0">No instructors in this school yet.</p>'}</div></div>`;
     }).join("") : '<p class="muted">No driving schools yet.</p>';
 
@@ -7650,7 +7656,7 @@ async function loadTeamsPanel(){
     const instrRows = instructors||[];
     const instrIds = instrRows.map(i=>i.id);
     const {data:instrSubs} = instrIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at,gocardless_subscription_id,gocardless_mandate_id,cancel_at_period_end").eq("owner_type","instructor").in("owner_id",instrIds)
+      ? await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,videos_addon,plan_after_trial,trial_ends_at,current_period_end,cancel_at_period_end,cancel_reason,access_until_override,gocardless_subscription_id,gocardless_mandate_id").eq("owner_type","instructor").in("owner_id",instrIds)
       : {data:[]};
     subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
     try{
@@ -7743,13 +7749,13 @@ let manageMenuSeq=0;
 function manageItem(label, onclick, kind){
   return `<button type="button" class="manage-item${kind?" "+kind:""}" onclick="${onclick}">${label}</button>`;
 }
-function manageRowHtml({info, buttons, groups, extraStyle}){
+function manageRowHtml({info, buttons, groups, extraStyle, hidden}){
   const id="mm"+(++manageMenuSeq);
   const body=(groups||[]).map(g=>({label:g.label, items:(g.items||[]).filter(Boolean)})).filter(g=>g.items.length)
     .map(g=>`<div class="manage-group"><div class="manage-group-label">${g.label}</div>${g.items.join("")}</div>`).join("");
   // What the search box matches: the row's name, email and labels.
   const searchText=String(info||"").replace(/<[^>]*>/g," ").replace(/&amp;/g,"&").replace(/\s+/g," ").trim().toLowerCase();
-  return `<div class="list-row manage-row" data-search="${esc(searchText)}"${extraStyle?` style="${extraStyle}"`:""}>
+  return `<div class="list-row manage-row" data-search="${esc(searchText)}"${hidden?' data-hidden="1"':""}${extraStyle?` style="${extraStyle}"`:""}>
     <div class="manage-top">
       <div class="manage-info">${info}</div>
       <div class="manage-actions">${buttons||""}${body?`<button type="button" class="btn-outline" aria-expanded="false" aria-controls="${id}" onclick="toggleManageMenu('${id}',this)">Manage ▾</button>`:""}</div>
@@ -7771,6 +7777,93 @@ function copyEmailAddress(address, btn){
   } else {
     prompt("Copy this email address:", address);
   }
+}
+
+// Billing lives on each account's row in Instructors (Dale, 14 Sep 2026: "could it not all just be added together in
+// the instructors tab?"): its plan and price, a cancellation, an access extension, when its access ended and when it's
+// due to be deleted, and referrals, with Payment history, Extend access, Ask to resume and Cancel in its Manage menu.
+// An account whose access ended 30 or more days ago is hidden until it restarts (or the daily account-retention run
+// deletes it); Show hidden and the search box still find it.
+const HIDE_PAUSED_AFTER_DAYS=30;
+let accountPausesCache={}, referralsCache=[], showHiddenAccounts=false;
+async function loadAccountExtras(){
+  const [pauses, referrals]=await Promise.all([sb.rpc("admin_account_pauses"), sb.rpc("admin_referrals")]);
+  accountPausesCache=Object.fromEntries(((pauses&&pauses.data)||[]).map(p=>[p.owner_type+":"+p.owner_id, p]));
+  referralsCache=(referrals&&referrals.data)||[];
+}
+function accountPause(ownerType, ownerId){ return accountPausesCache[ownerType+":"+ownerId]||null; }
+function accountHidden(ownerType, ownerId){
+  const p=accountPause(ownerType, ownerId);
+  return !!(p && Date.now() >= new Date(p.paused_since).getTime() + HIDE_PAUSED_AFTER_DAYS*86400000);
+}
+function shortDate(d){ return d ? new Date(String(d).length===10 ? d+"T12:00:00" : d).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : ""; }
+// A name capitalised; an email address (used when there's no name) left as it is.
+function displayName(n){ n=String(n||""); return n.includes("@") ? n : nameCase(n); }
+// What an account pays a month at today's prices (during the free trial, for the plan chosen for afterwards).
+function subPremium(s){ return (s.status==="trialing" && s.plan_after_trial) ? s.plan_after_trial==="premium" : !!s.videos_addon; }
+function subMonthlyPence(s){
+  if(s.status==="pdi_free"||s.plan==="pdi") return 0;
+  return s.owner_type==="school" ? schoolMonthlyPence(s.seats_purchased||1, subPremium(s)) : 1199 + (subPremium(s) ? VIDEO_ADDON_PENCE : 0);
+}
+function subPriceNote(s){
+  const p=subMonthlyPence(s);
+  if(s.status==="pdi_free"||s.plan==="pdi") return "free while training";
+  if(s.cancel_at_period_end||s.status==="canceled") return `was ${gbp(p)} a month, won't renew`;
+  if(s.status==="trialing") return `${gbp(p)} a month after the trial`;
+  if(s.status==="mandate_failed") return `${gbp(p)} a month once their Direct Debit is set up`;
+  if(s.status==="past_due") return `${gbp(p)} a month (payment failed)`;
+  return `<strong>${gbp(p)} a month</strong>`;
+}
+function accountStatusChip(sub, ownerType, ownerId){
+  if(accountPause(ownerType, ownerId)) return '<span class="chip chip-bad">Access ended</span>';
+  if(sub.cancel_at_period_end) return '<span class="chip chip-wait">Cancelling</span>';
+  return renderStatusChip(sub.status, sub.trial_ends_at);
+}
+function accountBillingLines(sub, ownerType, ownerId){
+  if(!sub) return "";
+  const seats=sub.seats_purchased||1;
+  const plan=sub.plan==="school" ? `Driving school, ${seats} seat${seats===1?"":"s"}` : sub.plan==="pdi" ? "PDI" : "Solo";
+  const lines=[`${plan}${sub.plan!=="pdi" && subPremium(sub) ? " · Premium" : ""} · ${subPriceNote(sub)}`];
+  const pause=accountPause(ownerType, ownerId);
+  const endsAt=(sub.status==="trialing"||sub.status==="mandate_failed") ? sub.trial_ends_at : sub.current_period_end;
+  const reason=sub.cancel_reason ? ` · ${esc(sub.cancel_reason)}` : "";
+  if(pause) lines.push(`Access ended ${shortDate(pause.paused_since)} · deleted on ${shortDate(pause.delete_on)} unless they restart${reason}${accountHidden(ownerType, ownerId) ? " · hidden" : ""}`);
+  else if(sub.cancel_at_period_end) lines.push(`Cancelled${endsAt ? ` · access to ${shortDate(endsAt)}` : ""}${reason}`);
+  if(sub.access_until_override && new Date(sub.access_until_override).getTime()>Date.now()) lines.push(`Access extended to ${shortDate(sub.access_until_override)}`);
+  return lines.map(l=>`<div class="muted">${l}</div>`).join("");
+}
+// Referral labels: who referred this account, and any reward it has coming.
+function accountChips(ownerType, ownerId){
+  const today=new Date().toISOString().slice(0,10);
+  const out=[];
+  const by=referralsCache.find(r=>r.friend_owner_type===ownerType && r.friend_owner_id===ownerId && r.status!=="dropped");
+  if(by) out.push(`<span class="chip chip-info">Referred by ${esc(by.referrer_name ? displayName(by.referrer_name) : "a deleted account")}</span>`);
+  const mine=referralsCache.filter(r=>r.referrer_owner_type===ownerType && r.referrer_owner_id===ownerId);
+  const next=mine.filter(r=>r.status==="rewarded" && r.reward_charge_date && r.reward_charge_date>=today)
+    .sort((a,b)=>a.reward_charge_date.localeCompare(b.reward_charge_date))[0];
+  const earned=mine.filter(r=>r.status==="qualified").length;
+  const waiting=mine.filter(r=>r.status==="signed_up").length;
+  if(next) out.push(`<span class="chip chip-ok">${ownerType==="school" ? gbp(next.reward_amount_pence||0)+" off" : "Free month"} on ${shortDate(next.reward_charge_date)}</span>`);
+  if(earned) out.push(`<span class="chip chip-ok">${earned===1 ? (ownerType==="school" ? "Referral reward" : "Free month") : earned+" referral rewards"} due</span>`);
+  if(waiting) out.push(`<span class="chip chip-info">Referred ${waiting} friend${waiting===1?"":"s"}</span>`);
+  return out.length ? " "+out.join(" ") : "";
+}
+function accountBillingItems(sub, ownerType, ownerId, nameEsc){
+  if(!sub || sub.plan==="pdi" || sub.status==="pdi_free") return [];
+  const extended=!!(sub.access_until_override && new Date(sub.access_until_override).getTime()>Date.now());
+  return [
+    manageItem("Payment history", `showPaymentHistory('${sub.id}','${nameEsc}')`),
+    manageItem("Extend access", `superAdminExtendAccess('${ownerType}','${ownerId}','${nameEsc}')`),
+    extended ? manageItem("Clear access extension", `superAdminClearExtension('${ownerType}','${ownerId}','${nameEsc}')`) : "",
+    sub.cancel_at_period_end
+      ? manageItem("Ask to resume", `requestResumeSubscription('${ownerType}','${ownerId}','${nameEsc}')`)
+      : manageItem("Cancel subscription", `superAdminCancel('${ownerType}','${ownerId}','${nameEsc}')`, "danger"),
+  ];
+}
+// After a billing change, reload whichever page it was made from.
+async function refreshBillingViews(){
+  const teamsTab=document.getElementById("tab-teams");
+  if(teamsTab && !teamsTab.classList.contains("hidden")) await loadTeamsPanel(); else await loadBillingPanel();
 }
 
 // The driving schools list can get long (Dale, 14 Sep 2026): each school's instructors fold away under an
@@ -7800,9 +7893,12 @@ function filterTeams(){
   if(input) teamsSearchQuery=input.value;
   const q=teamsSearchQuery.trim().toLowerCase();
   const matches=el=>!!el && (el.dataset.search||"").includes(q);
-  let shown=0;
+  // A hidden account (access ended 30 or more days ago) only shows with Show hidden, or when a search finds it.
+  const allowed=el=>el.dataset.hidden!=="1" || showHiddenAccounts || !!q;
+  let shown=0, hiddenCount=0;
   document.querySelectorAll("#schools-list .school-block").forEach(block=>{
     const id=block.dataset.schoolId;
+    if(block.dataset.hidden==="1") hiddenCount++;
     const schoolMatch=!q || matches(block.querySelector(":scope > .manage-row"));
     let memberMatch=false;
     block.querySelectorAll(".school-members .manage-row").forEach(row=>{
@@ -7810,18 +7906,29 @@ function filterTeams(){
       if(m) memberMatch=true;
       row.style.display=(!q || schoolMatch || m) ? "" : "none";
     });
-    const visible=schoolMatch || memberMatch;
+    const visible=allowed(block) && (schoolMatch || memberMatch);
     block.style.display=visible ? "" : "none";
     if(visible) shown++;
     setSchoolMembersOpen(id, openSchools.has(id) || memberMatch);
   });
   document.querySelectorAll("#instructors-list .manage-row").forEach(row=>{
-    const visible=!q || matches(row);
+    if(row.dataset.hidden==="1") hiddenCount++;
+    const visible=allowed(row) && (!q || matches(row));
     row.style.display=visible ? "" : "none";
     if(visible) shown++;
   });
   const none=document.getElementById("teams-search-none");
   if(none) none.hidden=!(q && shown===0);
+  const hiddenBtn=document.getElementById("teams-hidden-btn"), hiddenNote=document.getElementById("teams-hidden-note");
+  if(hiddenBtn){
+    hiddenBtn.classList.toggle("hidden", !hiddenCount);
+    hiddenBtn.textContent = showHiddenAccounts ? `Hide them again (${hiddenCount})` : `Show hidden (${hiddenCount})`;
+  }
+  if(hiddenNote) hiddenNote.classList.toggle("hidden", !hiddenCount);
+}
+function toggleHiddenAccounts(){
+  showHiddenAccounts=!showHiddenAccounts;
+  filterTeams();
 }
 
 function renderInstructorRow(i, schoolRows, fullControls, opts){
@@ -7831,7 +7938,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
   const adminBadge = i.is_school_admin ? ' <span style="font-size:.7rem;font-weight:700;color:#0A4CA1">ADMIN</span>' : "";
   const lockedBadge = i.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
   const sub = subsByOwnerCache[i.id];
-  const statusChip = sub ? renderStatusChip(sub.status,sub.trial_ends_at) : ((fullControls && !i.school_id) ? '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>' : ((!fullControls && schoolPdiIds.has(i.id)) ? '<span class="chip chip-info">PDI</span>' : ""));
+  const statusChip = sub ? (fullControls ? accountStatusChip(sub,'instructor',i.id) : renderStatusChip(sub.status,sub.trial_ends_at)) : ((fullControls && !i.school_id) ? '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>' : ((!fullControls && schoolPdiIds.has(i.id)) ? '<span class="chip chip-info">PDI</span>' : ""));
   const isMe = i.id===currentUserId;
   const paysByDD = !!(sub && (sub.gocardless_subscription_id || sub.gocardless_mandate_id) && !sub.cancel_at_period_end);
   const mfaOn = mfaUserIdsCache.has(i.id);
@@ -7846,8 +7953,10 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
     + (fullControls && mfaOn ? ' <span class="chip chip-ok" title="Two-factor authentication is on">2FA</span>' : "")
     + (!fullControls && !isMe ? franchiseFeeChip(i.id) : "")
     + (!fullControls && schoolPdiPending.has(i.id) ? ' <span class="chip chip-wait">Paid seat requested</span>' : "")
+    + (fullControls ? accountChips('instructor', i.id) : "")
     + (isMe ? ' <span class="muted" style="font-size:.75rem">(you)</span>' : "")
-    + `<div class="muted">${esc(i.email||"")}${(fullControls && !(opts&&opts.hideSchool))?" · "+schoolLabel:""}</div>`;
+    + `<div class="muted">${esc(i.email||"")}${(fullControls && !(opts&&opts.hideSchool))?" · "+schoolLabel:""}</div>`
+    + (fullControls ? accountBillingLines(sub, 'instructor', i.id) : "");
 
   if(!fullControls){
     // A school admin looking at their own instructors: day-to-day buttons stay on the row.
@@ -7896,12 +8005,14 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
     billing.push(renderVideosOverrideSelect('instructor', i.id));
     billing.push(renderTheoryOverrideSelect('instructor', i.id));
   }
-  // Stops their Direct Debit payments (same cancel as on Billing; they keep access to the end of what they've paid
-  // for). Once cancelled, Delete becomes available (Dale, 14 Sep 2026).
-  if(paysByDD) billing.push(manageItem("Cancel subscription", `superAdminCancel('instructor','${i.id}','${nameEsc}')`, "danger"));
+  // Payment history, Extend access, Ask to resume and Cancel, moved here from Billing (Dale, 14 Sep 2026). Cancel stops
+  // their Direct Debit payments (they keep access to the end of what they've paid for); once cancelled, Delete
+  // becomes available.
+  billing.push(...accountBillingItems(sub, 'instructor', i.id, nameEsc));
 
   return manageRowHtml({
     info,
+    hidden: !school && accountHidden('instructor', i.id),
     buttons: `<button class="btn-outline" onclick="showInstructorDetail('${i.id}')">Details</button>`,
     groups: [
       { label: "Account", items: [
@@ -9186,7 +9297,7 @@ async function requestResumeSubscription(ownerType, ownerId, name){
   const msg = error?.message || data?.error;
   if(msg){ alert("Could not send: "+msg); return; }
   alert(`Sent. ${name} will see it next time they open the Control Centre.`);
-  await loadAllAccountsBilling();
+  await refreshBillingViews();
 }
 
 // Super admin: cancel on someone's behalf (phone/email request).
@@ -9203,14 +9314,14 @@ async function superAdminExtendAccess(ownerType, ownerId, name){
   try{
     await callFn("manage-subscription", {action:"extend_access", owner_type:ownerType, owner_id:ownerId, until: until.toISOString()});
     alert(`${name} now has access until ${until.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}, whatever their billing state. It expires on its own.`);
-    loadAllAccountsBilling();
+    refreshBillingViews();
   }catch(e){ alert("Could not extend access: " + (e.message||"unknown error")); }
 }
 async function superAdminClearExtension(ownerType, ownerId, name){
   if(!confirm(`Remove the access extension for ${name}? Normal billing rules apply again immediately.`)) return;
   try{
     await callFn("manage-subscription", {action:"clear_extension", owner_type:ownerType, owner_id:ownerId});
-    loadAllAccountsBilling();
+    refreshBillingViews();
   }catch(e){ alert("Could not clear the extension: " + (e.message||"unknown error")); }
 }
 
@@ -9330,8 +9441,12 @@ async function loadSuperAdminBilling(){
   const content=document.getElementById("billing-content");
   content.innerHTML = `
     <h2>Billing</h2>
-    <h3 style="margin-bottom:.5rem">All accounts</h3>
+    <h3 style="margin-bottom:.5rem">Subscription income</h3>
+    <p class="muted" style="margin:0 0 .75rem">Each account's billing is on its row in <a href="#" onclick="goTab('teams');return false" style="color:var(--navy)">Instructors</a>: its plan and price, with Payment history, Extend access, Cancel and Ask to resume under Manage.</p>
     <div id="all-accounts-list" class="panel" style="border:none;padding:0">Loading…</div>
+
+    <h3 style="margin:2rem 0 .5rem">Referrals</h3>
+    <div id="referrals-admin-list" class="panel" style="border:none;padding:0">Loading…</div>
 
     <h3 style="margin:2rem 0 .5rem">Drive My Way income &amp; expenses</h3>
     <p class="muted" style="margin-bottom:.75rem">Subscription payments and GoCardless fees are added automatically when GoCardless pays into your bank, dated the day the money arrives. Add your other costs here. This is separate from your driving school Finances tab, and has its own Tax summary.</p>
@@ -9365,69 +9480,80 @@ async function loadSuperAdminBilling(){
 
 async function loadAllAccountsBilling(){
   const el=document.getElementById("all-accounts-list");
-  const {data:subs} = await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,videos_addon,cancel_at_period_end,trial_ends_at,current_period_end,cancel_reason,access_until_override").order("created_at",{ascending:false});
-  const rows = subs||[];
-  const schoolIds = rows.filter(s=>s.owner_type==="school").map(s=>s.owner_id);
-  const instrIds = rows.filter(s=>s.owner_type==="instructor").map(s=>s.owner_id);
+  const [{data:subs}] = await Promise.all([
+    sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,videos_addon,plan_after_trial,cancel_at_period_end,trial_ends_at").order("created_at",{ascending:false}),
+    loadAccountExtras()
+  ]);
+  renderReferralsAdmin();
+  const allRows = subs||[];
+  const schoolIds = allRows.filter(s=>s.owner_type==="school").map(s=>s.owner_id);
+  const instrIds = allRows.filter(s=>s.owner_type==="instructor").map(s=>s.owner_id);
   const [{data:schools}, {data:instrs}] = await Promise.all([
-    schoolIds.length ? sb.from("schools").select("id,display_name,name").in("id",schoolIds) : Promise.resolve({data:[]}),
-    instrIds.length ? sb.from("profiles").select("id,full_name,email").in("id",instrIds) : Promise.resolve({data:[]})
+    schoolIds.length ? sb.from("schools").select("id").in("id",schoolIds) : Promise.resolve({data:[]}),
+    instrIds.length ? sb.from("profiles").select("id").in("id",instrIds) : Promise.resolve({data:[]})
   ]);
   const schoolById = Object.fromEntries((schools||[]).map(s=>[s.id,s]));
   const instrById = Object.fromEntries((instrs||[]).map(i=>[i.id,i]));
+  // A billing record whose account has been deleted has no row in Instructors, so it's listed here instead.
+  const hasAccount = s => s.owner_type==="school" ? !!schoolById[s.owner_id] : !!instrById[s.owner_id];
+  const rows = allRows.filter(hasAccount), orphans = allRows.filter(s=>!hasAccount(s));
 
   // What each account pays a month at today's prices, and the total
   // (Dale, 12 Sep 2026). Paying = active or a failed payment still being
   // chased; trials are shown separately; PDIs, cancelled and cancelling
   // accounts and unconfirmed Direct Debits aren't counted.
-  const monthlyPence = s => (s.status==="pdi_free"||s.plan==="pdi") ? 0
-    : s.owner_type==="school" ? schoolMonthlyPence(s.seats_purchased||1, s.videos_addon)
-    : 1199 + (s.videos_addon ? VIDEO_ADDON_PENCE : 0);
   const payingNow = s => !s.cancel_at_period_end && (s.status==="active"||s.status==="past_due");
   const inTrial = s => !s.cancel_at_period_end && s.status==="trialing";
   const paying = rows.filter(payingNow), trials = rows.filter(inTrial);
-  const payingPence = paying.reduce((t,s)=>t+monthlyPence(s),0), trialPence = trials.reduce((t,s)=>t+monthlyPence(s),0);
-  const incomeSummary = rows.length ? `<div class="metric-row" style="margin-bottom:.8rem;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+  const payingPence = paying.reduce((t,s)=>t+subMonthlyPence(s),0), trialPence = trials.reduce((t,s)=>t+subMonthlyPence(s),0);
+  const incomeSummary = `<div class="metric-row" style="margin-bottom:.8rem;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
       <div class="metric"><div class="v good">${gbp(payingPence)}</div><div class="l">Estimated monthly income (${paying.length} paying)</div></div>
       <div class="metric"><div class="v">${gbp(trialPence)}</div><div class="l">From trials once they pay (${trials.length})</div></div>
       <div class="metric"><div class="v">${gbp(payingPence+trialPence)}</div><div class="l">Monthly if every trial pays</div></div>
     </div>
-    <p class="muted" style="margin:0 0 .8rem;font-size:.78rem">At today's prices, before GoCardless fees: solo ${gbp(1199)}, driving school ${gbp(SCHOOL_BASE_PENCE)} plus ${gbp(SEAT_PRICE_PENCE)} for each extra seat, and Premium adds ${gbp(VIDEO_ADDON_PENCE)} (per seat for a school). PDIs, cancelled accounts and Direct Debits that aren't set up yet aren't counted.</p>` : "";
-  const priceNote = s => {
-    const p = monthlyPence(s);
-    if(s.status==="pdi_free"||s.plan==="pdi") return " · free while training";
-    if(s.cancel_at_period_end||s.status==="canceled") return ` · was ${gbp(p)} a month, won't renew`;
-    if(s.status==="trialing") return ` · ${gbp(p)} a month after the trial`;
-    if(s.status==="mandate_failed") return ` · ${gbp(p)} a month once their Direct Debit is set up`;
-    if(s.status==="past_due") return ` · ${gbp(p)} a month (payment failed)`;
-    return ` · <strong>${gbp(p)} a month</strong>`;
-  };
-  el.innerHTML = incomeSummary + (rows.length ? rows.map(s=>{
-    // A billing record whose account has been deleted says so (it used to read "Unknown instructor").
-    const name = s.owner_type==="school"
-      ? (schoolById[s.owner_id] ? nameCase(schoolById[s.owner_id].display_name || schoolById[s.owner_id].name || "") : "Deleted driving school")
-      : (instrById[s.owner_id] ? (instrById[s.owner_id].full_name ? nameCase(instrById[s.owner_id].full_name) : instrById[s.owner_id].email) : "Deleted account");
-    const nameEsc = esc(name).replace(/'/g,"&#39;");
-    // Cancelled accounts get an invite-back button instead of a cancel
-    // one; the invite only asks, it can't restart their Direct Debit.
-    const endsAt = (s.status==="trialing"||s.status==="mandate_failed") ? s.trial_ends_at : s.current_period_end;
-    const endsText = endsAt ? new Date(endsAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : null;
-    const extUntil = s.access_until_override && new Date(s.access_until_override).getTime() > Date.now() ? new Date(s.access_until_override) : null;
-    const extNote = extUntil ? `<div class="muted">Access extended to ${extUntil.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})} <a href="#" onclick="superAdminClearExtension('${s.owner_type}','${s.owner_id}','${nameEsc}');return false" style="color:var(--navy)">clear</a></div>` : "";
-    const cancelNote = s.cancel_at_period_end
-      ? `<div class="muted">Cancelled${endsText?` · access to ${endsText}`:""}${s.cancel_reason?` · ${esc(s.cancel_reason)}`:""}</div>`
-      : "";
-    const subBtn = s.cancel_at_period_end
-      ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="requestResumeSubscription('${s.owner_type}','${s.owner_id}','${nameEsc}')">Ask to resume</button>`
-      : `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="superAdminCancel('${s.owner_type}','${s.owner_id}','${nameEsc}')">Cancel</button>`;
-    return `<div class="list-row"><div><strong>${esc(name)}</strong> ${s.cancel_at_period_end?'<span class="chip chip-wait">CANCELLING</span>':renderStatusChip(s.status,s.trial_ends_at)}<div class="muted">${esc(s.plan)}${s.owner_type==="school"?" · "+s.seats_purchased+" seat"+(s.seats_purchased===1?"":"s"):""}${s.videos_addon?" · Premium":""}${priceNote(s)}</div>${cancelNote}${extNote}</div>
-      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showPaymentHistory('${s.id}','${nameEsc}')">Payment history</button>
-        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="superAdminExtendAccess('${s.owner_type}','${s.owner_id}','${nameEsc}')">Extend access</button>
-        ${subBtn}
-      </div>
+    <p class="muted" style="margin:0 0 .8rem;font-size:.78rem">At today's prices, before GoCardless fees: solo ${gbp(1199)}, driving school ${gbp(SCHOOL_BASE_PENCE)} plus ${gbp(SEAT_PRICE_PENCE)} for each extra seat, and Premium adds ${gbp(VIDEO_ADDON_PENCE)} (per seat for a school). PDIs, cancelled accounts and Direct Debits that aren't set up yet aren't counted.</p>`;
+  const orphanList = orphans.length ? `<h4 style="margin:1.2rem 0 .4rem">Billing records with no account</h4>
+    <p class="muted" style="margin:0 0 .5rem;font-size:.8rem">Their account has been deleted. The record of the subscription and its payments is kept for tax.</p>
+    ${orphans.map(s=>{
+      const label = s.owner_type==="school" ? "Deleted driving school" : "Deleted account";
+      return `<div class="list-row"><div><strong>${label}</strong><div class="muted">${esc(s.plan)} · ${esc(s.status)}</div></div>
+        <div><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showPaymentHistory('${s.id}','${label}')">Payment history</button></div></div>`;
+    }).join("")}` : "";
+  el.innerHTML = incomeSummary + orphanList;
+}
+
+// Referrals (Dale, 14 Sep 2026: "nowhere tells me if someone has came from a referral - who is getting a free month
+// and when?"). Where each one is up to; the daily referral-rewards run moves them on.
+const REFERRAL_DROP_REASONS={
+  friend_has_no_own_account:"the friend no longer has their own subscription (for example they joined a driving school)",
+  friend_account_deleted:"the friend's account was deleted",
+  referrer_left:"the account that referred them was deleted",
+  referrer_cancelled:"the account that referred them cancelled",
+  same_bank_account:"both Direct Debits are from the same bank account"
+};
+function renderReferralsAdmin(){
+  const el=document.getElementById("referrals-admin-list");
+  if(!el) return;
+  const rows=referralsCache||[];
+  const intro=`<p class="muted" style="margin:0 0 .6rem">When a friend signs up with an account's referral link and has made 3 payments, that account gets its own monthly price off one payment: a free month for a solo instructor, or ${gbp(1399)} (${gbp(1599)} with Premium) off for a driving school.</p>`;
+  if(!rows.length){ el.innerHTML=intro+'<p class="muted">No referrals yet.</p>'; return; }
+  const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=intro+rows.map(r=>{
+    const referrer=r.referrer_name ? esc(displayName(r.referrer_name)) : "A deleted account";
+    const friend=r.friend_name ? esc(displayName(r.friend_name)) : esc(r.friend_first_name||"a friend");
+    const reward=gbp(r.reward_amount_pence||r.referrer_reward_pence||0);
+    const cancelling=r.referrer_cancelling ? ` <strong>${referrer} is cancelling, so this will be dropped.</strong>` : "";
+    let where;
+    if(r.status==="signed_up") where=`<span class="chip chip-info">${r.paid_months||0} of 3 payments</span> Signed up ${shortDate(r.signed_up_at)}. ${reward} off for ${referrer} after the friend's 3rd payment.${cancelling}`;
+    else if(r.status==="qualified") where=`<span class="chip chip-ok">Earned</span> ${reward} comes off ${referrer}'s next monthly payment that hasn't gone to the bank yet.${cancelling}`;
+    else if(r.status==="rewarded") where=`<span class="chip chip-ok">${r.reward_charge_date && r.reward_charge_date>=today ? "Booked" : "Given"}</span> ${reward} off ${referrer}'s payment on ${shortDate(r.reward_charge_date)}.`;
+    else where=`<span class="chip chip-bad">Dropped</span> ${esc(REFERRAL_DROP_REASONS[r.dropped_reason]||r.dropped_reason||"")}`;
+    return `<div class="list-row" style="display:block">
+      <div><strong>${referrer}</strong> referred <strong>${friend}</strong></div>
+      <div class="muted" style="margin-top:.25rem">${where}</div>
+      ${r.last_error ? `<div style="color:#b45309;font-size:.8rem;margin-top:.2rem">Needs checking: ${esc(r.last_error)}</div>` : ""}
     </div>`;
-  }).join("") : '<p class="muted">No subscriptions yet.</p>');
+  }).join("");
 }
 
 async function showPaymentHistory(subscriptionId, name){

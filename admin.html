@@ -3150,7 +3150,16 @@ function renderCancelLesson(){
     <div style="display:flex;gap:.5rem"><button class="btn btn-navy" style="flex:1" onclick="finishCancelLesson(true)">Convert Gap</button><button class="btn-outline" style="flex:1" onclick="finishCancelLesson(false)">Done</button></div>
     <button class="btn-outline" style="margin-top:.5rem;width:100%" onclick="renderPupilModal()">Back</button>`);
 }
-async function finishCancelLesson(convertToGap){
+// A double click can't run a save twice (Dale, 14 Sep 2026: a double-clicked Create gap made two gaps and sent every
+// pupil the offer twice). The second click is ignored until the first has finished.
+const busyActions=new Set();
+async function runOnce(key, fn){
+  if(busyActions.has(key)) return;
+  busyActions.add(key);
+  try{ return await fn(); }finally{ busyActions.delete(key); }
+}
+function finishCancelLesson(convertToGap){ return runOnce("finishCancelLesson", ()=>finishCancelLessonNow(convertToGap)); }
+async function finishCancelLessonNow(convertToGap){
   const cs=cancelState; const l=pupilDetail.lessons.find(x=>x.id===cs.id); if(!l) return;
   if(cs.charge===null||cs.by===null){ alert("Please choose charge Yes/No and who cancelled"); return; }
   const p=pupilDetail.p; const reason=(cs.reason||"").trim();
@@ -3245,7 +3254,8 @@ function pupilEditLesson(id){
 // earlier without converting) — creates the gap and broadcasts it
 // directly, same one-tap action as the app. The cancelled lesson itself
 // is left completely untouched.
-async function convertLessonToGap(id){
+function convertLessonToGap(id){ return runOnce("convertLessonToGap", ()=>convertLessonToGapNow(id)); }
+async function convertLessonToGapNow(id){
   const l=pupilDetail.lessons.find(x=>x.id===id);
   if(!l) return;
   if(!confirm("Create a gap at this time and let active pupils book it? The cancelled lesson itself is unaffected.")) return;
@@ -3859,7 +3869,8 @@ function openDiaryAddLesson(prefill){
   if(prefill&&prefill.date) diarySetVal("dl-date",prefill.date);
   if(prefill&&prefill.time){ diarySetVal("dl-start",prefill.time); diarySetVal("dl-end",diaryPlusHour(prefill.time)); }
 }
-async function saveDiaryAddLesson(){
+function saveDiaryAddLesson(){ return runOnce("saveDiaryAddLesson", saveDiaryAddLessonNow); }
+async function saveDiaryAddLessonNow(){
   const dateStr=val("dl-date");
   if(!dateStr) return alert("Date is required");
   const type=val("dl-type"), pupilId=val("dl-pupil")||null;
@@ -4022,7 +4033,8 @@ function openDiaryGap(){
       <button class="btn-outline" onclick="closeModal()">Cancel</button>
     </div>`);
 }
-async function saveDiaryGap(){
+function saveDiaryGap(){ return runOnce("saveDiaryGap", saveDiaryGapNow); }
+async function saveDiaryGapNow(){
   const startDate=val("gp-start-date"); if(!startDate) return alert("Start date is required");
   const endDate=val("gp-end-date")||startDate;
   const startTime=val("gp-start-time")||"10:00";
@@ -4178,7 +4190,8 @@ async function saveDiaryEditLesson(id){
   closeModal();
   renderDiary();
 }
-async function convertDiaryLessonToGap(id){
+function convertDiaryLessonToGap(id){ return runOnce("convertDiaryLessonToGap", ()=>convertDiaryLessonToGapNow(id)); }
+async function convertDiaryLessonToGapNow(id){
   const l=diaryLessonsCache.find(x=>x.id===id);
   if(!l) return;
   if(!confirm("Create a gap at this time and let active pupils book it? The cancelled lesson itself is unaffected.")) return;
@@ -6047,7 +6060,8 @@ function openGapForm(){
     <button class="btn btn-navy" onclick="saveGap()">Save gap</button>
     <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>`);
 }
-async function saveGap(){
+function saveGap(){ return runOnce("saveGap", saveGapNow); }
+async function saveGapNow(){
   const date=val("gap-date"), time=val("gap-time"), mins=Number(val("gap-mins")||60);
   const [y,m,d]=date.split("-").map(Number); const [hh,mm]=time.split(":").map(Number);
   const start=new Date(y,m-1,d,hh,mm); const end=new Date(start.getTime()+mins*60000);
@@ -7081,7 +7095,8 @@ async function renderStaffThread(){
   const unreadIds=rows.filter(m=>m.recipient_id===me && !m.read_at).map(m=>m.id);
   if(unreadIds.length){ await sb.from("messages").update({is_read:true, read_at:new Date().toISOString()}).in("id",unreadIds); updateMessagesBadge(); }
 }
-async function sendStaffMessage(){
+function sendStaffMessage(){ return runOnce("sendStaffMessage", sendStaffMessageNow); }
+async function sendStaffMessageNow(){
   const err=document.getElementById("staff-thread-err"); err.textContent="";
   const body=(document.getElementById("staff-thread-body").value||"").trim();
   if(!body){ err.textContent="Type a message first"; return; }
@@ -7539,7 +7554,8 @@ async function renderThread(){
   const unreadIds = rows.filter(m=>m.direction==="inbound" && !m.read_at).map(m=>m.id);
   if(unreadIds.length){ await sb.from("messages").update({is_read:true, read_at:new Date().toISOString()}).in("id",unreadIds); updateMessagesBadge(); }
 }
-async function sendThreadMessage(){
+function sendThreadMessage(){ return runOnce("sendThreadMessage", sendThreadMessageNow); }
+async function sendThreadMessageNow(){
   const err=document.getElementById("thread-err"); err.textContent="";
   const body=(document.getElementById("thread-body").value||"").trim();
   if(!body){ err.textContent="Type a message first"; return; }

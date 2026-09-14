@@ -3751,13 +3751,15 @@ async function renderDiary(){
       cols+=`<div class="d-hour-line" style="top:${idx*HOUR_H}px;height:${HOUR_H}px"><div class="half"></div></div>`;
     });
     let allDayIdx=0;
+    // Pupils' holiday banners sit across the top, so an all-day block's name starts below them.
+    const dayBanners=dayLessons.filter(l=>l.lesson_type==="student_away" && (Math.min(new Date(l.end_time),dayEnd)-Math.max(new Date(l.start_time),dayStart))>=20*3600e3).length;
     dayLessons.forEach(l=>{
       const s=new Date(Math.max(new Date(l.start_time),dayStart)), e=new Date(Math.min(new Date(l.end_time),dayEnd));
-      // A segment covering (almost) the whole day — pupil holidays and
-      // all-day Away/Appointment blocks — draws as a slim banner at the
-      // top of the column instead of a full-height wall that buries the
-      // real lessons. Same click behaviour as any away block.
-      if((e-s)>=20*3600e3 && (l.lesson_type==="student_away"||l.lesson_type==="private"||l.title==="Away")){
+      // A pupil's holiday covering (almost) the whole day draws as a slim banner at the top of the column. Your own
+      // all-day Holiday / Appointment fills the whole day like the app's diary (Dale, 14 Sep 2026: as a banner the day
+      // didn't look blocked), sitting underneath any lessons so they stay visible and clickable.
+      const allDayBlock=(e-s)>=20*3600e3 && l.lesson_type!=="student_away" && (l.lesson_type==="private"||l.title==="Away");
+      if((e-s)>=20*3600e3 && l.lesson_type==="student_away"){
         const label=l.lesson_type==="student_away"
           ? `${esc(l.pupil?l.pupil.first_name:"Pupil")} — holiday`
           : esc(l.title||"Away");
@@ -3785,7 +3787,7 @@ async function renderDiary(){
       else if(l.lesson_type==="mock_test") cls="mock";
       else if(l.lesson_type==="driving_test") cls="test";
       else if(l.status==="delivered") cls="delivered";
-      const tm=s.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+      const tm=allDayBlock?"All day":s.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
       const isAway=cls==="away";
       const pid=l.pupil_id||"";
       const lid=l.id||"";
@@ -3797,7 +3799,7 @@ async function renderDiary(){
       const title=isCharged?`${esc(name)} ${tm} — Cancelled, Charged`:hasNotes?`${esc(name)} ${tm} — ${esc(l.notes)}`:`${esc(name)} ${tm}`;
       const dispName=isCharged?`${esc(name)} (charged)`:esc(name);
       const notesHtml=hasNotes&&height>=44?`<div class="nt">${esc(l.notes)}</div>`:"";
-      cols+=`<div class="d-block ${cls}" style="top:${top}px;height:${height}px" title="${title}" data-lesson-id="${lid}" data-pupil-id="${pid}" data-away="${isAway?"1":"0"}" onclick="onDiaryBlockClick(this)"><div class="nm">${dispName}</div>${height>=32?`<div class="tm">${tm}</div>`:""}${notesHtml}${diaryPayFooter(l,height)}</div>`;
+      cols+=`<div class="d-block ${cls}" style="top:${top}px;height:${height}px${allDayBlock?`;z-index:0;padding-top:${2+dayBanners*28}px`:""}" title="${title}" data-lesson-id="${lid}" data-pupil-id="${pid}" data-away="${isAway?"1":"0"}" onclick="onDiaryBlockClick(this)"><div class="nm">${dispName}</div>${height>=32?`<div class="tm">${tm}</div>`:""}${notesHtml}${diaryPayFooter(l,height)}</div>`;
     });
     cols+="</div>";
   }
@@ -3904,13 +3906,16 @@ async function endAwayBlock(lessonId){
 // ===========================================================================
 function openAwayModal(editingId){
   const editing = editingId ? diaryLessonsCache.find(l=>l.id===editingId) : null;
-  const today=new Date().toISOString().slice(0,10);
+  // UK dates, not UTC: in summer time a holiday starting at midnight is still the day before in UTC, so editing it
+  // showed (and re-saved) the wrong start date.
+  const localDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const today=localDate(new Date());
   let startDate=today, endDate=today, allDay=true, startTime="09:00", endTime="17:00",
       notes="", kind="away", visibleToPupil=true, doNotDelete=false;
   if(editing){
     const s=new Date(editing.start_time), e=new Date(editing.end_time);
     const isFullDay = s.getHours()===0 && s.getMinutes()===0 && e.getHours()===23 && e.getMinutes()>=59;
-    startDate=s.toISOString().slice(0,10); endDate=e.toISOString().slice(0,10);
+    startDate=localDate(s); endDate=localDate(e);
     allDay=isFullDay;
     startTime=String(s.getHours()).padStart(2,"0")+":"+String(s.getMinutes()).padStart(2,"0");
     endTime=String(e.getHours()).padStart(2,"0")+":"+String(e.getMinutes()).padStart(2,"0");
@@ -3966,7 +3971,8 @@ function setAwayKind(kind){
   document.getElementById("am-kind-away").setAttribute("data-kind-active",kind==="away"?"1":"0");
   document.getElementById("am-kind-appt").setAttribute("data-kind-active",kind==="appointment"?"1":"0");
 }
-async function saveAwayModal(editingId){
+function saveAwayModal(editingId){ return runOnce("saveAwayModal", ()=>saveAwayModalNow(editingId)); }
+async function saveAwayModalNow(editingId){
   const kindAway=document.getElementById("am-kind-away").getAttribute("data-kind-active");
   // Fallback: if the buttons were never toggled, className still tells us
   // which one is "active" (btn-navy vs btn-outline).
@@ -3978,6 +3984,8 @@ async function saveAwayModal(editingId){
   const notes=val("am-notes")||null;
   const start = allDay ? new Date(`${startDate}T00:00:00`) : new Date(`${startDate}T${startTime}:00`);
   const end = allDay ? new Date(`${endDate}T23:59:00`) : new Date(`${endDate}T${endTime}:00`);
+  if(!startDate || isNaN(start.getTime()) || isNaN(end.getTime())) return alert("Choose a start date");
+  if(end<=start) return alert("The end must be after the start. Check the end date and time.");
   const title = kind==="away" ? "Away" : "Appointment";
   const visibleToPupil = kind==="appointment" ? !!document.getElementById("am-visible").checked : true;
   const doNotDelete = kind==="appointment" ? !!document.getElementById("am-donotdelete").checked : false;

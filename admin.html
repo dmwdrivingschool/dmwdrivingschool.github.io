@@ -1978,7 +1978,8 @@ function twoFaExplainHtml(open){
         <li>On an iPhone, the built-in <strong>Passwords</strong> app can hold the code too.</li>
       </ul>
       <p style="margin:.5rem 0 .2rem"><strong>How it works:</strong> open the app, add an account (usually a + button), scan the QR code we show you, then type the 6-digit code it gives you. After that, whenever Drive My Way asks for a code, open the app and type the one it shows. It works for the Control Centre and the Drive My Way app.</p>
-      <p style="margin:.5rem 0 0"><strong>New phone or lost your phone?</strong> Email <a href="mailto:admin@drivemyway.co.uk" style="color:var(--navy,#0A4CA1)">admin@drivemyway.co.uk</a> and we'll help you set it up again.</p>
+      <p style="margin:.5rem 0 .2rem"><strong>Changing phones?</strong> Google Authenticator and Microsoft Authenticator can back up your codes to your Google or Microsoft account, so a new phone keeps them. Turn that on in the app.</p>
+      <p style="margin:.5rem 0 0"><strong>Lost your phone?</strong> Email <a href="mailto:admin@drivemyway.co.uk" style="color:var(--navy,#0A4CA1)">admin@drivemyway.co.uk</a> from your account's email address. We'll check it's really you before removing 2FA, so you can set it up again.</p>
     </div>
   </details>`;
 }
@@ -3488,6 +3489,7 @@ function val(id){return document.getElementById(id).value.trim()}
 
 let schoolInstructorsCache=[];
 let subsByOwnerCache={};
+let mfaUserIdsCache=new Set(); // accounts with 2FA on, for the super admin's Remove 2FA button
 let schoolsCache=[];
 // premium_features rows keyed "type:id" — videos_enabled (effective) +
 // videos_override (null = follows the paid add-on, 'on'/'off' = forced).
@@ -7535,6 +7537,10 @@ async function loadTeamsPanel(){
       ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at").eq("owner_type","instructor").in("owner_id",instrIds)
       : {data:[]};
     subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
+    try{
+      const {data:mfaIds} = await sb.rpc("admin_mfa_user_ids");
+      mfaUserIdsCache = new Set((mfaIds||[]).map(x=> typeof x==="string" ? x : (x && (x.admin_mfa_user_ids||x.user_id)) ));
+    }catch(e){ mfaUserIdsCache = new Set(); }
     schoolsCache = schoolRows;
 
     const schoolIds = schoolRows.map(s=>s.id);
@@ -7631,6 +7637,67 @@ async function loadTeamsPanel(){
   }
 }
 
+// Remove 2FA for someone who has lost their phone (Dale, 14 Sep 2026). Drive My Way only. Two steps: a check code is
+// emailed to the account's own address and they read it back, then the right code removes the authenticator. The
+// details on file are shown too, so there's something to ask about (Dale can't see an instructor's pupils).
+async function openRemoveTwoFa(userId){
+  const {data:p}=await sb.from("profiles").select("full_name,email,phone,adi_badge_number,postcode,created_at,school_id").eq("id",userId).maybeSingle();
+  if(!p){ alert("Couldn't load that instructor."); return; }
+  const sub=subsByOwnerCache[userId];
+  const school=(schoolsCache||[]).find(s=>s.id===p.school_id);
+  const account = school ? `Instructor at ${school.display_name||school.name}` : sub ? `Solo instructor, ${sub.status==="trialing"?"free trial":sub.status}${sub.videos_addon?", Premium":""}` : "Solo instructor, free access";
+  const row=(k,v)=>`<tr><th style="text-align:left;padding:.25rem .9rem .25rem 0;white-space:nowrap;font-weight:600">${esc(k)}</th><td style="padding:.25rem 0">${v?esc(v):'<span class="muted">not on file</span>'}</td></tr>`;
+  openModal(`<h3 style="margin:0 0 .25rem">Remove 2FA for ${esc(p.full_name||p.email)}</h3>
+    <p class="muted" style="margin-bottom:.6rem">Only when they've asked, for example after losing or changing their phone. Check it's really them first.</p>
+    <ol style="margin:0 0 .6rem 1.1rem;padding:0;line-height:1.55">
+      <li><strong>Deal only with their account's email address:</strong> ${esc(p.email||"")}. If they wrote from a different address, reply to this one instead.</li>
+      <li><strong>Send them a check code.</strong> It goes to that address. Ask them to read it back to you, by phone or by replying.</li>
+      <li><strong>To be extra sure,</strong> ask about something on their account:</li>
+    </ol>
+    <table style="margin:0 0 .8rem;font-size:.9rem">${row("Phone",p.phone)}${row("ADI/PDI badge",p.adi_badge_number)}${row("Postcode",p.postcode)}${row("Signed up",p.created_at?new Date(p.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}):"")}${row("Account",account)}</table>
+    <button type="button" class="btn btn-navy btn-sm" id="mfar-send" onclick="sendMfaResetCode('${userId}')">Send check code</button>
+    <div id="mfar-status" class="muted" style="margin:.5rem 0;font-size:.9rem"></div>
+    <div id="mfar-step2" style="display:none">
+      <label style="display:block;font-weight:600;margin:.4rem 0 .25rem">Code they read back to you</label>
+      <input type="text" id="mfar-code" inputmode="numeric" maxlength="7" placeholder="123 456" style="width:100%;max-width:200px;text-align:center;letter-spacing:.25em;font-size:1.15rem;padding:.45rem;border:1px solid var(--line);border-radius:8px" onkeydown="if(event.key==='Enter')confirmMfaReset('${userId}')">
+      <div><button type="button" class="btn-danger" style="margin-top:.6rem" id="mfar-confirm" onclick="confirmMfaReset('${userId}')">Remove 2FA</button></div>
+    </div>
+    <div id="mfar-err" style="color:#b91c1c;font-size:.85rem;margin:.4rem 0"></div>
+    <button type="button" class="btn-outline" style="margin-top:.6rem" onclick="closeModal()">Close</button>`);
+}
+async function sendMfaResetCode(userId){
+  const btn=document.getElementById("mfar-send"), err=document.getElementById("mfar-err"), status=document.getElementById("mfar-status");
+  err.textContent=""; btn.disabled=true; btn.textContent="Sending…";
+  try{
+    const res=await manageAuthAdmin("mfa_reset_send_code",{user_id:userId});
+    status.textContent=`Check code sent to ${(res&&res.sent_to)||"their email"}. It works for 20 minutes.`;
+    document.getElementById("mfar-step2").style.display="block";
+    btn.textContent="Send a new code";
+    setTimeout(()=>{ const i=document.getElementById("mfar-code"); if(i) i.focus(); },50);
+  }catch(e){
+    err.textContent=(e&&e.message)||"Couldn't send the check code.";
+    btn.textContent="Send check code";
+  }finally{
+    btn.disabled=false;
+  }
+}
+async function confirmMfaReset(userId){
+  const btn=document.getElementById("mfar-confirm"), err=document.getElementById("mfar-err");
+  const code=(document.getElementById("mfar-code").value||"").replace(/\D/g,"");
+  err.textContent="";
+  if(code.length!==6){ err.textContent="Type the 6-digit code they read back to you."; return; }
+  if(!confirm("Remove two-factor authentication from this account? They'll sign in with just their password until they set it up again.")) return;
+  btn.disabled=true; btn.textContent="Removing…";
+  try{
+    await manageAuthAdmin("mfa_reset_confirm",{user_id:userId, code});
+    closeModal();
+    alert("2FA removed. They can sign in with their password now, and set 2FA up again from Profile in the Control Centre or Settings in the app.");
+    loadTeamsPanel();
+  }catch(e){
+    err.textContent=(e&&e.message)||"Couldn't remove 2FA.";
+    btn.disabled=false; btn.textContent="Remove 2FA";
+  }
+}
 function renderInstructorRow(i, schoolRows, fullControls, opts){
   const school = schoolRows.find(s=>s.id===i.school_id);
   const schoolLabel = school ? esc(school.display_name||school.name) : "Solo";
@@ -7683,6 +7750,10 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
   // Basic/Premium plan switch: a school seat's plan is the school's.
   const videosSelect = fullControls && !school ? renderVideosOverrideSelect('instructor', i.id) : "";
   const theorySelect = fullControls && !school ? renderTheoryOverrideSelect('instructor', i.id) : "";
+  // Drive My Way only: remove 2FA for someone who has lost their phone, after a check code (Dale, 14 Sep 2026).
+  const mfaBtn = fullControls && !isMe && mfaUserIdsCache.has(i.id)
+    ? `<span class="chip chip-ok" title="Two-factor authentication is on">2FA</span><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openRemoveTwoFa('${i.id}')">Remove 2FA</button>`
+    : "";
   const planBtn = fullControls && !school && sub && sub.plan !== 'pdi'
     ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setPlanAddon(${!sub.videos_addon},'instructor','${i.id}')">${sub.videos_addon?"Premium → Basic":"Basic → Premium"}</button>`
     : "";
@@ -7694,6 +7765,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
       ${(!fullControls && i.id!==currentUserId)?`<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openInstructorDiary('${i.id}')">Diary</button><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openStaffThread('${i.id}')">Message</button><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openPayInstructor('${i.id}')">Pay</button>${franchiseFeeChip(i.id)}<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openChangeFranchiseFee('${i.id}','${nameEsc}')">Change fee</button><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="franchiseQuickReceived('${i.id}')">Franchise fee received</button>`:""}
       ${(!fullControls && schoolPdiIds.has(i.id)) ? (schoolPdiPending.has(i.id) ? '<span class="chip chip-wait">Paid seat requested</span>' : `<button class="btn btn-navy btn-sm" style="font-size:.75rem;padding:.3rem .6rem" onclick="requestPdiUpgrade('${i.id}','${nameEsc}')">Request paid seat</button>`) : ""}
       <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showInstructorDetail('${i.id}')">Details</button>
+      ${mfaBtn}
       ${lockBtn}${removeBtn}
       ${toggleBtn}
       ${billingBtns}

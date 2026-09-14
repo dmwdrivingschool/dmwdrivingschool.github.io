@@ -6716,7 +6716,7 @@ function renderHelp(){
   el.innerHTML=`<h2>Help</h2>
     <p class="muted" style="margin-bottom:.75rem">How to do things in Drive My Way, written for ${label}.</p>
     ${q?"":`<div style="display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:12px;padding:.75rem 1rem;margin:0 0 1.1rem">
-      <div><strong>Need a hand? Contact Drive My Way</strong><div class="muted" style="font-size:.85rem;margin-top:.15rem">Email <a href="mailto:admin@drivemyway.co.uk">admin@drivemyway.co.uk</a>. Support hours are Monday to Friday, 9am to 5pm (UK time).${aud==="member"?" For anything about your driving school's account or billing, ask your driving school first.":""}</div></div>
+      <div><strong>Need a hand? Contact Drive My Way</strong><div class="muted" style="font-size:.85rem;margin-top:.15rem">Email <a href="mailto:admin@drivemyway.co.uk">admin@drivemyway.co.uk</a> and we'll reply as soon as we can, usually within a day. We're often out teaching, so replies can come early in the morning or in the evening.${aud==="member"?" For anything about your driving school's account or billing, ask your driving school first.":""}</div></div>
       <span style="display:flex;gap:.4rem;flex-wrap:wrap"><a class="btn btn-navy btn-sm" href="mailto:admin@drivemyway.co.uk?subject=Drive%20My%20Way%20support" style="text-decoration:none">Email us</a><button type="button" class="btn-outline btn-sm" onclick="openFeedbackModal()">Send feedback</button><a class="btn-outline btn-sm" href="https://www.drivemyway.co.uk/support" target="_blank" rel="noopener" style="text-decoration:none">Support page</a></span>
     </div>`}
     ${q?"":guideSectionHtml(aud)}

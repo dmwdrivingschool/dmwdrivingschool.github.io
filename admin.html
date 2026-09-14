@@ -2982,7 +2982,7 @@ async function showPupil(p){
     sb.from("pupil_progress").select("*").eq("pupil_id",p.id),
     sb.from("reflective_logs").select("*").eq("pupil_id",p.id).order("log_date",{ascending:false}),
     sb.from("practical_tests").select("*").eq("pupil_id",p.id).order("test_date",{ascending:false}),
-    sb.from("pupil_login_events").select("id,logged_in_at,user_agent").eq("pupil_id",p.id).order("logged_in_at",{ascending:false}).limit(50),
+    sb.from("pupil_login_events").select("id,logged_in_at,user_agent,platform,app_version").eq("pupil_id",p.id).order("logged_in_at",{ascending:false}).limit(50),
   ]);
 
   const progressMap={};
@@ -3462,9 +3462,13 @@ function renderPupilLogins(){
   if(!logins.length) return '<p class="muted">No logins recorded yet</p>';
   const rows=logins.map(l=>{
     const d=new Date(l.logged_in_at);
-    return `<tr><td>${d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})} ${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td><td style="font-size:.75rem">${esc(l.user_agent||"")}</td></tr>`;
+    // iPhone / Android and the app version, as in the app's Login tab (Dale, 14 Sep 2026). Logins from builds before
+    // the version was sent show the phone only.
+    const device=l.platform==="ios"?"iPhone":l.platform==="android"?"Android":l.platform==="web"?"Web browser":"";
+    const version=l.app_version?`App ${l.app_version}`:(l.platform&&l.platform!=="web"?"Not recorded":"");
+    return `<tr><td>${d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})} ${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td><td>${device?esc(device):`<span style="font-size:.75rem">${esc(l.user_agent||"")}</span>`}</td><td class="muted" style="font-size:.85rem">${esc(version)}</td></tr>`;
   }).join("");
-  return `<div style="max-height:60vh;overflow-y:auto"><table><thead><tr><th>When</th><th>Device</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div style="max-height:60vh;overflow-y:auto"><table><thead><tr><th>When</th><th>Phone</th><th>App version</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function row(k,v){return `<div style="padding:.4rem 0;border-bottom:1px solid #f1f5f9;font-size:.9rem"><strong style="color:#64748b;display:inline-block;min-width:110px">${k}</strong> ${esc(v||"—")}</div>`}

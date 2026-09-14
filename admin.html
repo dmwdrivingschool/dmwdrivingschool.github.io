@@ -1963,6 +1963,25 @@ async function closeTwoFaBanner(){
   if(el) el.style.display="none";
   try{ await sb.from("app_settings").upsert({id:"twofa_prompt",owner_id:currentUserId,value:{closed_at:new Date().toISOString()},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"}); }catch(e){}
 }
+// Plain-English explainer (Dale, 14 Sep 2026: "what is 2FA, what app should you download"). Open while 2FA is off,
+// folded away once they're scanning the QR code.
+function twoFaExplainHtml(open){
+  const link=(href,label)=>`<a href="${href}" target="_blank" rel="noopener" style="color:var(--navy,#0A4CA1);font-weight:600">${label}</a>`;
+  return `<details ${open?"open":""} style="margin:.6rem 0;border:1px solid var(--line);border-radius:10px;padding:.55rem .8rem">
+    <summary style="cursor:pointer;font-weight:700">What is 2FA, and which app do I need?</summary>
+    <div style="font-size:.9rem;line-height:1.55;margin-top:.4rem">
+      <p style="margin:.3rem 0">Two-factor authentication (2FA) adds a second check when you sign in. After your password, you type a 6-digit code from an app on your phone. The code changes every 30 seconds, so even if someone got hold of your password, they still couldn't get into your account without your phone.</p>
+      <p style="margin:.5rem 0 .2rem"><strong>Which app?</strong> Any free authenticator app works. For example:</p>
+      <ul style="margin:.2rem 0 .4rem 1.1rem;padding:0">
+        <li><strong>Google Authenticator</strong>: ${link("https://apps.apple.com/gb/app/google-authenticator/id388497605","iPhone")} · ${link("https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2","Android")}</li>
+        <li><strong>Microsoft Authenticator</strong>: ${link("https://apps.apple.com/gb/app/microsoft-authenticator/id983156458","iPhone")} · ${link("https://play.google.com/store/apps/details?id=com.azure.authenticator","Android")}</li>
+        <li>On an iPhone, the built-in <strong>Passwords</strong> app can hold the code too.</li>
+      </ul>
+      <p style="margin:.5rem 0 .2rem"><strong>How it works:</strong> open the app, add an account (usually a + button), scan the QR code we show you, then type the 6-digit code it gives you. After that, whenever Drive My Way asks for a code, open the app and type the one it shows. It works for the Control Centre and the Drive My Way app.</p>
+      <p style="margin:.5rem 0 0"><strong>New phone or lost your phone?</strong> Email <a href="mailto:admin@drivemyway.co.uk" style="color:var(--navy,#0A4CA1)">admin@drivemyway.co.uk</a> and we'll help you set it up again.</p>
+    </div>
+  </details>`;
+}
 function openTwoFactorModal(){
   openModal(`<h3 style="margin:0 0 .25rem">Two-factor authentication</h3>
     <div id="twofa-body"><p class="muted">Loading…</p></div>
@@ -1979,6 +1998,7 @@ async function renderTwoFaBody(){
       <button type="button" class="btn-outline btn-sm" onclick="turnOffTwoFactor('${factor.id}')">Turn off 2FA</button>`;
   }else{
     body.innerHTML=`<p style="margin:.5rem 0">2FA is off. Turning it on adds a second step when you sign in: a 6-digit code from an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator or Authy. The same code works here and in the Drive My Way app.</p>
+      ${twoFaExplainHtml(true)}
       <div id="twofa-err" style="color:#b91c1c;font-size:.85rem;margin:.35rem 0"></div>
       <button type="button" class="btn btn-navy btn-sm" id="twofa-start" onclick="startTwoFactorSetup()">Set up 2FA</button>`;
   }
@@ -1998,7 +2018,8 @@ async function startTwoFactorSetup(){
     }
     const {data,error}=await sb.auth.mfa.enroll({ factorType:"totp", friendlyName:"DMW Instructor" });
     if(error||!data) throw new Error((error&&error.message)||"Couldn't start 2FA setup.");
-    body.innerHTML=`<p style="margin:.5rem 0 .4rem">1. Open your authenticator app and scan this QR code.</p>
+    body.innerHTML=`${twoFaExplainHtml(false)}
+      <p style="margin:.5rem 0 .4rem">1. Open your authenticator app, add an account, and scan this QR code.</p>
       <div style="text-align:center"><span style="display:inline-block;background:#fff;padding:.5rem;border-radius:10px"><img id="twofa-qr" alt="QR code for your authenticator app" width="180" height="180" style="display:block"></span></div>
       <p class="muted" style="font-size:.8rem;text-align:center;margin:.4rem 0">Can't scan it? Enter this key instead:<br><code style="word-break:break-all">${esc(data.totp.secret)}</code></p>
       <p style="margin:.6rem 0 .4rem">2. Enter the 6-digit code it shows:</p>

@@ -173,6 +173,20 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .gd-dots{display:flex;gap:5px;justify-content:center;margin:.2rem 0 .8rem}
 .gd-dots i{width:7px;height:7px;border-radius:50%;background:var(--line);display:inline-block}
 .gd-dots i.on{background:var(--navy)}
+/* The tour keeps one size from step to step, buttons pinned to the bottom, so Back and Next never move
+   under the mouse (Dale, 14 Sep 2026). Only the picture and text area scrolls if a step is ever too tall. */
+.tour{display:flex;flex-direction:column;height:min(620px,calc(90vh - 2.8rem))}
+.tour-body{flex:1;min-height:0;overflow-y:auto}
+.tour-foot{flex:none;padding-top:.5rem}
+.tour-nav{display:flex;justify-content:space-between;align-items:center;gap:.4rem}
+.tour-right{display:flex;gap:.4rem;align-items:center}
+@media(max-width:600px){
+  .tour{height:calc(92vh - 2.2rem)}
+  .tour-nav{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+  .tour-right{display:contents}
+  .tour-open{grid-column:1/-1;order:-1;min-height:2.3rem}
+  .tour-nav button{width:100%;min-height:2.3rem}
+}
 .gd-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.75rem;margin:.7rem 0 1rem}
 .gd-card{border:1px solid var(--line);border-radius:12px;padding:.7rem .8rem;background:var(--surface-2,#f8fafc)}
 .gd-card h4{margin:.1rem 0 .3rem;font-size:.95rem;display:flex;align-items:center}
@@ -6505,19 +6519,25 @@ function renderTourStep(){
   const st=tourSteps[tourIdx]; if(!st) return;
   const last=tourIdx===tourSteps.length-1;
   const intro=(tourIdx===0 && tourFirst) ? `<p class="muted" style="margin:0 0 .6rem">Welcome to the Drive My Way Control Centre. Here's a quick look around in ${tourSteps.length} short steps. You can find this guide again on the Help tab.</p>` : "";
-  openModal(`<h2 style="margin:0 0 .5rem">${tourIdx===0&&tourFirst?"👋 Welcome":"Quick guide"} <span class="muted" style="font-size:.8rem;font-weight:500">Step ${tourIdx+1} of ${tourSteps.length}</span></h2>
-    ${intro}
-    ${GD_ILLUS[st.il]()}
-    <p class="gd-step-title">${esc(st.t)}</p>
-    <p class="gd-step-text">${esc(st.x)}</p>
-    <div class="gd-dots">${tourSteps.map((_,i)=>`<i class="${i===tourIdx?"on":""}"></i>`).join("")}</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:.4rem;flex-wrap:wrap">
-      <button class="btn-outline btn-sm" onclick="${tourIdx?"tourGo(-1)":"finishTour()"}">${tourIdx?"Back":"Skip the tour"}</button>
-      <span style="display:flex;gap:.4rem;flex-wrap:wrap">
-        ${st.tab==="help"?"":`<button class="btn-outline btn-sm" onclick="finishTour(${JSON.stringify(guideGoCall(st)).replace(/"/g,"&quot;")})">${esc(st.go)}</button>`}
-        <button class="btn btn-navy btn-sm" onclick="${last?"finishTour()":"tourGo(1)"}">${last?"Finish":"Next"}</button>
-      </span>
-    </div>`);
+  openModal(`<div class="tour">
+    <div class="tour-body">
+      <h2 style="margin:0 0 .5rem">${tourIdx===0&&tourFirst?"👋 Welcome":"Quick guide"} <span class="muted" style="font-size:.8rem;font-weight:500">Step ${tourIdx+1} of ${tourSteps.length}</span></h2>
+      ${intro}
+      ${GD_ILLUS[st.il]()}
+      <p class="gd-step-title">${esc(st.t)}</p>
+      <p class="gd-step-text">${esc(st.x)}</p>
+    </div>
+    <div class="tour-foot">
+      <div class="gd-dots">${tourSteps.map((_,i)=>`<i class="${i===tourIdx?"on":""}"></i>`).join("")}</div>
+      <div class="tour-nav">
+        <button class="btn-outline btn-sm" onclick="${tourIdx?"tourGo(-1)":"finishTour()"}">${tourIdx?"Back":"Skip the tour"}</button>
+        <span class="tour-right">
+          ${st.tab==="help"?`<span class="tour-open"></span>`:`<button class="btn-outline btn-sm tour-open" onclick="finishTour(${JSON.stringify(guideGoCall(st)).replace(/"/g,"&quot;")})">${esc(st.go)}</button>`}
+          <button class="btn btn-navy btn-sm" onclick="${last?"finishTour()":"tourGo(1)"}">${last?"Finish":"Next"}</button>
+        </span>
+      </div>
+    </div>
+  </div>`);
 }
 function tourGo(d){ tourIdx=Math.max(0,Math.min(tourSteps.length-1,tourIdx+d)); renderTourStep(); }
 function finishTour(goCall){

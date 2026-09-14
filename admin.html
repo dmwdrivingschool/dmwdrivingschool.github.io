@@ -340,6 +340,13 @@ tbody tr:hover td{background:#334263}
     <p style="text-align:center;margin-top:.8rem;font-size:.85rem"><a href="#" onclick="forgotPassword();return false" style="color:var(--navy);font-weight:600">Forgot password?</a></p>
     <p style="text-align:center;margin-top:.6rem;font-size:.85rem;color:var(--muted)">New here? <a href="#" onclick="showSignup();return false" style="color:var(--navy);font-weight:700">Start your free trial</a></p>
   </div>
+  <div id="gate-mfa" class="hidden">
+    <p class="sub">Two-factor authentication is on for this account. Enter the 6-digit code from your authenticator app.</p>
+    <input type="text" id="gate-mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" style="text-align:center;letter-spacing:.3em;font-size:1.25rem" onkeydown="if(event.key==='Enter')submitMfaGate()">
+    <button class="btn btn-navy full" id="gate-mfa-btn" onclick="submitMfaGate()">Verify</button>
+    <div class="err" id="gate-mfa-err"></div>
+    <p style="text-align:center;margin-top:.8rem;font-size:.85rem"><a href="#" onclick="cancelMfaGate();return false" style="color:var(--navy);font-weight:600">Use a different account</a></p>
+  </div>
   <div id="gate-recovery" class="hidden">
     <p class="sub" id="recovery-sub">Choose a new password for your account</p>
     <input type="password" id="gate-newpass" placeholder="New password" autocomplete="new-password">
@@ -422,6 +429,7 @@ tbody tr:hover td{background:#334263}
 
     <section id="tab-dash">
       <div id="feedback-card" style="display:none;margin:0 0 1rem;padding:.75rem 1rem;border:1px solid var(--line);border-left:4px solid var(--navy,#0A4CA1);border-radius:12px"></div>
+      <div id="twofa-banner" style="display:none;margin:0 0 1rem;padding:.75rem 1rem;border:1px solid var(--line);border-left:4px solid #16a34a;border-radius:12px"></div>
       <div id="dash-join" class="hidden"></div>
       <div id="dash-pdi" class="hidden"></div>
       <div id="dash-owed" class="hidden"></div>
@@ -1791,6 +1799,11 @@ async function unlock(){
   if(lockMessage){
     await sb.auth.signOut({scope:"local"}); showGateError(lockMessage); return;
   }
+  // 2FA on for this account: the authenticator code comes before anything else (Dale, 14 Sep 2026).
+  if(await mfaCodeNeeded()){
+    showMfaGate(async()=>{ if(prof) enterApp(data.user, prof, await billingPauseFor()); else await provisionIfNeededAndEnter(data.user); });
+    return;
+  }
   if(!prof){
     // No profile yet — e.g. they confirmed their email on another device
     // and are now signing in normally for the first time. Safety net
@@ -1865,7 +1878,169 @@ async function enterApp(user,prof,pause){
   }
   refreshTrialBanner(prof);
   refreshFeedbackCard(prof);
+  refreshTwoFaBanner(prof);
   maybeShowWelcomeTour();
+}
+// Two-factor authentication in the Control Centre (Dale, 14 Sep 2026). The app already had it (Supabase TOTP, the
+// same authenticator code), but this page only asked for the password, so an account with 2FA on could sign in here
+// without the code. Now: the code after the password (showMfaGate), turning it on or off from Profile, and a banner
+// on the Dashboard suggesting it to accounts without it (Not now hides it for 30 days, app_settings twofa_prompt).
+// The database doesn't insist on the code yet; that's the next step.
+async function mfaCodeNeeded(){
+  try{
+    const {data,error}=await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+    if(error||!data) return false;
+    return data.nextLevel==="aal2" && data.currentLevel!=="aal2";
+  }catch(e){ return false; }
+}
+let pendingMfaEnter=null;
+function showMfaGate(onVerified){
+  pendingMfaEnter=onVerified;
+  document.getElementById("gate").style.display="block";
+  ["gate-signin","gate-recovery","gate-pupil","gate-signup"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add("hidden"); });
+  document.getElementById("gate-mfa").classList.remove("hidden");
+  document.getElementById("gate-mfa-err").style.display="none";
+  const input=document.getElementById("gate-mfa-code");
+  input.value="";
+  setTimeout(()=>input.focus(),50);
+}
+async function submitMfaGate(){
+  const err=document.getElementById("gate-mfa-err");
+  err.style.display="none";
+  const code=(document.getElementById("gate-mfa-code").value||"").replace(/\D/g,"");
+  if(code.length!==6){ err.textContent="Enter the 6-digit code from your authenticator app."; err.style.display="block"; return; }
+  const btn=document.getElementById("gate-mfa-btn");
+  btn.disabled=true; btn.textContent="Checking…";
+  try{
+    const {data:factors}=await sb.auth.mfa.listFactors();
+    const factor=((factors&&factors.totp)||[]).find(f=>f.status==="verified");
+    if(!factor) throw new Error("No authenticator is set up on this account. Email admin@drivemyway.co.uk for help.");
+    const {error}=await sb.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
+    if(error) throw new Error("That code wasn't accepted. Try the current code from your authenticator app.");
+    document.getElementById("gate-mfa").classList.add("hidden");
+    document.getElementById("gate-signin").classList.remove("hidden");
+    const next=pendingMfaEnter; pendingMfaEnter=null;
+    if(next) await next();
+  }catch(e){
+    err.textContent=(e&&e.message)||"That code wasn't accepted."; err.style.display="block";
+  }finally{
+    btn.disabled=false; btn.textContent="Verify";
+  }
+}
+async function cancelMfaGate(){
+  pendingMfaEnter=null;
+  await sb.auth.signOut({scope:"local"});
+  location.href="/admin.html";
+}
+async function twoFactorVerifiedFactor(){
+  try{
+    const {data}=await sb.auth.mfa.listFactors();
+    return ((data&&data.totp)||[]).find(f=>f.status==="verified")||null;
+  }catch(e){ return null; }
+}
+let twoFaProf=null;
+async function refreshTwoFaBanner(prof){
+  if(prof) twoFaProf=prof;
+  prof=twoFaProf;
+  const el=document.getElementById("twofa-banner");
+  if(!el) return;
+  el.style.display="none";
+  if(!prof || (prof.role!=="instructor" && prof.role!=="super_admin") || pausedMode) return;
+  try{
+    if(await twoFactorVerifiedFactor()) return;
+    const {data:st}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","twofa_prompt").maybeSingle();
+    const closedAt=st&&st.value&&st.value.closed_at;
+    if(closedAt && Date.now()-new Date(closedAt).getTime() < 30*86400000) return;
+    el.innerHTML=`<div style="display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px"><strong>🔒 Protect your account with two-factor authentication</strong><div class="muted" style="font-size:.85rem;margin-top:.15rem">Each sign-in also asks for a code from an authenticator app on your phone, so a stolen password isn't enough. It takes about a minute.</div></div>
+        <span style="display:flex;gap:.4rem;flex-wrap:wrap"><button type="button" class="btn btn-navy btn-sm" onclick="openTwoFactorModal()">Turn on 2FA</button><button type="button" class="btn-outline btn-sm" onclick="closeTwoFaBanner()">Not now</button></span>
+      </div>`;
+    el.style.display="block";
+  }catch(e){}
+}
+async function closeTwoFaBanner(){
+  const el=document.getElementById("twofa-banner");
+  if(el) el.style.display="none";
+  try{ await sb.from("app_settings").upsert({id:"twofa_prompt",owner_id:currentUserId,value:{closed_at:new Date().toISOString()},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"}); }catch(e){}
+}
+function openTwoFactorModal(){
+  openModal(`<h3 style="margin:0 0 .25rem">Two-factor authentication</h3>
+    <div id="twofa-body"><p class="muted">Loading…</p></div>
+    <button type="button" class="btn-outline" style="margin-top:.9rem" onclick="closeModal()">Close</button>`);
+  renderTwoFaBody();
+}
+async function renderTwoFaBody(){
+  const body=document.getElementById("twofa-body");
+  if(!body) return;
+  const factor=await twoFactorVerifiedFactor();
+  if(factor){
+    body.innerHTML=`<p style="margin:.5rem 0"><strong style="color:#16a34a">✓ 2FA is on.</strong> Each time you sign in, here or in the app, you'll enter a code from your authenticator app.</p>
+      <div id="twofa-err" style="color:#b91c1c;font-size:.85rem;margin:.35rem 0"></div>
+      <button type="button" class="btn-outline btn-sm" onclick="turnOffTwoFactor('${factor.id}')">Turn off 2FA</button>`;
+  }else{
+    body.innerHTML=`<p style="margin:.5rem 0">2FA is off. Turning it on adds a second step when you sign in: a 6-digit code from an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator or Authy. The same code works here and in the Drive My Way app.</p>
+      <div id="twofa-err" style="color:#b91c1c;font-size:.85rem;margin:.35rem 0"></div>
+      <button type="button" class="btn btn-navy btn-sm" id="twofa-start" onclick="startTwoFactorSetup()">Set up 2FA</button>`;
+  }
+  refreshProfileTwoFa();
+}
+async function startTwoFactorSetup(){
+  const body=document.getElementById("twofa-body");
+  const err=document.getElementById("twofa-err");
+  const btn=document.getElementById("twofa-start");
+  if(err) err.textContent="";
+  if(btn){ btn.disabled=true; btn.textContent="Starting…"; }
+  try{
+    // Clear any half-finished setup first, as the app does.
+    const {data:list}=await sb.auth.mfa.listFactors();
+    for(const f of ((list&&list.all)||[])){
+      if(f.factor_type==="totp" && f.status!=="verified") await sb.auth.mfa.unenroll({ factorId: f.id });
+    }
+    const {data,error}=await sb.auth.mfa.enroll({ factorType:"totp", friendlyName:"DMW Instructor" });
+    if(error||!data) throw new Error((error&&error.message)||"Couldn't start 2FA setup.");
+    body.innerHTML=`<p style="margin:.5rem 0 .4rem">1. Open your authenticator app and scan this QR code.</p>
+      <div style="text-align:center"><span style="display:inline-block;background:#fff;padding:.5rem;border-radius:10px"><img id="twofa-qr" alt="QR code for your authenticator app" width="180" height="180" style="display:block"></span></div>
+      <p class="muted" style="font-size:.8rem;text-align:center;margin:.4rem 0">Can't scan it? Enter this key instead:<br><code style="word-break:break-all">${esc(data.totp.secret)}</code></p>
+      <p style="margin:.6rem 0 .4rem">2. Enter the 6-digit code it shows:</p>
+      <input type="text" id="twofa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" style="width:100%;max-width:220px;text-align:center;letter-spacing:.3em;font-size:1.2rem;padding:.5rem;border:1px solid var(--line);border-radius:8px" onkeydown="if(event.key==='Enter')confirmTwoFactorSetup('${data.id}')">
+      <div id="twofa-err" style="color:#b91c1c;font-size:.85rem;margin:.35rem 0"></div>
+      <button type="button" class="btn btn-navy btn-sm" id="twofa-verify" onclick="confirmTwoFactorSetup('${data.id}')">Verify and turn on</button>`;
+    // Set as a property: the QR code is an SVG data URL full of quotes, which would break an HTML attribute.
+    document.getElementById("twofa-qr").src=data.totp.qr_code;
+    setTimeout(()=>{ const i=document.getElementById("twofa-code"); if(i) i.focus(); },50);
+  }catch(e){
+    if(err) err.textContent=(e&&e.message)||"Couldn't start 2FA setup.";
+    if(btn){ btn.disabled=false; btn.textContent="Set up 2FA"; }
+  }
+}
+async function confirmTwoFactorSetup(factorId){
+  const err=document.getElementById("twofa-err");
+  const btn=document.getElementById("twofa-verify");
+  const code=(document.getElementById("twofa-code").value||"").replace(/\D/g,"");
+  err.textContent="";
+  if(code.length!==6){ err.textContent="Enter the 6-digit code from your authenticator app."; return; }
+  btn.disabled=true; btn.textContent="Checking…";
+  const {error}=await sb.auth.mfa.challengeAndVerify({ factorId, code });
+  if(error){
+    err.textContent="That code wasn't accepted. Try the current code from your authenticator app.";
+    btn.disabled=false; btn.textContent="Verify and turn on";
+    return;
+  }
+  await renderTwoFaBody();
+  refreshTwoFaBanner();
+}
+async function turnOffTwoFactor(factorId){
+  if(!confirm("Turn off two-factor authentication? Your account will be protected by your password only.")) return;
+  const err=document.getElementById("twofa-err");
+  const {error}=await sb.auth.mfa.unenroll({ factorId });
+  if(error){ if(err) err.textContent=error.message||"Couldn't turn off 2FA."; return; }
+  await renderTwoFaBody();
+}
+async function refreshProfileTwoFa(){
+  const el=document.getElementById("pf-2fa");
+  if(!el) return;
+  const on=!!(await twoFactorVerifiedFactor());
+  el.innerHTML=`<span style="font-weight:700;color:${on?"#16a34a":"inherit"}">${on?"✓ On":"Off"}</span> <button type="button" class="btn-outline btn-sm" style="margin-left:.5rem" onclick="openTwoFactorModal()">${on?"Manage":"Turn on"}</button>`;
 }
 // "How's your trial going?" card on the home page during the free trial, and Send feedback on the Help tab for
 // everyone (Dale, 14 Sep 2026). Both go to the send-feedback function, which tells Drive My Way the same way as a
@@ -2465,6 +2640,11 @@ sb.auth.getSession().then(async ({data})=>{
   const { data: prof } = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.session.user.id).maybeSingle();
   if(prof&&prof.role==="pupil"){ await sb.auth.signOut({scope:"local"}); showPupilAppNotice("You're all set"); return; }
   if(prof&&prof.role&&prof.role!=="instructor"&&prof.role!=="super_admin")return;
+  // A saved session that never finished the 2FA code still owes it (Dale, 14 Sep 2026).
+  if(await mfaCodeNeeded()){
+    showMfaGate(async()=>{ if(prof) enterApp(data.session.user, prof, await billingPauseFor()); else await provisionIfNeededAndEnter(data.session.user); });
+    return;
+  }
   if(prof){
     enterApp(data.session.user, prof, await billingPauseFor()); return;
   }
@@ -5845,6 +6025,7 @@ async function openSettings(which){
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
       <h3 style="margin:1rem 0 .75rem">Your profile</h3>
       <div class="field"><label>Email</label><input value="${esc(prof?.email||"")}" disabled><span class="muted" style="font-size:.78rem">To change your sign-in email, contact Drive My Way.</span></div>
+      <div class="field"><label>Two-factor authentication</label><div id="pf-2fa" class="muted">Checking…</div><span class="muted" style="font-size:.78rem">A code from an authenticator app each time you sign in, here and in the app.</span></div>
       <div class="field"><label>Your name</label><input id="pf-name" value="${esc(prof?.full_name||"")}"></div>
       <div class="field"><label>Phone</label><input id="pf-phone" value="${esc(prof?.phone||"")}"></div>
       <div class="field"><label>ADI/PDI badge number (optional)</label><input id="pf-adi" value="${esc(prof?.adi_badge_number||"")}"></div>
@@ -5864,6 +6045,7 @@ async function openSettings(which){
       <button class="btn btn-navy btn-sm" onclick="saveProfilePanel()">Save</button>
       <div class="err" id="pf-err" style="margin-top:.5rem"></div>
       <div id="pf-ok" style="margin-top:.6rem;display:none;color:#0a7a3d;font-weight:700;font-size:1rem">✓ Saved</div>`;
+    refreshProfileTwoFa();
   } else if(which==="reminders"){
     const raw=JSON.parse(localStorage.getItem("dmw_admin_reminders")||'{"enabled":false,"hours":48,"message":"Looking forward to seeing you."}');
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>

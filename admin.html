@@ -7932,7 +7932,7 @@ async function confirmEditInstructor(instructorId, originalEmail){
 }
 
 async function deleteInstructor(instructorId, name){
-  if(!confirm(`Delete ${name}'s instructor account? This only works if they have no pupils, lessons or messages still linked to them. Their login is permanently removed.`)) return;
+  if(!confirm(`Delete ${name}'s instructor account? This only works if they have no pupils, lessons or finance entries still linked to them, and don't still pay by Direct Debit (cancel their subscription first). Their login is permanently removed.`)) return;
   const err=document.getElementById("teams-err");
   err.style.color="";
   err.textContent="";
@@ -8022,9 +8022,16 @@ async function editSchool(schoolId, currentName){
 }
 
 async function deleteSchool(schoolId){
-  if(!confirm("Delete this driving school? This only works if no instructors or pupils are still assigned to it.")) return;
+  if(!confirm("Delete this driving school? This only works if no instructors or pupils are still assigned to it, and it doesn't still pay by Direct Debit.")) return;
   const err=document.getElementById("teams-err");
   err.textContent="";
+  // Never while it still pays by Direct Debit: GoCardless would keep taking payments (Dale, 14 Sep 2026).
+  const {data:liveBilling}=await sb.from("subscriptions").select("gocardless_subscription_id,gocardless_mandate_id,cancel_at_period_end").eq("owner_type","school").eq("owner_id",schoolId).maybeSingle();
+  if(liveBilling && (liveBilling.gocardless_subscription_id||liveBilling.gocardless_mandate_id) && !liveBilling.cancel_at_period_end){
+    err.textContent="Can't delete this driving school yet: it still pays by Direct Debit. Cancel its subscription first (that stops the payments), then delete.";
+    err.scrollIntoView({behavior:"smooth",block:"center"});
+    return;
+  }
   const {error}=await sb.from("schools").delete().eq("id",schoolId);
   if(error){
     err.textContent = error.message.includes("foreign key")

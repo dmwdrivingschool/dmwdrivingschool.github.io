@@ -78,7 +78,7 @@
     <div class="page-hero">
         <div>
             <h1>🍪 Cookie Notice</h1>
-            <p class="page-hero-updated">Last updated: August 2026</p>
+            <p class="page-hero-updated">Last updated: 14 September 2026</p>
         </div>
     </div>
 
@@ -111,10 +111,10 @@
             <h2>Your choices</h2>
             <p>When you first visit the website you will see a cookie banner.</p>
             <ul>
-                <li>You can accept analytics cookies or reject them.</li>
+                <li>You can accept analytics cookies or reject them. Nothing from Google Analytics loads unless you press Accept.</li>
                 <li>Strictly necessary cookies cannot be turned off because the site would not work properly without them.</li>
             </ul>
-            <p>You can also change your mind later by clearing cookies in your browser settings, or by contacting me.</p>
+            <p>Your choice is remembered on this device. <a href="#" id="dmw-cookie-change" style="font-weight:700">Change my cookie choice</a> clears your saved answer and shows the banner again.</p>
 
             <h2>The app (iPhone and Android)</h2>
             <p>The Drive My Way app may use similar technologies on both iPhone and Android devices for login, security and basic functionality. These are needed for the app to work and do not require a separate consent banner in the same way as website analytics cookies.</p>
@@ -138,89 +138,7 @@
 
     <a href="contact.html" class="sticky-enquiry-widget">📅 Check Availability</a>
 
-<!-- Cookie consent + conditional Google Analytics -->
-<style>
-#dmw-cookie-banner {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100000;
-  background: #111827; color: #e5e7eb; padding: 16px 20px;
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
-  font-family: Arial, Helvetica, sans-serif; font-size: 0.9rem;
-  display: none;
-}
-#dmw-cookie-banner .dmw-cookie-inner {
-  max-width: 960px; margin: 0 auto;
-  display: flex; flex-wrap: wrap; gap: 12px 16px;
-  align-items: center; justify-content: space-between;
-}
-#dmw-cookie-banner p { margin: 0; line-height: 1.45; flex: 1 1 260px; }
-#dmw-cookie-banner a { color: #93c5fd; text-decoration: underline; }
-#dmw-cookie-banner .dmw-cookie-btns { display: flex; gap: 10px; flex-shrink: 0; }
-#dmw-cookie-banner button {
-  border: none; border-radius: 8px; padding: 10px 16px;
-  font-weight: 700; cursor: pointer; font-size: 0.88rem;
-}
-#dmw-cookie-accept { background: #0A4CA1; color: #fff; }
-#dmw-cookie-reject { background: #374151; color: #fff; }
-@media (max-width: 600px) {
-  #dmw-cookie-banner .dmw-cookie-btns { width: 100%; }
-  #dmw-cookie-banner button { flex: 1; }
-}
-</style>
-<div id="dmw-cookie-banner" role="dialog" aria-live="polite" aria-label="Cookie consent">
-  <div class="dmw-cookie-inner">
-    <p>
-      We use essential cookies to make the site work, and optional analytics cookies to understand how the site is used.
-      See our <a href="cookies.html">Cookie Notice</a> and <a href="privacy.html">Privacy Policy</a>.
-    </p>
-    <div class="dmw-cookie-btns">
-      <button type="button" id="dmw-cookie-reject">Reject non-essential</button>
-      <button type="button" id="dmw-cookie-accept">Accept</button>
-    </div>
-  </div>
-</div>
-<script>
-(function () {
-  var KEY = 'dmw_cookie_consent';
-  var GA_ID = 'G-8VPCP1ZYEE';
-  var banner = document.getElementById('dmw-cookie-banner');
-
-  function loadGA() {
-    if (window.__dmwGALoaded) return;
-    window.__dmwGALoaded = true;
-    var s = document.createElement('script');
-    s.async = true;
-    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
-    document.head.appendChild(s);
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){ dataLayer.push(arguments); }
-    window.gtag = gtag;
-    gtag('js', new Date());
-    gtag('config', GA_ID, { anonymize_ip: true });
-  }
-
-  function setConsent(value) {
-    try { localStorage.setItem(KEY, value); } catch (e) {}
-    if (banner) banner.style.display = 'none';
-    if (value === 'accepted') loadGA();
-  }
-
-  var existing = null;
-  try { existing = localStorage.getItem(KEY); } catch (e) {}
-
-  if (existing === 'accepted') {
-    loadGA();
-  } else if (existing === 'rejected') {
-    // do nothing
-  } else if (banner) {
-    banner.style.display = 'block';
-  }
-
-  var acceptBtn = document.getElementById('dmw-cookie-accept');
-  var rejectBtn = document.getElementById('dmw-cookie-reject');
-  if (acceptBtn) acceptBtn.addEventListener('click', function () { setConsent('accepted'); });
-  if (rejectBtn) rejectBtn.addEventListener('click', function () { setConsent('rejected'); });
-})();
-</script>
+<script src="cookie-consent.js" defer></script>
 
 </body>
 </html>

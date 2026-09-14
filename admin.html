@@ -403,6 +403,7 @@ tbody tr:hover td{background:#334263}
     <div id="trial-banner" style="display:none;margin:0 0 1rem;padding:.75rem 1rem;border-radius:.6rem;border:1px solid #bfd3f5;background:#eef4ff;color:#0f172a;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:space-between"></div>
 
     <section id="tab-dash">
+      <div id="feedback-card" style="display:none;margin:0 0 1rem;padding:.75rem 1rem;border:1px solid var(--line);border-left:4px solid var(--navy,#0A4CA1);border-radius:12px"></div>
       <div id="dash-join" class="hidden"></div>
       <div id="dash-pdi" class="hidden"></div>
       <div id="dash-owed" class="hidden"></div>
@@ -1846,7 +1847,94 @@ async function enterApp(user,prof,pause){
     document.addEventListener("visibilitychange", onControlCentreVisible);
   }
   refreshTrialBanner(prof);
+  refreshFeedbackCard(prof);
   maybeShowWelcomeTour();
+}
+// "How's your trial going?" card on the home page during the free trial, and Send feedback on the Help tab for
+// everyone (Dale, 14 Sep 2026). Both go to the send-feedback function, which tells Drive My Way the same way as a
+// new sign-up; replies are by email only. Closing the card brings it back after 4 days and sending keeps it away
+// for 14 (app_settings feedback_card, so it follows them to another device). Control Centre only, never the apps.
+let feedbackCardState={};
+async function refreshFeedbackCard(prof){
+  const el=document.getElementById("feedback-card");
+  if(!el) return;
+  el.style.display="none";
+  if(!prof || prof.role!=="instructor" || pausedMode) return;
+  try{
+    const { data: sub } = await sb.from("subscriptions").select("status,trial_ends_at")
+      .eq("owner_type", prof.school_id ? "school" : "instructor").eq("owner_id", prof.school_id || currentUserId).maybeSingle();
+    if(!sub || sub.status!=="trialing" || !sub.trial_ends_at || new Date(sub.trial_ends_at).getTime()<=Date.now()) return;
+    const { data: st } = await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","feedback_card").maybeSingle();
+    feedbackCardState=(st&&st.value)||{};
+    const daysSince=t=>t?(Date.now()-new Date(t).getTime())/86400000:Infinity;
+    if(daysSince(feedbackCardState.closed_at)<4 || daysSince(feedbackCardState.sent_at)<14) return;
+    el.innerHTML=`<div style="display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start">
+        <div><strong>How's your trial going?</strong><div class="muted" style="font-size:.85rem;margin-top:.15rem">Tell us what's working and what isn't. It goes straight to the Drive My Way team.</div></div>
+        <button type="button" class="btn-outline btn-sm" onclick="closeFeedbackCard()" aria-label="Close" title="Not now">✕</button>
+      </div>
+      ${feedbackFormHtml("fbc","trial_card")}`;
+    el.style.display="block";
+  }catch(e){}
+}
+async function saveFeedbackCardState(patch){
+  feedbackCardState={...feedbackCardState,...patch};
+  try{ await sb.from("app_settings").upsert({id:"feedback_card",owner_id:currentUserId,value:feedbackCardState,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"}); }catch(e){}
+}
+function closeFeedbackCard(){
+  const el=document.getElementById("feedback-card");
+  if(el) el.style.display="none";
+  saveFeedbackCardState({ closed_at: new Date().toISOString() });
+}
+function openFeedbackModal(){
+  openModal(`<h3 style="margin:0 0 .25rem">Send feedback</h3>
+    <p class="muted" style="margin-bottom:.25rem">Ideas, problems or something you like. It goes straight to the Drive My Way team.</p>
+    ${feedbackFormHtml("fbm","help")}
+    <button type="button" class="btn-outline" style="margin-top:.75rem" onclick="closeModal()">Close</button>`);
+}
+const FEEDBACK_FACES=[["good","😀","Good"],["ok","😐","OK"],["not_great","🙁","Not great"]];
+function feedbackFormHtml(prefix, source){
+  return `<div id="${prefix}-form" data-rating="" style="margin-top:.6rem">
+    <div role="group" aria-label="How's it going?" style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem">
+      ${FEEDBACK_FACES.map(([v,face,label])=>`<button type="button" class="btn-outline btn-sm fb-face" data-v="${v}" aria-pressed="false" onclick="pickFeedbackFace('${prefix}','${v}')"><span aria-hidden="true" style="font-size:1.1rem">${face}</span> ${label}</button>`).join("")}
+    </div>
+    <textarea id="${prefix}-comment" rows="3" maxlength="2000" placeholder="Anything you'd like to tell us? (optional)" style="width:100%;box-sizing:border-box;padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;font:inherit"></textarea>
+    <label style="display:flex;gap:.45rem;align-items:center;margin:.45rem 0;font-size:.9rem;cursor:pointer"><input type="checkbox" id="${prefix}-contact"> Happy for us to contact you about this</label>
+    <div id="${prefix}-err" style="color:#b91c1c;font-size:.85rem;margin-bottom:.35rem"></div>
+    <button type="button" class="btn btn-navy btn-sm" id="${prefix}-send" onclick="sendFeedback('${prefix}','${source}')">Send</button>
+  </div>`;
+}
+function pickFeedbackFace(prefix, v){
+  const box=document.getElementById(prefix+"-form");
+  if(!box) return;
+  box.dataset.rating=v;
+  box.querySelectorAll(".fb-face").forEach(b=>{
+    const on=b.dataset.v===v;
+    b.setAttribute("aria-pressed", on?"true":"false");
+    b.style.borderColor=on?"var(--navy,#0A4CA1)":"";
+    b.style.boxShadow=on?"inset 0 0 0 2px var(--navy,#0A4CA1)":"";
+    b.style.fontWeight=on?"700":"";
+  });
+}
+async function sendFeedback(prefix, source){
+  const box=document.getElementById(prefix+"-form");
+  if(!box) return;
+  const rating=box.dataset.rating||null;
+  const comment=(document.getElementById(prefix+"-comment").value||"").trim();
+  const okToContact=document.getElementById(prefix+"-contact").checked;
+  const err=document.getElementById(prefix+"-err");
+  err.textContent="";
+  if(!rating && !comment){ err.textContent="Pick a face or write a comment first."; return; }
+  const btn=document.getElementById(prefix+"-send");
+  btn.disabled=true; btn.textContent="Sending…";
+  try{
+    await callFn("send-feedback",{ source, rating, comment, ok_to_contact: okToContact });
+    if(source==="trial_card") saveFeedbackCardState({ sent_at: new Date().toISOString() });
+    box.innerHTML=`<p style="margin:.6rem 0 0"><strong>Thank you!</strong> We read every message${okToContact?", and we'll email you if we'd like to know more":""}.</p>`;
+    if(source==="trial_card") setTimeout(()=>{ const el=document.getElementById("feedback-card"); if(el) el.style.display="none"; }, 8000);
+  }catch(e){
+    err.textContent=(e&&e.message)||"Couldn't send that. Please try again.";
+    btn.disabled=false; btn.textContent="Send";
+  }
 }
 // Free trial countdown for the account holder while no Direct Debit is set up
 // (Dale, 14 Sep 2026: no bank details at sign-up, so this is the everyday
@@ -6629,7 +6717,7 @@ function renderHelp(){
     <p class="muted" style="margin-bottom:.75rem">How to do things in Drive My Way, written for ${label}.</p>
     ${q?"":`<div style="display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:12px;padding:.75rem 1rem;margin:0 0 1.1rem">
       <div><strong>Need a hand? Contact Drive My Way</strong><div class="muted" style="font-size:.85rem;margin-top:.15rem">Email <a href="mailto:admin@drivemyway.co.uk">admin@drivemyway.co.uk</a>. Support hours are Monday to Friday, 9am to 5pm (UK time).${aud==="member"?" For anything about your driving school's account or billing, ask your driving school first.":""}</div></div>
-      <span style="display:flex;gap:.4rem;flex-wrap:wrap"><a class="btn btn-navy btn-sm" href="mailto:admin@drivemyway.co.uk?subject=Drive%20My%20Way%20support" style="text-decoration:none">Email us</a><a class="btn-outline btn-sm" href="https://www.drivemyway.co.uk/support" target="_blank" rel="noopener" style="text-decoration:none">Support page</a></span>
+      <span style="display:flex;gap:.4rem;flex-wrap:wrap"><a class="btn btn-navy btn-sm" href="mailto:admin@drivemyway.co.uk?subject=Drive%20My%20Way%20support" style="text-decoration:none">Email us</a><button type="button" class="btn-outline btn-sm" onclick="openFeedbackModal()">Send feedback</button><a class="btn-outline btn-sm" href="https://www.drivemyway.co.uk/support" target="_blank" rel="noopener" style="text-decoration:none">Support page</a></span>
     </div>`}
     ${q?"":guideSectionHtml(aud)}
     <input id="help-search" placeholder="Search help…" value="${esc(q)}" oninput="renderHelp();this.focus();this.setSelectionRange(this.value.length,this.value.length)" style="width:100%;max-width:420px;padding:.6rem .75rem;border:1px solid var(--line);border-radius:8px;margin-bottom:1rem">
@@ -7771,6 +7859,12 @@ async function openAdminNotification(id){
     const line=(k,v)=>v?`<tr><th style="text-align:left;padding:.3rem .9rem .3rem 0;white-space:nowrap">${esc(k)}</th><td style="padding:.3rem 0">${esc(v)}</td></tr>`:"";
     extra=`<table style="margin:.25rem 0 1rem">${line("School",d.school_name)}${line("School admin",(d.admin_name?d.admin_name+" · ":"")+(d.admin_email||""))}${line("Full name",d.full_name)}${line("Email",d.email)}${line("Phone",d.phone)}${line("PDI badge number",d.badge)}${line("Note",d.note)}</table>
       ${d.created_user_id ? `<p style="color:#0a7a3d;font-weight:700;margin-bottom:.75rem">PDI created ${d.created_at?adminWhen(d.created_at):""}. They were emailed to set their password.</p>` : `<button class="btn btn-navy btn-sm" onclick="prefillPdiFromRequest('${r.id}')">Create this PDI</button> `}`;
+  }
+  // Feedback (Dale, 14 Sep 2026): replies are by email only, and only when they said we could.
+  if(r.kind==="feedback"){
+    extra = (d.ok_to_contact && d.email)
+      ? `<a class="btn btn-navy btn-sm" style="text-decoration:none;margin-right:.4rem" href="mailto:${esc(d.email)}?subject=${encodeURIComponent("Your Drive My Way feedback")}">Reply by email</a>`
+      : `<p class="muted" style="margin-bottom:.75rem">They didn't tick "Happy for us to contact you", so please don't reply.</p>`;
   }
   openModal(`<h3 style="margin:0 0 .25rem">${esc(r.title)}</h3>
     <p class="muted" style="margin-bottom:.75rem">${adminWhen(r.created_at)}</p>

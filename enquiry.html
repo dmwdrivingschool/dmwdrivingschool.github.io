@@ -486,7 +486,8 @@
         status: "enquiry",
         preferred_gearbox: "manual",
         availability: availability,
-        notes: [notesExtra, availText ? "Availability:\n" + availText : ""].filter(Boolean).join("\n\n") || null
+        // The chosen times go in availability only; copying them into the notes too showed them twice (Dale, 14 Sep 2026).
+        notes: notesExtra || null
       };
 
       try {

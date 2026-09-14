@@ -353,10 +353,15 @@ tbody tr:hover td{background:#334263}
     </div>
     <div id="signup-form-fields" class="hidden">
       <p class="sub" id="signup-kind-label" style="margin-bottom:.7rem"></p>
-      <input type="text" id="signup-name" placeholder="Your name">
+      <div style="display:flex;gap:.5rem">
+        <input type="text" id="signup-first-name" placeholder="First name" autocomplete="given-name" style="flex:1;min-width:0">
+        <input type="text" id="signup-last-name" placeholder="Last name" autocomplete="family-name" style="flex:1;min-width:0">
+      </div>
       <input type="text" id="signup-school-name" class="hidden" placeholder="Driving school name">
       <input type="email" id="signup-email" placeholder="Email" autocomplete="username">
       <input type="password" id="signup-pass" placeholder="Password" autocomplete="new-password">
+      <!-- Trap for bots: hidden from people, so anything typed here means a script filled the form in. -->
+      <input type="text" id="signup-website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
       <button class="btn btn-navy full" style="margin-top:.8rem" onclick="submitSignup()" id="signup-submit-btn">Start free trial</button>
       <div class="err" id="signup-err"></div>
       <p class="muted" style="font-size:.75rem;text-align:center;margin-top:.6rem">You get every feature, Premium included, for 30 days. Before your trial ends, choose Basic or Premium and set up your Direct Debit to carry on. Nothing is taken during the trial.</p>
@@ -2066,16 +2071,37 @@ function pickSignupKind(kind){
   document.getElementById("signup-school-name").classList.toggle("hidden", kind !== "school");
 }
 
+function showSignupEmailSent(email){
+  document.getElementById("gate-signup").innerHTML =
+    '<p class="sub">Almost there</p>' +
+    '<p style="text-align:center;padding:1rem 0;line-height:1.5">We\'ve sent a confirmation link to <strong>' + email.replace(/[<>&]/g,"") + '</strong>. Click it and you\'re in: 30 days of everything, free.</p>' +
+    '<p style="text-align:center"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">← Back to sign in</a></p>';
+}
+
+const TEMP_EMAIL_MESSAGE = "Please sign up with your usual email address, not a temporary one.";
+
 async function submitSignup(){
   const err = document.getElementById("signup-err");
   err.textContent = "";
-  const name = document.getElementById("signup-name").value.trim();
+  const firstName = document.getElementById("signup-first-name").value.trim();
+  const lastName = document.getElementById("signup-last-name").value.trim();
+  const name = (firstName + " " + lastName).trim();
   const schoolName = document.getElementById("signup-school-name").value.trim();
   const email = document.getElementById("signup-email").value.trim();
   const password = document.getElementById("signup-pass").value;
-  if(!name){ err.textContent = "Enter your name"; return; }
+  if(!firstName || !lastName){ err.textContent = "Enter your first and last name"; return; }
   if(signupKind === "school" && !schoolName){ err.textContent = "Enter your driving school name"; return; }
   if(!email || !password){ err.textContent = "Enter your email and password"; return; }
+
+  // The hidden trap field (Dale, 14 Sep 2026): people never see it, so if it's filled in a bot is signing up.
+  // Look as if it worked and create nothing.
+  if(document.getElementById("signup-website").value){ showSignupEmailSent(email); return; }
+
+  // Throwaway email services are refused (the database refuses them too); say so plainly before trying.
+  try{
+    const { data: blocked } = await sb.rpc("email_domain_blocked", { p_email: email });
+    if(blocked === true){ err.textContent = TEMP_EMAIL_MESSAGE; return; }
+  }catch(e){}
 
   const btn = document.getElementById("signup-submit-btn");
   btn.disabled = true;
@@ -2106,16 +2132,16 @@ async function submitSignup(){
     if(!signUpData.user) throw new Error("Sign up did not return an account");
 
     if(!signUpData.session){
-      document.getElementById("gate-signup").innerHTML =
-        '<p class="sub">Almost there</p>' +
-        '<p style="text-align:center;padding:1rem 0;line-height:1.5">We\'ve sent a confirmation link to <strong>' + email.replace(/[<>&]/g,"") + '</strong>. Click it and you\'re in: 30 days of everything, free.</p>' +
-        '<p style="text-align:center"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">← Back to sign in</a></p>';
+      showSignupEmailSent(email);
       return;
     }
 
     await provisionIfNeededAndEnter(signUpData.user);
   }catch(e){
-    err.textContent = e.message || "Sign up failed";
+    const msg = String(e.message || "");
+    err.textContent = /temporary one/i.test(msg) ? TEMP_EMAIL_MESSAGE
+      : /Database error saving new user/i.test(msg) ? "Sign up failed. If you used a temporary email address, please use your usual one."
+      : (msg || "Sign up failed");
     btn.disabled = false;
     btn.textContent = "Start free trial";
   }

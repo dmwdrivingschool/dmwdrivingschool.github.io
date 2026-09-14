@@ -3593,7 +3593,7 @@ async function loadEnquiries(){
       <div class="actions">
         ${(isSchoolAdminUser && currentSchoolId)?`<button class="btn-outline" onclick="openPupilThread('${p.id}')">Message</button>`:""}
         <button class="btn btn-navy btn-sm" onclick="setStatus('${p.id}','waiting')">Accept</button>
-        <button class="btn-outline" onclick="setStatus('${p.id}','inactive')">Decline</button>
+        <button class="btn-outline" onclick="declineEnquiry('${p.id}')">Decline</button>
         <button class="btn-danger" onclick="removePupil('${p.id}')">Remove</button>
       </div>
     </div>
@@ -3621,6 +3621,20 @@ async function assignEnquiryInstructor(pupilId, instructorId){
   if(p) p.instructor_id = value;
 }
 async function setStatus(id,status){const {error}=await sb.from("pupils").update({status}).eq("id",id); if(error)alert(error.message); else refresh()}
+// Decline = delete, the same as the app's Decline (Dale, 14 Sep 2026: a declined enquiry was left behind as an
+// inactive pupil with a login). manage-auth purge_pupil removes the enquiry, pupil record, login and messages.
+async function declineEnquiry(id){
+  const p=(pupilsCache||[]).find(x=>x.id===id)||{};
+  const name=[p.first_name,p.last_name].filter(Boolean).join(" ")||"this enquiry";
+  if(!confirm(`Decline and delete ${name}?\n\nThis permanently deletes the enquiry, pupil record, login and all associated data. They can enquire again in future with the same email address.\n\nThis cannot be undone.`)) return;
+  try{
+    await manageAuthAdmin("purge_pupil",{pupil_id:id});
+    alert("Enquiry declined and deleted.");
+    refresh();
+  }catch(e){
+    alert((e&&e.message)||"Couldn't decline and delete this enquiry.");
+  }
+}
 async function removePupil(id){
   if(!confirm("Remove this pupil?\n\nLessons/messages/progress may be removed.\nPayments are KEPT (unlinked). Delete finances only from the Finances tab if needed.")) return;
   // Keep all transactions — only unlink
@@ -4329,6 +4343,11 @@ async function deleteTestResult(id){
 // would silently NOT move the pupil to the Passed tab or purge their data,
 // which would be confusing and inconsistent with the app.
 async function passResultCleanup(pupilId){
+  // Remove the login first, while the pupil's email is still there to find it by (Dale, 14 Sep 2026: a passed
+  // pupil's unlinked login was left behind). The database trigger trg_pupils_remove_login_on_pass is the backstop.
+  try{
+    await sb.functions.invoke("manage-auth",{body:{action:"remove_pupil_login",pupil_id:pupilId}});
+  }catch(e){ console.error("Could not remove passed pupil login",e); }
   await sb.from("reflective_logs").delete().eq("pupil_id",pupilId);
   await sb.from("pupil_progress").delete().eq("pupil_id",pupilId);
   await sb.from("messages").delete().eq("pupil_id",pupilId);

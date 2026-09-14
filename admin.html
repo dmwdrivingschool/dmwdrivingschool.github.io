@@ -381,7 +381,7 @@ tbody tr:hover td{background:#334263}
   </div>
   <div id="gate-pupil" class="hidden" style="text-align:center">
     <p style="font-weight:700;font-size:1.05rem;margin-bottom:.5rem" id="gate-pupil-title">You're all set</p>
-    <p class="muted" style="margin-bottom:1rem">Your Drive My Way login is for the app. Open the Drive My Way app on your phone and sign in with your email address and password.</p>
+    <p class="muted" style="margin-bottom:1rem">Your Drive My Way login is for the app. Open the Drive My Way app on your phone and sign in with your email address and password. Forgotten your password? Tap Forgot password on the app's sign-in screen.</p>
     <a class="btn btn-navy full" style="display:block;text-decoration:none;margin-bottom:.5rem" href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener">App Store (iPhone)</a>
     <a class="btn btn-navy full" style="display:block;text-decoration:none" href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener">Google Play (Android)</a>
     <p class="muted" style="margin-top:1rem;font-size:.85rem">Driving instructor? <a href="#" onclick="location.href='/admin.html';return false" style="color:var(--navy);font-weight:700">Sign in to the Control Centre</a></p>
@@ -2677,7 +2677,14 @@ sb.auth.getSession().then(async ({data})=>{
     return;
   }
   if(await enforceLock(data.session.user.id)) return;
-  if(pendingSignupConfirm && data.session.user.user_metadata && data.session.user.user_metadata.role==="pupil") pendingRecovery=true;
+  // A pupil confirming their email from an enquiry form. They chose their app password on the form (Dale, 14 Sep
+  // 2026), so their login is linked to their pupil record and they're told to sign in to the app.
+  if(pendingSignupConfirm && data.session.user.user_metadata && data.session.user.user_metadata.role==="pupil"){
+    try{ await sb.rpc("pupil_link_profile_on_signup"); }catch(e){}
+    await sb.auth.signOut({scope:"local"});
+    showPupilAppNotice("Email confirmed");
+    return;
+  }
   if(pendingRecovery){ showRecoveryForm(); return; }
   const { data: prof } = await sb.from("profiles").select("role,full_name,email,school_id,is_school_admin").eq("id",data.session.user.id).maybeSingle();
   if(prof&&prof.role==="pupil"){ await sb.auth.signOut({scope:"local"}); showPupilAppNotice("You're all set"); return; }

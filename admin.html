@@ -2730,6 +2730,10 @@ async function refresh(opts){
     await Promise.all(jobs);
     lastRefreshAt=Date.now();
     loadDash(); loadEnquiries(); loadGaps(); loadActivity(); updateMessagesBadge();
+    if(!document.getElementById("tab-messages").classList.contains("hidden")){
+      if(msgTab==="broadcast") refreshBroadcastSent();
+      else if(msgTab==="scheduled") loadMessagesPanel();
+    }
     if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
     if(!document.getElementById("tab-pupils").classList.contains("hidden")) renderPupils();
     if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance();
@@ -7572,21 +7576,41 @@ function msgTabsHtml(){
 function setMsgTab(k){ msgTab=k; loadMessagesPanel(); }
 // Send to All goes to your own pupils, as in the app (a driving school admin's instructors send to theirs).
 function bcOwnPupils(){ return pupilsCache.filter(p=>p.instructor_id===currentUserId); }
-async function renderBroadcastTab(content){
+let bcReceiptsKey=null;
+// Returns the error, if any, and leaves the sends in bcBatches.
+async function loadBroadcastBatches(){
   const {data,error}=await sb.from("messages").select("id,pupil_id,subject,body,read_at,created_at").eq("direction","broadcast").eq("instructor_id",currentUserId).order("created_at",{ascending:false}).limit(2000);
+  if(error) return error;
   // One send puts in a row per pupil with the same time, subject and text, so grouping on those rebuilds each send.
   const groups=new Map();
   (data||[]).forEach(m=>{ const k=m.created_at+"|"+(m.subject||"")+"|"+(m.body||""); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(m); });
-  bcBatches=[...groups.values()].map(rows=>({created_at:rows[0].created_at, body:rows[0].body, rows}));
+  bcBatches=[...groups.entries()].map(([key,rows])=>({key, created_at:rows[0].created_at, body:rows[0].body, rows}));
+  return null;
+}
+function bcSentHtml(error){
+  const when=d=>new Date(d).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  if(error) return `<p class="muted">${esc(error.message)}</p>`;
+  if(!bcBatches.length) return '<p class="muted">No broadcasts sent yet</p>';
+  return bcBatches.map((b,i)=>{
+    const read=b.rows.filter(r=>r.read_at).length;
+    return `<div class="list-row" style="cursor:pointer" onclick="openReadReceipts(${i})"><div style="flex:1;min-width:0"><strong>Send to All</strong><div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(msgDisplayBody(b.body))}</div><div style="font-size:.8rem;font-weight:600;color:var(--navy);margin-top:.15rem">${read} of ${b.rows.length} read</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${when(b.created_at)}</div></div>`;
+  }).join("");
+}
+// Read counts keep up by themselves (Dale, 14 Sep 2026): the Control Centre's 30-second refresh redraws only the
+// Sent broadcasts list and any open read receipts, never the message being written.
+async function refreshBroadcastSent(){
+  const box=document.getElementById("bc-sent"); if(!box) return;
+  if(await loadBroadcastBatches()) return;
+  box.innerHTML=bcSentHtml(null);
+  if(document.getElementById("bc-receipts") && !document.getElementById("modal").classList.contains("hidden")){
+    const i=bcBatches.findIndex(b=>b.key===bcReceiptsKey);
+    if(i>=0){ const list=document.getElementById("bc-receipts-list"), top=list?list.scrollTop:0; openReadReceipts(i); const again=document.getElementById("bc-receipts-list"); if(again) again.scrollTop=top; }
+  }
+}
+async function renderBroadcastTab(content){
+  const error=await loadBroadcastBatches();
   bcFile=null;
   const active=bcOwnPupils().filter(p=>p.status==="active");
-  const when=d=>new Date(d).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
-  const sent = error ? `<p class="muted">${esc(error.message)}</p>`
-    : bcBatches.length ? bcBatches.map((b,i)=>{
-        const read=b.rows.filter(r=>r.read_at).length;
-        return `<div class="list-row" style="cursor:pointer" onclick="openReadReceipts(${i})"><div style="flex:1;min-width:0"><strong>Send to All</strong><div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(msgDisplayBody(b.body))}</div><div style="font-size:.8rem;font-weight:600;color:var(--navy);margin-top:.15rem">${read} of ${b.rows.length} read</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${when(b.created_at)}</div></div>`;
-      }).join("")
-    : '<p class="muted">No broadcasts sent yet</p>';
   content.innerHTML=`<h2>Messages</h2>${msgTabsHtml()}
     <p class="muted" style="margin:0 0 .75rem">Send a message to all your pupils — ideal for group announcements (e.g. weather, schedule changes, or reminders).</p>
     <div class="field"><textarea id="bc-body" rows="5" placeholder="Write your message"></textarea></div>
@@ -7604,7 +7628,7 @@ async function renderBroadcastTab(content){
     <button type="button" class="btn btn-navy" id="bc-send" onclick="sendBroadcastCC()">Send Now</button>
     <div class="err" id="bc-err" style="margin-top:.5rem;display:block;text-align:left"></div>
     <h3 style="margin:1.4rem 0 .3rem">Sent broadcasts</h3>
-    ${sent}`;
+    <div id="bc-sent">${bcSentHtml(error)}</div>`;
   updateMessagesBadge();
 }
 function bcToChanged(){ document.getElementById("bc-select").classList.toggle("hidden", document.getElementById("bc-to").value!=="select"); }
@@ -7710,12 +7734,13 @@ async function scheduleBroadcastCC(){
 }
 function openReadReceipts(i){
   const b=bcBatches[i]; if(!b) return;
+  bcReceiptsKey=b.key;
   const name=r=>{ const p=allPupils().find(x=>x.id===r.pupil_id); return p?`${p.first_name} ${p.last_name}`:"Unknown pupil"; };
   const rows=[...b.rows].sort((a,c)=>name(a).localeCompare(name(c)));
-  openModal(`<h3 style="margin:0 0 .25rem">Read receipts</h3>
+  openModal(`<h3 id="bc-receipts" style="margin:0 0 .25rem">Read receipts</h3>
     <p class="muted" style="margin-bottom:.4rem">${new Date(b.created_at).toLocaleString("en-GB",{weekday:"long",day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})}</p>
     <div style="white-space:pre-line;font-size:.9rem;margin-bottom:.75rem">${esc(msgDisplayBody(b.body))}</div>
-    <div style="border:1px solid var(--line);border-radius:10px;max-height:50vh;overflow-y:auto">
+    <div id="bc-receipts-list" style="border:1px solid var(--line);border-radius:10px;max-height:50vh;overflow-y:auto">
       ${rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.5rem .75rem;border-bottom:1px solid var(--line);font-size:.9rem"><span>${esc(name(r))}</span>${r.read_at?`<span class="chip chip-ok" style="white-space:nowrap">✓✓ Read ${new Date(r.read_at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>`:'<span class="muted" style="font-size:.8rem;white-space:nowrap">Not read yet</span>'}</div>`).join("")}
     </div>
     <button class="btn-outline" style="margin-top:.75rem" onclick="closeModal()">Close</button>`);

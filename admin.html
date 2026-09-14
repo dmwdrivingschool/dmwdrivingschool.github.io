@@ -7487,7 +7487,10 @@ async function openPupilThread(pupilId){
 function renderThreadChatLine(){
   const el=document.getElementById("thread-chat-line"); if(!el) return;
   const p = allPupils().find(x=>x.id===threadPupilId);
-  const on = !!(p && (p.messaging_enabled || p.status==="active"));
+  // Active pupils can always reply, so the switch only shows for the waiting list and enquiries (Dale, 14 Sep 2026).
+  if(!p || (p.status!=="waiting" && p.status!=="enquiry")){ el.innerHTML=""; el.style.display="none"; return; }
+  el.style.display="";
+  const on = !!p.messaging_enabled;
   el.innerHTML = on
     ? `<span class="chip chip-ok">Chat on</span> They can reply. <a href="#" onclick="togglePupilChat(false);return false" style="color:var(--navy)">Turn chat off</a>`
     : `<span class="chip chip-wait">Chat off</span> They can read your messages but can't reply yet. <button class="btn btn-navy btn-sm" style="margin-left:.4rem" onclick="togglePupilChat(true)">Turn chat on</button>`;

@@ -7986,7 +7986,7 @@ async function unlockSchool(schoolId, name){
 // Names capitalise themselves (Dale, 14 Sep 2026: "every name should auto capitalise"): the first letter of each word
 // and after a hyphen (Smith-Jones). The rest is left as typed, so DMW or McDonald stay as they are.
 function nameCase(s){
-  return String(s||"").replace(/(^|[\s-])(\p{L})/gu, (m, before, letter) => before + letter.toLocaleUpperCase("en-GB"));
+  return String(s||"").replace(/(^|[\s(-])(\p{L})/gu, (m, before, letter) => before + letter.toLocaleUpperCase("en-GB"));
 }
 const AUTO_CAPITALISE_IDS = new Set([
   "signup-first-name", "signup-last-name", "signup-school-name",
@@ -9382,9 +9382,10 @@ async function loadAllAccountsBilling(){
     return ` · <strong>${gbp(p)} a month</strong>`;
   };
   el.innerHTML = incomeSummary + (rows.length ? rows.map(s=>{
+    // A billing record whose account has been deleted says so (it used to read "Unknown instructor").
     const name = s.owner_type==="school"
-      ? (schoolById[s.owner_id]?.display_name || schoolById[s.owner_id]?.name || "Unknown school")
-      : (instrById[s.owner_id]?.full_name || instrById[s.owner_id]?.email || "Unknown instructor");
+      ? (schoolById[s.owner_id] ? nameCase(schoolById[s.owner_id].display_name || schoolById[s.owner_id].name || "") : "Deleted driving school")
+      : (instrById[s.owner_id] ? (instrById[s.owner_id].full_name ? nameCase(instrById[s.owner_id].full_name) : instrById[s.owner_id].email) : "Deleted account");
     const nameEsc = esc(name).replace(/'/g,"&#39;");
     // Cancelled accounts get an invite-back button instead of a cancel
     // one; the invite only asks, it can't restart their Direct Debit.

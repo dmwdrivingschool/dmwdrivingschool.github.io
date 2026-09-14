@@ -4720,7 +4720,10 @@ function downloadMyTaxDigital(){
   if(!taxSum) taxSum=taxSummaryDefaults();
   const {y,q}=taxSum;
   // Quarterly updates are always the running total from 6 April.
-  const F=taxFigures(`${y}-04-06`,taxQuarterBounds(y,q).to);
+  saveMtdSa103Csv(taxFigures(`${y}-04-06`,taxQuarterBounds(y,q).to),"From Drive My Way","my-tax-digital-SA103");
+}
+// Also used for Drive My Way's own books on the Billing tab. F needs from, to, turnover, otherInc and heads.
+function saveMtdSa103Csv(F,source,filePrefix){
   const grid=Array.from({length:79},()=>Array(12).fill(""));
   const put=(col,row,val)=>{ grid[row-1][col.charCodeAt(0)-65]=val; };
   const n=v=>Number(v||0).toFixed(2);
@@ -4732,7 +4735,7 @@ function downloadMyTaxDigital(){
     t.total+=h.total; t.notClaim+=h.notClaim;
   });
   put("D",1,"Self Employment (SA103F) Cumulative Income & Expenses");
-  put("A",2,`From Drive My Way: running total ${F.from} to ${F.to}. In My Tax Digital, Bridging mode, upload this file with the "to" date ${F.to} and check every figure before submitting.`);
+  put("A",2,`${source}: running total ${F.from} to ${F.to}. In My Tax Digital, Bridging mode, upload this file with the "to" date ${F.to} and check every figure before submitting.`);
   put("A",3,"Business income");
   put("A",5,"15"); put("B",5,TAX_HEADINGS.turnover+" (after refunds)"); put("G",5,"16"); put("H",5,TAX_HEADINGS.otherIncome);
   put("B",7,"£"); put("D",7,n(F.turnover)); put("H",7,"£"); put("J",7,n(F.otherInc));
@@ -4747,7 +4750,7 @@ function downloadMyTaxDigital(){
   const cell=v=>/[",\r\n]/.test(v)?'"'+String(v).replace(/"/g,'""')+'"':v;
   const csv=grid.map(r=>r.map(cell).join(",")).join("\r\n");
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
-  a.download=`my-tax-digital-SA103_${F.from}_${F.to}.csv`; a.click();
+  a.download=`${filePrefix}_${F.from}_${F.to}.csv`; a.click();
 }
 // Tax to set aside (Dale, 12 Sep 2026): income tax and Class 4 National
 // Insurance on a sole trader's profit at England, Wales and Northern Ireland
@@ -8787,7 +8790,23 @@ async function callFn(name, payload){
 }
 
 const SEAT_PRICE_PENCE = 999; // £9.99 — kept in sync manually with the GoCardless price setup
-const PLATFORM_EXPENSE_CATS = ["Hosting & infrastructure","GoCardless fees","Domain & DNS","Marketing","Software & tools","Legal & professional","Other"];
+// Drive My Way's own books (Billing tab), laid out like Finances with its own Tax summary (Dale, 14 Sep 2026). Each
+// category carries the HMRC heading the Finances Tax summary uses (TAX_HEADINGS), since Drive My Way is kept as a
+// business of its own. Subscription revenue and GoCardless fees are added by the GoCardless webhook.
+const PLATFORM_INCOME_DEFS=[
+  {name:"Subscription revenue",label:"Subscription payments",heading:"turnover"},
+  {name:"Other income",heading:"otherIncome"}
+];
+const PLATFORM_EXPENSE_DEFS=[
+  {name:"Hosting & infrastructure",heading:"adminCosts"},
+  {name:"Software & tools",heading:"adminCosts"},
+  {name:"Domain & DNS",heading:"adminCosts"},
+  {name:"GoCardless fees",heading:"financeCharges"},
+  {name:"Marketing",heading:"advertisingCosts"},
+  {name:"Legal & professional",heading:"professionalFees"},
+  {name:"Refunds to customers",heading:"refunds"},
+  {name:"Other",heading:"otherExpenses"}
+];
 
 async function loadBillingPanel(){
   const content=document.getElementById("billing-content");
@@ -9314,8 +9333,8 @@ async function loadSuperAdminBilling(){
     <h3 style="margin-bottom:.5rem">All accounts</h3>
     <div id="all-accounts-list" class="panel" style="border:none;padding:0">Loading…</div>
 
-    <h3 style="margin:2rem 0 .5rem">DriveMyWay income &amp; expenses</h3>
-    <p class="muted" style="margin-bottom:.75rem">Subscription payments and GoCardless fees are added automatically when GoCardless pays into your bank, dated the day the money arrives. Add your other costs here. This is separate from your driving school Finances tab.</p>
+    <h3 style="margin:2rem 0 .5rem">Drive My Way income &amp; expenses</h3>
+    <p class="muted" style="margin-bottom:.75rem">Subscription payments and GoCardless fees are added automatically when GoCardless pays into your bank, dated the day the money arrives. Add your other costs here. This is separate from your driving school Finances tab, and has its own Tax summary.</p>
     <div class="filters">
       <div class="field"><label>Period</label>
         <select id="ptx-period" onchange="onPtxPeriodChange()">
@@ -9336,8 +9355,10 @@ async function loadSuperAdminBilling(){
       <button class="btn btn-navy btn-sm" onclick="openAddPlatformTx('income')">+ Income</button>
       <button class="btn-outline" onclick="openAddPlatformTx('expense')">+ Expense</button>
     </div>
-    <div id="platform-summary"></div>
-    <div id="platform-tx-list" class="panel" style="border:none;padding:0">Loading…</div>`;
+    <div class="tabs-sub" id="ptx-tabs">
+      ${[["summary","Summary"],["income","Income"],["expense","Expenses"],["tax","Tax summary"]].map(([k,l])=>`<button class="${ptxMode===k?"on":""}" data-ptx="${k}" onclick="showPtx('${k}',this)">${l}</button>`).join("")}
+    </div>
+    ${["summary","income","expense","tax"].map(k=>`<div id="ptx-${k}" class="${ptxMode===k?"":"hidden"}">${ptxMode===k?"Loading…":""}</div>`).join("")}`;
 
   await Promise.all([loadAllAccountsBilling(), loadPlatformTransactions()]);
 }
@@ -9423,14 +9444,19 @@ async function showPaymentHistory(subscriptionId, name){
 
 function platformTxForm(type, existing){
   const isExpense = type==="expense";
-  const catField = isExpense ? `<div class="field"><label>Category</label>
-      <select id="ptx-category">${PLATFORM_EXPENSE_CATS.map(c=>`<option ${existing&&existing.category===c?"selected":""}>${c}</option>`).join("")}</select>
-    </div>` : "";
+  const defs = isExpense ? PLATFORM_EXPENSE_DEFS : PLATFORM_INCOME_DEFS;
+  const current = existing ? ptxCategory(existing) : (isExpense ? defs[0].name : "Other income");
+  const options = (defs.some(d=>d.name===current) ? defs : [{name:current}, ...defs])
+    .map(d=>`<option value="${esc(d.name)}" ${d.name===current?"selected":""}>${esc(d.label||d.name)}</option>`).join("");
   const today = new Date().toISOString().slice(0,10);
   return `
     <div class="field"><label>Amount (£)</label><input id="ptx-amount" type="number" step="0.01" min="0" value="${existing?existing.amount:""}"></div>
     <div class="field"><label>Date</label><input id="ptx-date" type="date" value="${existing?existing.transaction_date:today}"></div>
-    ${catField}
+    <div class="field"><label>Category</label>
+      <select id="ptx-category" onchange="ptxCategoryHint('${type}')">${options}</select>
+      <div class="muted" id="ptx-category-hint" style="font-size:.75rem;margin-top:.2rem">HMRC heading: ${esc(TAX_HEADINGS[ptxHeading({type,category:current})]||"")}</div>
+    </div>
+    ${isExpense ? `<div class="field"><label>Claimable for tax?</label><select id="ptx-claimable"><option value="true">Claimable</option><option value="false" ${existing&&existing.claimable===false?"selected":""}>Not claimable</option></select></div>` : ""}
     <div class="field"><label>Description</label><input id="ptx-desc" value="${existing?esc(existing.description||""):""}"></div>
     <div class="field"><label>Payment method (optional)</label><input id="ptx-method" value="${existing?esc(existing.payment_method||""):""}"></div>
     <div class="field"><label>Notes (optional)</label><textarea id="ptx-notes">${existing?esc(existing.notes||""):""}</textarea></div>`;
@@ -9463,7 +9489,8 @@ function readPlatformTxForm(type, err){
   return {
     amount,
     transaction_date: date,
-    category: type==="expense" ? document.getElementById("ptx-category").value : "Other",
+    category: document.getElementById("ptx-category").value,
+    claimable: type==="expense" ? document.getElementById("ptx-claimable").value==="true" : true,
     description: document.getElementById("ptx-desc").value.trim() || null,
     payment_method: document.getElementById("ptx-method").value.trim() || null,
     notes: document.getElementById("ptx-notes").value.trim() || null
@@ -9531,48 +9558,255 @@ async function loadPlatformTransactions(){
   renderPlatformTransactions();
 }
 
-function renderPlatformTransactions(){
-  const el=document.getElementById("platform-tx-list");
-  const summaryEl=document.getElementById("platform-summary");
-  const rows = filteredPlatformTx();
-  const income = rows.filter(t=>t.type==="income").reduce((sum,t)=>sum+Number(t.amount),0);
-  const expense = rows.filter(t=>t.type==="expense").reduce((sum,t)=>sum+Number(t.amount),0);
-  const profit = income - expense;
-  const {from,to} = getPtxRange();
-  summaryEl.innerHTML = `<p class="muted" style="margin-bottom:.75rem">${from||"all"} → ${to||"all"} · ${rows.length} entries</p>
-    <div class="metric-row" style="margin-bottom:1rem">
-      <div class="metric"><div class="v good">£${income.toFixed(2)}</div><div class="l">Income</div></div>
-      <div class="metric"><div class="v bad">£${expense.toFixed(2)}</div><div class="l">Expenses</div></div>
-      <div class="metric"><div class="v">£${profit.toFixed(2)}</div><div class="l">Profit</div></div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:#fff;border-radius:12px;padding:.85rem 1rem;margin-bottom:1rem">
-      <span style="font-family:var(--fb);text-transform:uppercase;font-size:.72rem;letter-spacing:.05em;font-weight:700">Profit</span>
-      <span style="font-family:var(--fm);font-size:1.05rem;font-weight:700">£${profit.toFixed(2)}</span>
-    </div>`;
+function ptxIsExpense(t){ return t.type==="expense"; }
+function ptxCategory(t){ return t.category||(ptxIsExpense(t)?"Other":"Other income"); }
+function ptxDef(t){ const c=ptxCategory(t); return (ptxIsExpense(t)?PLATFORM_EXPENSE_DEFS:PLATFORM_INCOME_DEFS).find(d=>d.name===c); }
+function ptxLabel(t){ const d=ptxDef(t); return (d&&d.label)||ptxCategory(t); }
+function ptxHeading(t){ const d=ptxDef(t); return d?d.heading:(ptxIsExpense(t)?"otherExpenses":"otherIncome"); }
+function ptxClaimable(t){ return t.claimable!==false; }
+function ptxMoney(n){ n=Number(n)||0; return (n<-0.004?"-£":"£")+Math.abs(n).toFixed(2); }
+function ptxDate(d){ return d?new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):""; }
+function ptxBetween(from,to){ return (platformTxCache||[]).filter(t=>{ const d=t.transaction_date||""; return d&&d>=from&&d<=to; }); }
+function ptxCategoryHint(type){
+  const sel=document.getElementById("ptx-category"), hint=document.getElementById("ptx-category-hint");
+  if(sel&&hint) hint.textContent="HMRC heading: "+(TAX_HEADINGS[ptxHeading({type,category:sel.value})]||"");
+}
+// Figures by HMRC heading, worked out the same way taxFigures does for Finances.
+function ptxFigures(rows,from,to){
+  const heads={}; let turnoverGross=0, refunds=0, otherInc=0;
+  rows.forEach(t=>{
+    const amt=Number(t.amount||0), h=ptxHeading(t);
+    if(!ptxIsExpense(t)){ if(h==="turnover") turnoverGross+=amt; else otherInc+=amt; return; }
+    // Money given back to customers comes off turnover rather than counting as an expense.
+    if(h==="refunds"){ refunds+=amt; return; }
+    const x=heads[h]||(heads[h]={total:0,notClaim:0});
+    x.total+=amt; if(!ptxClaimable(t)) x.notClaim+=amt;
+  });
+  const turnover=turnoverGross-refunds;
+  const totExp=Object.values(heads).reduce((s,x)=>s+x.total,0);
+  const totNot=Object.values(heads).reduce((s,x)=>s+x.notClaim,0);
+  const totClaim=totExp-totNot;
+  const usedHeadings=TAX_EXPENSE_ORDER.filter(k=>heads[k]||PLATFORM_EXPENSE_DEFS.some(d=>d.heading===k));
+  return {from,to,rows,turnoverGross,refunds,turnover,otherInc,heads,usedHeadings,totExp,totNot,totClaim,
+    profitTax:turnover+otherInc-totClaim, profitAll:turnover+otherInc-totExp};
+}
+function ptxProfitBar(label,v,bg){
+  return `<div style="display:flex;justify-content:space-between;align-items:center;background:${bg};color:#fff;border-radius:12px;padding:.85rem 1rem;margin-top:.6rem">
+    <span style="font-family:var(--fb);text-transform:uppercase;font-size:.72rem;letter-spacing:.05em;font-weight:700">${label}</span>
+    <span style="font-family:var(--fm);font-size:1.05rem;font-weight:700">${ptxMoney(v)}</span>
+  </div>`;
+}
 
-  el.innerHTML = rows.length ? rows.map(t=>{
-    const amtColor = t.type==="income" ? "#166534" : "#9c2b2b";
-    const sign = t.type==="income" ? "+" : "−";
-    const auto = !!(t.gocardless_payment_id || t.gocardless_payout_id);
-    const actions = auto
-      ? '<span class="muted" style="font-size:.72rem">Auto</span>'
-      : `<button class="btn-outline" style="font-size:.72rem;padding:.25rem .5rem" onclick="openEditPlatformTx('${t.id}')">Edit</button>`;
-    return `<div class="list-row"><div><strong>${esc(t.category||t.type)}</strong><div class="muted">${esc(t.description||"")}${t.transaction_date?" · "+new Date(t.transaction_date).toLocaleDateString():""}</div></div>
-      <div style="display:flex;align-items:center;gap:.6rem">
-        <span style="color:${amtColor};font-weight:700;font-family:var(--fm)">${sign}£${Number(t.amount).toFixed(2)}</span>
-        ${actions}
-      </div></div>`;
-  }).join("") : '<p class="muted">No entries in this period.</p>';
+// Summary, Income, Expenses and Tax summary, like the Finances tab.
+let ptxMode="summary";
+function showPtx(mode){
+  ptxMode=mode;
+  document.querySelectorAll("#ptx-tabs button").forEach(b=>b.classList.toggle("on",b.dataset.ptx===mode));
+  ["summary","income","expense","tax"].forEach(m=>{ const el=document.getElementById("ptx-"+m); if(el) el.classList.toggle("hidden",m!==mode); });
+  renderPlatformTransactions();
+}
+
+function renderPlatformTransactions(){
+  const sumEl=document.getElementById("ptx-summary");
+  if(!sumEl) return;
+  const rows=filteredPlatformTx();
+  const inc=rows.filter(t=>!ptxIsExpense(t)), exp=rows.filter(ptxIsExpense);
+  const add=(s,t)=>s+Number(t.amount||0);
+  const sumInc=inc.reduce(add,0), sumExp=exp.reduce(add,0), sumNot=exp.filter(t=>!ptxClaimable(t)).reduce(add,0);
+  const profitTax=sumInc-(sumExp-sumNot), profitAll=sumInc-sumExp;
+  const {from,to}=getPtxRange();
+  sumEl.innerHTML=`<p class="muted" style="margin-bottom:.75rem">${from?ptxDate(from):"All"} → ${to?ptxDate(to):"now"} · ${rows.length} entr${rows.length===1?"y":"ies"}</p>
+    <div class="metric-row" style="margin-bottom:.8rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      <div class="metric"><div class="v good">${ptxMoney(sumInc)}</div><div class="l">Income</div></div>
+      <div class="metric"><div class="v bad">${ptxMoney(sumExp)}</div><div class="l">Expenses</div></div>
+      <div class="metric"><div class="v">${ptxMoney(sumNot)}</div><div class="l">of which not claimable</div></div>
+      <div class="metric"><div class="v">${ptxMoney(profitTax)}</div><div class="l">Profit (claimable expenses)</div></div>
+      <div class="metric"><div class="v">${ptxMoney(profitAll)}</div><div class="l">Profit (all expenses)</div></div>
+    </div>
+    <p class="muted" style="margin-bottom:1rem;font-size:.78rem">Profit (claimable expenses) only takes off expenses you can claim for tax, the figure HMRC works from. Profit (all expenses) takes off every business outgoing, including ones that aren't claimable. Click a category to see its entries.</p>
+    ${ptxCategoryTable(inc,false)}
+    <div style="height:.9rem"></div>
+    ${ptxCategoryTable(exp,true)}
+    <div style="margin-top:.9rem">${ptxProfitBar("Profit (claimable expenses)",profitTax,PROFIT_COLOURS.claimable)}${ptxProfitBar("Profit (all expenses)",profitAll,PROFIT_COLOURS.all)}</div>`;
+  document.getElementById("ptx-income").innerHTML=ptxTable(inc);
+  document.getElementById("ptx-expense").innerHTML=ptxTable(exp);
+  if(ptxMode==="tax") renderPlatformTaxSummary();
+}
+// Every category is listed, even at £0.00, with its HMRC heading underneath (as on the Finances Summary).
+function ptxCategoryTable(rows,isExp){
+  const defs=isExp?PLATFORM_EXPENSE_DEFS:PLATFORM_INCOME_DEFS;
+  const type=isExp?"expense":"income";
+  const by={};
+  rows.forEach(t=>{
+    const d=by[ptxCategory(t)]||(by[ptxCategory(t)]={count:0,amount:0,notClaim:0});
+    d.count++; d.amount+=Number(t.amount||0);
+    if(isExp&&!ptxClaimable(t)) d.notClaim+=Number(t.amount||0);
+  });
+  const names=[...defs.map(d=>d.name),...Object.keys(by).filter(c=>!defs.some(d=>d.name===c)).sort()];
+  const total=rows.reduce((s,t)=>s+Number(t.amount||0),0);
+  const totalNot=isExp?rows.filter(t=>!ptxClaimable(t)).reduce((s,t)=>s+Number(t.amount||0),0):0;
+  const label=isExp?"Expenses":"Income";
+  const orDash=v=>v>0.004?ptxMoney(v):"–";
+  const body=names.map(c=>{
+    const d=by[c]||{count:0,amount:0,notClaim:0};
+    const probe={type,category:c};
+    const catArg=JSON.stringify(c).replace(/'/g,"&#39;");
+    return `<tr style="cursor:pointer" onclick='showPtxCategory(${catArg},${isExp})' title="Click to see every entry in this category">
+      <td>${esc(ptxLabel(probe))}<div class="muted" style="font-size:.72rem">${esc(TAX_HEADINGS[ptxHeading(probe)]||"")}</div></td>
+      <td style="text-align:right">${d.count}</td>
+      <td style="text-align:right">${ptxMoney(d.amount)}</td>
+      ${isExp?`<td style="text-align:right">${orDash(d.notClaim)}</td><td style="text-align:right">${orDash(d.amount-d.notClaim)}</td>`:""}
+    </tr>`;
+  }).join("");
+  return `<div style="overflow-x:auto"><table><thead><tr><th>${label}</th><th style="text-align:right">Qty</th><th style="text-align:right">Amount</th>${isExp?'<th style="text-align:right">Not claimable</th><th style="text-align:right">Claimable</th>':""}</tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr style="background:var(--soft);font-weight:700"><td>Total ${label.toLowerCase()}</td><td style="text-align:right">${rows.length}</td><td style="text-align:right">${ptxMoney(total)}</td>${isExp?`<td style="text-align:right">${ptxMoney(totalNot)}</td><td style="text-align:right">${ptxMoney(total-totalNot)}</td>`:""}</tr></tfoot></table></div>`;
+}
+function ptxTable(rows){
+  if(!rows.length) return '<p class="muted">No entries in this period.</p>';
+  return `<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Detail</th><th style="text-align:right">Amount</th><th>Method</th><th></th></tr></thead><tbody>${rows.map(t=>{
+    const auto=!!(t.gocardless_payment_id||t.gocardless_payout_id);
+    const flag=ptxIsExpense(t)&&!ptxClaimable(t)?'<div style="font-size:.7rem;font-weight:700;color:#b45309">Not claimable</div>':"";
+    return `<tr><td style="white-space:nowrap">${esc(ptxDate(t.transaction_date))}</td>
+      <td><strong>${esc(ptxLabel(t))}</strong>${t.description?`<div class="muted" style="font-size:.78rem">${esc(t.description)}</div>`:""}${flag}</td>
+      <td style="text-align:right;white-space:nowrap">${ptxMoney(t.amount)}</td>
+      <td>${esc(t.payment_method||"–")}</td>
+      <td class="actions">${auto?'<span class="muted" style="font-size:.72rem" title="Added automatically from GoCardless">Auto</span>':`<button class="btn-outline" onclick="openEditPlatformTx('${t.id}')">Edit</button>`}</td></tr>`;
+  }).join("")}</tbody></table></div>`;
+}
+function showPtxCategory(cat,isExp){
+  const rows=filteredPlatformTx().filter(t=>ptxIsExpense(t)===isExp&&ptxCategory(t)===cat);
+  const {from,to}=getPtxRange();
+  const total=rows.reduce((s,t)=>s+Number(t.amount||0),0);
+  openModal(`<h3 style="margin:0 0 .25rem">${esc(ptxLabel({type:isExp?"expense":"income",category:cat}))}</h3>
+    <p class="muted" style="margin-bottom:.75rem">${from?ptxDate(from):"All"} → ${to?ptxDate(to):"now"} · ${rows.length} entr${rows.length===1?"y":"ies"} · ${ptxMoney(total)}</p>
+    ${ptxTable(rows)}
+    <button class="btn-outline" style="margin-top:1rem" onclick="closeModal()">Close</button>`);
+}
+
+// Drive My Way's Tax summary (Dale, 14 Sep 2026): the Finances one for Drive My Way's own books. It's kept as a
+// business of its own, so its figures go on its own self-employment pages and quarterly updates; HMRC's quarters and
+// headings are the same.
+let ptxTaxSum=null;
+function renderPlatformTaxSummary(){
+  const el=document.getElementById("ptx-tax");
+  if(!el) return;
+  if(!ptxTaxSum) ptxTaxSum=taxSummaryDefaults();
+  const {y,q,ytd}=ptxTaxSum;
+  const qb=taxQuarterBounds(y,q);
+  const from=(q===0||ytd)?`${y}-04-06`:qb.from, to=qb.to;
+  const F=ptxFigures(ptxBetween(from,to),from,to);
+  const cy=Number(taxYearBounds(0).from.slice(0,4));
+  const earliest=(platformTxCache||[]).reduce((m,t)=>{ const d=t.transaction_date||""; return d&&d<m?d:m; },`${cy}-04-06`);
+  let ey=Number(earliest.slice(0,4)); if(earliest.slice(5)<"04-06") ey--;
+  const years=[]; for(let yy=cy; yy>=Math.min(ey,y); yy--) years.push(yy);
+  const qLabel=["Whole tax year","Quarter 1 · 6 Apr – 5 Jul","Quarter 2 · 6 Jul – 5 Oct","Quarter 3 · 6 Oct – 5 Jan","Quarter 4 · 6 Jan – 5 Apr"];
+  const m=ptxMoney;
+  el.innerHTML=`<div class="filters">
+      <div class="field"><label>Tax year</label><select onchange="ptxTaxSum.y=Number(this.value);renderPlatformTaxSummary()">${years.map(yy=>`<option value="${yy}" ${yy===y?"selected":""}>${yy}–${String(yy+1).slice(2)}</option>`).join("")}</select></div>
+      <div class="field"><label>Update</label><select onchange="ptxTaxSum.q=Number(this.value);renderPlatformTaxSummary()">${[1,2,3,4,0].map(i=>`<option value="${i}" ${i===q?"selected":""}>${qLabel[i]}</option>`).join("")}</select></div>
+      ${q?`<div class="field"><label>Figures</label><select onchange="ptxTaxSum.ytd=this.value==='1';renderPlatformTaxSummary()"><option value="1" ${ytd?"selected":""}>Running total from 6 April</option><option value="0" ${ytd?"":"selected"}>This quarter only</option></select></div>`:""}
+      <button class="btn-outline" onclick="downloadPlatformTaxSummary()">Download tax summary</button>
+      <button class="btn-outline" onclick="downloadPlatformMyTaxDigital()" title="Laid out like My Tax Digital's SA103 template, always the running total from 6 April to the end of the chosen quarter">Download for My Tax Digital</button>
+    </div>
+    <p class="muted" style="margin-bottom:.9rem">${ptxDate(from)} → ${ptxDate(to)} · ${F.rows.length} entr${F.rows.length===1?"y":"ies"}${q&&ytd?" · Making Tax Digital quarterly updates are a running total for the tax year so far":""}</p>
+    <div class="metric-row" style="margin-bottom:1.2rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      <div class="metric"><div class="v good">${m(F.turnover+F.otherInc)}</div><div class="l">Business income</div></div>
+      <div class="metric"><div class="v bad">${m(F.totClaim)}</div><div class="l">Claimable expenses</div></div>
+      <div class="metric"><div class="v">${m(F.totNot)}</div><div class="l">Not claimable</div></div>
+      <div class="metric"><div class="v">${m(F.profitTax)}</div><div class="l">Profit (claimable expenses)</div></div>
+      <div class="metric"><div class="v">${m(F.profitAll)}</div><div class="l">Profit (all expenses)</div></div>
+    </div>
+    ${platformSetAsideHtml(y,to)}
+    <div style="overflow-x:auto"><table><thead><tr><th>Income</th><th style="text-align:right">Amount</th></tr></thead><tbody>
+      <tr><td>Subscription payments and other takings</td><td style="text-align:right">${m(F.turnoverGross)}</td></tr>
+      <tr><td>Refunds to customers taken off</td><td style="text-align:right">${F.refunds?"-"+m(F.refunds):m(0)}</td></tr>
+      <tr style="background:var(--soft);font-weight:700"><td>${esc(TAX_HEADINGS.turnover)}</td><td style="text-align:right">${m(F.turnover)}</td></tr>
+      <tr><td>${esc(TAX_HEADINGS.otherIncome)}</td><td style="text-align:right">${m(F.otherInc)}</td></tr>
+    </tbody></table></div>
+    <div style="height:.9rem"></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Expenses (HMRC heading)</th><th style="text-align:right">Total</th><th style="text-align:right">Not claimable</th><th style="text-align:right">Claimable</th></tr></thead><tbody>
+      ${F.usedHeadings.map(k=>{ const h=F.heads[k]||{total:0,notClaim:0}; return `<tr><td>${esc(TAX_HEADINGS[k])}</td><td style="text-align:right">${m(h.total)}</td><td style="text-align:right">${h.notClaim?m(h.notClaim):"–"}</td><td style="text-align:right">${m(h.total-h.notClaim)}</td></tr>`; }).join("")}
+    </tbody><tfoot><tr style="background:var(--soft);font-weight:700"><td>Total expenses</td><td style="text-align:right">${m(F.totExp)}</td><td style="text-align:right">${m(F.totNot)}</td><td style="text-align:right">${m(F.totClaim)}</td></tr></tfoot></table></div>
+    <div style="margin-top:.9rem">${ptxProfitBar("Profit (claimable expenses)",F.profitTax,PROFIT_COLOURS.claimable)}${ptxProfitBar("Profit (all expenses)",F.profitAll,PROFIT_COLOURS.all)}</div>
+    <div class="muted" style="margin-top:.9rem;font-size:.8rem;line-height:1.5">
+      Drive My Way is kept as a separate business from your driving school, so these figures go on its own self-employment pages and its own quarterly updates, not your driving school's. If its income is under £90,000 a year, a quarterly update can give one total for expenses instead of each heading: ${m(F.totExp)}, of which ${m(F.totNot)} isn't claimable.<br>
+      This is a guide to the figures only. Nothing is sent to HMRC from here: use HMRC-recognised software or your accountant.
+    </div>`;
+  ptxTaxSum.last=F;
+}
+// Income tax and National Insurance are worked out on all self-employed profit together, so Drive My Way's share is
+// what its profit adds on top of the tax on the driving school's profit from Finances. Projected to a whole year the
+// same way as taxSetAsideHtml.
+function platformSetAsideHtml(y,to){
+  const yearFrom=`${y}-04-06`, yearTo=`${y+1}-04-05`;
+  const today=new Date().toISOString().slice(0,10);
+  const upTo=[to,today,yearTo].sort()[0];
+  const day=86400000;
+  const share=Math.min(1,Math.max(1,(Date.parse(upTo)-Date.parse(yearFrom))/day+1)/((Date.parse(yearTo)-Date.parse(yearFrom))/day+1));
+  const whole=share>=1;
+  const r2=n=>Math.round(n*100)/100;
+  const dmwSoFar=ptxFigures(ptxBetween(yearFrom,upTo),yearFrom,upTo).profitTax;
+  const dmwYear=whole?dmwSoFar:dmwSoFar/share;
+  // A limited company's profit isn't self-employed profit, so only a sole trader's driving school counts here.
+  const withSchool=!isCompany();
+  const schoolSoFar=withSchool?taxFigures(yearFrom,upTo).profitTax:0;
+  const schoolYear=whole?schoolSoFar:schoolSoFar/share;
+  const base=estimateSoleTraderTax(Math.max(0,schoolYear),y);
+  const both=estimateSoleTraderTax(Math.max(0,schoolYear)+Math.max(0,dmwYear),y);
+  const lines=[["Extra income tax",r2(both.incomeTax-base.incomeTax)],["Extra Class 4 National Insurance",r2(both.classFour-base.classFour)]];
+  if(both.classTwo!==base.classTwo) lines.push(["Extra Class 2 National Insurance",r2(both.classTwo-base.classTwo)]);
+  const total=r2(lines.reduce((s,[,v])=>s+v,0));
+  const part=n=>r2(n*share);
+  const setAside=r2(lines.reduce((s,[,v])=>s+part(v),0));
+  const num=v=>`<td style="text-align:right">${ptxMoney(v)}</td>`;
+  return `<div style="border:1px solid var(--line);border-radius:12px;padding:.8rem 1rem;margin:0 0 1.2rem">
+    <h3 style="margin:0 0 .5rem">Tax to set aside for Drive My Way · ${y}–${String(y+1).slice(2)} (estimate)</h3>
+    <div style="overflow-x:auto"><table><thead><tr><th></th><th style="text-align:right">${whole?"For the year":"For the year at this rate"}</th>${whole?"":`<th style="text-align:right">By ${ptxDate(upTo)}</th>`}</tr></thead><tbody>
+      <tr><td>Drive My Way profit</td>${num(dmwYear)}${whole?"":num(dmwSoFar)}</tr>
+      ${withSchool?`<tr><td class="muted">Your driving school profit (from Finances)</td>${num(schoolYear)}${whole?"":num(schoolSoFar)}</tr>`:""}
+      ${lines.map(([label,v])=>`<tr><td>${label}</td>${num(v)}${whole?"":num(part(v))}</tr>`).join("")}
+    </tbody><tfoot><tr style="background:var(--soft);font-weight:700"><td>Set aside for Drive My Way</td>${num(total)}${whole?"":num(setAside)}</tr></tfoot></table></div>
+    <p class="muted" style="margin:.6rem 0 0;font-size:.78rem;line-height:1.5">${dmwYear<=0?"Drive My Way hasn't made a profit in this tax year so far, so there's nothing extra to set aside. ":""}${withSchool?"Income tax and National Insurance are worked out on all your self-employed profit together, so this is the extra that Drive My Way's profit adds on top of the tax on your driving school's profit. The Tax summary in Finances covers your driving school's share. ":""}${whole?"":"Worked out as if both keep making profit at the same rate for the rest of the tax year. "}It assumes no other income such as a job or pension, and England, Wales and Northern Ireland rates (Scotland's income tax rates are different).</p>
+  </div>`;
+}
+function downloadPlatformTaxSummary(){
+  if(!ptxTaxSum||!ptxTaxSum.last) return;
+  const L=ptxTaxSum.last;
+  const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  const n=v=>Number(v||0).toFixed(2);
+  const lines=[
+    "section,heading,total,not_claimable,claimable",
+    `period,${q("Drive My Way "+L.from+" to "+L.to)},,,`,
+    `income,${q("Subscription payments and other takings")},${n(L.turnoverGross)},,`,
+    `income,${q("Refunds to customers taken off")},${n(L.refunds)},,`,
+    `income,${q(TAX_HEADINGS.turnover)},${n(L.turnover)},,`,
+    `income,${q(TAX_HEADINGS.otherIncome)},${n(L.otherInc)},,`,
+    ...L.usedHeadings.map(k=>{ const h=L.heads[k]||{total:0,notClaim:0}; return `expense,${q(TAX_HEADINGS[k])},${n(h.total)},${n(h.notClaim)},${n(h.total-h.notClaim)}`; }),
+    `expense,${q("Total expenses")},${n(L.totExp)},${n(L.totNot)},${n(L.totClaim)}`,
+    `profit,${q("Profit (claimable expenses)")},${n(L.profitTax)},,`,
+    `profit,${q("Profit (all expenses)")},${n(L.profitAll)},,`
+  ];
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));
+  a.download=`drive-my-way-tax-summary_${L.from}_${L.to}.csv`; a.click();
+}
+function downloadPlatformMyTaxDigital(){
+  if(!ptxTaxSum) ptxTaxSum=taxSummaryDefaults();
+  const {y,q}=ptxTaxSum;
+  const from=`${y}-04-06`, to=taxQuarterBounds(y,q).to;
+  saveMtdSa103Csv(ptxFigures(ptxBetween(from,to),from,to),"Drive My Way (the business, not your driving school)","my-tax-digital-SA103_drive-my-way");
 }
 
 function exportPlatformTxCsv(){
   const rows=filteredPlatformTx(); const {from,to}=getPtxRange();
-  const lines=["date,type,category,amount,description,method,notes"];
+  const cell=v=>{ const s=String(v??""); return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  const lines=["date,type,category,hmrc_heading,amount,claimable,description,method,notes"];
   rows.forEach(t=>{
-    lines.push([t.transaction_date||"",t.type||"",t.category||"",t.amount??"",(t.description||"").replace(/,/g,";"),t.payment_method||"",(t.notes||"").replace(/,/g,";")].join(","));
+    lines.push([t.transaction_date||"",t.type||"",ptxCategory(t),TAX_HEADINGS[ptxHeading(t)]||"",Number(t.amount||0).toFixed(2),
+      ptxIsExpense(t)?(ptxClaimable(t)?"yes":"no"):"",t.description||"",t.payment_method||"",t.notes||""].map(cell).join(","));
   });
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));
-  a.download=`drivemyway-income-expenses_${from||"all"}_${to||"all"}.csv`; a.click();
+  a.download=`drive-my-way-income-expenses_${from||"all"}_${to||"all"}.csv`; a.click();
 }
 
 async function startBillingRequest(){

@@ -222,6 +222,21 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
     .dash-setting:hover::after, .dash-setting:focus-visible::after { color: #3b82f6; right: .6rem; }
     .dash-setting:active { transform: translateY(1px); box-shadow: none; }
     .dash-setting:focus-visible { outline: 3px solid #3b82f6; outline-offset: 2px; }
+    /* Instructors list rows (Dale, 14 Sep 2026): name, email and labels with Details and a Manage menu; the other
+       actions sit in the menu, grouped, with Delete last. */
+    .manage-row { flex-direction: column; align-items: stretch; gap: .35rem; }
+    .manage-top { display: flex; justify-content: space-between; align-items: center; gap: .8rem; flex-wrap: wrap; }
+    .manage-info { min-width: 0; }
+    .manage-actions { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+    .manage-actions .btn-outline, .manage-actions .btn { font-size: .8rem; padding: .35rem .7rem; }
+    .manage-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .5rem 1rem; border: 1px solid var(--line); border-radius: 10px; padding: .6rem .8rem; margin: .1rem 0 .45rem; background: rgba(255,255,255,.03); }
+    .manage-panel[hidden] { display: none; }
+    .manage-group-label { font-size: .72rem; color: var(--muted, #94a3b8); text-transform: uppercase; letter-spacing: .04em; margin: .1rem 0 .25rem .45rem; }
+    .manage-item { display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--text); font: inherit; font-size: .88rem; padding: .38rem .45rem; border-radius: 6px; cursor: pointer; }
+    .manage-item:hover, .manage-item:focus-visible { background: rgba(255,255,255,.08); }
+    .manage-item.danger { color: #f87171; }
+    .manage-item.unavailable { color: var(--muted, #94a3b8); }
+    .manage-panel select { width: 100%; margin: .2rem 0 .35rem; }
     .dash-setting .ico { font-size: 1.3rem; line-height: 1.2; }
     .dash-setting strong { display: block; font-size: .88rem; margin-bottom: .15rem; }
     .dash-setting span { font-size: .76rem; color: var(--muted, #64748b); line-height: 1.35; }
@@ -7553,7 +7568,7 @@ async function loadTeamsPanel(){
     const instrRows = instructors||[];
     const instrIds = instrRows.map(i=>i.id);
     const {data:instrSubs} = instrIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at").eq("owner_type","instructor").in("owner_id",instrIds)
+      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at,gocardless_subscription_id,gocardless_mandate_id,cancel_at_period_end").eq("owner_type","instructor").in("owner_id",instrIds)
       : {data:[]};
     subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
     try{
@@ -7564,7 +7579,7 @@ async function loadTeamsPanel(){
 
     const schoolIds = schoolRows.map(s=>s.id);
     const {data:schoolSubs} = schoolIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at").eq("owner_type","school").in("owner_id",schoolIds)
+      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at,gocardless_subscription_id,gocardless_mandate_id,cancel_at_period_end").eq("owner_type","school").in("owner_id",schoolIds)
       : {data:[]};
     const schoolSubsByOwner = Object.fromEntries((schoolSubs||[]).map(s=>[s.owner_id,s]));
 
@@ -7579,20 +7594,30 @@ async function loadTeamsPanel(){
       const lockedBadge = s.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
       const sub = schoolSubsByOwner[s.id];
       const statusChip = sub ? renderStatusChip(sub.status,sub.trial_ends_at) : '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>';
-      const lockBtn = s.locked_at
-        ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockSchool('${s.id}','${nameEsc}')">Unlock</button>`
-        : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockSchool('${s.id}','${nameEsc}')">Lock</button>`;
       const members = instrRows.filter(i=>i.school_id===s.id);
-      return `<div class="school-block" style="border-bottom:1px solid var(--line);margin-bottom:.35rem;padding-bottom:.35rem"><div class="list-row" style="border-bottom:none"><div><strong>${esc(s.display_name||s.name)}</strong>${lockedBadge} ${statusChip}<div class="muted">${count} instructor${count===1?"":"s"}</div></div>
-        <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
-          ${sub ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setPlanAddon(${!sub.videos_addon},'school','${s.id}')">${sub.videos_addon?"Premium → Basic":"Basic → Premium"}</button>` : ""}
-          ${renderVideosOverrideSelect('school', s.id)}
-          ${renderTheoryOverrideSelect('school', s.id)}
-          <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showSchoolDetail('${s.id}')">Details</button>
-          ${lockBtn}
-          <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editSchool('${s.id}','${nameEsc}')">Rename</button>
-          <button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteSchool('${s.id}')">Delete</button>
-        </div></div>
+      const schoolPaysByDD = !!(sub && (sub.gocardless_subscription_id || sub.gocardless_mandate_id) && !sub.cancel_at_period_end);
+      const schoolRow = manageRowHtml({
+        extraStyle: "border-bottom:none",
+        info: `<strong>${esc(s.display_name||s.name)}</strong>${lockedBadge} ${statusChip}${schoolPaysByDD?' <span class="chip chip-ok">Direct Debit</span>':""}<div class="muted">${count} instructor${count===1?"":"s"}</div>`,
+        buttons: `<button class="btn-outline" onclick="showSchoolDetail('${s.id}')">Details</button>`,
+        groups: [
+          { label: "School", items: [
+            manageItem("Rename", `editSchool('${s.id}','${nameEsc}')`),
+            s.locked_at ? manageItem("Unlock school", `unlockSchool('${s.id}','${nameEsc}')`) : manageItem("Lock school", `lockSchool('${s.id}','${nameEsc}')`),
+          ]},
+          { label: "Billing and access", items: [
+            sub ? manageItem(sub.videos_addon ? "Switch Premium to Basic" : "Switch Basic to Premium", `setPlanAddon(${!sub.videos_addon},'school','${s.id}')`) : "",
+            renderVideosOverrideSelect('school', s.id),
+            renderTheoryOverrideSelect('school', s.id),
+          ]},
+          { label: "Delete", items: [
+            schoolPaysByDD
+              ? manageItem("Delete school (cancel its Direct Debit first)", `alert('This driving school still pays by Direct Debit. Cancel its subscription first, then delete.')`, "unavailable")
+              : manageItem("Delete school", `deleteSchool('${s.id}')`, "danger"),
+          ]},
+        ],
+      });
+      return `<div class="school-block" style="border-bottom:1px solid var(--line);margin-bottom:.35rem;padding-bottom:.35rem">${schoolRow}
         <div style="margin:0 0 .25rem 1rem;padding-left:.85rem;border-left:3px solid var(--line)">${members.length ? members.map(i=>renderInstructorRow(i, schoolRows, true, {hideSchool:true})).join("") : '<p class="muted" style="font-size:.85rem;padding:.35rem 0">No instructors in this school yet.</p>'}</div></div>`;
     }).join("") : '<p class="muted">No driving schools yet.</p>';
 
@@ -7631,7 +7656,7 @@ async function loadTeamsPanel(){
     const instrRows = instructors||[];
     const instrIds = instrRows.map(i=>i.id);
     const {data:instrSubs} = instrIds.length
-      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at").eq("owner_type","instructor").in("owner_id",instrIds)
+      ? await sb.from("subscriptions").select("owner_id,plan,status,videos_addon,trial_ends_at,gocardless_subscription_id,gocardless_mandate_id,cancel_at_period_end").eq("owner_type","instructor").in("owner_id",instrIds)
       : {data:[]};
     subsByOwnerCache = Object.fromEntries((instrSubs||[]).map(s=>[s.owner_id,s]));
     try{
@@ -7717,6 +7742,33 @@ async function confirmMfaReset(userId){
     btn.disabled=false; btn.textContent="Remove 2FA";
   }
 }
+// Instructors list rows (Dale, 14 Sep 2026: "the layout is a bit confusing"). Each row shows the name, email and
+// labels with Details (and, for a school admin, Diary and Message); every other action is in its Manage menu, grouped,
+// with Delete last. A menu only lists what applies to that person.
+let manageMenuSeq=0;
+function manageItem(label, onclick, kind){
+  return `<button type="button" class="manage-item${kind?" "+kind:""}" onclick="${onclick}">${label}</button>`;
+}
+function manageRowHtml({info, buttons, groups, extraStyle}){
+  const id="mm"+(++manageMenuSeq);
+  const body=(groups||[]).map(g=>({label:g.label, items:(g.items||[]).filter(Boolean)})).filter(g=>g.items.length)
+    .map(g=>`<div class="manage-group"><div class="manage-group-label">${g.label}</div>${g.items.join("")}</div>`).join("");
+  return `<div class="list-row manage-row"${extraStyle?` style="${extraStyle}"`:""}>
+    <div class="manage-top">
+      <div class="manage-info">${info}</div>
+      <div class="manage-actions">${buttons||""}${body?`<button type="button" class="btn-outline" aria-expanded="false" aria-controls="${id}" onclick="toggleManageMenu('${id}',this)">Manage ▾</button>`:""}</div>
+    </div>
+    ${body?`<div class="manage-panel" id="${id}" hidden>${body}</div>`:""}
+  </div>`;
+}
+function toggleManageMenu(id, btn){
+  const panel=document.getElementById(id);
+  if(!panel) return;
+  const opening=panel.hasAttribute("hidden");
+  if(opening) panel.removeAttribute("hidden"); else panel.setAttribute("hidden","");
+  if(btn){ btn.setAttribute("aria-expanded", opening?"true":"false"); btn.textContent = opening ? "Manage ▴" : "Manage ▾"; }
+}
+
 function renderInstructorRow(i, schoolRows, fullControls, opts){
   const school = schoolRows.find(s=>s.id===i.school_id);
   const schoolLabel = school ? esc(school.display_name||school.name) : "Solo";
@@ -7726,71 +7778,85 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
   const sub = subsByOwnerCache[i.id];
   const statusChip = sub ? renderStatusChip(sub.status,sub.trial_ends_at) : ((fullControls && !i.school_id) ? '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>' : ((!fullControls && schoolPdiIds.has(i.id)) ? '<span class="chip chip-info">PDI</span>' : ""));
   const isMe = i.id===currentUserId;
-  const lockBtn = isMe
-    ? '<span class="muted" style="font-size:.75rem">(you)</span>'
-    : i.locked_at
-    ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="unlockInstructor('${i.id}','${nameEsc}')">Unlock</button>`
-    : `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="lockInstructor('${i.id}','${nameEsc}')">Lock</button>`;
-  const toggleBtn = fullControls && school
-    ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="toggleSchoolAdmin('${i.id}',${!i.is_school_admin})">${i.is_school_admin?"Remove admin":"Make admin"}</button>`
-    : "";
-  // Billing-transition buttons — superadmin only. A PDI or a school-seat
-  // instructor can be moved to their own solo subscription; a PDI can also
-  // stay at their school as a paid seat; a solo-paying instructor can join
-  // a school's seats instead.
-  let billingBtns = "";
-  if(fullControls){
-    if(sub && sub.plan==="pdi"){
-      billingBtns = `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','solo','${nameEsc}')">Convert to solo</button>
-        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="keepPdiAtSchool('${i.id}','${nameEsc}','${i.school_id||""}')">Keep at school (paid)</button>`;
-    } else if(school){
-      billingBtns = `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','solo','${nameEsc}')">Convert to solo</button>`;
-    } else if(sub && sub.plan==="solo"){
-      billingBtns = `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','school_seat','${nameEsc}')">Move to a school</button>`;
-    } else if(!school){
-      // Unattached with no subscription of their own: a school removed them
-      // (locked, waiting for Dale) or a grandfathered account. Either move
-      // reactivates them.
-      billingBtns = `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="returnPupilsToSchool('${i.id}','${nameEsc}')">Return pupils to school</button><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','solo','${nameEsc}')">Set up as solo</button>
-        <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setInstructorBilling('${i.id}','school_seat','${nameEsc}')">Move to a school</button>`;
-    }
+  const paysByDD = !!(sub && (sub.gocardless_subscription_id || sub.gocardless_mandate_id) && !sub.cancel_at_period_end);
+  const mfaOn = mfaUserIdsCache.has(i.id);
+  const lockItem = isMe ? "" : (i.locked_at
+    ? manageItem("Unlock", `unlockInstructor('${i.id}','${nameEsc}')`)
+    : manageItem("Lock", `lockInstructor('${i.id}','${nameEsc}')`));
+
+  const info = `<strong>${esc(i.full_name||i.email)}</strong>${adminBadge}${lockedBadge} ${statusChip}`
+    + (fullControls && paysByDD ? ' <span class="chip chip-ok">Direct Debit</span>' : "")
+    + (fullControls && mfaOn ? ' <span class="chip chip-ok" title="Two-factor authentication is on">2FA</span>' : "")
+    + (!fullControls && !isMe ? franchiseFeeChip(i.id) : "")
+    + (!fullControls && schoolPdiPending.has(i.id) ? ' <span class="chip chip-wait">Paid seat requested</span>' : "")
+    + (isMe ? ' <span class="muted" style="font-size:.75rem">(you)</span>' : "")
+    + `<div class="muted">${esc(i.email||"")}${(fullControls && !(opts&&opts.hideSchool))?" · "+schoolLabel:""}</div>`;
+
+  if(!fullControls){
+    // A school admin looking at their own instructors: day-to-day buttons stay on the row.
+    const buttons = `<button class="btn-outline" onclick="showInstructorDetail('${i.id}')">Details</button>`
+      + (!isMe ? `<button class="btn-outline" onclick="openInstructorDiary('${i.id}')">Diary</button><button class="btn-outline" onclick="openStaffThread('${i.id}')">Message</button>` : "");
+    return manageRowHtml({ info, buttons, groups: [
+      { label: "Money", items: isMe ? [] : [
+        manageItem("Pay", `openPayInstructor('${i.id}')`),
+        manageItem("Change franchise fee", `openChangeFranchiseFee('${i.id}','${nameEsc}')`),
+        manageItem("Franchise fee received", `franchiseQuickReceived('${i.id}')`),
+      ]},
+      { label: "Account", items: [
+        manageItem("Edit", `editInstructor('${i.id}')`),
+        lockItem,
+        (schoolPdiIds.has(i.id) && !schoolPdiPending.has(i.id)) ? manageItem("Request paid seat", `requestPdiUpgrade('${i.id}','${nameEsc}')`) : "",
+      ]},
+      { label: "Remove", items: [
+        (!isMe && i.school_id) ? manageItem("Remove from school", `removeFromSchool('${i.id}','${nameEsc}')`, "danger") : "",
+      ]},
+    ]});
   }
-  // School admin only: remove one of their instructors. The instructor is
-  // locked and detached (their pupils go with them) until Dale sets them up
-  // as solo or moves them to another school; the seat can then be dropped.
-  const removeBtn = !fullControls && !isMe && i.school_id
-    ? `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="removeFromSchool('${i.id}','${nameEsc}')">Remove from school</button>`
-    : "";
-  const deleteBtn = fullControls
-    ? `<button class="btn-danger" style="font-size:.75rem;padding:.3rem .6rem" onclick="deleteInstructor('${i.id}','${nameEsc}')">Delete</button>`
-    : "";
-  // Videos control only for SOLO instructors — school members inherit
-  // their school's setting (shown on the school row above). Same for the
-  // Basic/Premium plan switch: a school seat's plan is the school's.
-  const videosSelect = fullControls && !school ? renderVideosOverrideSelect('instructor', i.id) : "";
-  const theorySelect = fullControls && !school ? renderTheoryOverrideSelect('instructor', i.id) : "";
-  // Drive My Way only: remove 2FA for someone who has lost their phone, after a check code (Dale, 14 Sep 2026).
-  const mfaBtn = fullControls && !isMe && mfaUserIdsCache.has(i.id)
-    ? `<span class="chip chip-ok" title="Two-factor authentication is on">2FA</span><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openRemoveTwoFa('${i.id}')">Remove 2FA</button>`
-    : "";
-  const planBtn = fullControls && !school && sub && sub.plan !== 'pdi'
-    ? `<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="setPlanAddon(${!sub.videos_addon},'instructor','${i.id}')">${sub.videos_addon?"Premium → Basic":"Basic → Premium"}</button>`
-    : "";
-  return `<div class="list-row"><div><strong>${esc(i.full_name||i.email)}</strong>${adminBadge}${lockedBadge} ${statusChip}<div class="muted">${esc(i.email||"")}${(fullControls && !(opts&&opts.hideSchool))?" · "+schoolLabel:""}</div></div>
-    <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
-      ${planBtn}
-      ${videosSelect}
-      ${theorySelect}
-      ${(!fullControls && i.id!==currentUserId)?`<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openInstructorDiary('${i.id}')">Diary</button><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openStaffThread('${i.id}')">Message</button><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openPayInstructor('${i.id}')">Pay</button>${franchiseFeeChip(i.id)}<button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="openChangeFranchiseFee('${i.id}','${nameEsc}')">Change fee</button><button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="franchiseQuickReceived('${i.id}')">Franchise fee received</button>`:""}
-      ${(!fullControls && schoolPdiIds.has(i.id)) ? (schoolPdiPending.has(i.id) ? '<span class="chip chip-wait">Paid seat requested</span>' : `<button class="btn btn-navy btn-sm" style="font-size:.75rem;padding:.3rem .6rem" onclick="requestPdiUpgrade('${i.id}','${nameEsc}')">Request paid seat</button>`) : ""}
-      <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="showInstructorDetail('${i.id}')">Details</button>
-      ${mfaBtn}
-      ${lockBtn}${removeBtn}
-      ${toggleBtn}
-      ${billingBtns}
-      <button class="btn-outline" style="font-size:.75rem;padding:.3rem .6rem" onclick="editInstructor('${i.id}')">Edit</button>
-      ${deleteBtn}
-    </div></div>`;
+
+  // Drive My Way (super admin). Billing moves: a PDI or a school-seat instructor can go to their own solo
+  // subscription; a PDI can also stay at their school as a paid seat; a solo-paying instructor can join a school's
+  // seats; an unattached instructor with no subscription (a school removed them) can be set up either way.
+  const billing = [];
+  if(sub && sub.plan==="pdi"){
+    billing.push(manageItem("Convert to solo", `setInstructorBilling('${i.id}','solo','${nameEsc}')`));
+    billing.push(manageItem("Keep at school (paid seat)", `keepPdiAtSchool('${i.id}','${nameEsc}','${i.school_id||""}')`));
+  } else if(school){
+    billing.push(manageItem("Convert to solo", `setInstructorBilling('${i.id}','solo','${nameEsc}')`));
+  } else if(sub && sub.plan==="solo"){
+    billing.push(manageItem("Move to a school", `setInstructorBilling('${i.id}','school_seat','${nameEsc}')`));
+  } else {
+    billing.push(manageItem("Return pupils to school", `returnPupilsToSchool('${i.id}','${nameEsc}')`));
+    billing.push(manageItem("Set up as solo", `setInstructorBilling('${i.id}','solo','${nameEsc}')`));
+    billing.push(manageItem("Move to a school", `setInstructorBilling('${i.id}','school_seat','${nameEsc}')`));
+  }
+  // Plan and access controls only for SOLO instructors: school members follow their school's (on the school row).
+  if(!school && sub && sub.plan !== "pdi"){
+    billing.unshift(manageItem(sub.videos_addon ? "Switch Premium to Basic" : "Switch Basic to Premium", `setPlanAddon(${!sub.videos_addon},'instructor','${i.id}')`));
+  }
+  if(!school){
+    billing.push(renderVideosOverrideSelect('instructor', i.id));
+    billing.push(renderTheoryOverrideSelect('instructor', i.id));
+  }
+
+  return manageRowHtml({
+    info,
+    buttons: `<button class="btn-outline" onclick="showInstructorDetail('${i.id}')">Details</button>`,
+    groups: [
+      { label: "Account", items: [
+        manageItem("Edit", `editInstructor('${i.id}')`),
+        lockItem,
+        school ? manageItem(i.is_school_admin ? "Remove admin" : "Make admin", `toggleSchoolAdmin('${i.id}',${!i.is_school_admin})`) : "",
+        // Remove 2FA for someone who has lost their phone, after a check code (Dale, 14 Sep 2026).
+        (mfaOn && !isMe) ? manageItem("Remove 2FA", `openRemoveTwoFa('${i.id}')`) : "",
+      ]},
+      { label: school ? "Billing" : "Billing and access", items: billing },
+      { label: "Delete", items: [
+        isMe ? "" : (paysByDD
+          ? manageItem("Delete (cancel their Direct Debit first)", `alert('This instructor still pays by Direct Debit. Cancel their subscription first, then delete.')`, "unavailable")
+          : manageItem("Delete instructor", `deleteInstructor('${i.id}','${nameEsc}')`, "danger")),
+      ]},
+    ],
+  });
 }
 
 async function lockInstructor(instructorId, name){

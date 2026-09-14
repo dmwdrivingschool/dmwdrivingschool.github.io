@@ -7559,10 +7559,11 @@ async function loadTeamsPanel(){
 
     const [{data:schools}, {data:instructors}] = await Promise.all([
       sb.from("schools").select("id,display_name,name,locked_at").order("display_name"),
-      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at").eq("role","instructor").order("full_name")
+      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at").in("role",["instructor","super_admin"]).order("full_name")
     ]);
     const schoolRows = schools||[];
-    const instrRows = instructors||[];
+    // A super admin in a driving school is listed under it, so Dale shows under his own (Dale, 14 Sep 2026).
+    const instrRows = (instructors||[]).filter(i=>i.role==="instructor" || i.school_id);
     const instrIds = instrRows.map(i=>i.id);
     const {data:instrSubs} = instrIds.length
       ? await sb.from("subscriptions").select("id,owner_type,owner_id,plan,status,seats_purchased,videos_addon,plan_after_trial,trial_ends_at,current_period_end,cancel_at_period_end,cancel_reason,access_until_override,gocardless_subscription_id,gocardless_mandate_id").eq("owner_type","instructor").in("owner_id",instrIds)
@@ -7593,19 +7594,21 @@ async function loadTeamsPanel(){
       const sub = schoolSubsByOwner[s.id];
       const statusChip = sub ? accountStatusChip(sub,'school',s.id) : '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>';
       const members = instrRows.filter(i=>i.school_id===s.id);
+      // Dale's own driving school: labelled, and it can't be locked or deleted from here.
+      const ownSchool = members.some(m=>m.id===currentUserId);
       const schoolPaysByDD = !!(sub && (sub.gocardless_subscription_id || sub.gocardless_mandate_id) && !sub.cancel_at_period_end);
       // Replies to schools are by email (Dale, 14 Sep 2026): email or copy the school's admin address(es).
       const adminEmails = members.filter(m=>m.is_school_admin && m.email).map(m=>esc(m.email));
       const schoolRow = manageRowHtml({
         extraStyle: "border-bottom:none",
-        info: `<strong>${esc(nameCase(s.display_name||s.name))}</strong>${lockedBadge} ${statusChip}${schoolPaysByDD?' <span class="chip chip-ok">Direct Debit</span>':""}${accountChips('school',s.id)}${adminEmails.length?`<div class="muted">${adminEmails.join(", ")}</div>`:""}${accountBillingLines(sub,'school',s.id)}`,
+        info: `<strong>${esc(nameCase(s.display_name||s.name))}</strong>${ownSchool?' <span class="chip chip-info">Your driving school</span>':""}${lockedBadge} ${statusChip}${schoolPaysByDD?' <span class="chip chip-ok">Direct Debit</span>':""}${accountChips('school',s.id)}${adminEmails.length?`<div class="muted">${adminEmails.join(", ")}</div>`:""}${accountBillingLines(sub,'school',s.id)}`,
         buttons: `<button class="btn-outline" id="members-btn-${s.id}" data-count="${count}" aria-expanded="false" aria-controls="members-${s.id}" onclick="toggleSchoolMembers('${s.id}')">Instructors (${count}) ▾</button><button class="btn-outline" onclick="showSchoolDetail('${s.id}')">Details</button>`,
         groups: [
           { label: "School", items: [
             adminEmails.length ? manageItem("Send email to the admin", `location.href='mailto:${adminEmails.join(",")}'`) : "",
             adminEmails.length ? manageItem("Copy admin email", `copyEmailAddress('${adminEmails.join(", ")}',this)`) : "",
             manageItem("Rename", `editSchool('${s.id}','${nameEsc}')`),
-            s.locked_at ? manageItem("Unlock school", `unlockSchool('${s.id}','${nameEsc}')`) : manageItem("Lock school", `lockSchool('${s.id}','${nameEsc}')`),
+            s.locked_at ? manageItem("Unlock school", `unlockSchool('${s.id}','${nameEsc}')`) : (ownSchool ? "" : manageItem("Lock school", `lockSchool('${s.id}','${nameEsc}')`)),
           ]},
           { label: "Billing and access", items: [
             sub ? manageItem(sub.videos_addon ? "Switch Premium to Basic" : "Switch Basic to Premium", `setPlanAddon(${!sub.videos_addon},'school','${s.id}')`) : "",
@@ -7616,7 +7619,7 @@ async function loadTeamsPanel(){
             ...accountBillingItems(sub,'school',s.id,nameEsc),
           ]},
           { label: "Delete", items: [
-            schoolPaysByDD
+            ownSchool ? "" : schoolPaysByDD
               ? manageItem("Delete school (cancel its subscription first)", `alert('This driving school still pays by Direct Debit. Use Cancel subscription above first (it stops the payments), then delete.')`, "unavailable")
               : manageItem("Delete school", `deleteSchool('${s.id}')`, "danger"),
           ]},
@@ -8020,11 +8023,12 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
         copyItem,
         manageItem("Edit", `editInstructor('${i.id}')`),
         lockItem,
-        school ? manageItem(i.is_school_admin ? "Remove admin" : "Make admin", `toggleSchoolAdmin('${i.id}',${!i.is_school_admin})`) : "",
+        (school && !isMe) ? manageItem(i.is_school_admin ? "Remove admin" : "Make admin", `toggleSchoolAdmin('${i.id}',${!i.is_school_admin})`) : "",
         // Remove 2FA for someone who has lost their phone, after a check code (Dale, 14 Sep 2026).
         (mfaOn && !isMe) ? manageItem("Remove 2FA", `openRemoveTwoFa('${i.id}')`) : "",
       ]},
-      { label: school ? "Billing" : "Billing and access", items: billing },
+      // Nothing to move or bill for Drive My Way's own login.
+      { label: school ? "Billing" : "Billing and access", items: isMe ? [] : billing },
       { label: "Delete", items: [
         isMe ? "" : (paysByDD
           ? manageItem("Delete (cancel their subscription first)", `alert('This instructor still pays by Direct Debit. Use Cancel subscription above first (it stops their payments), then delete.')`, "unavailable")

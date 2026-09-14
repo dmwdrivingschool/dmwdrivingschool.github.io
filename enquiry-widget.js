@@ -33,6 +33,9 @@ function buildEnquirySnippet(instructorId, schoolId){
     #dmw-enquiry-widget .dmw-slots{display:flex;flex-wrap:wrap;gap:6px}
     #dmw-enquiry-widget .dmw-slot{padding:6px 10px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;font-size:12px;cursor:pointer}
     #dmw-enquiry-widget .dmw-slot.on{background:#0A4CA1;color:#fff;border-color:#0A4CA1}
+    #dmw-enquiry-widget .dmw-day-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 6px}
+    #dmw-enquiry-widget .dmw-day-head h4{margin:0}
+    #dmw-enquiry-widget .dmw-all{display:block;width:100%;margin:6px 0 4px;padding:9px 10px;font-weight:700}
     #dmw-enquiry-widget .dmw-note{font-size:12px;color:#64748b;margin:6px 0}
     #dmw-enquiry-widget .dmw-warn{font-size:12px;color:#7b341e;background:#fffaf0;border-left:3px solid #dd6b20;padding:8px 10px;border-radius:0 6px 6px 0;margin:6px 0}
     #dmw-enquiry-widget .dmw-sum{font-size:13px;margin:4px 0}
@@ -76,6 +79,9 @@ function buildEnquirySnippet(instructorId, schoolId){
     <div id="dmw-summary"></div>
     <label>Anything else? (optional)</label>
     <textarea id="dmw-notes" rows="3"></textarea>
+    <label>Choose a password for the Drive My Way app *</label><input id="dmw-pw1" type="password" autocomplete="new-password" />
+    <label>Type your password again *</label><input id="dmw-pw2" type="password" autocomplete="new-password" />
+    <p class="dmw-note">Once you've confirmed your email address, you'll sign in to the app with your email and this password.</p>
     <div id="dmw-err3" style="color:#b91c1c;font-size:13px;margin-top:8px;display:none"></div>
     <button type="button" class="dmw-btn dmw-ghost" id="dmw-back3">Back</button>
     <button type="button" class="dmw-btn" id="dmw-submit">Send enquiry</button>
@@ -85,16 +91,16 @@ function buildEnquirySnippet(instructorId, schoolId){
     <p style="font-weight:700;text-align:center;margin:0 0 14px 0">Thank you — your enquiry has been sent.</p>
     <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-left:4px solid #059669;border-radius:8px;padding:12px;font-size:13px;color:#065f46;margin-bottom:14px">
       <strong>What happens next</strong><br>
-      1. We're emailing you a secure link right now — use it to set your app password (check spam if it doesn't arrive within a few minutes).<br>
-      2. Download the Drive My Way app on your phone (App Store or Google Play) and sign in with your email and that password.<br>
+      1. We're emailing you a link to confirm your email address. Tap it (check spam if it doesn't arrive within a few minutes).<br>
+      2. Download the Drive My Way app on your phone (App Store or Google Play) and sign in with your email and the password you chose.<br>
       3. The app shows the live status of your enquiry — you'll see there as soon as it's been reviewed and accepted, and you'll get updates and messages from your instructor in the same place.
     </div>
     <label>Email</label>
     <input id="dmw-signup-email" type="email" readonly style="background:#f8fafc" />
     <div id="dmw-signup-err" style="color:#b91c1c;font-size:13px;margin-top:8px;display:none"></div>
     <div id="dmw-signup-ok" style="background:#ecfdf5;border:1px solid #a7f3d0;border-left:4px solid #059669;border-radius:8px;padding:12px;font-size:13px;color:#065f46;margin-top:10px;display:none"></div>
-    <button type="button" class="dmw-btn" id="dmw-signup-btn">Resend password link</button>
-    <p style="font-size:12px;color:#64748b;text-align:center;margin:6px 0 14px 0">The password email is sent automatically — use this button only if it hasn't arrived.</p>
+    <button type="button" class="dmw-btn" id="dmw-signup-btn">Resend confirmation email</button>
+    <p style="font-size:12px;color:#64748b;text-align:center;margin:6px 0 14px 0">The email is sent automatically. Use this button only if it hasn't arrived.</p>
     <a href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener" style="display:block;text-align:center;padding:14px 18px;background:#0A4CA1;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;margin-bottom:8px">📱 Get the app on the App Store (iPhone)</a>
     <a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener" style="display:block;text-align:center;padding:14px 18px;background:#0A4CA1;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">📱 Get the app on Google Play (Android)</a>
   </div>
@@ -135,11 +141,32 @@ function buildEnquirySnippet(instructorId, schoolId){
     var flags = workHours.days || {};
     DAYS = ALL_DAYS.filter(function (d) { return flags[d] !== false; });
     if (!DAYS.length) DAYS = ALL_DAYS.slice(0, 5);
+    function hasAll(day) { return list.every(function (t) { return (availability[day] || []).indexOf(t) >= 0; }); }
+    // "All" buttons (Dale, 14 Sep 2026): every day and time at once, or a whole day. Pressing again clears.
+    var everything = DAYS.every(hasAll);
+    var allBtn = document.createElement("button");
+    allBtn.type = "button";
+    allBtn.className = "dmw-slot dmw-all" + (everything ? " on" : "");
+    allBtn.textContent = everything ? "Clear all" : "Select all days and times";
+    allBtn.onclick = function () { DAYS.forEach(function (d) { availability[d] = everything ? [] : list.slice(); }); buildAvail(); };
+    root.appendChild(allBtn);
     DAYS.forEach(function (day) {
       if (!availability[day]) availability[day] = [];
       var div = document.createElement("div");
       div.className = "dmw-day";
-      div.innerHTML = "<h4>" + day + "</h4>";
+      var head = document.createElement("div");
+      head.className = "dmw-day-head";
+      var h4 = document.createElement("h4");
+      h4.textContent = day;
+      var full = hasAll(day);
+      var dayBtn = document.createElement("button");
+      dayBtn.type = "button";
+      dayBtn.className = "dmw-slot" + (full ? " on" : "");
+      dayBtn.textContent = full ? "Clear" : "All";
+      dayBtn.onclick = function () { availability[day] = full ? [] : list.slice(); buildAvail(); };
+      head.appendChild(h4);
+      head.appendChild(dayBtn);
+      div.appendChild(head);
       var row = document.createElement("div");
       row.className = "dmw-slots";
       list.forEach(function (t) {
@@ -152,7 +179,7 @@ function buildEnquirySnippet(instructorId, schoolId){
           var i = arr.indexOf(t);
           if (i >= 0) arr.splice(i, 1); else arr.push(t);
           arr.sort();
-          b.classList.toggle("on");
+          buildAvail();
         };
         row.appendChild(b);
       });
@@ -240,6 +267,15 @@ function buildEnquirySnippet(instructorId, schoolId){
   el("dmw-submit").addEventListener("click", function () {
     var err = el("dmw-err3");
     err.style.display = "none";
+    // The pupil chooses their app password here, before the one Send enquiry button (Dale, 14 Sep 2026).
+    var pw1 = el("dmw-pw1").value, pw2 = el("dmw-pw2").value;
+    el("dmw-pw1").classList.toggle("dmw-invalid", pw1.length < 8);
+    el("dmw-pw2").classList.toggle("dmw-invalid", pw1.length >= 8 && pw1 !== pw2);
+    if (pw1.length < 8 || pw1 !== pw2) {
+      err.textContent = pw1.length < 8 ? "Please choose a password with at least 8 characters." : "The two passwords do not match.";
+      err.style.display = "block";
+      return;
+    }
     var payloadAvail = {};
     DAYS.forEach(function (d) { if (availability[d].length) payloadAvail[d] = availability[d]; });
     fetch(SUPABASE_URL + "/rest/v1/rpc/submit_website_enquiry", {
@@ -269,78 +305,65 @@ function buildEnquirySnippet(instructorId, schoolId){
       el("dmw-p3").style.display = "none";
       el("dmw-done").style.display = "block";
       el("dmw-signup-email").value = enquiryEmail;
-      if (enquiryEmail) { try { el("dmw-signup-btn").click(); } catch (e) {} }
+      if (enquiryEmail) createLogin();
     }).catch(function () {
       err.textContent = "Could not send right now — please try again or contact us directly.";
       err.style.display = "block";
     });
   });
 
-  // Creates the pupil account with a random, never-used password, then
-  // immediately emails a secure link so the pupil sets their own.
-  el("dmw-signup-btn").addEventListener("click", function () {
-    var errEl = el("dmw-signup-err");
-    var okEl = el("dmw-signup-ok");
+  // The pupil's app login, with the password they chose on the form (Dale, 14 Sep 2026). With "Confirm email" on,
+  // Supabase sends the confirm-your-email email itself, and that's the only email: its link lands on the Control
+  // Centre, which tells pupils to open the app and sign in.
+  function createLogin() {
+    var errEl = el("dmw-signup-err"), okEl = el("dmw-signup-ok"), btn = el("dmw-signup-btn");
     errEl.style.display = "none";
     okEl.style.display = "none";
-    var email = (el("dmw-signup-email").value || enquiryEmail || "").trim();
-    if (!email) {
-      errEl.textContent = "Email is required.";
-      errEl.style.display = "block";
-      return;
-    }
-    var btn = el("dmw-signup-btn");
-    btn.disabled = true;
-    var randomPassword = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) +
-                          (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
-
-    sb.auth.signUp({
+    var email = enquiryEmail, password = el("dmw-pw1").value;
+    var safeEmail = email.replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; });
+    return sb.auth.signUp({
       email: email,
-      password: randomPassword,
+      password: password,
       options: { emailRedirectTo: APP_CHANGE_PASSWORD_URL, data: { full_name: (enquiryFirstName + ' ' + enquiryLastName).trim(), role: 'pupil' } }
     }).then(function (result) {
-      var signUpError = result.error;
-      var signUpData = result.data;
-      var confirmedAlready = !signUpError && signUpData && signUpData.user && !!signUpData.user.email_confirmed_at;
-      var accountReady = !signUpError && signUpData && signUpData.user && signUpData.user.id;
-      var sentConfirmation = false;
-      var chain = Promise.resolve();
-
-      if (accountReady && !confirmedAlready) {
-        sentConfirmation = true;
-        var userId = signUpData.user.id;
-        chain = sb.from('profiles').upsert({
-          id: userId, role: 'pupil', email: email, full_name: (enquiryFirstName + ' ' + enquiryLastName).trim()
-        }).then(function () {
-          return sb.rpc('pupil_link_profile_on_signup');
-        }).catch(function () {});
-      } else if (signUpError && !/already|registered|exists/i.test(signUpError.message || '')) {
-        errEl.textContent = 'Could not set up your login right now (' + (signUpError.message || '') + '). You can still open the app — your instructor can set this up for you.';
-        errEl.style.display = 'block';
-        btn.disabled = false;
+      el("dmw-pw1").value = "";
+      el("dmw-pw2").value = "";
+      var error = result.error, data = result.data;
+      // An address that already has a login: Supabase sends nothing and returns no identities.
+      var existing = (error && /already|registered|exists/i.test(error.message || '')) ||
+        (!error && data && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0);
+      if (existing) {
+        okEl.innerHTML = 'You already have a Drive My Way login with <strong>' + safeEmail + '<\\/strong>. Sign in to the app with your existing password, or tap Forgot password on the app sign-in screen.';
+        okEl.style.display = 'block';
+        btn.style.display = 'none';
         return;
       }
-
-      chain.then(function () {
-        var alreadyExists = signUpError && /already|registered|exists/i.test(signUpError.message || '');
-        if (!confirmedAlready && !alreadyExists) return;
-        return sb.auth.resetPasswordForEmail(email, { redirectTo: APP_CHANGE_PASSWORD_URL }).then(function (r) {
-          if (r && r.error) throw r.error;
-        });
-      }).then(function () {
-        var safeEmail = email.replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; });
-        okEl.innerHTML = 'Check your email at <strong>' + safeEmail + '<\\/strong> — ' +
-          (sentConfirmation
-            ? 'confirm your email address and you will be taken straight to set your app password.'
-            : 'we have sent you a secure link to set up your password.');
-        okEl.style.display = 'block';
-        btn.textContent = 'Link sent \\u2713';
-      });
+      if (error) throw error;
+      okEl.innerHTML = (data && data.user && data.user.email_confirmed_at)
+        ? 'Your login is ready. Sign in to the app with <strong>' + safeEmail + '<\\/strong> and the password you chose.'
+        : 'Check your email at <strong>' + safeEmail + '<\\/strong> and tap the link to confirm your address. Then sign in to the app with your email and the password you chose.';
+      okEl.style.display = 'block';
     }).catch(function (e) {
-      errEl.textContent = 'Could not send the login link right now. You can still open the app — your instructor can set this up for you.';
+      errEl.textContent = 'Your enquiry was sent, but your app login could not be set up just now' + (e && e.message ? ' (' + e.message + ')' : '') + '. Your instructor can set it up for you.';
       errEl.style.display = 'block';
-      btn.disabled = false;
+      btn.style.display = 'none';
     });
+  }
+
+  // Sends the confirm-your-email email again.
+  el("dmw-signup-btn").addEventListener("click", function () {
+    var errEl = el("dmw-signup-err"), okEl = el("dmw-signup-ok"), btn = el("dmw-signup-btn");
+    errEl.style.display = "none";
+    btn.disabled = true;
+    sb.auth.resend({ type: 'signup', email: enquiryEmail, options: { emailRedirectTo: APP_CHANGE_PASSWORD_URL } }).then(function (r) {
+      if (r && r.error) throw r.error;
+      okEl.textContent = 'Sent again to ' + enquiryEmail + '. Check your spam folder too.';
+      okEl.style.display = 'block';
+    }).catch(function (e) {
+      var m = (e && e.message) || '';
+      errEl.textContent = /seconds|rate/i.test(m) ? 'Please wait a minute before sending it again.' : 'Could not send it again just now. ' + m;
+      errEl.style.display = 'block';
+    }).then(function () { btn.disabled = false; });
   });
 })();
 <\/script>`;

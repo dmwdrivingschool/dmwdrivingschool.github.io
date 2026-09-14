@@ -44,6 +44,10 @@
       background: #f1f5f9; color: #94a3b8; cursor: pointer;
     }
     .slot.on { background: #0A4CA1; color: #fff; }
+    .day-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .day-head h3 { margin-bottom: 0; }
+    .slot-all { display: block; width: 100%; margin-bottom: 14px; padding: 10px; }
+    .slot-all:not(.on), .slot-day-all:not(.on) { background: #e0e7ff; color: #062F63; }
     .row { display: flex; gap: 10px; margin-top: 8px; }
     .btn {
       flex: 1; padding: 14px; border: none; border-radius: 10px; font-weight: 700;
@@ -140,6 +144,13 @@
         <div id="summary"></div>
         <label style="margin-top:12px">Anything else we should know?</label>
         <textarea id="notes" rows="3" placeholder="e.g. theory already passed, preferred start date…"></textarea>
+        <label style="margin-top:12px">Choose a password for the Drive My Way app *</label>
+        <input id="pw1" type="password" autocomplete="new-password">
+        <div class="field-err" id="err-pw1">Your password needs at least 8 characters</div>
+        <label>Type your password again *</label>
+        <input id="pw2" type="password" autocomplete="new-password">
+        <div class="field-err" id="err-pw2">The two passwords don't match</div>
+        <p class="hint" style="margin:-4px 0 12px">Once you've confirmed your email address, you'll sign in to the app with your email and this password.</p>
         <div class="row">
           <button type="button" class="btn btn-ghost" onclick="go(2)">Back</button>
           <button type="button" class="btn btn-primary" id="send-btn" onclick="send()">Send enquiry</button>
@@ -153,8 +164,8 @@
 
       <div class="success-note" id="signup-box">
         <strong>What happens next</strong><br>
-        1. We're emailing you a secure link right now — use it to set your app password (check spam if it doesn't appear in a few minutes).<br>
-        2. Download the Drive My Way app on your phone (Google Play or the App Store) and sign in with your email and that password.<br>
+        1. We're emailing you a link to confirm your email address. Tap it (check spam if it doesn't appear in a few minutes).<br>
+        2. Download the Drive My Way app on your phone (Google Play or the App Store) and sign in with your email and the password you chose.<br>
         3. The app shows the live status of your enquiry — you'll see there as soon as it's been reviewed and accepted, and you'll get updates and messages from your instructor in the same place.
       </div>
 
@@ -164,10 +175,10 @@
       <div class="err" id="signup-err"></div>
       <div class="success-note" id="signup-ok" style="display:none"></div>
 
-      <button type="button" class="btn btn-primary" id="signup-btn" onclick="sendLoginLink()" style="width:100%; margin-bottom:4px;">
-        Resend password link
+      <button type="button" class="btn btn-primary" id="signup-btn" onclick="resendConfirmation()" style="width:100%; margin-bottom:4px;">
+        Resend confirmation email
       </button>
-      <p class="hint" style="text-align:center; margin-top:0;">The password email is sent automatically — use this button only if it hasn't arrived.</p>
+      <p class="hint" style="text-align:center; margin-top:0;">The email is sent automatically. Use this button only if it hasn't arrived.</p>
 
       <p style="margin-top:12px; display:flex; gap:12px; justify-content:center; align-items:center; flex-wrap:wrap;">
         <a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener" style="display:inline-block;"><img src="google-play-badge-trimmed.png" alt="Get it on Google Play" style="height:44px; width:auto; display:block;"></a>
@@ -185,8 +196,10 @@
   <script>
     const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
     const SUPABASE_KEY = "sb_publishable_Jacfo8kcszt-6CGfnJnydA_rgtSlI9B";
-    const APP_URL = "https://app.dmwdrivingschool.co.uk";
-    // Used only for the two auth calls below (signUp / resetPasswordForEmail)
+    // Where the confirm-your-email link lands: the Control Centre, which tells pupils to open the app. The old
+    // app.dmwdrivingschool.co.uk web app is retired (Dale, 14 Sep 2026).
+    const EMAIL_LINK_URL = "https://web.drivemyway.co.uk/admin.html";
+    // Used only for the auth calls below (signUp / resend)
     // so the redirect link and request shape are guaranteed correct — the
     // rest of this page still talks to Supabase via plain fetch(), unchanged.
     const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -224,11 +237,32 @@
       const dayFlags = workHours.days || {};
       DAYS = ALL_DAYS.filter(d => dayFlags[d] !== false);
       if (!DAYS.length) DAYS = ALL_DAYS.slice(0, 5);
+      const hasAll = day => list.every(t => (availability[day] || []).includes(t));
+      // "All" buttons (Dale, 14 Sep 2026): every day and time at once, or a whole day. Pressing again clears.
+      const everything = DAYS.every(hasAll);
+      const allBtn = document.createElement("button");
+      allBtn.type = "button";
+      allBtn.className = "slot slot-all" + (everything ? " on" : "");
+      allBtn.textContent = everything ? "Clear all" : "Select all days and times";
+      allBtn.onclick = () => { DAYS.forEach(d => { availability[d] = everything ? [] : list.slice(); }); buildAvail(); };
+      root.appendChild(allBtn);
       DAYS.forEach(day => {
         if (!availability[day]) availability[day] = [];
         const div = document.createElement("div");
         div.className = "day";
-        div.innerHTML = "<h3>" + day + "</h3>";
+        const head = document.createElement("div");
+        head.className = "day-head";
+        const h3 = document.createElement("h3");
+        h3.textContent = day;
+        const full = hasAll(day);
+        const dayBtn = document.createElement("button");
+        dayBtn.type = "button";
+        dayBtn.className = "slot slot-day-all" + (full ? " on" : "");
+        dayBtn.textContent = full ? "Clear" : "All";
+        dayBtn.onclick = () => { availability[day] = full ? [] : list.slice(); buildAvail(); };
+        head.appendChild(h3);
+        head.appendChild(dayBtn);
+        div.appendChild(head);
         const row = document.createElement("div");
         row.className = "slots";
         list.forEach(t => {
@@ -242,7 +276,7 @@
             if (i >= 0) arr.splice(i, 1);
             else arr.push(t);
             arr.sort();
-            b.classList.toggle("on");
+            buildAvail();
           };
           row.appendChild(b);
         });
@@ -340,6 +374,22 @@
       return true;
     }
 
+    // The pupil chooses their app password here, before the one Send enquiry button (Dale, 14 Sep 2026).
+    function validatePassword() {
+      const p1 = document.getElementById("pw1"), p2 = document.getElementById("pw2");
+      const short = p1.value.length < 8, differ = !short && p1.value !== p2.value;
+      p1.classList.toggle("invalid", short);
+      p2.classList.toggle("invalid", differ);
+      document.getElementById("err-pw1").style.display = short ? "block" : "none";
+      document.getElementById("err-pw2").style.display = differ ? "block" : "none";
+      if (short || differ) {
+        showErr(short ? "Please choose a password with at least 8 characters." : "The two passwords don't match.");
+        (short ? p1 : p2).focus();
+        return false;
+      }
+      return true;
+    }
+
     function showErr(msg) {
       const e = document.getElementById("err");
       e.textContent = msg;
@@ -411,6 +461,7 @@
 
     async function send() {
       if (!validate1()) return;
+      if (!validatePassword()) return;
       const btn = document.getElementById("send-btn");
       btn.disabled = true;
       const notesExtra = val("notes");
@@ -537,9 +588,8 @@
         document.getElementById("done").style.display = "block";
         document.getElementById("signup-email").value = enquiryEmail;
         window.scrollTo(0, 0);
-        // Auto-send the app password-link email — no tap needed. The
-        // button stays as a manual resend if the email doesn't arrive.
-        if (enquiryEmail) { try { sendLoginLink(); } catch (_) {} }
+        // Their app login, with the password they chose. Supabase emails the confirm-your-email link.
+        if (enquiryEmail) { try { await createLogin(); } catch (_) {} }
       } catch (e) {
         console.error(e);
         const msg = (e && e.message) ? String(e.message) : "";
@@ -552,115 +602,68 @@
       }
     }
 
-    // One button instead of the old "type a password, confirm it, then
-    // press a second Create button" flow — that second step was easy to
-    // fill in and never actually submit, leaving an enquiry with no
-    // working login at all. This creates the account with a random
-    // password nobody types or needs to remember, then immediately emails
-    // a secure link so the pupil sets their own password from there —
-    // whether the account is brand new or (if they've somehow already got
-    // one) already existed, the end result is the same single email.
-    async function sendLoginLink() {
+    // The pupil's app login, with the password they chose on the form (Dale, 14 Sep 2026). With "Confirm email" on,
+    // Supabase sends the confirm-your-email email itself, and that's the only email: its link lands on the Control
+    // Centre, which tells pupils to open the app and sign in. (It used to make a login with a random password and
+    // send a separate set-your-password link to the retired app.dmwdrivingschool.co.uk web app.)
+    async function createLogin() {
       const errEl = document.getElementById("signup-err");
       const okEl = document.getElementById("signup-ok");
+      const btn = document.getElementById("signup-btn");
       errEl.style.display = "none";
       okEl.style.display = "none";
-
-      const email = (document.getElementById("signup-email").value || enquiryEmail || "").trim();
-      if (!email) {
-        errEl.textContent = "Email is required.";
-        errEl.style.display = "block";
-        return;
-      }
-
-      const btn = document.getElementById("signup-btn");
-      btn.disabled = true;
-
+      const email = enquiryEmail;
+      const password = document.getElementById("pw1").value;
       try {
-        const randomPassword = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) +
-                                (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
-
-        const { data: signUpData, error: signUpError } = await sb.auth.signUp({
+        const { data, error } = await sb.auth.signUp({
           email,
-          password: randomPassword,
+          password,
           options: {
-            // "Confirm email" is ON in Supabase, so the FIRST email a new
-            // account receives is the confirmation email. Point its link at
-            // the app's change-password page: confirming signs them in and
-            // drops them straight onto "set your password" — one email, one
-            // click. (Without this it bounced to the website homepage.)
-            emailRedirectTo: APP_URL + "/change-password",
-            data: {
-              full_name: (enquiryFirstName || "") + " " + (enquiryLastName || ""),
-              role: "pupil"
-            }
+            emailRedirectTo: EMAIL_LINK_URL,
+            data: { full_name: ((enquiryFirstName || "") + " " + (enquiryLastName || "")).trim(), role: "pupil" }
           }
         });
-
-        // signUp()'s `identities` array is NOT a reliable "is this brand
-        // new" signal here: with Confirm-email ON, signUp() returns no
-        // session until the link is clicked, and in that no-session state
-        // Supabase often omits `identities` entirely even for a genuinely
-        // fresh account — so branching on it misclassified real new
-        // signups as "already confirmed", triggered a resetPasswordForEmail
-        // (refused — "email not confirmed"), then a resend() moments after
-        // signUp's OWN confirmation email — which Supabase rate-limits,
-        // throwing a visible error even though the real email had already
-        // sent fine. `email_confirmed_at` is populated reliably regardless
-        // of session state, so it's the one used below instead.
-        const confirmedAlready = !signUpError && signUpData && signUpData.user && !!signUpData.user.email_confirmed_at;
-        let accountReady = !signUpError && signUpData && signUpData.user && signUpData.user.id;
-        let sentConfirmation = false;
-
-        if (accountReady && !confirmedAlready) {
-          // Brand-new account OR an existing one that never confirmed —
-          // signUp() itself just (re)sent the confirmation email as a side
-          // effect either way. Nothing more to send.
-          sentConfirmation = true;
-          const userId = signUpData.user.id;
-          // These two writes need to run as the pupil's OWN freshly-created
-          // session (via `sb`, which signUp() just authenticated), not the
-          // bare anon key — pupils/profiles both require an authenticated
-          // request under RLS. The previous raw fetch() calls sent the anon
-          // key as the bearer token, so both writes were silently rejected
-          // (a non-2xx response doesn't reject a fetch promise, so the
-          // .catch() never even saw it) and profile_id never got linked.
-          await sb.from("profiles").upsert({
-            id: userId,
-            role: "pupil",
-            email,
-            full_name: (enquiryFirstName || "") + " " + (enquiryLastName || "")
-          }).catch(() => {});
-
-          await sb.rpc("pupil_link_profile_on_signup").catch(() => {});
-        } else if (signUpError && !/already|registered|exists/i.test(signUpError.message || "")) {
-          errEl.textContent = "Could not set up your login right now (" + (signUpError.message || "") + "). You can still open the app — your instructor can set this up for you.";
-          errEl.style.display = "block";
-          btn.disabled = false;
+        document.getElementById("pw1").value = "";
+        document.getElementById("pw2").value = "";
+        // An address that already has a login: Supabase sends nothing and returns no identities.
+        const existing = (error && /already|registered|exists/i.test(error.message || "")) ||
+          (!error && data && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0);
+        if (existing) {
+          okEl.innerHTML = "You already have a Drive My Way login with <strong>" + escapeHtml(email) + "</strong>. Sign in to the app with your existing password, or tap Forgot password on the app's sign-in screen.";
+          okEl.style.display = "block";
+          btn.style.display = "none";
           return;
         }
-
-        // Confirmed account already exists (either signUp told us so via
-        // email_confirmed_at, or it threw "already registered" — some
-        // Supabase configs do one or the other): signUp() is a silent no-op
-        // for a confirmed address (deliberate, to stop email enumeration),
-        // so we have to send the actual reset link ourselves.
-        if (confirmedAlready || (signUpError && /already|registered|exists/i.test(signUpError.message || ""))) {
-          const { error: resetErr } = await sb.auth.resetPasswordForEmail(email, { redirectTo: APP_URL + "/change-password" });
-          if (resetErr) throw resetErr;
-          sentConfirmation = false;
-        }
-
-        okEl.innerHTML = "Check your email at <strong>" + escapeHtml(email) + "</strong> — " +
-          (sentConfirmation
-            ? "confirm your email address and you'll be taken straight to set your app password."
-            : "we've sent you a secure link to set up your password.");
+        if (error) throw error;
+        okEl.innerHTML = (data && data.user && data.user.email_confirmed_at)
+          ? "Your login is ready. Sign in to the app with <strong>" + escapeHtml(email) + "</strong> and the password you chose."
+          : "Check your email at <strong>" + escapeHtml(email) + "</strong> and tap the link to confirm your address. Then sign in to the app with your email and the password you chose.";
         okEl.style.display = "block";
-        btn.textContent = "Link sent ✓";
       } catch (e) {
         console.error(e);
-        errEl.textContent = "Could not send the login link right now. You can still open the app — your instructor can set this up for you.";
+        errEl.textContent = "Your enquiry was sent, but your app login couldn't be set up just now" + (e && e.message ? " (" + e.message + ")" : "") + ". Your instructor can set it up for you.";
         errEl.style.display = "block";
+        btn.style.display = "none";
+      }
+    }
+
+    // Sends the confirm-your-email email again.
+    async function resendConfirmation() {
+      const errEl = document.getElementById("signup-err");
+      const okEl = document.getElementById("signup-ok");
+      const btn = document.getElementById("signup-btn");
+      errEl.style.display = "none";
+      btn.disabled = true;
+      try {
+        const { error } = await sb.auth.resend({ type: "signup", email: enquiryEmail, options: { emailRedirectTo: EMAIL_LINK_URL } });
+        if (error) throw error;
+        okEl.innerHTML = "Sent again to <strong>" + escapeHtml(enquiryEmail) + "</strong>. Check your spam folder too.";
+        okEl.style.display = "block";
+      } catch (e) {
+        const m = (e && e.message) || "";
+        errEl.textContent = /seconds|rate/i.test(m) ? "Please wait a minute before sending it again." : "Couldn't send it again just now. " + m;
+        errEl.style.display = "block";
+      } finally {
         btn.disabled = false;
       }
     }

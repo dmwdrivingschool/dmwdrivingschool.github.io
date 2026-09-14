@@ -6620,7 +6620,9 @@ async function manageAuthAdmin(action, payload){
 // them in the feed on the enquiry/waiting screen and gets a push.
 async function loadMessagesPanel(){
   const content=document.getElementById("messages-content");
-  content.innerHTML='<h2>Messages</h2><p class="muted">Loading…</p>';
+  content.innerHTML='<h2>Messages</h2>'+msgTabsHtml()+'<p class="muted">Loading…</p>';
+  if(msgTab==="broadcast"){ await renderBroadcastTab(content); return; }
+  if(msgTab==="scheduled"){ await renderScheduledTab(content); return; }
   const schoolAdmin=!!(isSchoolAdminUser && currentSchoolId);
   const member=!!(currentSchoolId && !isSchoolAdminUser && !isSuperAdminUser);
   // Staff: a school admin talks to their instructors; an instructor in a
@@ -6641,14 +6643,15 @@ async function loadMessagesPanel(){
   const last={}, unread={};
   if(ids.length){
     const {data:msgs}=await sb.from("messages").select("pupil_id,body,direction,read_at,created_at").in("pupil_id",ids).order("created_at",{ascending:false}).limit(3000);
-    (msgs||[]).forEach(m=>{ if(!last[m.pupil_id]) last[m.pupil_id]=m; if(m.direction==="inbound" && !m.read_at) unread[m.pupil_id]=(unread[m.pupil_id]||0)+1; });
+    // Send to All messages live on their own tab, as in the app, so they don't show as a pupil's last message.
+    (msgs||[]).forEach(m=>{ if(!last[m.pupil_id] && m.direction!=="broadcast") last[m.pupil_id]=m; if(m.direction==="inbound" && !m.read_at) unread[m.pupil_id]=(unread[m.pupil_id]||0)+1; });
   }
   const t=m=>m?new Date(m.created_at).getTime():0;
   const when=m=>m?new Date(m.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"}):"";
   const staffRow=x=>`<div class="list-row" style="cursor:pointer" onclick="openStaffThread('${x.id}')"><div style="flex:1;min-width:0"><strong>${esc(x.name)}</strong>${sUnread[x.id]?` <span class="chip chip-bad">${sUnread[x.id]} new</span>`:""}<div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sLast[x.id]?(sLast[x.id].sender_id===currentUserId?"You: ":"")+esc(sLast[x.id].body||""):"No messages yet"}</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${when(sLast[x.id])}</div></div>`;
   const pupilRow=(p,chip)=>`<div class="list-row" style="cursor:pointer" onclick="openPupilThread('${p.id}')"><div style="flex:1;min-width:0"><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong> ${chip}${unread[p.id]?` <span class="chip chip-bad">${unread[p.id]} new</span>`:""}<div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${last[p.id]?(last[p.id].direction==="inbound"?"They: ":"You: ")+esc(last[p.id].body||""):"No messages yet"}</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${when(last[p.id])}</div></div>`;
   const sec=(title,note,rows,empty)=>`<h3 style="margin:1.1rem 0 .3rem">${esc(title)}</h3>${note?`<p class="muted" style="margin-bottom:.4rem;font-size:.85rem">${note}</p>`:""}${rows||`<p class="muted">${empty}</p>`}`;
-  let html="<h2>Messages</h2>";
+  let html="<h2>Messages</h2>"+msgTabsHtml();
   if(isSuperAdminUser) html+=await adminNotificationsSectionHtml();
   if(schoolAdmin) html+=sec("Your instructors","",staff.slice().sort((a,b)=>t(sLast[b.id])-t(sLast[a.id])).map(staffRow).join(""),"No other instructors in your school yet.");
   if(member) html+=sec("Your school","",staff.map(staffRow).join(""),"No school admin found.");
@@ -6679,13 +6682,15 @@ async function updateMessagesBadge(){
 }
 // One chat bubble with the sender's name above it: yours on the right in
 // blue, theirs on the left in white (Dale: make it clear whose is whose).
-function msgBubble(mine, who, body, createdAt, extra){
+// opts.after goes under the text (a photo), opts.meta after the time (read ticks).
+function msgBubble(mine, who, body, createdAt, extra, opts){
+  const o=opts||{};
   const when=new Date(createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
   return `<div style="display:flex;flex-direction:column;align-items:${mine?"flex-end":"flex-start"};margin:.5rem 0">
     <div style="font-size:.72rem;font-weight:700;margin:0 .4rem .15rem;color:var(--muted)">${esc(who)}</div>
     <div style="max-width:80%;background:${mine?"#2563eb":"#fff"};color:${mine?"#fff":"#0f172a"};border:1px solid ${mine?"#1d4ed8":"#e2e8f0"};border-radius:${mine?"12px 12px 3px 12px":"12px 12px 12px 3px"};padding:.45rem .65rem;font-size:.85rem">
-      ${extra||""}<div style="white-space:pre-line">${esc(body||"")}</div>
-      <div style="font-size:.7rem;margin-top:.2rem;color:${mine?"#dbeafe":"#64748b"}">${when}</div>
+      ${extra||""}<div style="white-space:pre-line">${esc(body||"")}</div>${o.after||""}
+      <div style="font-size:.7rem;margin-top:.2rem;color:${mine?"#dbeafe":"#64748b"}">${when}${o.meta||""}</div>
     </div></div>`;
 }
 
@@ -7491,9 +7496,17 @@ async function togglePupilChat(on){
 }
 async function renderThread(){
   const el=document.getElementById("thread-list"); if(!el||!threadPupilId) return;
-  const {data:msgs,error} = await sb.from("messages").select("id,subject,body,direction,read_at,created_at").eq("pupil_id",threadPupilId).order("created_at",{ascending:true});
+  const {data:msgs,error} = await sb.from("messages").select("id,subject,body,direction,read_at,created_at,attachment_url").eq("pupil_id",threadPupilId).order("created_at",{ascending:true});
   if(error){ el.innerHTML='<p class="muted">'+esc(error.message)+'</p>'; return; }
   const rows=msgs||[];
+  // Photos are private: each thumbnail gets a 5-minute link, as in the app.
+  const signed={};
+  await Promise.all(rows.filter(m=>m.attachment_url).map(async m=>{
+    if(/^https?:\/\//i.test(m.attachment_url)){ signed[m.id]=m.attachment_url; return; }
+    const {data}=await sb.storage.from("message-attachments").createSignedUrl(m.attachment_url,300);
+    if(data&&data.signedUrl) signed[m.id]=data.signedUrl;
+  }));
+  msgAttachPaths=[];
   const tp=allPupils().find(x=>x.id===threadPupilId);
   const pupilName=tp?`${tp.first_name} ${tp.last_name}`:"Pupil";
   const outWho=m=>{
@@ -7505,7 +7518,14 @@ async function renderThread(){
   el.innerHTML = rows.length ? rows.map(m=>{
     const mine=m.direction!=="inbound";
     const extra=(m.subject&&!/^From /.test(m.subject))?`<div style="font-weight:600;font-size:.75rem;opacity:.8">${esc(m.subject)}</div>`:"";
-    return msgBubble(mine, mine?outWho(m):pupilName, m.body, m.created_at, extra);
+    let after="";
+    if(m.attachment_url){
+      const i=msgAttachPaths.push(m.attachment_url)-1;
+      after=`<a href="#" onclick="openMsgAttachment(${i});return false" style="display:block;margin-top:.3rem;color:inherit">${signed[m.id]?`<img src="${esc(signed[m.id])}" alt="Photo" onload="const l=document.getElementById('thread-list');if(l)l.scrollTop=l.scrollHeight" style="display:block;width:10rem;height:8rem;object-fit:cover;border-radius:8px">`:'<span style="text-decoration:underline;font-size:.78rem">📎 View attachment</span>'}</a>`;
+    }
+    // Read ticks on your messages, as in the app: ✓ sent, ✓✓ once the pupil has read it.
+    const meta=mine?(m.read_at?` · Read ${new Date(m.read_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})} ✓✓`:" ✓"):"";
+    return msgBubble(mine, mine?outWho(m):pupilName, msgDisplayBody(m.body), m.created_at, extra, {after, meta});
   }).join("") : '<p class="muted" style="text-align:center;padding:1rem">No messages yet</p>';
   el.scrollTop = el.scrollHeight;
   // Anything they sent is now read.
@@ -7528,6 +7548,198 @@ async function sendThreadMessage(){
   if(msg?.id) triggerMsgPush(msg.id);
   await renderThread();
   if(!document.getElementById("tab-messages").classList.contains("hidden")) loadMessagesPanel();
+}
+
+// Hidden tags the app adds to the end of some messages (lesson offers and the like) aren't shown, as in the app.
+function msgDisplayBody(body){ return body ? String(body).replace(/(?:\s*\[[A-Z][A-Z0-9_]*:[^\]\s]*\])+\s*$/,"").trimEnd() : ""; }
+let msgAttachPaths=[];
+// A fresh 2-minute link each time a photo is opened, as in the app.
+async function openMsgAttachment(i){
+  const path=msgAttachPaths[i]; if(!path) return;
+  const w=window.open("about:blank","_blank");
+  let url=/^https?:\/\//i.test(path)?path:null;
+  if(!url){ const {data}=await sb.storage.from("message-attachments").createSignedUrl(path,120); url=data&&data.signedUrl; }
+  if(!url){ if(w) w.close(); alert("Could not open this attachment. Try reopening the conversation."); return; }
+  if(w){ w.opener=null; w.location.href=url; } else window.location.href=url;
+}
+
+// --- Messages tabs, the same as the app's: Inbox, Send to All, Scheduled (Dale, 14 Sep 2026) ---------------
+let msgTab="inbox", bcBatches=[], bcFile=null;
+function msgTabsHtml(){
+  const t=(k,label)=>`<button type="button" class="${msgTab===k?"on":""}" onclick="setMsgTab('${k}')">${label}</button>`;
+  return `<div class="tabs-sub">${t("inbox","Inbox")}${t("broadcast","Send to All")}${t("scheduled","Scheduled")}</div>`;
+}
+function setMsgTab(k){ msgTab=k; loadMessagesPanel(); }
+// Send to All goes to your own pupils, as in the app (a driving school admin's instructors send to theirs).
+function bcOwnPupils(){ return pupilsCache.filter(p=>p.instructor_id===currentUserId); }
+async function renderBroadcastTab(content){
+  const {data,error}=await sb.from("messages").select("id,pupil_id,subject,body,read_at,created_at").eq("direction","broadcast").eq("instructor_id",currentUserId).order("created_at",{ascending:false}).limit(2000);
+  // One send puts in a row per pupil with the same time, subject and text, so grouping on those rebuilds each send.
+  const groups=new Map();
+  (data||[]).forEach(m=>{ const k=m.created_at+"|"+(m.subject||"")+"|"+(m.body||""); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(m); });
+  bcBatches=[...groups.values()].map(rows=>({created_at:rows[0].created_at, body:rows[0].body, rows}));
+  bcFile=null;
+  const active=bcOwnPupils().filter(p=>p.status==="active");
+  const when=d=>new Date(d).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  const sent = error ? `<p class="muted">${esc(error.message)}</p>`
+    : bcBatches.length ? bcBatches.map((b,i)=>{
+        const read=b.rows.filter(r=>r.read_at).length;
+        return `<div class="list-row" style="cursor:pointer" onclick="openReadReceipts(${i})"><div style="flex:1;min-width:0"><strong>Send to All</strong><div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(msgDisplayBody(b.body))}</div><div style="font-size:.8rem;font-weight:600;color:var(--navy);margin-top:.15rem">${read} of ${b.rows.length} read</div></div><div class="muted" style="font-size:.75rem;white-space:nowrap">${when(b.created_at)}</div></div>`;
+      }).join("")
+    : '<p class="muted">No broadcasts sent yet</p>';
+  content.innerHTML=`<h2>Messages</h2>${msgTabsHtml()}
+    <p class="muted" style="margin:0 0 .75rem">Send a message to all your pupils — ideal for group announcements (e.g. weather, schedule changes, or reminders).</p>
+    <div class="field"><textarea id="bc-body" rows="5" placeholder="Write your message"></textarea></div>
+    <div class="field"><label>Send To</label><select id="bc-to" onchange="bcToChanged()">
+      <option value="active">Active Pupils</option><option value="waiting">Waiting list</option><option value="both">Active Pupils &amp; Waiting list</option><option value="select">Select Pupils</option>
+    </select></div>
+    <div id="bc-select" class="hidden" style="max-height:15rem;overflow-y:auto;border:1px solid var(--line);border-radius:10px;margin:-.25rem 0 .9rem">
+      ${active.length ? active.map(p=>`<label style="display:flex;align-items:center;gap:.6rem;padding:.55rem .75rem;border-bottom:1px solid var(--line);font-size:.9rem;cursor:pointer"><input type="checkbox" class="bc-pick" value="${p.id}"> ${esc(p.first_name)} ${esc(p.last_name)}<span class="muted" style="margin-left:auto;font-size:.75rem;text-transform:capitalize">${esc(p.status)}</span></label>`).join("") : '<p class="muted" style="padding:.6rem .75rem;margin:0">No active pupils.</p>'}
+    </div>
+    <div id="bc-file-row" class="hidden" style="display:flex;justify-content:space-between;gap:.5rem;align-items:center;border:1px solid var(--line);border-radius:8px;padding:.35rem .6rem;margin-bottom:.6rem;font-size:.82rem"><span id="bc-file-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span><a href="#" onclick="bcClearFile();return false" style="color:#e11d48;font-weight:600">Remove</a></div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem">
+      <label class="btn-outline" style="cursor:pointer">📷 Attach photo<input type="file" id="bc-file" accept="image/*" hidden onchange="bcFileChosen(this)"></label>
+      <button type="button" class="btn-outline" onclick="openBroadcastSchedule()">🕒 Schedule for later</button>
+    </div>
+    <button type="button" class="btn btn-navy" id="bc-send" onclick="sendBroadcastCC()">Send Now</button>
+    <div class="err" id="bc-err" style="margin-top:.5rem;display:block;text-align:left"></div>
+    <h3 style="margin:1.4rem 0 .3rem">Sent broadcasts</h3>
+    ${sent}`;
+  updateMessagesBadge();
+}
+function bcToChanged(){ document.getElementById("bc-select").classList.toggle("hidden", document.getElementById("bc-to").value!=="select"); }
+function bcFileChosen(input){
+  bcFile=(input.files&&input.files[0])||null; input.value="";
+  document.getElementById("bc-file-row").classList.toggle("hidden", !bcFile);
+  document.getElementById("bc-file-name").textContent=bcFile?bcFile.name:"";
+}
+function bcClearFile(){ bcFile=null; document.getElementById("bc-file-row").classList.add("hidden"); }
+function bcPickedIds(){ return [...document.querySelectorAll(".bc-pick:checked")].map(x=>x.value); }
+function bcTargets(){
+  const to=document.getElementById("bc-to").value, own=bcOwnPupils();
+  if(to==="active") return own.filter(p=>p.status==="active");
+  if(to==="waiting") return own.filter(p=>p.status==="waiting");
+  if(to==="both") return own.filter(p=>p.status==="active"||p.status==="waiting");
+  const ids=bcPickedIds();
+  return own.filter(p=>ids.includes(p.id));
+}
+// Same as the app's shrinkImageForUpload: a photo over 700 KB becomes a JPEG of at most 2000 px, never bigger than it was.
+async function shrinkPhotoForUpload(file){
+  try{
+    const looksLikeImage=/^image\//.test(file.type||"")||/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name||"");
+    if(!looksLikeImage||file.size<700*1024||typeof createImageBitmap!=="function") return file;
+    const bmp=await createImageBitmap(file,{imageOrientation:"from-image"});
+    const scale=Math.min(1,2000/Math.max(bmp.width,bmp.height));
+    const w=Math.round(bmp.width*scale), h=Math.round(bmp.height*scale);
+    const canvas=document.createElement("canvas"); canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext("2d"); if(!ctx) return file;
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,w,h); ctx.drawImage(bmp,0,0,w,h); if(bmp.close) bmp.close();
+    const blob=await new Promise(res=>canvas.toBlob(res,"image/jpeg",0.82));
+    if(!blob||blob.size>=file.size) return file;
+    return new File([blob],(file.name||"photo").replace(/\.[^.]+$/,"")+".jpg",{type:"image/jpeg"});
+  }catch(e){ return file; }
+}
+function safeFileName(name){ return String(name||"photo").replace(/[^a-zA-Z0-9._-]/g,"_"); }
+async function sendBroadcastCC(){
+  const err=document.getElementById("bc-err"); err.textContent="";
+  const body=(document.getElementById("bc-body").value||"").trim();
+  if(!body && !bcFile){ err.textContent="Write a message or attach a photo first"; return; }
+  const targets=bcTargets();
+  if(!targets.length){ err.textContent="No pupils match that selection"; return; }
+  const btn=document.getElementById("bc-send"); btn.disabled=true; btn.textContent="Sending…";
+  try{
+    const attach={};
+    if(bcFile){
+      const f=await shrinkPhotoForUpload(bcFile);
+      for(const p of targets){
+        const path=`${p.id}/${Date.now()}-${safeFileName(f.name)}`;
+        const {error}=await sb.storage.from("message-attachments").upload(path,f,{upsert:false,contentType:f.type||"application/octet-stream"});
+        if(error){ err.textContent=error.message; return; }
+        attach[p.id]=path;
+      }
+    }
+    // One insert, so the rows share a time and group back together under Sent broadcasts. The database sends each pupil a notification.
+    const rows=targets.map(p=>Object.assign({pupil_id:p.id, body, direction:"broadcast", subject:"Send to All"}, attach[p.id]?{attachment_url:attach[p.id]}:{}));
+    const {error}=await sb.from("messages").insert(rows);
+    if(error){ err.textContent=error.message; return; }
+    alert(`Sent to ${targets.length} pupil(s)`);
+    await loadMessagesPanel();
+  }finally{
+    if(document.body.contains(btn)){ btn.disabled=false; btn.textContent="Send Now"; }
+  }
+}
+function localDateTimeValue(d){ const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+function openBroadcastSchedule(){
+  const err=document.getElementById("bc-err"); err.textContent="";
+  const body=(document.getElementById("bc-body").value||"").trim();
+  if(!body && !bcFile){ err.textContent="Write a message or attach a photo first"; return; }
+  if(document.getElementById("bc-to").value==="select" && !bcPickedIds().length){ err.textContent="Select at least one pupil"; return; }
+  const d=new Date(Date.now()+60*60*1000); d.setSeconds(0,0); d.setMinutes(Math.ceil(d.getMinutes()/5)*5);
+  openModal(`<h3 style="margin:0 0 .25rem">Schedule message</h3>
+    <p class="muted" style="margin-bottom:.75rem">Choose when this message should be sent.</p>
+    <div class="field"><label>Send at</label><input type="datetime-local" id="bc-when" value="${localDateTimeValue(d)}" min="${localDateTimeValue(new Date())}"></div>
+    <button class="btn btn-navy btn-sm" id="bc-when-btn" onclick="scheduleBroadcastCC()">Schedule message</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
+    <div class="err" id="bc-when-err" style="margin-top:.5rem;display:block;text-align:left"></div>`);
+}
+async function scheduleBroadcastCC(){
+  const err=document.getElementById("bc-when-err"); err.textContent="";
+  const value=document.getElementById("bc-when").value;
+  const at=value?new Date(value):null;
+  if(!at||isNaN(at.getTime())){ err.textContent="Choose a date and time"; return; }
+  if(at.getTime()<Date.now()-60*1000){ err.textContent="Choose a time that hasn't passed"; return; }
+  const body=(document.getElementById("bc-body").value||"").trim();
+  const to=document.getElementById("bc-to").value;
+  const btn=document.getElementById("bc-when-btn"); btn.disabled=true; btn.textContent="Scheduling…";
+  let attachment_path=null, attachment_name=null;
+  if(bcFile){
+    // Which pupils get it is only worked out when it sends, so the photo waits in a staging folder and is copied to each pupil then.
+    const f=await shrinkPhotoForUpload(bcFile);
+    attachment_path=`_scheduled/${crypto.randomUUID()}/${Date.now()}-${safeFileName(f.name)}`;
+    const {error}=await sb.storage.from("message-attachments").upload(attachment_path,f,{upsert:false,contentType:f.type||"application/octet-stream"});
+    if(error){ err.textContent=error.message; btn.disabled=false; btn.textContent="Schedule message"; return; }
+    attachment_name=bcFile.name;
+  }
+  const {error}=await sb.from("scheduled_messages").insert({scope:"broadcast", body, broadcast_target:to, broadcast_pupil_ids:to==="select"?bcPickedIds():null, attachment_path, attachment_name, scheduled_for:at.toISOString(), created_by:currentUserId});
+  if(error){ err.textContent=error.message; btn.disabled=false; btn.textContent="Schedule message"; return; }
+  closeModal();
+  bcFile=null;
+  msgTab="scheduled";
+  alert("Broadcast scheduled");
+  loadMessagesPanel();
+}
+function openReadReceipts(i){
+  const b=bcBatches[i]; if(!b) return;
+  const name=r=>{ const p=allPupils().find(x=>x.id===r.pupil_id); return p?`${p.first_name} ${p.last_name}`:"Unknown pupil"; };
+  const rows=[...b.rows].sort((a,c)=>name(a).localeCompare(name(c)));
+  openModal(`<h3 style="margin:0 0 .25rem">Read receipts</h3>
+    <p class="muted" style="margin-bottom:.4rem">${new Date(b.created_at).toLocaleString("en-GB",{weekday:"long",day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})}</p>
+    <div style="white-space:pre-line;font-size:.9rem;margin-bottom:.75rem">${esc(msgDisplayBody(b.body))}</div>
+    <div style="border:1px solid var(--line);border-radius:10px;max-height:50vh;overflow-y:auto">
+      ${rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.5rem .75rem;border-bottom:1px solid var(--line);font-size:.9rem"><span>${esc(name(r))}</span>${r.read_at?`<span class="chip chip-ok" style="white-space:nowrap">✓✓ Read ${new Date(r.read_at).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>`:'<span class="muted" style="font-size:.8rem;white-space:nowrap">Not read yet</span>'}</div>`).join("")}
+    </div>
+    <button class="btn-outline" style="margin-top:.75rem" onclick="closeModal()">Close</button>`);
+}
+async function renderScheduledTab(content){
+  const {data,error}=await sb.from("scheduled_messages").select("*").eq("status","pending").order("scheduled_for",{ascending:true});
+  const groupLabel={active:"Active Pupils", waiting:"Waiting list", both:"Active Pupils & Waiting list"};
+  const target=r=>{
+    if(r.scope==="direct"){ const p=allPupils().find(x=>x.id===r.pupil_id); return p?`${p.first_name} ${p.last_name}`:"Pupil"; }
+    return "Send to All — "+(r.broadcast_target==="select"?`${(r.broadcast_pupil_ids||[]).length} selected pupil(s)`:(groupLabel[r.broadcast_target]||r.broadcast_target||""));
+  };
+  const when=d=>new Date(d).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  const rows=data||[];
+  content.innerHTML=`<h2>Messages</h2>${msgTabsHtml()}${
+    error ? `<p class="muted">${esc(error.message)}</p>`
+    : rows.length ? rows.map(r=>`<div class="list-row"><div style="flex:1;min-width:0"><strong>${esc(target(r))}</strong><div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.body||(r.attachment_name?`(Photo: ${r.attachment_name})`:""))}</div><div style="font-size:.8rem;font-weight:600;color:var(--navy);margin-top:.15rem">🕒 ${when(r.scheduled_for)}</div></div><button type="button" class="btn-outline" onclick="cancelScheduledCC('${r.id}')">Cancel</button></div>`).join("")
+    : '<p class="muted">No scheduled messages</p>'}`;
+  updateMessagesBadge();
+}
+async function cancelScheduledCC(id){
+  if(!confirm("Cancel this scheduled message?")) return;
+  const {error}=await sb.from("scheduled_messages").update({status:"cancelled"}).eq("id",id);
+  if(error){ alert(error.message); return; }
+  loadMessagesPanel();
 }
 
 async function loadTeamsPanel(){

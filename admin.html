@@ -229,14 +229,19 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
     .manage-info { min-width: 0; }
     .manage-actions { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
     .manage-actions .btn-outline, .manage-actions .btn { font-size: .8rem; padding: .35rem .7rem; }
-    .manage-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .5rem 1rem; border: 1px solid var(--line); border-radius: 10px; padding: .6rem .8rem; margin: .1rem 0 .45rem; background: rgba(255,255,255,.03); }
-    .manage-panel[hidden] { display: none; }
-    .manage-group-label { font-size: .72rem; color: var(--muted, #94a3b8); text-transform: uppercase; letter-spacing: .04em; margin: .1rem 0 .25rem .45rem; }
-    .manage-item { display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--text); font: inherit; font-size: .88rem; padding: .38rem .45rem; border-radius: 6px; cursor: pointer; }
-    .manage-item:hover, .manage-item:focus-visible { background: rgba(255,255,255,.08); }
-    .manage-item.danger { color: #f87171; }
-    .manage-item.unavailable { color: var(--muted, #94a3b8); }
-    .manage-panel select { width: 100%; margin: .2rem 0 .35rem; }
+    /* Each group is one line of outlined buttons with its label in front (Dale: the options didn't look like buttons
+       and the menu had a lot of empty space). */
+    .manage-panel { display: flex; flex-direction: column; gap: .5rem; border: 1px solid var(--line); border-radius: 10px; padding: .6rem .75rem; margin: .1rem 0 .45rem; background: rgba(255,255,255,.03); }
+    .manage-panel[hidden], .school-members[hidden] { display: none; }
+    .manage-group { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+    .manage-group-label { flex: 0 0 110px; font-size: .72rem; color: var(--muted, #94a3b8); text-transform: uppercase; letter-spacing: .04em; }
+    .manage-item { display: inline-flex; align-items: center; background: rgba(255,255,255,.04); border: 1px solid var(--line); color: var(--text); font: inherit; font-size: .82rem; padding: .32rem .7rem; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+    .manage-item:hover, .manage-item:focus-visible { border-color: #3b82f6; background: rgba(59,130,246,.14); }
+    .manage-item.danger { color: #f87171; border-color: rgba(248,113,113,.55); }
+    .manage-item.danger:hover, .manage-item.danger:focus-visible { background: rgba(248,113,113,.14); border-color: #f87171; }
+    .manage-item.unavailable { color: var(--muted, #94a3b8); border-style: dashed; }
+    .manage-panel select { width: auto; max-width: 100%; margin: 0; font-size: .8rem; }
+    @media (max-width: 600px) { .manage-group-label { flex-basis: 100%; } }
     .dash-setting .ico { font-size: 1.3rem; line-height: 1.2; }
     .dash-setting strong { display: block; font-size: .88rem; margin-bottom: .15rem; }
     .dash-setting span { font-size: .76rem; color: var(--muted, #64748b); line-height: 1.35; }
@@ -7519,10 +7524,18 @@ async function loadTeamsPanel(){
     // Adding a school or an instructor opens a pop-up (Dale, 14 Sep 2026: one button for each, not two long forms).
     content.innerHTML=`
       <div class="err" id="teams-err" style="margin:0 0 .5rem;display:block;text-align:left"></div>
+      <div style="margin:0 0 1rem">
+        <input id="teams-search" type="search" placeholder="Search driving schools and instructors by name, email or label" oninput="filterTeams()" style="width:100%;max-width:520px;padding:.55rem .75rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);font:inherit">
+        <p class="muted" id="teams-search-none" hidden style="margin:.5rem 0 0">Nothing matches that search.</p>
+      </div>
       <section style="border:1px solid var(--line);border-radius:14px;padding:1rem 1.1rem;margin-bottom:1.5rem">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap">
           <h2 style="margin:0">Driving schools</h2>
-          <button class="btn btn-navy btn-sm" onclick="openAddSchoolModal()">+ Add driving school</button>
+          <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+            <button class="btn-outline btn-sm" onclick="setAllSchoolsOpen(true)">Expand all</button>
+            <button class="btn-outline btn-sm" onclick="setAllSchoolsOpen(false)">Collapse all</button>
+            <button class="btn btn-navy btn-sm" onclick="openAddSchoolModal()">+ Add driving school</button>
+          </div>
         </div>
         <p class="muted" style="margin:.35rem 0 .75rem">Each driving school with its instructors underneath. Only you (super admin) can create driving schools or lock a whole school's access.</p>
         <div id="schools-list">Loading…</div>
@@ -7573,17 +7586,16 @@ async function loadTeamsPanel(){
       const statusChip = sub ? renderStatusChip(sub.status,sub.trial_ends_at) : '<span class="chip" style="background:#1e3a5f;color:#bfdbfe">Free access</span>';
       const members = instrRows.filter(i=>i.school_id===s.id);
       const schoolPaysByDD = !!(sub && (sub.gocardless_subscription_id || sub.gocardless_mandate_id) && !sub.cancel_at_period_end);
+      // Replies to schools are by email (Dale, 14 Sep 2026): email or copy the school's admin address(es).
+      const adminEmails = members.filter(m=>m.is_school_admin && m.email).map(m=>esc(m.email));
       const schoolRow = manageRowHtml({
         extraStyle: "border-bottom:none",
-        info: `<strong>${esc(nameCase(s.display_name||s.name))}</strong>${lockedBadge} ${statusChip}${schoolPaysByDD?' <span class="chip chip-ok">Direct Debit</span>':""}<div class="muted">${count} instructor${count===1?"":"s"}</div>`,
-        buttons: `<button class="btn-outline" onclick="showSchoolDetail('${s.id}')">Details</button>`,
+        info: `<strong>${esc(nameCase(s.display_name||s.name))}</strong>${lockedBadge} ${statusChip}${schoolPaysByDD?' <span class="chip chip-ok">Direct Debit</span>':""}${adminEmails.length?`<div class="muted">${adminEmails.join(", ")}</div>`:""}`,
+        buttons: `<button class="btn-outline" id="members-btn-${s.id}" data-count="${count}" aria-expanded="false" aria-controls="members-${s.id}" onclick="toggleSchoolMembers('${s.id}')">Instructors (${count}) ▾</button><button class="btn-outline" onclick="showSchoolDetail('${s.id}')">Details</button>`,
         groups: [
           { label: "School", items: [
-            // Replies to schools are by email (Dale, 14 Sep 2026): opens a new email to the school's admin(s).
-            (() => {
-              const adminEmails = members.filter(m=>m.is_school_admin && m.email).map(m=>esc(m.email));
-              return adminEmails.length ? manageItem("Send email to the school admin", `location.href='mailto:${adminEmails.join(",")}'`) : "";
-            })(),
+            adminEmails.length ? manageItem("Send email to the admin", `location.href='mailto:${adminEmails.join(",")}'`) : "",
+            adminEmails.length ? manageItem("Copy admin email", `copyEmailAddress('${adminEmails.join(", ")}',this)`) : "",
             manageItem("Rename", `editSchool('${s.id}','${nameEsc}')`),
             s.locked_at ? manageItem("Unlock school", `unlockSchool('${s.id}','${nameEsc}')`) : manageItem("Lock school", `lockSchool('${s.id}','${nameEsc}')`),
           ]},
@@ -7599,8 +7611,8 @@ async function loadTeamsPanel(){
           ]},
         ],
       });
-      return `<div class="school-block" style="border-bottom:1px solid var(--line);margin-bottom:.35rem;padding-bottom:.35rem">${schoolRow}
-        <div style="margin:0 0 .25rem 1rem;padding-left:.85rem;border-left:3px solid var(--line)">${members.length ? members.map(i=>renderInstructorRow(i, schoolRows, true, {hideSchool:true})).join("") : '<p class="muted" style="font-size:.85rem;padding:.35rem 0">No instructors in this school yet.</p>'}</div></div>`;
+      return `<div class="school-block" data-school-id="${s.id}" style="border-bottom:1px solid var(--line);margin-bottom:.35rem;padding-bottom:.35rem">${schoolRow}
+        <div class="school-members" id="members-${s.id}" hidden style="margin:0 0 .25rem 1rem;padding-left:.85rem;border-left:3px solid var(--line)">${members.length ? members.map(i=>renderInstructorRow(i, schoolRows, true, {hideSchool:true})).join("") : '<p class="muted" style="font-size:.85rem;padding:.35rem 0">No instructors in this school yet.</p>'}</div></div>`;
     }).join("") : '<p class="muted">No driving schools yet.</p>';
 
     const instrList=document.getElementById("instructors-list");
@@ -7608,6 +7620,9 @@ async function loadTeamsPanel(){
     const soloRows = instrRows.filter(i=>!i.school_id || !schoolIdSet.has(i.school_id));
     instrList.innerHTML = soloRows.length ? soloRows.map(i=>renderInstructorRow(i, schoolRows, true)).join("") : '<p class="muted">No solo instructors yet.</p>';
 
+    // Keep the search and which schools were open after the list reloads.
+    { const searchBox=document.getElementById("teams-search"); if(searchBox) searchBox.value=teamsSearchQuery; }
+    filterTeams();
     applyPendingPdiPrefill();
   } else if(isSchoolAdminUser && currentSchoolId){
     content.innerHTML=`
@@ -7727,7 +7742,9 @@ function manageRowHtml({info, buttons, groups, extraStyle}){
   const id="mm"+(++manageMenuSeq);
   const body=(groups||[]).map(g=>({label:g.label, items:(g.items||[]).filter(Boolean)})).filter(g=>g.items.length)
     .map(g=>`<div class="manage-group"><div class="manage-group-label">${g.label}</div>${g.items.join("")}</div>`).join("");
-  return `<div class="list-row manage-row"${extraStyle?` style="${extraStyle}"`:""}>
+  // What the search box matches: the row's name, email and labels.
+  const searchText=String(info||"").replace(/<[^>]*>/g," ").replace(/&amp;/g,"&").replace(/\s+/g," ").trim().toLowerCase();
+  return `<div class="list-row manage-row" data-search="${esc(searchText)}"${extraStyle?` style="${extraStyle}"`:""}>
     <div class="manage-top">
       <div class="manage-info">${info}</div>
       <div class="manage-actions">${buttons||""}${body?`<button type="button" class="btn-outline" aria-expanded="false" aria-controls="${id}" onclick="toggleManageMenu('${id}',this)">Manage ▾</button>`:""}</div>
@@ -7741,6 +7758,65 @@ function toggleManageMenu(id, btn){
   const opening=panel.hasAttribute("hidden");
   if(opening) panel.removeAttribute("hidden"); else panel.setAttribute("hidden","");
   if(btn){ btn.setAttribute("aria-expanded", opening?"true":"false"); btn.textContent = opening ? "Manage ▴" : "Manage ▾"; }
+}
+function copyEmailAddress(address, btn){
+  const done=()=>{ if(!btn) return; const label=btn.textContent; btn.textContent="Copied"; setTimeout(()=>{ btn.textContent=label; }, 1500); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(address).then(done).catch(()=>prompt("Copy this email address:", address));
+  } else {
+    prompt("Copy this email address:", address);
+  }
+}
+
+// The driving schools list can get long (Dale, 14 Sep 2026): each school's instructors fold away under an
+// "Instructors (n)" button, Expand all / Collapse all work on every school, and the search box filters both lists by
+// name, email or label, opening any school with a matching instructor. Open schools are remembered while the page is open.
+let teamsSearchQuery="";
+const openSchools=new Set();
+function setSchoolMembersOpen(schoolId, open){
+  const members=document.getElementById("members-"+schoolId);
+  const btn=document.getElementById("members-btn-"+schoolId);
+  if(members){ if(open) members.removeAttribute("hidden"); else members.setAttribute("hidden",""); }
+  if(btn){ btn.setAttribute("aria-expanded", open?"true":"false"); btn.textContent=`Instructors (${btn.dataset.count||0}) ${open?"▴":"▾"}`; }
+}
+function toggleSchoolMembers(schoolId){
+  if(openSchools.has(schoolId)) openSchools.delete(schoolId); else openSchools.add(schoolId);
+  setSchoolMembersOpen(schoolId, openSchools.has(schoolId));
+}
+function setAllSchoolsOpen(open){
+  document.querySelectorAll("#schools-list .school-block").forEach(block=>{
+    const id=block.dataset.schoolId;
+    if(open) openSchools.add(id); else openSchools.delete(id);
+    setSchoolMembersOpen(id, open);
+  });
+}
+function filterTeams(){
+  const input=document.getElementById("teams-search");
+  if(input) teamsSearchQuery=input.value;
+  const q=teamsSearchQuery.trim().toLowerCase();
+  const matches=el=>!!el && (el.dataset.search||"").includes(q);
+  let shown=0;
+  document.querySelectorAll("#schools-list .school-block").forEach(block=>{
+    const id=block.dataset.schoolId;
+    const schoolMatch=!q || matches(block.querySelector(":scope > .manage-row"));
+    let memberMatch=false;
+    block.querySelectorAll(".school-members .manage-row").forEach(row=>{
+      const m=q && matches(row);
+      if(m) memberMatch=true;
+      row.style.display=(!q || schoolMatch || m) ? "" : "none";
+    });
+    const visible=schoolMatch || memberMatch;
+    block.style.display=visible ? "" : "none";
+    if(visible) shown++;
+    setSchoolMembersOpen(id, openSchools.has(id) || memberMatch);
+  });
+  document.querySelectorAll("#instructors-list .manage-row").forEach(row=>{
+    const visible=!q || matches(row);
+    row.style.display=visible ? "" : "none";
+    if(visible) shown++;
+  });
+  const none=document.getElementById("teams-search-none");
+  if(none) none.hidden=!(q && shown===0);
 }
 
 function renderInstructorRow(i, schoolRows, fullControls, opts){
@@ -7759,6 +7835,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
     : manageItem("Lock", `lockInstructor('${i.id}','${nameEsc}')`));
 
   const emailItem = i.email ? manageItem("Send email", `location.href='mailto:${esc(i.email)}'`) : "";
+  const copyItem = i.email ? manageItem("Copy email", `copyEmailAddress('${esc(i.email)}',this)`) : "";
   const info = `<strong>${esc(i.full_name ? nameCase(i.full_name) : i.email)}</strong>${adminBadge}${lockedBadge} ${statusChip}`
     + (fullControls && paysByDD ? ' <span class="chip chip-ok">Direct Debit</span>' : "")
     + (fullControls && mfaOn ? ' <span class="chip chip-ok" title="Two-factor authentication is on">2FA</span>' : "")
@@ -7779,6 +7856,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
       ]},
       { label: "Account", items: [
         emailItem,
+        copyItem,
         manageItem("Edit", `editInstructor('${i.id}')`),
         lockItem,
         (schoolPdiIds.has(i.id) && !schoolPdiPending.has(i.id)) ? manageItem("Request paid seat", `requestPdiUpgrade('${i.id}','${nameEsc}')`) : "",
@@ -7820,6 +7898,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
     groups: [
       { label: "Account", items: [
         emailItem,
+        copyItem,
         manageItem("Edit", `editInstructor('${i.id}')`),
         lockItem,
         school ? manageItem(i.is_school_admin ? "Remove admin" : "Make admin", `toggleSchoolAdmin('${i.id}',${!i.is_school_admin})`) : "",

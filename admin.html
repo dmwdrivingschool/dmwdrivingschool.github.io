@@ -8317,7 +8317,7 @@ async function loadBillingPanel(){
 
   const cancelBlock = sub.cancel_at_period_end
     ? `<h3 style="margin:1.5rem 0 .5rem">Subscription cancelled</h3>
-       <p class="muted">No further payments will be taken.${accessEndsText?` Your access stays on until <strong>${accessEndsText}</strong>.`:""} Changed your mind? You can pick up where you left off — you won't be charged for time you've already paid for.</p>
+       <p class="muted">No further payments will be taken.${accessEndsText?` Your access stays on until <strong>${accessEndsText}</strong>.`:""}${sub.gocardless_mandate_id?(accessEndsText?" Your Direct Debit stays in place until then, so restarting is one click. After that it's removed and you'd set up a new one.":" Your Direct Debit will be removed shortly."):""} Changed your mind? You can pick up where you left off — you won't be charged for time you've already paid for.</p>
        ${resumeInvite}
        <button class="btn btn-navy btn-sm" style="margin-top:.6rem" onclick="resumeSubscription()">Resume my subscription</button>`
     : pausedMode ? "" : `<h3 style="margin:1.5rem 0 .5rem">Cancel</h3>
@@ -8495,7 +8495,7 @@ async function doCancelSubscription(ownerType, ownerId){
   }
   closeModal();
   const until = data?.access_ends_at ? new Date(data.access_ends_at).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : null;
-  alert(until ? `Cancelled. No further payments will be taken, and access continues until ${until}.` : "Cancelled. No further payments will be taken.");
+  alert(until ? `Cancelled. No further payments will be taken, and access continues until ${until}. Your Direct Debit stays in place until then so you can restart with one click, then it's removed.` : "Cancelled. No further payments will be taken, and your Direct Debit will be removed.");
   if(isSuperAdminUser) await loadBillingPanel(); else await loadBillingPanel();
 }
 
@@ -8509,7 +8509,15 @@ async function resumeSubscription(){
   const {data,error} = await sb.functions.invoke("manage-subscription",{ body });
   const msg = error?.message || data?.error;
   if(data?.needs_mandate){
-    alert("The Direct Debit for this account was cancelled at the bank, so a new one is needed. Use Finish setting up Direct Debit on the Billing page.");
+    // The Direct Debit was removed after their access ended (Dale, 14 Sep 2026), or cancelled at the bank:
+    // go straight to setting up a new one. The webhook undoes the cancellation once it's done.
+    if(!confirm("Your Direct Debit has been removed, so a new one is needed to restart. You'll go to GoCardless to enter your bank details. Continue?")) return;
+    try{
+      const res = await callFn("create-billing-request", {});
+      if(res.authorisation_url) window.location.href = res.authorisation_url;
+    }catch(e){
+      alert("Could not start the Direct Debit set-up: "+(e.message||e));
+    }
     return;
   }
   if(msg){ alert("Could not resume: "+msg); return; }
@@ -8565,7 +8573,7 @@ async function superAdminClearExtension(ownerType, ownerId, name){
 }
 
 async function superAdminCancel(ownerType, ownerId, name){
-  if(!confirm(`Cancel ${name}'s subscription?\n\nGoCardless billing stops immediately. They keep access until the end of the period they've already paid for.`)) return;
+  if(!confirm(`Cancel ${name}'s subscription?\n\nGoCardless billing stops immediately. They keep access until the end of the period they've already paid for, then their Direct Debit is removed.`)) return;
   openCancelSubscription("", "", false);
   const btn=document.getElementById("cancel-confirm-btn");
   if(btn) btn.setAttribute("onclick", `doCancelSubscription('${ownerType}','${ownerId}')`);

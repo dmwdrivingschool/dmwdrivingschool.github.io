@@ -130,6 +130,18 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .d-block.delivered{background:#22c55e}
 .d-block.mock{background:#fbbf24;color:#1e293b}
 .d-block.test{background:#000}
+/* Pupil availability on the diary (Dale, 15 Sep 2026): see-through teal behind the entries, never catches clicks */
+.av-band{position:absolute;left:0;right:0;background:rgba(20,184,166,.28);pointer-events:none;z-index:0;overflow:hidden}
+.av-lbl{display:block;padding:1px 4px;font-size:.6rem;font-weight:700;line-height:1.3;color:#ccfbf1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--fb)}
+.av-narrow .av-names{display:none}
+.av-swatch{display:inline-block;width:.8rem;height:.8rem;border-radius:3px;background:rgba(20,184,166,.6);flex:0 0 auto}
+.av-bar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.3rem .9rem;font-size:.8rem;background:rgba(20,184,166,.12);border-bottom:1px solid var(--line)}
+.av-pick{display:flex;flex-direction:column;align-items:flex-start;gap:.1rem;width:100%;text-align:left;margin-bottom:.35rem}
+.av-chip{border:0;cursor:pointer;font-family:var(--fb);text-transform:none}
+.av-chip.on{background:#14b8a6;color:#042f2e}
+#diary-avail-btn.av-on{border-color:#14b8a6;color:#5eead4}
+.av-warn{color:#fcd34d;font-size:.8rem;font-weight:600;margin-top:.3rem}
+.av-warn:empty{display:none}
 /* modal */
 .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
 .modal-box{background:#fff;border-radius:20px 20px 0 0;padding:1.4rem;width:100%;max-width:540px;max-height:90vh;overflow:auto;box-shadow:0 -8px 40px rgba(15,23,42,.2)}
@@ -541,6 +553,7 @@ tbody tr:hover td{background:#334263}
           </label>
           <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
             <button class="btn-outline d-nav" onclick="shiftWeek(1)">›</button>
+            <button class="btn-outline btn-sm" id="diary-avail-btn" onclick="openAvailabilityPicker()">Availability</button>
             <button class="btn-outline btn-sm" onclick="openLessonSwap()">Swap</button>
             <button class="btn-outline btn-sm" onclick="openDiaryGap()">+ Gap</button>
             <button class="btn-outline btn-sm" onclick="openAwayModal()">+ Holiday</button>
@@ -548,6 +561,7 @@ tbody tr:hover td{background:#334263}
           </div>
         </div>
         <div id="diary-owner-bar"></div>
+        <div id="diary-avail-bar"></div>
         <div id="diary-wrap"></div>
       </div>
     </section>
@@ -1694,6 +1708,9 @@ let pupilsCache=[], unassignedCache=[], schoolPupilsCache=[], txCache=[], testsC
 let diaryHideCancelled=localStorage.getItem("dmw_diary_hide_cancelled")==="1";
 let diaryLessonsCache=[];
 let swapLessonsCache={a:[],b:[]};
+// Pupil availability on the diary (Dale, 15 Sep 2026): null (off), {mode:"one",pupilId} or {mode:"all"}; stays on
+// across weeks until turned off. avWeekCache = per-week diary rows + pupils' holidays, emptied on every diary load.
+let diaryAvail=null, avWeekCache={}, avShown=null, avFormSeq=0;
 function toggleDiaryHideCancelled(v){
   diaryHideCancelled=v;
   localStorage.setItem("dmw_diary_hide_cancelled",v?"1":"0");
@@ -3728,6 +3745,11 @@ async function renderDiary(){
   const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)").eq("instructor_id", diaryOwnerId||currentUserId)
     .lt("start_time",end.toISOString()).gt("end_time",weekStart.toISOString()).order("start_time");
   diaryLessonsCache=lessons||[];
+  // Availability overlay (Dale, 15 Sep 2026): worked out from everything in the diary (Hide cancelled doesn't matter)
+  avWeekCache={}; avShown={key:(diaryOwnerId||currentUserId)+"|"+weekStart.getTime(), lessons:diaryLessonsCache};
+  const avOv=diaryAvail ? avWeekOverlay(diaryAvail, avPupils(), await avWeekRows(weekStart), weekStart, START_H*60, (END_H+1)*60) : null;
+  if(!avOv) diaryAvail=null;
+  avRenderBar(avOv);
   const list=diaryHideCancelled ? diaryLessonsCache.filter(l=>l.status!=="cancelled") : diaryLessonsCache;
   const today=new Date(); today.setHours(0,0,0,0);
 
@@ -3757,6 +3779,7 @@ async function renderDiary(){
     hours.forEach((h,idx)=>{
       cols+=`<div class="d-hour-line" style="top:${idx*HOUR_H}px;height:${HOUR_H}px"><div class="half"></div></div>`;
     });
+    if(avOv) avOv.days[i].forEach(b=>{ cols+=avBandHtml(avOv,b,START_H,HOUR_H,gridH); });
     let allDayIdx=0;
     // Pupils' holiday banners sit across the top, so an all-day block's name starts below them.
     const dayBanners=dayLessons.filter(l=>l.lesson_type==="student_away" && (Math.min(new Date(l.end_time),dayEnd)-Math.max(new Date(l.start_time),dayStart))>=20*3600e3).length;
@@ -3813,6 +3836,7 @@ async function renderDiary(){
 
   document.getElementById("diary-wrap").innerHTML=
     `<div class="d-scroll" id="diary-scroll">${head}<div class="d-body">${times}${cols}</div></div>`;
+  avAfterRender(avOv);
 
   // Focus the visible viewport on working hours ± 1 hour (scroll for the rest)
   const focusPx=(focusEnd-focusStart)*HOUR_H+headerH;
@@ -3856,20 +3880,24 @@ function openDiaryAddLesson(prefill){
   const pupils=diaryPupils().filter(p=>p.status==="active"||p.status==="waiting")
     .sort((a,b)=>(a.first_name||"").localeCompare(b.first_name||""));
   const opts=pupils.map(p=>`<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`).join("");
+  // dl-free = "Free at this time" chips, dl-warn = doesn't-fit-their-free-time note; both kept up to date by
+  // avAddFormChanged as the pupil, type, date or times change (Dale, 15 Sep 2026).
   openModal(`<h2 style="margin-bottom:1rem">Add to diary</h2>
+    <div id="dl-free"></div>
     <div class="two">
       <div class="field"><label>Pupil</label>
-        <select id="dl-pupil"><option value="">— none (Away / private) —</option>${opts}</select>
+        <select id="dl-pupil" onchange="avAddFormChanged()"><option value="">— none (Away / private) —</option>${opts}</select>
+        <div id="dl-warn" class="av-warn"></div>
       </div>
       <div class="field"><label>Type</label>
-        <select id="dl-type">
+        <select id="dl-type" onchange="avAddFormChanged()">
           ${lessonTypeOptions("lesson",["private"])}
           <option value="student_away">Away</option>
         </select>
       </div>
-      <div class="field"><label>Date</label><input type="date" id="dl-date" value="${today}"></div>
-      <div class="field"><label>Start time</label><input type="time" id="dl-start" value="09:00"></div>
-      <div class="field"><label>End time</label><input type="time" id="dl-end" value="10:00"></div>
+      <div class="field"><label>Date</label><input type="date" id="dl-date" value="${today}" oninput="avAddFormChanged()"></div>
+      <div class="field"><label>Start time</label><input type="time" id="dl-start" value="09:00" oninput="avAddFormChanged()"></div>
+      <div class="field"><label>End time</label><input type="time" id="dl-end" value="10:00" oninput="avAddFormChanged()"></div>
     </div>
     <div class="actions">
       <button class="btn btn-navy btn-sm" onclick="saveDiaryAddLesson()">Add</button>
@@ -3877,6 +3905,9 @@ function openDiaryAddLesson(prefill){
     </div>`);
   if(prefill&&prefill.date) diarySetVal("dl-date",prefill.date);
   if(prefill&&prefill.time){ diarySetVal("dl-start",prefill.time); diarySetVal("dl-end",diaryPlusHour(prefill.time)); }
+  // Showing one pupil's free times: a click on the diary picks that pupil (Dale, 15 Sep 2026)
+  if(prefill&&diaryAvail&&diaryAvail.mode==="one"&&pupils.some(p=>p.id===diaryAvail.pupilId)) diarySetVal("dl-pupil",diaryAvail.pupilId);
+  avAddFormChanged();
 }
 function saveDiaryAddLesson(){ return runOnce("saveDiaryAddLesson", saveDiaryAddLessonNow); }
 async function saveDiaryAddLessonNow(){
@@ -7185,6 +7216,171 @@ function diaryPayFooter(l,height){
   if(l.status==="cancelled") return l.charged ? strip("#b91c1c","Cancelled – Charged") : (height>=40 ? strip("rgba(255,255,255,0.25)","Cancelled") : "");
   if(l.lesson_type==="gap"||l.lesson_type==="private"||l.lesson_type==="student_away"||l.lesson_type==="lesson_offer"||l.title==="Away"||l.title==="Appointment") return "";
   return l.payment_status==="paid" ? strip("#22c55e","Paid") : strip("#ec4899","Unpaid");
+}
+
+// --- Pupil availability on the diary (Dale, 15 Sep 2026) --------------------
+// pupils.availability is {"Monday":["09:00","09:30"],…}: each time is a free half hour starting then. Same rules as
+// the app: lessons, pencilled-in offers, Away and Appointments block free time; gaps, declined offers and cancelled
+// rows don't; a pupil's holiday (student_away) wipes any day it touches. "Booked this week" = a live row for the
+// pupil (not a gap / holiday / declined offer) starting in the Monday–Sunday week; an unanswered offer counts.
+// Times are the browser's local (UK) wall clock, the same as the grid. Pure helpers first, then the diary/form code.
+const AV_DAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function avHm(m){ return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); }
+function avTimeMin(t){ const m=/^(\d{1,2}):(\d{2})/.exec(String(t||"")); return m ? +m[1]*60 + +m[2] : NaN; }
+function avSlotsFor(av,dayName){ const s=av&&typeof av==="object"?av[dayName]:null; return Array.isArray(s)?s:[]; }
+function avHasAny(av){ return AV_DAYS.some(d=>avSlotsFor(av,d).length>0); }
+// Half-hour starts → merged [startMin,endMin] ranges ("09:00"…"14:30" → [[540,900]]).
+function avMergeSlots(slots){
+  const mins=[...new Set(slots.map(avTimeMin).filter(m=>!isNaN(m)))].sort((a,b)=>a-b), out=[];
+  mins.forEach(m=>{ const last=out[out.length-1]; if(last&&m<=last[1]) last[1]=Math.max(last[1],m+30); else out.push([m,m+30]); });
+  return out;
+}
+function avBlocks(l){ return l.status!=="cancelled" && l.lesson_type!=="gap" && l.lesson_type!=="student_away" && !(l.lesson_type==="lesson_offer"&&l.offer_status==="declined"); }
+function avRangesMinus(ranges,bs,be){
+  const out=[];
+  ranges.forEach(([a,b])=>{ if(be<=a||bs>=b){ out.push([a,b]); return; } if(bs>a) out.push([a,bs]); if(be<b) out.push([be,b]); });
+  return out;
+}
+function avWeekBounds(d){ const s=startOfWeek(d), e=new Date(s); e.setDate(e.getDate()+7); return [s,e]; }
+// Where pupil p is free on `day`: that weekday's slots minus anything blocking, nothing at all on a holiday day.
+function avFreeRanges(p,day,rows){
+  const ds=new Date(day); ds.setHours(0,0,0,0);
+  const de=new Date(ds); de.setDate(de.getDate()+1);
+  let ranges=avMergeSlots(avSlotsFor(p&&p.availability,AV_DAYS[ds.getDay()]));
+  if(!ranges.length) return [];
+  if(rows.some(l=>l.lesson_type==="student_away"&&l.status!=="cancelled"&&l.pupil_id===p.id&&new Date(l.start_time)<de&&new Date(l.end_time)>ds)) return [];
+  rows.forEach(l=>{
+    if(!avBlocks(l)) return;
+    const s=new Date(l.start_time), e=new Date(l.end_time);
+    if(s<de&&e>ds) ranges=avRangesMinus(ranges, s<=ds?0:s.getHours()*60+s.getMinutes(), e>=de?1440:e.getHours()*60+e.getMinutes());
+  });
+  return ranges;
+}
+function avBookedInWeek(pupilId,rows,day){
+  const [ws,we]=avWeekBounds(day);
+  return rows.some(l=>{ const s=new Date(l.start_time); return l.pupil_id===pupilId&&avBlocks(l)&&s>=ws&&s<we; });
+}
+function avFreeWhole(ranges,startMin,endMin){ return endMin>startMin && ranges.some(([a,b])=>a<=startMin&&endMin<=b); }
+// Note under the pupil list when a lesson doesn't fit their free time ("" = fits, or they haven't set any).
+function avLessonWarning(p,day,startMin,endMin,rows){
+  if(!p||!avHasAny(p.availability)) return "";
+  const ranges=avFreeRanges(p,day,rows);
+  if(avFreeWhole(ranges,startMin,endMin)) return "";
+  const inside=ranges.find(([a,b])=>a<=startMin&&startMin<b), nm=p.first_name||"the pupil";
+  return inside ? `Runs past ${nm}'s free time (until ${avHm(inside[1])})` : `Not in ${nm}'s free times`;
+}
+// "Mon, Tue, Thu · 09:00–15:00": the days with slots, earliest start to latest end.
+function avSummary(av){
+  const days=[1,2,3,4,5,6,0].map(i=>AV_DAYS[i]).filter(d=>avSlotsFor(av,d).length);
+  const ranges=days.flatMap(d=>avMergeSlots(avSlotsFor(av,d)));
+  const short=days.map(d=>d.slice(0,3)).join(", ");
+  return ranges.length ? `${short} · ${avHm(Math.min(...ranges.map(r=>r[0])))}–${avHm(Math.max(...ranges.map(r=>r[1])))}` : short;
+}
+// All-pupils mode: half hours on `day` where any of `pupils` are free, back-to-back half hours with the same pupils merged.
+function avAllBands(pupils,day,rows,fromMin,toMin){
+  const free=pupils.map(p=>({p,r:avFreeRanges(p,day,rows)})).filter(x=>x.r.length), bands=[];
+  for(let t=fromMin;t<toMin;t+=30){
+    const on=free.filter(x=>avFreeWhole(x.r,t,t+30));
+    if(!on.length) continue;
+    const key=on.map(x=>x.p.id).join(","), last=bands[bands.length-1];
+    if(last&&last.e===t&&last.key===key) last.e=t+30;
+    else bands.push({s:t,e:t+30,key,names:on.map(x=>x.p.first_name||"Pupil")});
+  }
+  return bands;
+}
+function avBandNames(names){ return names.slice(0,2).join(", ")+(names.length>2?` +${names.length-2}`:""); }
+// Bands for each day of the week starting `ws`; null when the chosen pupil isn't in this diary any more.
+function avWeekOverlay(state,pupils,rows,ws,fromMin,toMin){
+  const days=[0,1,2,3,4,5,6].map(i=>{ const d=new Date(ws); d.setDate(d.getDate()+i); return d; });
+  if(state.mode==="one"){
+    const p=pupils.find(x=>x.id===state.pupilId);
+    return p ? {mode:"one",p,days:days.map(d=>avFreeRanges(p,d,rows).map(([s,e])=>({s,e,names:[p.first_name||"Pupil"]})))} : null;
+  }
+  const open=pupils.filter(p=>avHasAny(p.availability)&&!avBookedInWeek(p.id,rows,ws));
+  const bandDays=days.map(d=>avAllBands(open,d,rows,fromMin,toMin));
+  return {mode:"all",count:open.length,max:Math.max(1,...bandDays.flat().map(b=>b.names.length)),days:bandDays};
+}
+
+// The diary's own active / waiting pupils (a school admin viewing an instructor's diary gets that instructor's).
+function avPupils(){ return diaryPupils().filter(p=>p.status==="active"||p.status==="waiting").sort((a,b)=>(a.first_name||"").localeCompare(b.first_name||"")); }
+// All the diary owner's entries plus those pupils' holidays for the week containing `day`. The shown week reuses the
+// rows the diary just loaded; other weeks (a date typed into Add to diary) are fetched. Cached until the diary reloads.
+function avWeekRows(day){
+  const [ws,we]=avWeekBounds(day), owner=diaryOwnerId||currentUserId, key=owner+"|"+ws.getTime();
+  if(!avWeekCache[key]) avWeekCache[key]=(async()=>{
+    const cache=avWeekCache, ids=avPupils().filter(p=>avHasAny(p.availability)).map(p=>p.id);
+    const range=q=>q.lt("start_time",we.toISOString()).gt("end_time",ws.toISOString());
+    const [lr,ar]=await Promise.all([
+      avShown&&avShown.key===key ? {data:avShown.lessons} : range(sb.from("lessons").select("*").eq("instructor_id",owner)),
+      ids.length ? range(sb.from("lessons").select("*").eq("lesson_type","student_away").in("pupil_id",ids)) : {data:[]}
+    ]);
+    if(lr.error||ar.error) delete cache[key]; // try again next time
+    return (lr.data||[]).concat(ar.data||[]);
+  })();
+  return avWeekCache[key];
+}
+function avBandHtml(ov,b,startH,hourH,gridH){
+  const top=Math.max(0,(b.s-startH*60)/60*hourH), bot=Math.min(gridH,(b.e-startH*60)/60*hourH);
+  if(bot<=top) return "";
+  const pos=`top:${top}px;height:${bot-top}px`;
+  if(ov.mode==="one") return `<div class="av-band" style="${pos}"></div>`;
+  const n=b.names.length;
+  return `<div class="av-band" style="${pos};background:rgba(20,184,166,${(.12+.5*n/ov.max).toFixed(2)})">${bot-top>=12?`<span class="av-lbl">${n}<span class="av-names"> · ${esc(avBandNames(b.names))}</span></span>`:""}</div>`;
+}
+// Names only when the day columns are wide enough; hovering a band names everyone (the bands themselves ignore the
+// mouse, so the tooltip lives on the column).
+function avAfterRender(ov){
+  const wrap=document.getElementById("diary-wrap"); if(!wrap) return;
+  const cols=wrap.querySelectorAll(".d-col");
+  wrap.classList.toggle("av-narrow", !!cols[0] && cols[0].clientWidth<100);
+  if(!ov) return;
+  cols.forEach((col,i)=>{ col.onmousemove=ev=>{
+    const min=diaryGrid.startH*60+(ev.clientY-col.getBoundingClientRect().top)/diaryGrid.hourH*60;
+    const b=(ov.days[i]||[]).find(x=>x.s<=min&&min<x.e);
+    const t=!b?"":ov.mode==="one"?`${b.names[0]} free ${avHm(b.s)}–${avHm(b.e)}`:`${b.names.length} free ${avHm(b.s)}–${avHm(b.e)}: ${b.names.join(", ")}`;
+    if(col.title!==t) col.title=t;
+  }; });
+}
+function avRenderBar(ov){
+  const btn=document.getElementById("diary-avail-btn"); if(btn) btn.classList.toggle("av-on",!!ov);
+  const bar=document.getElementById("diary-avail-bar"); if(!bar) return;
+  bar.innerHTML = !ov ? "" : `<div class="av-bar"><span class="av-swatch"></span>${ov.mode==="one"
+      ? `<strong>${esc(`${ov.p.first_name||""} ${ov.p.last_name||""}`.trim())}'s free times</strong>`
+      : `<strong>All pupils not booked this week (${ov.count})</strong><span class="muted">· darker = more free</span>`}
+    <button class="btn-outline btn-sm" style="margin-left:auto;padding:.2rem .6rem" onclick="setDiaryAvail(null)">Turn off</button></div>`;
+}
+function setDiaryAvail(v){ diaryAvail=v; closeModal(); renderDiary(); }
+function openAvailabilityPicker(){ return runOnce("openAvailabilityPicker", openAvailabilityPickerNow); }
+async function openAvailabilityPickerNow(){
+  const rows=await avWeekRows(weekStart), all=avPupils(), on=diaryAvail||{};
+  const withAv=all.filter(p=>avHasAny(p.availability)), none=all.length-withAv.length;
+  const booked=p=>avBookedInWeek(p.id,rows,weekStart);
+  const cls=sel=>sel?"btn btn-navy btn-sm av-pick":"btn-outline av-pick";
+  const pick=p=>`<button type="button" class="${cls(on.mode==="one"&&on.pupilId===p.id)}" onclick="setDiaryAvail({mode:'one',pupilId:'${p.id}'})"><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong><span class="muted">${esc(avSummary(p.availability))}</span></button>`;
+  const sec=(title,list)=>`<h3 style="margin:.9rem 0 .4rem;font-size:.9rem">${title}</h3>${list.length?list.map(pick).join(""):'<p class="muted">Nobody</p>'}`;
+  openModal(`<h2 style="margin-bottom:.75rem">Availability</h2>
+    <button type="button" class="${cls(on.mode==="all")}" onclick="setDiaryAvail({mode:'all'})"><strong>All pupils (not booked this week)</strong></button>
+    ${sec("Not booked this week",withAv.filter(p=>!booked(p)))}
+    ${sec("Booked this week",withAv.filter(booked))}
+    ${none?`<p class="muted" style="margin-top:.8rem">${none} pupil${none===1?" hasn't":"s haven't"} set their availability</p>`:""}
+    <div class="actions" style="margin-top:.9rem">${diaryAvail?'<button class="btn-outline" onclick="setDiaryAvail(null)">Turn off</button>':""}<button class="btn-outline" onclick="closeModal()">Close</button></div>`);
+}
+// Add to diary: "Free at this time" chips (not booked that week and free for the whole lesson, whether or not
+// Availability is on) and the doesn't-fit warning. Never stops a save. Skipped for Away / Private entries.
+async function avAddFormChanged(){
+  const seq=++avFormSeq, get=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
+  const freeEl=document.getElementById("dl-free"), warnEl=document.getElementById("dl-warn");
+  if(!freeEl||!warnEl) return;
+  const dateStr=get("dl-date"), s=avTimeMin(get("dl-start")), e=avTimeMin(get("dl-end")), type=get("dl-type");
+  const day=new Date(dateStr+"T00:00:00");
+  if(!dateStr||isNaN(day)||isNaN(s)||isNaN(e)||e<=s||type==="student_away"||type==="private"){ freeEl.innerHTML=""; warnEl.textContent=""; return; }
+  const rows=await avWeekRows(day);
+  if(seq!==avFormSeq||!document.getElementById("dl-free")) return;
+  const pupils=avPupils(), pid=get("dl-pupil");
+  const free=pupils.filter(p=>avHasAny(p.availability)&&!avBookedInWeek(p.id,rows,day)&&avFreeWhole(avFreeRanges(p,day,rows),s,e));
+  freeEl.innerHTML = !free.length ? "" : `<div style="margin-bottom:.8rem"><div class="muted" style="font-weight:600;margin-bottom:.3rem">Free at this time</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.35rem">${free.map(p=>`<button type="button" class="chip chip-info av-chip${p.id===pid?" on":""}" onclick="diarySetVal('dl-pupil','${p.id}');avAddFormChanged()">${esc(p.first_name)} ${esc(p.last_name)}</button>`).join("")}</div></div>`;
+  warnEl.textContent=avLessonWarning(pupils.find(p=>p.id===pid),day,s,e,rows);
 }
 
 // --- Franchise fees -------------------------------------------------------

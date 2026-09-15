@@ -26,7 +26,7 @@
 <body>
   <div class="top" id="top" hidden></div>
   <div class="wrap"><div class="card" id="form"><p class="msg">Loading…</p></div></div>
-  <footer>Enquiry form by <a href="https://drivemyway.co.uk" target="_blank" rel="noopener">Drive My Way</a></footer>
+  <footer>Form provided by <a href="https://drivemyway.co.uk" target="_blank" rel="noopener">Drive My Way</a></footer>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="enquiry-widget.js"></script>
@@ -49,11 +49,20 @@
         if (error) return retry();
         if (!data || !data.name) return fail();
         const top = document.getElementById("top");
-        top.innerHTML = (data.logo_url && /^https:\/\//.test(data.logo_url) ? `<img src="${esc(data.logo_url)}" alt="">` : "")
-          + `<h1>${esc(data.name)}</h1>` + (data.school ? `<p>${esc(data.school)}</p>` : "");
+        // Branding is Premium (Dale, 15 Sep 2026). Without it: the Drive My Way logo, "Drive My Way", and
+        // "on behalf of" the name they set (else the instructor's name). With it (or before the database
+        // sends "premium" at all): their own logo and name, as before.
+        if (data.premium === false) {
+          const who = data.kind === "instructor" && data.school ? data.name + " at " + data.school : data.name;
+          top.innerHTML = `<img src="drive-my-way-logo.png" alt=""><h1>Drive My Way</h1><p>on behalf of ${esc(who)}</p>`;
+        } else {
+          top.innerHTML = (data.logo_url && /^https:\/\//.test(data.logo_url) ? `<img src="${esc(data.logo_url)}" alt="">` : "")
+            + `<h1>${esc(data.name)}</h1>` + (data.school ? `<p>${esc(data.school)}</p>` : "");
+        }
         top.hidden = false;
         document.title = "Enquiry | " + (data.school || data.name);
-        run(buildEnquirySnippet(i, s || undefined));
+        // This page draws its own header and footer, so the form's embed-only ones are left out.
+        run(buildEnquirySnippet(i, s || undefined, { page: true }));
       }, () => retry());
 
       // innerHTML doesn't run scripts, so the form's own script is re-added

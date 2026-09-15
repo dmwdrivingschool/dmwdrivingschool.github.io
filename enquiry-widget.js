@@ -13,7 +13,11 @@
  * phone — matches Branding/Billing/Teams already living in the Control
  * Centre rather than the app.
  */
-function buildEnquirySnippet(instructorId, schoolId){
+function buildEnquirySnippet(instructorId, schoolId, opts){
+  // opts.page: used by enquiry-form.html, which draws its own header and footer. Pasted into a website, the
+  // form carries its own: "Form provided by Drive My Way" always, and without Premium a Drive My Way header
+  // "on behalf of" the instructor or driving school (Dale, 15 Sep 2026).
+  const page = !!(opts && opts.page);
   // schoolId set = the school-wide variant: enquiries land unassigned for
   // the admin to hand out; otherwise leads go straight to instructorId.
   // Working hours and the gearbox message always come from the generating
@@ -45,8 +49,15 @@ function buildEnquirySnippet(instructorId, schoolId){
     #dmw-enquiry-widget .dmw-steps i{flex:1;height:4px;border-radius:99px;background:#e2e8f0}
     #dmw-enquiry-widget .dmw-steps i.on{background:#0A4CA1}
     #dmw-enquiry-widget input.dmw-invalid{border-color:#ef4444;background:#fef2f2}
+    #dmw-enquiry-widget .dmw-brand{text-align:center;margin:0 0 14px}
+    #dmw-enquiry-widget .dmw-brand img{display:block;height:48px;width:auto;max-width:200px;margin:0 auto 6px}
+    #dmw-enquiry-widget .dmw-brand strong{display:block;color:#062F63;font-size:1.05rem}
+    #dmw-enquiry-widget .dmw-brand span{display:block;color:#64748b;font-size:.85rem}
+    #dmw-enquiry-widget .dmw-foot{text-align:center;font-size:11px;color:#94a3b8;margin:16px 0 0}
+    #dmw-enquiry-widget .dmw-foot a{color:#64748b}
   </style>
-
+${page ? "" : `
+  <div class="dmw-brand" id="dmw-brand" style="display:none"></div>`}
   <h2>Enquiry</h2>
   <p class="dmw-sub">Takes about a minute — three short steps.</p>
   <div class="dmw-steps"><i class="on" id="dmw-s1"></i><i id="dmw-s2"></i><i id="dmw-s3"></i></div>
@@ -103,7 +114,8 @@ function buildEnquirySnippet(instructorId, schoolId){
     <p style="font-size:12px;color:#64748b;text-align:center;margin:6px 0 14px 0">The email is sent automatically. Use this button only if it hasn't arrived.</p>
     <a href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener" style="display:block;text-align:center;padding:14px 18px;background:#0A4CA1;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;margin-bottom:8px">📱 Get the app on the App Store (iPhone)</a>
     <a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener" style="display:block;text-align:center;padding:14px 18px;background:#0A4CA1;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">📱 Get the app on Google Play (Android)</a>
-  </div>
+  </div>${page ? "" : `
+  <p class="dmw-foot">Form provided by <a href="https://drivemyway.co.uk" target="_blank" rel="noopener">Drive My Way</a></p>`}
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"><\/script>
 <script>
@@ -113,6 +125,21 @@ function buildEnquirySnippet(instructorId, schoolId){
   var HOURS_OWNER_ID = "${instructorId}";
   var APP_CHANGE_PASSWORD_URL = "https://web.drivemyway.co.uk/admin.html";
   var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  var SCHOOL_ID = ${schoolId ? `"${schoolId}"` : "null"};
+
+  // Header: without Premium, the Drive My Way logo and "on behalf of" the instructor or driving school. With
+  // Premium (or if the check doesn't answer) the form looks as it always has.
+  if (document.getElementById("dmw-brand")) {
+    sb.rpc("enquiry_form_info", { p_instructor: HOURS_OWNER_ID, p_school: SCHOOL_ID }).then(function (r) {
+      var d = r && r.data;
+      if (!d || d.premium !== false || !d.name) return;
+      var who = d.kind === "instructor" && d.school ? d.name + " at " + d.school : d.name;
+      var safe = String(who).replace(/[&<>"']/g, function (c) { return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]; });
+      var box = document.getElementById("dmw-brand");
+      box.innerHTML = '<img src="https://web.drivemyway.co.uk/drive-my-way-logo.png" alt=""><strong>Drive My Way<\\/strong><span>on behalf of ' + safe + '<\\/span>';
+      box.style.display = "block";
+    }, function () {});
+  }
   var enquiryEmail = "";
   var enquiryFirstName = "";
   var enquiryLastName = "";

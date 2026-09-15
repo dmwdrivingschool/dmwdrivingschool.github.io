@@ -133,6 +133,9 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 /* Lesson offers (pencilled in), the app's colours: grey, red once declined */
 .d-block.offer{background:#94a3b8}
 .d-block.offer.declined{background:#b91c1c}
+/* The now line across today's column at the current time, moved every minute (Dale, 15 Sep 2026) */
+.d-now{position:absolute;left:0;right:0;height:2px;background:#dc2626;z-index:5;pointer-events:none}
+.d-now::before{content:"";position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:#dc2626}
 /* Pupil availability on the diary (Dale, 15 Sep 2026): see-through teal behind the entries, never catches clicks */
 .av-band{position:absolute;left:0;right:0;background:rgba(20,184,166,.28);pointer-events:none;z-index:0;overflow:hidden}
 .av-lbl{display:block;padding:1px 4px;font-size:.6rem;font-weight:700;line-height:1.3;color:#ccfbf1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--fb)}
@@ -556,6 +559,8 @@ tbody tr:hover td{background:#334263}
           </label>
           <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
             <button class="btn-outline d-nav" onclick="shiftWeek(1)">›</button>
+            <button class="btn-outline btn-sm" onclick="diaryGoNow()">Now</button>
+            <button class="btn-outline btn-sm" onclick="openDiaryGoToDate()" title="Pick date">Go to date</button>
             <button class="btn-outline btn-sm" id="diary-avail-btn" onclick="openAvailabilityPicker()">Availability</button>
             <button class="btn-outline btn-sm" onclick="openLessonSwap()">Swap</button>
             <button class="btn-outline btn-sm" onclick="openDiaryGap()">+ Gap</button>
@@ -1710,7 +1715,7 @@ let pupilsCache=[], unassignedCache=[], schoolPupilsCache=[], txCache=[], testsC
 // full row without a second fetch), and lesson-swap picker state.
 let diaryHideCancelled=localStorage.getItem("dmw_diary_hide_cancelled")==="1";
 let diaryLessonsCache=[];
-let swapLessonsCache={a:[],b:[]};
+let swapLessonsCache={a:[],b:[]}, swapLoadSeq={a:0,b:0};
 // Pupil availability on the diary (Dale, 15 Sep 2026): null (off), {mode:"one",pupilId} or {mode:"all"}; stays on
 // across weeks until turned off. avWeekCache = per-week diary rows + pupils' holidays, emptied on every diary load.
 let diaryAvail=null, avWeekCache={}, avShown=null, avFormSeq=0;
@@ -3191,10 +3196,10 @@ async function finishCancelLessonNow(convertToGap){
   const notes=[l.notes,`Cancelled by ${cs.by}`,cs.charge?"Charged":"Not charged",reason?`Reason: ${reason}`:null].filter(Boolean).join(" | ");
   const {error}=await sb.from("lessons").update({status:"cancelled",charged:cs.charge,notes}).eq("id",l.id);
   if(error){ alert(error.message); return; }
-  await deleteReflectiveLogForDate(p.id,l.start_time);
+  await deleteReflectiveLogForLesson(p.id,l.start_time);
   if(cs.charge) await adjustPupilCredit(p.id,-(mins/60));
-  let hours=48;
-  try{ const {data:cp}=await sb.from("app_settings").select("value").eq("owner_id",owner).eq("id","cancellation_policy").maybeSingle(); if(cp&&cp.value&&cp.value.noticeHours!=null) hours=Number(cp.value.noticeHours); }catch(e){}
+  // The school's notice hours when the instructor is in a school, else their own (Dale, 15 Sep 2026).
+  const hours=await cancellationNoticeHours(owner);
   const who=cs.by==="pupil"?"you (the pupil)":"your instructor";
   let body=`Dear pupil,\n\nThis is to confirm that your driving lesson has been cancelled.\n\nCancelled by: ${who}.`;
   body+= cs.charge
@@ -3245,9 +3250,8 @@ function pupilEditLesson(id){
   const l=pupilDetail.lessons.find(x=>x.id===id);
   if(!l) return;
   const s=new Date(l.start_time), e=new Date(l.end_time);
-  const dateStr=s.toISOString().slice(0,10);
-  const startStr=String(s.getHours()).padStart(2,"0")+":"+String(s.getMinutes()).padStart(2,"0");
-  const endStr=String(e.getHours()).padStart(2,"0")+":"+String(e.getMinutes()).padStart(2,"0");
+  // UK date and times, not UTC: in summer time a lesson could move day when re-saved (Dale, 15 Sep 2026).
+  const dateStr=dLocalDate(s), startStr=dLocalTime(s), endStr=dLocalTime(e);
   openModal(`<h2 style="margin-bottom:1rem">Edit lesson</h2>
     <div class="two">
       <div class="field"><label>Date</label><input type="date" id="pl-date" value="${dateStr}"></div>
@@ -3299,16 +3303,23 @@ async function convertLessonToGapNow(id){
     const durationMins=Math.round((new Date(l.end_time)-start)/60000);
     const when=start.toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
     const body=`Gap available: ${when} (${durationMins} mins). Open the app and tap Book on this slot if you want it.`;
-    await sb.from("messages").insert(others.map(p=>({pupil_id:p.id, body, direction:"broadcast", subject:"Gap available"})));
+    // Asks for each push like the app's Convert to gap (Dale, 15 Sep 2026).
+    const {data:inserted}=await sb.from("messages").insert(others.map(p=>({pupil_id:p.id, body, direction:"broadcast", subject:"Gap available"}))).select("id");
+    for(const r of (inserted||[])) triggerMsgPush(r.id);
   }
   await refreshPupilDetail();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
 }
-async function savePupilLesson(id){
+function savePupilLesson(id){ return runOnce("savePupilLesson", ()=>savePupilLessonNow(id)); }
+async function savePupilLessonNow(id){
+  const l=pupilDetail.lessons.find(x=>x.id===id);
   const dateStr=val("pl-date");
   if(!dateStr) return alert("Date is required");
-  const start=new Date(`${dateStr}T${document.getElementById("pl-start").value||"09:00"}:00`);
-  const end=new Date(`${dateStr}T${document.getElementById("pl-end").value||"10:00"}:00`);
+  const start=dLocalDateTime(dateStr,val("pl-start")||"09:00"), end=dLocalDateTime(dateStr,val("pl-end")||"10:00");
+  if(!start||!end) return alert("Choose a date and times");
+  if(end<=start) return alert("End time must be after start time");
+  // The app's overlap question when saving a changed lesson (Dale, 15 Sep 2026).
+  if(!(await confirmSaveClashes(start,end,(l&&l.instructor_id)||pupilDetail.p.instructor_id||currentUserId,id))) return;
   const newStatus=document.getElementById("pl-status").value;
   const payload={
     start_time:start.toISOString(), end_time:end.toISOString(),
@@ -3330,19 +3341,9 @@ async function deletePupilLesson(id){
   // Same shared reflective_logs table the app reads/writes — its log for
   // this date goes with the lesson, same as the app now does, unless
   // another lesson still exists for this pupil that same day.
-  if(pupilId && startTime) await deleteReflectiveLogForDate(pupilId, startTime);
+  if(pupilId && startTime) await deleteReflectiveLogForLesson(pupilId, startTime);
   await refreshPupilDetail();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
-}
-async function deleteReflectiveLogForDate(pupilId,startTime){
-  const logDate=new Date(startTime).toISOString().slice(0,10);
-  const {data:remaining}=await sb.from("lessons").select("id")
-    .eq("pupil_id",pupilId)
-    .gte("start_time",`${logDate}T00:00:00.000Z`)
-    .lte("start_time",`${logDate}T23:59:59.999Z`)
-    .limit(1);
-  if(remaining && remaining.length>0) return;
-  await sb.from("reflective_logs").delete().eq("pupil_id",pupilId).eq("log_date",logDate);
 }
 
 function renderPupilPayments(){
@@ -3733,7 +3734,7 @@ async function renderDiary(){
   const HOUR_H=Math.max(48,Math.floor((availH-headerH)/Math.max(1,focusEnd-focusStart)));
   const hours=[]; for(let h=START_H;h<=END_H;h++) hours.push(h);
   const gridH=hours.length*HOUR_H;
-  diaryGrid={startH:START_H,hourH:HOUR_H};
+  diaryGrid={startH:START_H,hourH:HOUR_H,gridH};
   const end=new Date(weekStart); end.setDate(end.getDate()+7);
   document.getElementById("week-label").textContent=
     weekStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+
@@ -3745,15 +3746,17 @@ async function renderDiary(){
   // given day but still cover it — start_time-only filtering hid them here
   // while the app showed them.
   renderDiaryOwnerBar();
+  // Like the app, nothing starting more than 6 weeks ago is loaded; later entries always are (Dale, 15 Sep 2026).
   const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)").eq("instructor_id", diaryOwnerId||currentUserId)
-    .lt("start_time",end.toISOString()).gt("end_time",weekStart.toISOString()).order("start_time");
+    .lt("start_time",end.toISOString()).gt("end_time",weekStart.toISOString()).gte("start_time",diaryPastFloorIso()).order("start_time");
   diaryLessonsCache=lessons||[];
   // Availability overlay (Dale, 15 Sep 2026): worked out from everything in the diary (Hide cancelled doesn't matter)
   avWeekCache={}; avShown={key:(diaryOwnerId||currentUserId)+"|"+weekStart.getTime(), lessons:diaryLessonsCache};
   const avOv=diaryAvail ? avWeekOverlay(diaryAvail, avPupils(), await avWeekRows(weekStart), weekStart, START_H*60, (END_H+1)*60) : null;
   if(!avOv) diaryAvail=null;
   avRenderBar(avOv);
-  const list=diaryHideCancelled ? diaryLessonsCache.filter(l=>l.status!=="cancelled") : diaryLessonsCache;
+  // Pupils' holidays aren't drawn, as in the app; the availability overlay still counts them (Dale, 15 Sep 2026).
+  const list=diaryLessonsCache.filter(l=>l.lesson_type!=="student_away"&&!(diaryHideCancelled&&l.status==="cancelled"));
   const today=new Date(); today.setHours(0,0,0,0);
 
   let head='<div class="d-days"><div></div>';
@@ -3783,26 +3786,12 @@ async function renderDiary(){
       cols+=`<div class="d-hour-line" style="top:${idx*HOUR_H}px;height:${HOUR_H}px"><div class="half"></div></div>`;
     });
     if(avOv) avOv.days[i].forEach(b=>{ cols+=avBandHtml(avOv,b,START_H,HOUR_H,gridH); });
-    let allDayIdx=0;
-    // Pupils' holiday banners sit across the top, so an all-day block's name starts below them.
-    const dayBanners=dayLessons.filter(l=>l.lesson_type==="student_away" && (Math.min(new Date(l.end_time),dayEnd)-Math.max(new Date(l.start_time),dayStart))>=20*3600e3).length;
+    if(isToday){ const nt=diaryNowTop(); cols+=`<div class="d-now" id="diary-now" style="top:${nt}px${nt<0||nt>gridH?";display:none":""}"></div>`; }
     dayLessons.forEach(l=>{
       const s=new Date(Math.max(new Date(l.start_time),dayStart)), e=new Date(Math.min(new Date(l.end_time),dayEnd));
-      // A pupil's holiday covering (almost) the whole day draws as a slim banner at the top of the column. Your own
-      // all-day Holiday / Appointment fills the whole day like the app's diary (Dale, 14 Sep 2026: as a banner the day
-      // didn't look blocked), sitting underneath any lessons so they stay visible and clickable.
-      const allDayBlock=(e-s)>=20*3600e3 && l.lesson_type!=="student_away" && (l.lesson_type==="private"||l.title==="Away");
-      if((e-s)>=20*3600e3 && l.lesson_type==="student_away"){
-        const label=l.lesson_type==="student_away"
-          ? `${esc(l.pupil?l.pupil.first_name:"Pupil")} — holiday`
-          : esc(l.title||"Away");
-        // No room for the notes text itself in a slim all-day banner — same
-        // as the app's own all-day treatment, it's in the tooltip instead.
-        const allDayTitle=l.title==="Appointment"&&l.notes ? `${label} — ${esc(l.notes)} (all day)` : `${label} (all day)`;
-        cols+=`<div class="d-allday" style="top:${2+allDayIdx*28}px" title="${allDayTitle}" data-lesson-id="${l.id||""}" data-pupil-id="" data-away="1" onclick="onDiaryBlockClick(this)">${label}</div>`;
-        allDayIdx++;
-        return;
-      }
+      // Your own all-day Holiday / Appointment fills the whole day like the app's diary (Dale, 14 Sep 2026: as a banner the
+      // day didn't look blocked), sitting underneath any lessons so they stay visible and clickable.
+      const allDayBlock=(e-s)>=20*3600e3 && (l.lesson_type==="private"||l.title==="Away");
       const startMin=s.getHours()*60+s.getMinutes();
       const dur=Math.max(20,(e-s)/60000);
       // Clamp to the visible grid: all-day Away segments run 00:00–24:00,
@@ -3833,7 +3822,7 @@ async function renderDiary(){
       const title=isCharged?`${esc(name)} ${tm} — Cancelled, Charged`:hasNotes?`${esc(name)} ${tm} — ${esc(l.notes)}`:`${esc(name)} ${tm}`;
       const dispName=isCharged?`${esc(name)} (charged)`:esc(name);
       const notesHtml=hasNotes&&height>=44?`<div class="nt">${esc(l.notes)}</div>`:"";
-      cols+=`<div class="d-block ${cls}" style="top:${top}px;height:${height}px${allDayBlock?`;z-index:0;padding-top:${2+dayBanners*28}px`:""}" title="${title}" data-lesson-id="${lid}" data-pupil-id="${pid}" data-away="${isAway?"1":"0"}" onclick="onDiaryBlockClick(this)"><div class="nm">${dispName}</div>${height>=32?`<div class="tm">${tm}</div>`:""}${notesHtml}${diaryPayFooter(l,height)}</div>`;
+      cols+=`<div class="d-block ${cls}" style="top:${top}px;height:${height}px${allDayBlock?";z-index:0":""}" title="${title}" data-lesson-id="${lid}" data-pupil-id="${pid}" data-away="${isAway?"1":"0"}" onclick="onDiaryBlockClick(this)"><div class="nm">${dispName}</div>${height>=32?`<div class="tm">${tm}</div>`:""}${notesHtml}${diaryPayFooter(l,height)}</div>`;
     });
     cols+="</div>";
   }
@@ -3880,36 +3869,31 @@ async function onDiaryBlockClick(el){
   if(lessonId) openDiaryEditLesson(lessonId);
 }
 
-// The diary was view-only on web — the app could add lessons but here you
-// couldn't. Same lessons table + defaults as the app and the Gaps tab
-// (RLS scopes the row to the signed-in instructor, no owner column needed).
+// Add lesson, as in the app's AddLessonModal (Dale, 15 Sep 2026): a pupil is always picked (holidays and appointments come
+// from + Holiday), the Type list is the shown lesson types, an overlap asks "Book anyway?", and the pupil is sent "Your
+// lesson is booked for …" with a reflective log started. instructor_id is the diary being looked at.
 function openDiaryAddLesson(prefill){
-  const today=new Date().toISOString().slice(0,10);
-  const pupils=diaryPupils().filter(p=>p.status==="active"||p.status==="waiting")
-    .sort((a,b)=>(a.first_name||"").localeCompare(b.first_name||""));
+  const pupils=avPupils();
   const opts=pupils.map(p=>`<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`).join("");
   // dl-free = "Free at this time" chips, dl-warn = doesn't-fit-their-free-time note; both kept up to date by
-  // avAddFormChanged as the pupil, type, date or times change (Dale, 15 Sep 2026).
-  openModal(`<h2 style="margin-bottom:1rem">Add to diary</h2>
+  // avAddFormChanged as the pupil, date or times change (Dale, 15 Sep 2026).
+  openModal(`<h2 style="margin-bottom:1rem">Add Lesson</h2>
+    <div id="dl-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
     <div id="dl-free"></div>
     <div class="two">
       <div class="field"><label>Pupil</label>
-        <select id="dl-pupil" onchange="avAddFormChanged()"><option value="">— none (Away / private) —</option>${opts}</select>
+        <select id="dl-pupil" onchange="avAddFormChanged()"><option value="">Select pupil…</option>${opts}</select>
+        ${pupils.length?"":'<div class="av-warn">No active pupils yet. Add pupils first.</div>'}
         <div id="dl-warn" class="av-warn"></div>
       </div>
-      <div class="field"><label>Type</label>
-        <select id="dl-type" onchange="avAddFormChanged()">
-          ${lessonTypeOptions("lesson",["private"])}
-          <option value="student_away">Away</option>
-        </select>
-      </div>
-      <div class="field"><label>Date</label><input type="date" id="dl-date" value="${today}" oninput="avAddFormChanged()"></div>
+      <div class="field"><label>Type</label><select id="dl-type">${lessonTypeOptions("lesson",[])}</select></div>
+      <div class="field"><label>Date</label><input type="date" id="dl-date" value="${dLocalDate(new Date())}" oninput="avAddFormChanged()"></div>
       <div class="field"><label>Start time</label><input type="time" id="dl-start" value="09:00" oninput="avAddFormChanged()"></div>
       <div class="field"><label>End time</label><input type="time" id="dl-end" value="10:00" oninput="avAddFormChanged()"></div>
     </div>
     <div class="actions">
-      <button class="btn btn-navy btn-sm" onclick="saveDiaryAddLesson()">Add</button>
-      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-navy btn-sm" id="dl-save" onclick="saveDiaryAddLesson()">Save Lesson</button>
+      <button class="btn-outline" onclick="closeModal()">Close</button>
     </div>`);
   if(prefill&&prefill.date) diarySetVal("dl-date",prefill.date);
   if(prefill&&prefill.time){ diarySetVal("dl-start",prefill.time); diarySetVal("dl-end",diaryPlusHour(prefill.time)); }
@@ -3918,27 +3902,35 @@ function openDiaryAddLesson(prefill){
   avAddFormChanged();
 }
 function saveDiaryAddLesson(){ return runOnce("saveDiaryAddLesson", saveDiaryAddLessonNow); }
+function dlErr(msg){ const el=document.getElementById("dl-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
 async function saveDiaryAddLessonNow(){
-  const dateStr=val("dl-date");
-  if(!dateStr) return alert("Date is required");
-  const type=val("dl-type"), pupilId=val("dl-pupil")||null;
-  if(!pupilId && type!=="student_away" && type!=="private") return alert("Pick a pupil, or use type away/private for a block with no pupil.");
-  const start=new Date(`${dateStr}T${val("dl-start")||"09:00"}:00`);
-  const end=new Date(`${dateStr}T${val("dl-end")||"10:00"}:00`);
-  if(end<=start) return alert("End time must be after start time");
-  const {error}=await sb.from("lessons").insert({
-    pupil_id:pupilId, lesson_type:type,
-    title:type==="student_away"?"Away":null,
-    start_time:start.toISOString(), end_time:end.toISOString(),
-    status:"booked", payment_status:"unpaid", instructor_id:diaryOwnerId||currentUserId
-  });
-  if(error) return alert("Could not add: "+error.message);
-  closeModal();
-  renderDiary();
+  dlErr("");
+  const pupilId=val("dl-pupil"), lessonType=val("dl-type")||"lesson", dateStr=val("dl-date");
+  if(!pupilId) return dlErr("Please select a pupil");
+  const start=dLocalDateTime(dateStr,val("dl-start")||"09:00"), end=dLocalDateTime(dateStr,val("dl-end")||"10:00");
+  if(!start||!end) return dlErr("Please choose a date and time");
+  if(end<=start) return dlErr("End time must be after start time");
+  const owner=diaryOwnerId||currentUserId, pupil=diaryPupils().find(p=>p.id===pupilId);
+  // Always unpaid (only payments change that) and the pupil's own gearbox, as in the app.
+  const lesson={lesson_type:lessonType, payment_status:"unpaid", gearbox:(pupil&&pupil.preferred_gearbox)||"manual", notes:null,
+    status:"booked", pupil_id:pupilId, title:null, instructor_id:owner};
+  // One lesson for now; a weekly repeat would add an occurrence per week.
+  const occurrences=[{start,end}];
+  const btn=document.getElementById("dl-save");
+  if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
+  try{
+    if(!(await confirmBookClashes(occurrences,owner))) return;
+    const {error}=await sb.from("lessons").insert(occurrences.map(o=>({...lesson, start_time:o.start.toISOString(), end_time:o.end.toISOString()})));
+    if(error) return dlErr(error.message||"Failed to save lesson");
+    await sendLessonBooked(lesson,occurrences);
+    closeModal();
+    renderDiary();
+  }catch(err){ dlErr((err&&err.message)||"Failed to save lesson"); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent="Save Lesson"; } }
 }
 
 async function endAwayBlock(lessonId){
-  if(!confirm("Remove this block from the diary?")) return;
+  if(!confirm("Delete this entry?")) return;
   const {error}=await sb.from("lessons").delete().eq("id", lessonId);
   if(error){ alert("Could not remove: "+error.message); return; }
   closeModal();
@@ -3950,13 +3942,14 @@ async function endAwayBlock(lessonId){
 // (openAwayModal() from the toolbar, no id) and edit (openAwayModal(id) from
 // a diary block click) share this one form, same as the app.
 // ===========================================================================
-function openAwayModal(editingId){
+// initialDate ('yyyy-mm-dd'): the day clicked on the diary, which starts and ends there, all day, as in the app (Dale, 15 Sep 2026).
+function openAwayModal(editingId,initialDate){
   const editing = editingId ? diaryLessonsCache.find(l=>l.id===editingId) : null;
   // UK dates, not UTC: in summer time a holiday starting at midnight is still the day before in UTC, so editing it
   // showed (and re-saved) the wrong start date.
-  const localDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  const today=localDate(new Date());
-  let startDate=today, endDate=today, allDay=true, startTime="09:00", endTime="17:00",
+  const localDate=dLocalDate;
+  const day=initialDate||localDate(new Date());
+  let startDate=day, endDate=day, allDay=true, startTime="09:00", endTime="17:00",
       notes="", kind="away", visibleToPupil=true, doNotDelete=false;
   if(editing){
     const s=new Date(editing.start_time), e=new Date(editing.end_time);
@@ -3970,14 +3963,14 @@ function openAwayModal(editingId){
     visibleToPupil=editing.visible_to_pupil!==false;
     doNotDelete=!!editing.do_not_delete;
   }
-  openModal(`<h2 style="margin-bottom:1rem">${editing?"Edit":"Add"} Holiday / Appointment</h2>
+  openModal(`<h2 style="margin-bottom:1rem">${editing?"Edit unavailability":"Add Unavailability"}</h2>
     <div class="field" style="margin-bottom:.75rem">
       <label>Type</label>
       <div style="display:flex;gap:.5rem">
         <button type="button" id="am-kind-away" class="${kind==="away"?"btn btn-navy":"btn-outline"} btn-sm" style="flex:1" onclick="setAwayKind('away')">Holiday</button>
         <button type="button" id="am-kind-appt" class="${kind==="appointment"?"btn btn-navy":"btn-outline"} btn-sm" style="flex:1" onclick="setAwayKind('appointment')">Appointment</button>
       </div>
-      <p class="muted" style="margin-top:.4rem" id="am-kind-hint">${kind==="away"?"Shown on the pupil app as instructor holiday / unavailable.":"Only on your diary by default — pupils won't see this unless you turn on visibility below."}</p>
+      <p class="muted" style="margin-top:.4rem" id="am-kind-hint">${kind==="away"?"Shown on the pupil app as instructor holiday / unavailable.":"Only on your diary by default — pupils will not see this unless you turn on visibility below."}</p>
     </div>
     <div id="am-appt-options" style="display:${kind==="appointment"?"":"none"};border:1px solid var(--line);border-radius:8px;padding:.7rem;margin-bottom:.75rem;background:var(--card)">
       <label style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.5rem">
@@ -3987,7 +3980,7 @@ function openAwayModal(editingId){
       <label style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;border-top:1px solid var(--line);padding-top:.5rem">
         <span>Do not delete when past</span><input type="checkbox" id="am-donotdelete" ${doNotDelete?"checked":""}>
       </label>
-      <p class="muted" style="margin-top:.3rem">Past holidays/appointments are removed automatically the day after they end. Tick this to keep it permanently.</p>
+      <p class="muted" style="margin-top:.3rem">Past holidays and appointments are removed from the diary automatically the day after they end. Tick this to keep this appointment permanently.</p>
     </div>
     <div class="two">
       <div class="field"><label>Start date</label><input type="date" id="am-start-date" value="${startDate}" onchange="if(val('am-end-date')<this.value) document.getElementById('am-end-date').value=this.value"></div>
@@ -4004,7 +3997,7 @@ function openAwayModal(editingId){
     <div class="actions" style="margin-top:.75rem">
       <button class="btn btn-navy btn-sm" onclick="saveAwayModal(${editing?`'${editing.id}'`:"null"})">Save</button>
       ${editing?`<button class="btn-danger btn-sm" onclick="endAwayBlock('${editing.id}')">Delete</button>`:""}
-      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn-outline" onclick="closeModal()">${editing?"Cancel":"Close"}</button>
     </div>`);
 }
 function setAwayKind(kind){
@@ -4013,7 +4006,7 @@ function setAwayKind(kind){
   document.getElementById("am-appt-options").style.display=kind==="appointment"?"":"none";
   document.getElementById("am-kind-hint").textContent=kind==="away"
     ? "Shown on the pupil app as instructor holiday / unavailable."
-    : "Only on your diary by default — pupils won't see this unless you turn on visibility below.";
+    : "Only on your diary by default — pupils will not see this unless you turn on visibility below.";
   document.getElementById("am-kind-away").setAttribute("data-kind-active",kind==="away"?"1":"0");
   document.getElementById("am-kind-appt").setAttribute("data-kind-active",kind==="appointment"?"1":"0");
 }
@@ -4028,9 +4021,9 @@ async function saveAwayModalNow(editingId){
   const allDay=document.getElementById("am-allday").checked;
   const startTime=val("am-start-time")||"09:00", endTime=val("am-end-time")||"17:00";
   const notes=val("am-notes")||null;
-  const start = allDay ? new Date(`${startDate}T00:00:00`) : new Date(`${startDate}T${startTime}:00`);
-  const end = allDay ? new Date(`${endDate}T23:59:00`) : new Date(`${endDate}T${endTime}:00`);
-  if(!startDate || isNaN(start.getTime()) || isNaN(end.getTime())) return alert("Choose a start date");
+  const start = dLocalDateTime(startDate, allDay?"00:00":startTime);
+  const end = dLocalDateTime(endDate, allDay?"23:59":endTime);
+  if(!startDate || !start || !end) return alert("Choose a start date");
   if(end<=start) return alert("The end must be after the start. Check the end date and time.");
   const title = kind==="away" ? "Away" : "Appointment";
   const visibleToPupil = kind==="appointment" ? !!document.getElementById("am-visible").checked : true;
@@ -4054,16 +4047,16 @@ async function saveAwayModalNow(editingId){
 // an existing gap goes through the general edit-lesson modal below, same
 // split as the app).
 // ===========================================================================
-function openDiaryGap(){
-  const today=new Date().toISOString().slice(0,10);
+// One date, a start (the clicked time) and a length of at least 15 minutes, as in the app's GapModal (Dale, 15 Sep 2026).
+// prefill: {date:'yyyy-mm-dd', time:'HH:MM'}.
+function openDiaryGap(prefill){
+  const p=prefill||{};
   openModal(`<h2 style="margin-bottom:1rem">Add Gap</h2>
+    <form id="gp-form" onsubmit="saveDiaryGap();return false">
+    <div class="field"><label>Date</label><input type="date" id="gp-date" required value="${esc(p.date||dLocalDate(new Date()))}"></div>
     <div class="two">
-      <div class="field"><label>Start date</label><input type="date" id="gp-start-date" value="${today}" onchange="if(val('gp-end-date')<this.value) document.getElementById('gp-end-date').value=this.value"></div>
-      <div class="field"><label>End date</label><input type="date" id="gp-end-date" value="${today}" min="${today}"></div>
-    </div>
-    <div class="two">
-      <div class="field"><label>Start</label><input type="time" id="gp-start-time" value="10:00"></div>
-      <div class="field"><label>Duration (mins)</label><input type="number" id="gp-duration" value="60"></div>
+      <div class="field"><label>Start</label><input type="time" id="gp-start-time" required value="${esc(p.time||"10:00")}"></div>
+      <div class="field"><label>Duration (mins)</label><input type="number" id="gp-duration" required min="15" value="60"></div>
     </div>
     <div class="field"><label>Gearbox</label>
       <select id="gp-gearbox"><option value="manual">Manual</option><option value="automatic">Automatic</option></select>
@@ -4083,19 +4076,21 @@ function openDiaryGap(){
       </div>
     </div>
     <div class="actions" style="margin-top:.75rem">
-      <button class="btn btn-navy btn-sm" onclick="saveDiaryGap()">Create gap</button>
-      <button class="btn-outline" onclick="closeModal()">Cancel</button>
-    </div>`);
+      <button type="submit" class="btn btn-navy btn-sm">Create gap</button>
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+    </div>
+    </form>`);
 }
 function saveDiaryGap(){ return runOnce("saveDiaryGap", saveDiaryGapNow); }
 async function saveDiaryGapNow(){
-  const startDate=val("gp-start-date"); if(!startDate) return alert("Start date is required");
-  const endDate=val("gp-end-date")||startDate;
-  const startTime=val("gp-start-time")||"10:00";
-  const duration=Number(val("gp-duration"))||60;
+  const form=document.getElementById("gp-form");
+  if(form&&!form.reportValidity()) return;
+  const duration=Number(val("gp-duration"));
+  const start=dLocalDateTime(val("gp-date"),val("gp-start-time"));
+  if(!start) return alert("Choose a date and start time");
+  if(!(duration>=15)) return alert("A gap is at least 15 minutes");
+  const end=new Date(start.getTime()+duration*60000);
   const gearbox=document.getElementById("gp-gearbox").value;
-  const start=new Date(`${startDate}T${startTime}:00`);
-  const end=(endDate && endDate!==startDate) ? new Date(`${endDate}T${startTime}:00`) : new Date(start.getTime()+duration*60000);
   const session=(await sb.auth.getSession()).data.session;
   const {error}=await sb.from("lessons").insert({
     lesson_type:"gap", title:"Gap", start_time:start.toISOString(), end_time:end.toISOString(),
@@ -4105,7 +4100,7 @@ async function saveDiaryGapNow(){
 
   if(document.getElementById("gp-notify").checked){
     const sendTo=document.getElementById("gp-sendto").value;
-    let targets=pupilsCache;
+    let targets=diaryPupils();
     if(sendTo==="active") targets=diaryPupils().filter(p=>p.status==="active");
     else if(sendTo==="waiting") targets=diaryPupils().filter(p=>p.status==="waiting");
     else if(sendTo==="both") targets=diaryPupils().filter(p=>p.status==="active"||p.status==="waiting");
@@ -4130,41 +4125,61 @@ async function saveDiaryGapNow(){
 // ===========================================================================
 const SWAP_NOT_SWAPPABLE=["gap","lesson_offer","student_away","driving_test"];
 function openLessonSwap(){
-  swapLessonsCache={a:[],b:[]};
-  const active=diaryPupils().filter(p=>p.status==="active").sort((a,b)=>(a.first_name||"").localeCompare(b.first_name||""));
-  const opts=active.map(p=>`<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`).join("");
+  swapLessonsCache={a:[],b:[]}; swapLoadSeq={a:0,b:0};
   openModal(`<h2 style="margin-bottom:1rem">Lesson swap</h2>
     <p class="muted" style="margin-bottom:.75rem">Pick a pupil and lesson on each side — their appointment times swap, each lesson keeps its own length and details.</p>
-    <div class="field"><label>Pupil A</label><select id="sw-pupil-a" onchange="loadSwapLessons('a')"><option value="">Select…</option>${opts}</select></div>
+    <div class="field"><label>Pupil A</label><select id="sw-pupil-a" onchange="swapPupilChanged('a')"></select></div>
     <div id="sw-lessons-a" style="margin:.5rem 0 1rem"></div>
-    <div class="field"><label>Pupil B</label><select id="sw-pupil-b" onchange="loadSwapLessons('b')"><option value="">Select…</option>${opts}</select></div>
+    <div class="field"><label>Pupil B</label><select id="sw-pupil-b" onchange="swapPupilChanged('b')"></select></div>
     <div id="sw-lessons-b" style="margin:.5rem 0 1rem"></div>
+    <div id="sw-preview"></div>
     <div class="actions">
-      <button class="btn btn-navy btn-sm" onclick="doLessonSwap()">Swap</button>
+      <button class="btn btn-navy btn-sm" id="sw-go" disabled onclick="doLessonSwap()">Swap</button>
       <button class="btn-outline" onclick="closeModal()">Cancel</button>
     </div>`);
+  swapFillPupils();
 }
+// Each side leaves out the pupil picked on the other, as in the app's LessonSwapModal (Dale, 15 Sep 2026).
+function swapPupils(){ return diaryPupils().filter(p=>p.status==="active").sort((a,b)=>(a.first_name||"").localeCompare(b.first_name||"")); }
+function swapFillPupils(){
+  const a=val("sw-pupil-a"), b=val("sw-pupil-b"), list=swapPupils();
+  const opts=(sel,other)=>'<option value="">Select pupil…</option>'+list.filter(p=>p.id!==other).map(p=>`<option value="${p.id}"${p.id===sel?" selected":""}>${esc(p.first_name)} ${esc(p.last_name)}</option>`).join("");
+  document.getElementById("sw-pupil-a").innerHTML=opts(a,b);
+  document.getElementById("sw-pupil-b").innerHTML=opts(b,a);
+}
+function swapPupilChanged(side){ swapFillPupils(); loadSwapLessons(side); }
+function swapWhen(l){ const d=new Date(l.start_time); return `${dDayShort(d)} · ${dLocalTime(d)}`; }
 async function loadSwapLessons(side){
-  const pupilId=val("sw-pupil-"+side);
+  const pupilId=val("sw-pupil-"+side), seq=++swapLoadSeq[side];
   const wrap=document.getElementById("sw-lessons-"+side);
-  if(!pupilId){ wrap.innerHTML=""; swapLessonsCache[side]=[]; return; }
-  wrap.innerHTML='<p class="muted">Loading…</p>';
+  swapLessonsCache[side]=[];
+  if(!pupilId){ wrap.innerHTML=""; swapPreview(); return; }
+  wrap.innerHTML='<p class="muted">Loading…</p>'; swapPreview();
   const {data}=await sb.from("lessons").select("id,start_time,end_time,lesson_type,title")
     .eq("pupil_id",pupilId).neq("status","cancelled")
     .not("lesson_type","in",`(${SWAP_NOT_SWAPPABLE.join(",")})`)
     .gte("start_time",new Date().toISOString()).order("start_time").limit(30);
+  // A slower load for a pupil no longer picked never lands on top.
+  if(seq!==swapLoadSeq[side]||!document.getElementById("sw-lessons-"+side)) return;
   swapLessonsCache[side]=data||[];
-  if(!data || !data.length){ wrap.innerHTML='<p class="muted">No upcoming lessons to swap</p>'; return; }
-  wrap.innerHTML=`<div style="border:1px solid var(--line);border-radius:8px;max-height:160px;overflow-y:auto">${data.map(l=>{
-    const when=new Date(l.start_time).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
-    const type=esc((l.title||l.lesson_type||"").replace(/_/g," "));
-    return `<label style="display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;border-bottom:1px solid var(--line)">
-      <input type="radio" name="sw-lesson-${side}" value="${l.id}">
-      <span><strong>${when}</strong><br><span class="muted" style="font-size:.8rem;text-transform:capitalize">${type}</span></span>
-    </label>`;
-  }).join("")}</div>`;
+  if(!data || !data.length){ wrap.innerHTML='<p class="muted">No upcoming lessons to swap</p>'; swapPreview(); return; }
+  wrap.innerHTML=`<div style="border:1px solid var(--line);border-radius:8px;max-height:160px;overflow-y:auto">${data.map(l=>`<label style="display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;border-bottom:1px solid var(--line)">
+      <input type="radio" name="sw-lesson-${side}" value="${l.id}" onchange="swapPreview()">
+      <span><strong>${esc(swapWhen(l))}</strong><br><span class="muted" style="font-size:.8rem">${esc(l.title||lessonTypeLabel(l.lesson_type))}</span></span>
+    </label>`).join("")}</div>`;
+  swapPreview();
 }
-async function doLessonSwap(){
+function swapPicked(side){ const el=document.querySelector(`input[name="sw-lesson-${side}"]:checked`); return el?((swapLessonsCache[side]||[]).find(l=>l.id===el.value)||null):null; }
+// "Sam moves to Tue 15 Sep · 10:00, and Jo moves to …"; Swap is only on once a lesson is picked on both sides.
+function swapPreview(){
+  const a=val("sw-pupil-a"), b=val("sw-pupil-b"), la=swapPicked("a"), lb=swapPicked("b"), can=!!la&&!!lb&&a!==b;
+  const go=document.getElementById("sw-go"); if(go) go.disabled=!can;
+  const el=document.getElementById("sw-preview"); if(!el) return;
+  const first=id=>(swapPupils().find(p=>p.id===id)||{}).first_name||"";
+  el.innerHTML=can?`<div class="chip-info" style="border-radius:10px;padding:.55rem .75rem;font-size:.85rem;margin-bottom:.75rem">${esc(first(a))} moves to ${esc(swapWhen(lb))}, and ${esc(first(b))} moves to ${esc(swapWhen(la))}.</div>`:"";
+}
+function doLessonSwap(){ return runOnce("lessonSwap", doLessonSwapNow); }
+async function doLessonSwapNow(){
   const pupilAId=val("sw-pupil-a"), pupilBId=val("sw-pupil-b");
   if(!pupilAId||!pupilBId||pupilAId===pupilBId) return alert("Pick a different pupil on each side");
   const lessonAEl=document.querySelector('input[name="sw-lesson-a"]:checked');
@@ -4200,9 +4215,8 @@ function openDiaryEditLesson(id){
   const l=diaryLessonsCache.find(x=>x.id===id);
   if(!l) return alert("Could not find this diary entry — try refreshing.");
   const s=new Date(l.start_time), e=new Date(l.end_time);
-  const dateStr=s.toISOString().slice(0,10);
-  const startStr=String(s.getHours()).padStart(2,"0")+":"+String(s.getMinutes()).padStart(2,"0");
-  const endStr=String(e.getHours()).padStart(2,"0")+":"+String(e.getMinutes()).padStart(2,"0");
+  // UK date and times, not UTC (Dale, 15 Sep 2026).
+  const dateStr=dLocalDate(s), startStr=dLocalTime(s), endStr=dLocalTime(e);
   openModal(`<h2 style="margin-bottom:1rem">Edit diary entry</h2>
     <div class="two">
       <div class="field"><label>Date</label><input type="date" id="dl2-date" value="${dateStr}"></div>
@@ -4228,10 +4242,15 @@ function openDiaryEditLesson(id){
       <button class="btn-outline" onclick="closeModal()">Cancel</button>
     </div>`);
 }
-async function saveDiaryEditLesson(id){
+function saveDiaryEditLesson(id){ return runOnce("saveDiaryEditLesson", ()=>saveDiaryEditLessonNow(id)); }
+async function saveDiaryEditLessonNow(id){
+  const l=diaryLessonsCache.find(x=>x.id===id);
   const dateStr=val("dl2-date"); if(!dateStr) return alert("Date is required");
-  const start=new Date(`${dateStr}T${val("dl2-start")||"09:00"}:00`);
-  const end=new Date(`${dateStr}T${val("dl2-end")||"10:00"}:00`);
+  const start=dLocalDateTime(dateStr,val("dl2-start")||"09:00"), end=dLocalDateTime(dateStr,val("dl2-end")||"10:00");
+  if(!start||!end) return alert("Choose a date and times");
+  if(end<=start) return alert("End time must be after start time");
+  // The app's overlap question when saving a changed lesson (Dale, 15 Sep 2026).
+  if(!(await confirmSaveClashes(start,end,(l&&l.instructor_id)||diaryOwnerId||currentUserId,id))) return;
   const newStatus=document.getElementById("dl2-status").value;
   const payload={
     start_time:start.toISOString(), end_time:end.toISOString(),
@@ -4276,7 +4295,7 @@ async function deleteDiaryLesson(id){
   const pupilId=l?l.pupil_id:null, startTime=l?l.start_time:null;
   const {error}=await sb.from("lessons").delete().eq("id",id);
   if(error) return alert(error.message);
-  if(pupilId && startTime) await deleteReflectiveLogForDate(pupilId,startTime);
+  if(pupilId && startTime) await deleteReflectiveLogForLesson(pupilId,startTime);
   closeModal();
   renderDiary();
 }
@@ -4351,7 +4370,7 @@ function openTestEditModal(id){
   if(!t) return;
   const name=t.pupil?`${t.pupil.first_name} ${t.pupil.last_name}`:"–";
   const d=t.test_date?new Date(t.test_date):new Date();
-  const dateStr=d.toISOString().slice(0,10);
+  const dateStr=dLocalDate(d); // UK date, not UTC (Dale, 15 Sep 2026)
   const timeStr=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
   openModal(`<h2 style="margin-bottom:1rem">${esc(name)} — Edit test</h2>
     <div class="two">
@@ -4389,7 +4408,9 @@ async function saveTestResult(id){
   if(!t) return;
   const dateStr=val("tt-date"), timeStr=document.getElementById("tt-time").value||"09:00";
   if(!dateStr) return alert("Date is required");
-  const test_date=new Date(`${dateStr}T${timeStr}:00`).toISOString();
+  const testStart=dLocalDateTime(dateStr,timeStr);
+  if(!testStart) return alert("Date is required");
+  const test_date=testStart.toISOString();
   const result=document.getElementById("tt-result").value;
   const payload={
     pupil_id:t.pupil_id,
@@ -4414,7 +4435,7 @@ async function saveTestResult(id){
     // the app — best-effort, doesn't block saving the result if it fails.
     if(!error && t._lessonId){
       try{
-        const start=new Date(`${dateStr}T${timeStr}:00`);
+        const start=testStart;
         await sb.from("lessons").update({start_time:start.toISOString(),notes:`Centre time: ${timeStr}`+(payload.centre?` | Centre: ${payload.centre}`:"")}).eq("id",t._lessonId);
       }catch(e){ console.error("lesson sync failed",e); }
     }
@@ -6107,7 +6128,7 @@ async function loadGaps(){
       <td><button class="btn-danger" onclick="delGap('${g.id}')">Del</button></td></tr>`).join("")+"</tbody></table>";
 }
 function openGapForm(){
-  const today=new Date().toISOString().slice(0,10);
+  const today=dLocalDate(new Date());
   openModal(`<h2 style="margin-bottom:1rem">Add gap</h2>
     <div class="field"><label>Date</label><input type="date" id="gap-date" value="${today}"></div>
     <div class="field"><label>Start time</label><input type="time" id="gap-time" value="10:00"></div>
@@ -6349,9 +6370,7 @@ async function openSettings(which){
       const {data:own}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","terms_and_conditions").maybeSingle();
       body=(own&&own.value&&own.value.body)||"";
     }
-    let noticeHours=48;
-    { const {data:cp}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","cancellation_policy").maybeSingle(); if(cp&&cp.value&&cp.value.noticeHours!=null) noticeHours=Number(cp.value.noticeHours); }
-    if(currentSchoolId){ const {data:sc2}=await sb.from("schools").select("cancellation_notice_hours").eq("id",currentSchoolId).maybeSingle(); if(sc2&&sc2.cancellation_notice_hours!=null) noticeHours=Number(sc2.cancellation_notice_hours); }
+    let noticeHours=await cancellationNoticeHours(currentUserId);
     const usingDefault=!body.trim();
     if(usingDefault) body=DEFAULT_TERMS_BODY;
     panel.innerHTML=`<button class="btn-outline" onclick="goTab('dash')">← Back</button>
@@ -7189,6 +7208,96 @@ async function sendStaffMessageNow(){
 // --- Diary: click an empty slot to add at that day/time (same as the app:
 // nearest 15 minutes, then a menu). Paid/unpaid strip on lesson blocks.
 let diaryGrid={startH:6,hourH:48};
+// UK wall-clock dates and times for the diary's forms (Dale, 15 Sep 2026): what's typed in is the local (UK) clock, never
+// UTC, so a lesson can't move day or hour in summer time. dDayShort is the app's 'EEE d MMM' ("Tue 15 Sep"), written out
+// because en-GB's own short month now gives "Sept".
+const D_DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], D_MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function dLocalDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function dLocalTime(d){ return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function dLocalDateTime(dateStr,timeStr){
+  const dm=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr||"")), tm=/^(\d{1,2}):(\d{2})/.exec(String(timeStr||""));
+  if(!dm||!tm) return null;
+  const x=new Date(+dm[1],+dm[2]-1,+dm[3],+tm[1],+tm[2],0,0);
+  return isNaN(x.getTime())?null:x;
+}
+function dDayShort(d){ return `${D_DOW[d.getDay()]} ${d.getDate()} ${D_MON[d.getMonth()]}`; }
+// The app's 6-week diary history: entries starting before this aren't loaded.
+function diaryPastFloorIso(){ return new Date(Date.now()-42*864e5).toISOString(); }
+
+// The app's overlap check (AddLessonModal / EditLessonModal): real diary entries only, so gaps, pupils' holidays, Away and
+// cancelled lessons don't count. Kept to one diary's entries (a school admin's query would otherwise see every instructor's).
+async function diaryClashes(occurrences,instructorId,excludeId){
+  let q=sb.from("lessons").select("id, start_time, end_time, title, lesson_type, pupil:pupils(first_name, last_name)")
+    .eq("instructor_id",instructorId).neq("status","cancelled")
+    .lt("start_time",occurrences[occurrences.length-1].end.toISOString()).gt("end_time",occurrences[0].start.toISOString());
+  if(excludeId) q=q.neq("id",excludeId);
+  const {data:existing}=await q;
+  return occurrences.map(o=>({start:o.start, names:(existing||[]).filter(l=>l.title!=="Away"&&l.lesson_type!=="student_away"&&l.lesson_type!=="gap"
+      &&new Date(l.start_time).getTime()<o.end.getTime()&&new Date(l.end_time).getTime()>o.start.getTime())
+    .map(l=>l.pupil?`${l.pupil.first_name} ${l.pupil.last_name}`:(l.title||"Another booking"))})).filter(c=>c.names.length);
+}
+// Adding: "This overlaps with: / Tue 15 Sep: Sam Smith / Book anyway? All will show on the diary."
+async function confirmBookClashes(occurrences,instructorId){
+  const c=await diaryClashes(occurrences,instructorId,null);
+  return !c.length||confirm(`This overlaps with:\n${c.map(x=>`${dDayShort(x.start)}: ${x.names.join(", ")}`).join("\n")}\n\nBook anyway? All will show on the diary.`);
+}
+// Changing a lesson or offer: "This time overlaps with: Sam Smith. Save anyway?"
+async function confirmSaveClashes(start,end,instructorId,excludeId){
+  const c=await diaryClashes([{start,end}],instructorId,excludeId);
+  return !c.length||confirm(`This time overlaps with: ${c[0].names.join(", ")}.\n\nSave anyway?`);
+}
+// Where the pupil is picked up, for their messages (the app's lessonPickupLabel): Home, School, Work or Other, no address.
+function lessonPickupLabel(l){ return String((l&&l.pickup_address)||"").trim() ? (l.pickup_label||"Other") : "Home"; }
+// After booking, as in the app's AddLessonModal: a reflective log for each lesson day, then "Your … is booked for …" to the
+// pupil. Every new message is pushed by the database (trg_messages_push_on_insert) and send-push claims each message once,
+// so asking for the push here as well, as the app does, never sends two.
+async function sendLessonBooked(lesson,occurrences){
+  if(!lesson.pupil_id||["student_away","gap","private"].includes(lesson.lesson_type)) return;
+  for(const o of occurrences) await createReflectiveLogShellIfNeeded(lesson.pupil_id,dLocalDate(o.start));
+  for(const o of occurrences){
+    const now=new Date().toISOString();
+    const {data:msg,error}=await sb.from("messages").insert({pupil_id:lesson.pupil_id,
+      body:`Your ${lessonTypeNoun(lesson.lesson_type)} is booked for ${dDayShort(o.start)} at ${dLocalTime(o.start)}. Pick-up: ${lessonPickupLabel(lesson)}.`,
+      direction:"outbound", subject:null, delivered_at:now, created_at:now}).select().single();
+    if(!error&&msg&&msg.id) triggerMsgPush(msg.id);
+  }
+}
+// Cancellation notice hours (Dale, 15 Sep 2026): the school's cancellation_notice_hours when the instructor is in a school,
+// else the instructor's own cancellation_policy.noticeHours, else 48. Used by the cancellation message and the Terms screen.
+async function cancellationNoticeHours(instructorId){
+  const owner=instructorId||currentUserId;
+  try{
+    let schoolId=owner===currentUserId?currentSchoolId:null;
+    if(owner!==currentUserId){
+      const {data:pr}=await sb.from("profiles").select("school_id").eq("id",owner).maybeSingle();
+      schoolId=(pr&&pr.school_id)||(isSchoolAdminUser?currentSchoolId:null);
+    }
+    if(schoolId){
+      const {data:sc}=await sb.from("schools").select("cancellation_notice_hours").eq("id",schoolId).maybeSingle();
+      if(sc&&sc.cancellation_notice_hours!=null) return Number(sc.cancellation_notice_hours);
+    }
+    const {data:cp}=await sb.from("app_settings").select("value").eq("owner_id",owner).eq("id","cancellation_policy").maybeSingle();
+    if(cp&&cp.value&&cp.value.noticeHours!=null) return Number(cp.value.noticeHours);
+  }catch(e){}
+  return 48;
+}
+// Diary header, as in the app (Dale, 15 Sep 2026): Now goes back to this week, Go to date opens the week of any day, and a
+// red line crosses today's column at the current time, moved every minute.
+function diaryGoNow(){ weekStart=startOfWeek(new Date()); renderDiary(); }
+function openDiaryGoToDate(){
+  const today=new Date(), shown=startOfWeek(today).getTime()===weekStart.getTime()?today:weekStart;
+  openModal(`<h3 style="margin:0 0 .75rem">Go to date</h3>
+    <div class="field"><input type="date" id="diary-goto" value="${dLocalDate(shown)}" onchange="diaryGoToDate(this.value)"></div>
+    <div class="actions"><button class="btn-outline" onclick="closeModal()">Close</button></div>`);
+}
+function diaryGoToDate(v){ const d=dLocalDateTime(v,"12:00"); if(!d||d.getFullYear()<2000) return; weekStart=startOfWeek(d); closeModal(); renderDiary(); }
+function diaryNowTop(){ const n=new Date(); return (n.getHours()*60+n.getMinutes()-diaryGrid.startH*60)/60*diaryGrid.hourH; }
+function diaryNowTick(){
+  const el=document.getElementById("diary-now"); if(!el) return;
+  const top=diaryNowTop();
+  el.style.top=top+"px"; el.style.display=(top<0||top>(diaryGrid.gridH||0))?"none":"";
+}
+setInterval(diaryNowTick,60000);
 function diarySetVal(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
 function diaryPlusHour(t){ const [h,m]=t.split(":").map(Number); const d=new Date(2000,0,1,h,m+60); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
 function onDiaryGridClick(ev,col){
@@ -7201,23 +7310,31 @@ function onDiaryGridClick(ev,col){
   hour=Math.max(0,Math.min(23,hour));
   const time=String(hour).padStart(2,"0")+":"+String(mins).padStart(2,"0");
   const date=col.getAttribute("data-date");
-  const label=new Date(date+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
-  openModal(`<h3 style="margin:0 0 .75rem">${esc(label)} · ${time}</h3>
+  const label=dDayShort(dLocalDateTime(date,"12:00"));
+  // Showing one pupil's free times: says whether they're free at the clicked time, as in the app (Dale, 15 Sep 2026).
+  const one=diaryAvail&&diaryAvail.mode==="one"?avPupils().find(p=>p.id===diaryAvail.pupilId):null;
+  openModal(`<h3 style="margin:0 0 .75rem">${esc(label)} ${time}</h3>
+    ${one?'<p id="slot-free" style="margin:-.35rem 0 .75rem;font-weight:600;font-size:.9rem"></p>':""}
     <div style="display:flex;flex-direction:column;gap:.5rem">
       <button class="btn btn-navy" onclick="closeModal();openDiaryAddLesson({date:'${date}',time:'${time}'})">Add lesson</button>
       <button class="btn-outline" onclick="closeModal();openLessonOffer({date:'${date}',time:'${time}'})">Lesson offer (pencil in)</button>
-      <button class="btn-outline" onclick="closeModal();openDiaryGapAt('${date}','${time}')">Add gap</button>
-      <button class="btn-outline" onclick="closeModal();openAwayAt('${date}','${time}')">Holiday / away</button>
+      <button class="btn-outline" onclick="closeModal();openDiaryGapAt('${date}','${time}')">Create gap</button>
+      <button class="btn-outline" onclick="closeModal();openAwayAt('${date}')">Create Holiday/Appointment</button>
       <button class="btn-outline" onclick="closeModal()">Cancel</button>
     </div>`);
+  if(one){
+    const day=dLocalDateTime(date,"00:00"), t=avTimeMin(time);
+    avWeekRows(day).then(rows=>{
+      const el=document.getElementById("slot-free"); if(!el) return;
+      const free=avFreeRanges(one,day,rows).some(([s,e])=>t>=s&&t<e);
+      el.textContent=free?`${one.first_name} is free at this time`:`${one.first_name} isn't free at this time`;
+      el.style.color=free?"#14b8a6":"#f59e0b";
+    });
+  }
 }
-function openDiaryGapAt(date,time){ openDiaryGap(); diarySetVal("gp-start-date",date); diarySetVal("gp-end-date",date); diarySetVal("gp-start-time",time); }
-function openAwayAt(date,time){
-  openAwayModal();
-  diarySetVal("am-start-date",date); diarySetVal("am-end-date",date);
-  const cb=document.getElementById("am-allday"); if(cb&&cb.checked){ cb.checked=false; cb.dispatchEvent(new Event("change")); }
-  diarySetVal("am-start-time",time); diarySetVal("am-end-time",diaryPlusHour(time));
-}
+function openDiaryGapAt(date,time){ openDiaryGap({date,time}); }
+// Like the app's AwayModal from a tapped day: all day, starting and ending that day (Dale, 15 Sep 2026).
+function openAwayAt(date){ openAwayModal(null,date); }
 function diaryPayFooter(l,height){
   const strip=(bg,text)=> height>=40
     ? `<div style="position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:9px;font-weight:700;line-height:14px;color:#fff;background:${bg}">${text}</div>`
@@ -7272,12 +7389,27 @@ function avBookedInWeek(pupilId,rows,day){
   return rows.some(l=>{ const s=new Date(l.start_time); return l.pupil_id===pupilId&&avBlocks(l)&&s>=ws&&s<we; });
 }
 function avFreeWhole(ranges,startMin,endMin){ return endMin>startMin && ranges.some(([a,b])=>a<=startMin&&endMin<=b); }
-// Note under the pupil list when a lesson doesn't fit their free time ("" = fits, or they haven't set any).
+// The pupil has a (not cancelled) holiday touching `day` — the app's onHoliday.
+function avOnHoliday(pupilId,day,rows){
+  const ds=new Date(day); ds.setHours(0,0,0,0);
+  const de=new Date(ds); de.setDate(de.getDate()+1);
+  return rows.some(l=>l.lesson_type==="student_away"&&l.status!=="cancelled"&&l.pupil_id===pupilId&&new Date(l.start_time)<de&&new Date(l.end_time)>ds);
+}
+// The pupil's own free half hours on `day` joined up, before anything on the diary is taken out (the app's dayRanges).
+function avDayRanges(p,day){ return avMergeSlots(avSlotsFor(p&&p.availability,AV_DAYS[new Date(day).getDay()])); }
+// Add lesson and Pencil in go by the pupil's own free times and holidays, not other bookings, as in the app
+// (PupilAvailabilityHints.tsx; Dale, 15 Sep 2026). The app's freeForWholeLesson:
+function avFitsWholeLesson(p,day,startMin,endMin,rows){ return !avOnHoliday(p.id,day,rows) && avDayRanges(p,day).some(([a,b])=>startMin>=a&&endMin<=b); }
+// "Free at this time": availability set, not booked that week, free for the whole lesson.
+function avFreeAtThisTime(pupils,day,startMin,endMin,rows){ return pupils.filter(p=>avHasAny(p.availability)&&!avBookedInWeek(p.id,rows,day)&&avFitsWholeLesson(p,day,startMin,endMin,rows)); }
+// The note under the pupil (the app's lessonFitNote): "" when it fits, or they haven't set any availability.
 function avLessonWarning(p,day,startMin,endMin,rows){
   if(!p||!avHasAny(p.availability)) return "";
-  const ranges=avFreeRanges(p,day,rows);
-  if(avFreeWhole(ranges,startMin,endMin)) return "";
-  const inside=ranges.find(([a,b])=>a<=startMin&&startMin<b), nm=p.first_name||"the pupil";
+  const nm=p.first_name||"the pupil";
+  if(avOnHoliday(p.id,day,rows)) return `${nm} is on holiday that day`;
+  const ranges=avDayRanges(p,day);
+  if(ranges.some(([a,b])=>startMin>=a&&endMin<=b)) return "";
+  const inside=ranges.find(([a,b])=>startMin>=a&&startMin<b);
   return inside ? `Runs past ${nm}'s free time (until ${avHm(inside[1])})` : `Not in ${nm}'s free times`;
 }
 // "Mon, Tue, Thu · 09:00–15:00": the days with slots, earliest start to latest end.
@@ -7376,21 +7508,22 @@ async function openAvailabilityPickerNow(){
     ${none?`<p class="muted" style="margin-top:.8rem">${none} pupil${none===1?" hasn't":"s haven't"} set their availability</p>`:""}
     <div class="actions" style="margin-top:.9rem">${diaryAvail?'<button class="btn-outline" onclick="setDiaryAvail(null)">Turn off</button>':""}<button class="btn-outline" onclick="closeModal()">Close</button></div>`);
 }
-// Add to diary: "Free at this time" chips (not booked that week and free for the whole lesson, whether or not
-// Availability is on) and the doesn't-fit warning. Never stops a save. Skipped for Away / Private entries.
+// "Free at this time" chips for the pupil box `selectId`, with the app's wording ("Sam S."); onPick re-checks the form.
+function avFreeChipsHtml(free,pid,selectId,onPick){
+  return !free.length ? "" : `<div style="margin-bottom:.8rem"><div class="muted" style="font-weight:600;margin-bottom:.3rem">Free at this time · not booked this week</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.35rem">${free.map(p=>`<button type="button" class="chip chip-info av-chip${p.id===pid?" on":""}" onclick="diarySetVal('${selectId}','${p.id}');${onPick}()">${esc(p.first_name)}${p.last_name?` ${esc(String(p.last_name).charAt(0))}.`:""}</button>`).join("")}</div></div>`;
+}
+// Add lesson: the chips and the doesn't-fit note, whether or not Availability is on. Never stops a save.
 async function avAddFormChanged(){
   const seq=++avFormSeq, get=id=>{ const el=document.getElementById(id); return el?el.value.trim():""; };
   const freeEl=document.getElementById("dl-free"), warnEl=document.getElementById("dl-warn");
   if(!freeEl||!warnEl) return;
-  const dateStr=get("dl-date"), s=avTimeMin(get("dl-start")), e=avTimeMin(get("dl-end")), type=get("dl-type");
-  const day=new Date(dateStr+"T00:00:00");
-  if(!dateStr||isNaN(day)||isNaN(s)||isNaN(e)||e<=s||type==="student_away"||type==="private"){ freeEl.innerHTML=""; warnEl.textContent=""; return; }
+  const dateStr=get("dl-date"), s=avTimeMin(get("dl-start")), e=avTimeMin(get("dl-end")), day=dLocalDateTime(dateStr,"00:00");
+  if(!day||isNaN(s)||isNaN(e)||e<=s){ freeEl.innerHTML=""; warnEl.textContent=""; return; }
   const rows=await avWeekRows(day);
   if(seq!==avFormSeq||!document.getElementById("dl-free")) return;
   const pupils=avPupils(), pid=get("dl-pupil");
-  const free=pupils.filter(p=>avHasAny(p.availability)&&!avBookedInWeek(p.id,rows,day)&&avFreeWhole(avFreeRanges(p,day,rows),s,e));
-  freeEl.innerHTML = !free.length ? "" : `<div style="margin-bottom:.8rem"><div class="muted" style="font-weight:600;margin-bottom:.3rem">Free at this time</div>
-    <div style="display:flex;flex-wrap:wrap;gap:.35rem">${free.map(p=>`<button type="button" class="chip chip-info av-chip${p.id===pid?" on":""}" onclick="diarySetVal('dl-pupil','${p.id}');avAddFormChanged()">${esc(p.first_name)} ${esc(p.last_name)}</button>`).join("")}</div></div>`;
+  freeEl.innerHTML=avFreeChipsHtml(avFreeAtThisTime(pupils,day,s,e,rows),pid,"dl-pupil","avAddFormChanged");
   warnEl.textContent=avLessonWarning(pupils.find(p=>p.id===pid),day,s,e,rows);
 }
 
@@ -7510,15 +7643,7 @@ function loBusy(on){
   const s=loEl("lo-save"); if(s) s.textContent=on?"Saving…":"Save";
 }
 function loDone(){ offerForm=null; closeModal(); renderDiary(); }
-// The pupil has a (not cancelled) holiday touching `day` — the app's onHoliday.
-function avOnHoliday(pupilId,day,rows){
-  const ds=new Date(day); ds.setHours(0,0,0,0);
-  const de=new Date(ds); de.setDate(de.getDate()+1);
-  return rows.some(l=>l.lesson_type==="student_away"&&l.status!=="cancelled"&&l.pupil_id===pupilId&&new Date(l.start_time)<de&&new Date(l.end_time)>ds);
-}
-// The app's availability hints, which go by the pupil's own free times and holidays (not other bookings): "Free at this
-// time" = has availability, not booked that week, free for the whole lesson and not on holiday (new offers only); the
-// note under the pupil = lessonFitNote.
+// The app's availability hints (avFreeAtThisTime / avLessonWarning): the chips on new offers only, and the note under the pupil.
 async function loFormChanged(){
   if(!offerForm) return;
   const pupils=avPupils(), pid=loVal("lo-pupil"), p=pupils.find(x=>x.id===pid);
@@ -7526,43 +7651,17 @@ async function loFormChanged(){
   if(loEl("lo-ask-label")) loEl("lo-ask-label").textContent=askText;
   if(loEl("lo-ask-btn")) loEl("lo-ask-btn").textContent=askText;
   const seq=++avFormSeq, freeEl=loEl("lo-free"), warnEl=loEl("lo-warn");
-  const dateStr=loVal("lo-date"), s=avTimeMin(loVal("lo-start")), e=s+loDuration(), day=new Date(dateStr+"T00:00:00");
+  const dateStr=loVal("lo-date"), s=avTimeMin(loVal("lo-start")), e=s+loDuration(), day=dLocalDateTime(dateStr,"00:00");
   const clear=()=>{ if(freeEl) freeEl.innerHTML=""; if(warnEl) warnEl.textContent=""; };
-  if(!dateStr||isNaN(day)||isNaN(s)){ clear(); return; }
+  if(!day||isNaN(s)){ clear(); return; }
   const rows=await avWeekRows(day);
   if(seq!==avFormSeq||!loEl("lo-warn")) return;
-  const dayRanges=x=>avMergeSlots(avSlotsFor(x.availability,AV_DAYS[day.getDay()]));
-  const fits=x=>dayRanges(x).some(([a,b])=>s>=a&&e<=b);
-  if(freeEl){
-    const free=pupils.filter(x=>avHasAny(x.availability)&&!avBookedInWeek(x.id,rows,day)&&!avOnHoliday(x.id,day,rows)&&fits(x));
-    freeEl.innerHTML = !free.length ? "" : `<div style="margin-bottom:.8rem"><div class="muted" style="font-weight:600;margin-bottom:.3rem">Free at this time</div>
-      <div style="display:flex;flex-wrap:wrap;gap:.35rem">${free.map(x=>`<button type="button" class="chip chip-info av-chip${x.id===pid?" on":""}" onclick="diarySetVal('lo-pupil','${x.id}');loFormChanged()">${esc(x.first_name)} ${esc(x.last_name)}</button>`).join("")}</div></div>`;
-  }
-  let note="";
-  if(p&&avHasAny(p.availability)){
-    const ranges=dayRanges(p);
-    if(avOnHoliday(p.id,day,rows)) note=`${p.first_name} is on holiday that day`;
-    else if(!fits(p)){
-      const inside=ranges.find(([a,b])=>s>=a&&s<b);
-      note=inside?`Runs past ${p.first_name}'s free time (until ${avHm(inside[1])})`:`Not in ${p.first_name}'s free times`;
-    }
-  }
-  warnEl.textContent=note;
+  if(freeEl) freeEl.innerHTML=avFreeChipsHtml(avFreeAtThisTime(pupils,day,s,e,rows),pid,"lo-pupil","loFormChanged");
+  warnEl.textContent=avLessonWarning(p,day,s,e,rows);
 }
-// The app's checkClashes, kept to this diary's own entries (a school admin's query would otherwise see every instructor's).
+// The app's checkClashes (confirmSaveClashes), kept to this diary's own entries.
 async function loCheckClashes(start,end){
-  let q=sb.from("lessons").select("id, start_time, end_time, title, lesson_type, pupil:pupils(first_name, last_name)")
-    .eq("instructor_id",diaryOwnerId||currentUserId).neq("status","cancelled").lt("start_time",end.toISOString()).gt("end_time",start.toISOString());
-  if(offerForm&&offerForm.editing) q=q.neq("id",offerForm.editing.id);
-  const {data:existing}=await q;
-  const clashes=(existing||[]).filter(l=>{
-    if(l.title==="Away") return false;
-    if(l.lesson_type==="student_away"||l.lesson_type==="gap") return false;
-    return new Date(l.start_time).getTime()<end.getTime() && new Date(l.end_time).getTime()>start.getTime();
-  });
-  if(!clashes.length) return true;
-  const names=clashes.map(l=>l.pupil?`${l.pupil.first_name} ${l.pupil.last_name}`:(l.title||"Another booking")).join(", ");
-  return confirm(`This time overlaps with: ${names}.\n\nSave anyway?`);
+  return confirmSaveClashes(start,end,diaryOwnerId||currentUserId,offerForm&&offerForm.editing?offerForm.editing.id:null);
 }
 // The app's sendLessonOffer(): marks it offered and messages the pupil (the push comes from the message).
 async function sendLessonOffer(lessonId,pupilId,start,lessonType){
@@ -7590,7 +7689,7 @@ async function createReflectiveLogShellIfNeeded(pupilId,logDate){
     achieved:null, developed:null, improve:null, how_develop:null, next_session:null});
 }
 // The app's deleteReflectiveLogForLesson (src/lib/reflectiveLogs.ts): only when no other non-cancelled lesson is left that
-// day, and the next log's goal is re-linked to the previous log's aim first. (deleteReflectiveLogForDate above is simpler.)
+// day, and the next log's goal is re-linked to the previous log's aim first. Used wherever a lesson is deleted or cancelled.
 async function deleteReflectiveLogForLesson(pupilId,startTime){
   if(!pupilId||!startTime) return;
   const logDate=new Date(startTime).toISOString().slice(0,10);

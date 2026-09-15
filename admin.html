@@ -52,6 +52,7 @@ body{font-family:var(--fb);background:var(--bg);color:var(--text);min-height:100
 .nav button:hover{color:var(--ink);background:#f1f5f9}
 .nav button.on{background:var(--navy);color:#fff}
 .nav-badge{display:inline-block;min-width:1.15rem;padding:0 .32rem;margin-left:.35rem;border-radius:999px;background:#e11d48;color:#fff;font-size:.68rem;line-height:1.15rem;text-align:center;font-weight:700;vertical-align:1px}
+.nav-dot{display:inline-block;width:.55rem;height:.55rem;margin-left:.35rem;border-radius:50%;background:#e11d48;vertical-align:1px}
 .nav-right{margin-left:auto}
 .main{max-width:1120px;margin:0 auto;padding:1.6rem 1.1rem 5.5rem}
 .stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:.85rem;margin-bottom:1.4rem}
@@ -6673,6 +6674,8 @@ async function manageAuthAdmin(action, payload){
 async function loadMessagesPanel(){
   const content=document.getElementById("messages-content");
   content.innerHTML='<h2>Messages</h2>'+msgTabsHtml()+'<p class="muted">Loading…</p>';
+  if(msgTab==="news"){ await renderNewsTab(content); return; }
+  await checkNewsUnread();
   if(msgTab==="broadcast"){ await renderBroadcastTab(content); return; }
   if(msgTab==="scheduled"){ await renderScheduledTab(content); return; }
   const schoolAdmin=!!(isSchoolAdminUser && currentSchoolId);
@@ -6730,7 +6733,9 @@ async function updateMessagesBadge(){
       n+=b.count||0;
     }
   }catch(e){ return; }
-  btn.innerHTML="Messages"+(n?`<span class="nav-badge" title="${n} unread">${n>99?"99+":n}</span>`:"");
+  // New News shows as a dot when there's no unread count, as in the app.
+  await checkNewsUnread();
+  btn.innerHTML="Messages"+(n?`<span class="nav-badge" title="${n} unread">${n>99?"99+":n}</span>`:(newsUnreadCC?'<span class="nav-dot" title="New news"></span>':""));
 }
 // One chat bubble with the sender's name above it: yours on the right in
 // blue, theirs on the left in white (Dale: make it clear whose is whose).
@@ -7624,9 +7629,67 @@ async function openMsgAttachment(i){
 let msgTab="inbox", bcBatches=[], bcFile=null;
 function msgTabsHtml(){
   const t=(k,label)=>`<button type="button" class="${msgTab===k?"on":""}" onclick="setMsgTab('${k}')">${label}</button>`;
-  return `<div class="tabs-sub">${t("inbox","Inbox")}${t("broadcast","Send to All")}${t("scheduled","Scheduled")}</div>`;
+  return `<div class="tabs-sub">${t("inbox","Inbox")}${t("broadcast","Send to All")}${t("scheduled","Scheduled")}${t("news","News"+(newsUnreadCC?'<span class="nav-dot" title="New news"></span>':""))}</div>`;
 }
 function setMsgTab(k){ msgTab=k; loadMessagesPanel(); }
+
+// --- News, the same as the app's Messages → News (Dale, 15 Sep 2026) ----------------------------------------------
+// Drive My Way posts to every instructor and driving school; a driving school admin posts to their own school's
+// instructors. The database sends each instructor's phone a notification (trg_news_push). Nobody replies to News:
+// Dale wants replies by email, not messages arriving while he's teaching. "Seen" is per browser, as the app's is
+// per phone (same dmw_news_seen_at_<user> key).
+let newsUnreadCC=false;
+function newsSeenKey(){ return "dmw_news_seen_at_"+currentUserId; }
+async function checkNewsUnread(){
+  try{
+    const {data}=await sb.from("platform_announcements").select("created_at").order("created_at",{ascending:false}).limit(1).maybeSingle();
+    let seen=null; try{ seen=localStorage.getItem(newsSeenKey()); }catch(e){}
+    newsUnreadCC=!!(data&&data.created_at&&(!seen||new Date(data.created_at).getTime()>new Date(seen).getTime()));
+  }catch(e){ newsUnreadCC=false; }
+  return newsUnreadCC;
+}
+async function renderNewsTab(content){
+  const {data,error}=await sb.from("platform_announcements").select("id,title,body,created_at,school_id").order("created_at",{ascending:false}).limit(200);
+  try{ localStorage.setItem(newsSeenKey(), new Date().toISOString()); }catch(e){}
+  newsUnreadCC=false;
+  const everyone=isSuperAdminUser, canPost=isSuperAdminUser||!!(isSchoolAdminUser&&currentSchoolId);
+  const when=d=>new Date(d).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  const intro=everyone
+    ? "News goes to every instructor and driving school on Drive My Way, and their phones get a notification. They can't reply to News, so say how to reach you, for example email admin@drivemyway.co.uk."
+    : canPost
+    ? "News goes to your own driving school's instructors, and their phones get a notification. They can't reply to News, so say how to reach you."
+    : "News from Drive My Way and your driving school.";
+  const items=error
+    ? `<p class="muted">${esc(error.message)}</p>`
+    : (data||[]).length
+    ? (data||[]).map(a=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><strong>📣 ${esc(a.title)}</strong><span class="chip chip-info">${a.school_id?"Your driving school":"Drive My Way"}</span></div><div class="muted" style="font-size:.75rem;margin:.1rem 0 .35rem">${when(a.created_at)}</div><div style="white-space:pre-wrap;font-size:.9rem;overflow-wrap:anywhere">${esc(a.body)}</div></div></div>`).join("")
+    : '<p class="muted">No news yet.</p>';
+  content.innerHTML=`<h2>Messages</h2>${msgTabsHtml()}
+    <p class="muted" style="margin:0 0 .75rem">${intro}</p>
+    ${canPost?`<div class="field"><label>Title</label><input id="news-title" maxlength="120" placeholder="e.g. New in Drive My Way"></div>
+    <div class="field"><label>Message</label><textarea id="news-body" rows="5" placeholder="Write your news"></textarea></div>
+    <button type="button" class="btn btn-navy" id="news-post" onclick="postNewsCC()">${everyone?"Post to everyone":"Post to your school"}</button>
+    <div class="err" id="news-err" style="margin-top:.5rem;display:block;text-align:left"></div>`:""}
+    <h3 style="margin:1.4rem 0 .3rem">${canPost?"Posted":"News"}</h3>
+    <div>${items}</div>`;
+  updateMessagesBadge();
+}
+async function postNewsCC(){
+  return runOnce("post-news", async()=>{
+    const err=document.getElementById("news-err"); if(!err) return; err.textContent="";
+    const title=(document.getElementById("news-title").value||"").trim();
+    const body=(document.getElementById("news-body").value||"").trim();
+    if(!title||!body){ err.textContent="Add a title and a message"; return; }
+    const everyone=isSuperAdminUser;
+    if(!confirm(everyone
+      ? "Post this to every instructor and driving school on Drive My Way? Their phones get a notification straight away."
+      : "Post this to your driving school's instructors? Their phones get a notification straight away.")) return;
+    const btn=document.getElementById("news-post"); btn.disabled=true; btn.textContent="Posting…";
+    const {error}=await sb.from("platform_announcements").insert({title, body, created_by:currentUserId, school_id:everyone?null:currentSchoolId});
+    if(error){ err.textContent=error.message; btn.disabled=false; btn.textContent=everyone?"Post to everyone":"Post to your school"; return; }
+    await loadMessagesPanel();
+  });
+}
 // Send to All goes to your own pupils, as in the app (a driving school admin's instructors send to theirs).
 function bcOwnPupils(){ return pupilsCache.filter(p=>p.instructor_id===currentUserId); }
 let bcReceiptsKey=null;

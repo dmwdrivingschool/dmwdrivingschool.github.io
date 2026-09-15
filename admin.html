@@ -130,6 +130,9 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .d-block.delivered{background:#22c55e}
 .d-block.mock{background:#fbbf24;color:#1e293b}
 .d-block.test{background:#000}
+/* Lesson offers (pencilled in), the app's colours: grey, red once declined */
+.d-block.offer{background:#94a3b8}
+.d-block.offer.declined{background:#b91c1c}
 /* Pupil availability on the diary (Dale, 15 Sep 2026): see-through teal behind the entries, never catches clicks */
 .av-band{position:absolute;left:0;right:0;background:rgba(20,184,166,.28);pointer-events:none;z-index:0;overflow:hidden}
 .av-lbl{display:block;padding:1px 4px;font-size:.6rem;font-weight:700;line-height:1.3;color:#ccfbf1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--fb)}
@@ -3812,6 +3815,7 @@ async function renderDiary(){
       let name=l.pupil?l.pupil.first_name:(l.title||l.lesson_type||"Private");
       let cls="booked";
       if(l.status==="cancelled") cls="cancelled";
+      else if(l.lesson_type==="lesson_offer") cls=l.offer_status==="declined"?"offer declined":"offer";
       else if(l.lesson_type==="gap") cls="gap";
       else if(l.title==="Away"||l.lesson_type==="student_away"||l.lesson_type==="private") cls="away";
       else if(l.lesson_type==="mock_test") cls="mock";
@@ -3851,6 +3855,10 @@ async function onDiaryBlockClick(el){
   const pupilId=el.getAttribute("data-pupil-id")||"";
   const lessonId=el.getAttribute("data-lesson-id")||"";
   const isAway=el.getAttribute("data-away")==="1";
+
+  // A lesson offer opens the offer form, before the pupil check, as in the app's Diary.tsx.
+  const clicked=lessonId?diaryLessonsCache.find(x=>x.id===lessonId):null;
+  if(clicked&&clicked.lesson_type==="lesson_offer"){ openLessonOfferEdit(lessonId); return; }
 
   // Matches the app's Diary.tsx click routing exactly: a pupil-linked
   // lesson always goes to the pupil's profile (same there too — the app
@@ -7197,6 +7205,7 @@ function onDiaryGridClick(ev,col){
   openModal(`<h3 style="margin:0 0 .75rem">${esc(label)} · ${time}</h3>
     <div style="display:flex;flex-direction:column;gap:.5rem">
       <button class="btn btn-navy" onclick="closeModal();openDiaryAddLesson({date:'${date}',time:'${time}'})">Add lesson</button>
+      <button class="btn-outline" onclick="closeModal();openLessonOffer({date:'${date}',time:'${time}'})">Lesson offer (pencil in)</button>
       <button class="btn-outline" onclick="closeModal();openDiaryGapAt('${date}','${time}')">Add gap</button>
       <button class="btn-outline" onclick="closeModal();openAwayAt('${date}','${time}')">Holiday / away</button>
       <button class="btn-outline" onclick="closeModal()">Cancel</button>
@@ -7213,6 +7222,8 @@ function diaryPayFooter(l,height){
   const strip=(bg,text)=> height>=40
     ? `<div style="position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:9px;font-weight:700;line-height:14px;color:#fff;background:${bg}">${text}</div>`
     : `<div style="position:absolute;left:0;right:0;bottom:0;height:4px;background:${bg}"></div>`;
+  // The app's offerFooter: drawn for every offer (over the cancelled strip too).
+  if(l.lesson_type==="lesson_offer") return strip(l.offer_status==="declined"?"#7f1d1d":"rgba(255,255,255,0.25)", l.offer_status==="offered"?"Awaiting reply":l.offer_status==="declined"?"Declined":"Lesson offer");
   if(l.status==="cancelled") return l.charged ? strip("#b91c1c","Cancelled – Charged") : (height>=40 ? strip("rgba(255,255,255,0.25)","Cancelled") : "");
   if(l.lesson_type==="gap"||l.lesson_type==="private"||l.lesson_type==="student_away"||l.lesson_type==="lesson_offer"||l.title==="Away"||l.title==="Appointment") return "";
   return l.payment_status==="paid" ? strip("#22c55e","Paid") : strip("#ec4899","Unpaid");
@@ -7381,6 +7392,311 @@ async function avAddFormChanged(){
   freeEl.innerHTML = !free.length ? "" : `<div style="margin-bottom:.8rem"><div class="muted" style="font-weight:600;margin-bottom:.3rem">Free at this time</div>
     <div style="display:flex;flex-wrap:wrap;gap:.35rem">${free.map(p=>`<button type="button" class="chip chip-info av-chip${p.id===pid?" on":""}" onclick="diarySetVal('dl-pupil','${p.id}');avAddFormChanged()">${esc(p.first_name)} ${esc(p.last_name)}</button>`).join("")}</div></div>`;
   warnEl.textContent=avLessonWarning(pupils.find(p=>p.id===pid),day,s,e,rows);
+}
+
+// --- Lesson offers: "Pencil in a lesson" (mirrors the app: src/components/LessonOfferModal.tsx, src/lib/lessonOffers.ts)
+// A lessons row with lesson_type 'lesson_offer': offer_status null = not yet asked, 'offered' = awaiting reply, 'declined'.
+// offer_lesson_type is the type it's booked as when accepted or converted, a plain lesson kept as null.
+// Already done by the database, so not repeated here: an *offered* offer that's moved or given to another pupil sends
+// "Lesson time changed" etc. (trg_lessons_notify_pupil_of_change; nothing for unsent offers or a conversion), a pupil's
+// Accept / Decline runs pupil_respond_to_lesson_offer, and every new message is pushed (trg_messages_push_on_insert;
+// send-push claims each message once, so asking for the push here as well, the way the app does, never doubles it).
+let offerForm=null; // {editing: the diary row or null, snapshot: the form as opened, for "Save changes?"}
+function lessonTypeNoun(k){
+  switch(k){
+    case "mock_test": return "mock test";
+    case "driving_test": return "driving test";
+    case "pass_plus": return "Pass Plus lesson";
+    case "refresher": return "refresher lesson";
+    case "motorway": return "motorway lesson";
+    case "lesson_offer": return "lesson offer";
+    default: return "lesson";
+  }
+}
+function offerWhen(d){ return d.toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}); }
+function loEl(id){ return document.getElementById(id); }
+function loVal(id){ const el=loEl(id); return el?el.value:""; }
+// From the diary's slot menu: prefill {date:'yyyy-mm-dd', time:'HH:MM'}.
+function openLessonOffer(prefill){ openLessonOfferForm(null,prefill||{}); }
+function openLessonOfferEdit(id){
+  const l=diaryLessonsCache.find(x=>x.id===id);
+  if(!l) return alert("Could not find this diary entry — try refreshing.");
+  openLessonOfferForm(l,{});
+}
+function openLessonOfferForm(editing,prefill){
+  const two=n=>String(n).padStart(2,"0"), now=new Date();
+  const pupils=avPupils();
+  let pupilId="", type="lesson", date=`${now.getFullYear()}-${two(now.getMonth()+1)}-${two(now.getDate())}`, start="09:00",
+      hours="1", mins="60", gearbox="manual", notes="";
+  if(editing){
+    const s=new Date(editing.start_time);
+    pupilId=editing.pupil_id||""; type=editing.offer_lesson_type||"lesson";
+    date=`${s.getFullYear()}-${two(s.getMonth()+1)}-${two(s.getDate())}`; start=`${two(s.getHours())}:${two(s.getMinutes())}`;
+    const m=Math.round((new Date(editing.end_time)-s)/60000)||60, h=m/60;
+    mins=String(m); hours=String(Number.isInteger(h)?h:Math.round(h*100)/100);
+    gearbox=editing.gearbox||"manual"; notes=editing.notes||"";
+  }else{
+    if(prefill.date) date=prefill.date;
+    if(prefill.time) start=prefill.time;
+    // Showing one pupil's free times: a click on the diary starts with that pupil picked, as in the app.
+    if(prefill.date&&diaryAvail&&diaryAvail.mode==="one"&&pupils.some(p=>p.id===diaryAvail.pupilId)) pupilId=diaryAvail.pupilId;
+  }
+  let opts=pupils.map(p=>`<option value="${p.id}"${p.id===pupilId?" selected":""}>${esc(p.first_name)} ${esc(p.last_name)}</option>`).join("");
+  // An offer for a pupil no longer active / waiting keeps its pupil rather than showing none.
+  if(pupilId&&!pupils.some(p=>p.id===pupilId)) opts+=`<option value="${pupilId}" selected>${esc(editing&&editing.pupil?`${editing.pupil.first_name||""} ${editing.pupil.last_name||""}`.trim():"Pupil")}</option>`;
+  const st=editing?editing.offer_status:null;
+  const banner=!editing?"":st==="declined"
+    ? `<div class="chip-bad" style="border-radius:10px;padding:.5rem .75rem;font-weight:600;font-size:.85rem;margin-bottom:.8rem">Declined by pupil</div>`
+    : st==="offered"
+    ? `<div class="chip-wait" style="border-radius:10px;padding:.5rem .75rem;font-weight:600;font-size:.85rem;margin-bottom:.8rem">Awaiting reply</div>`
+    : `<div style="background:#334263;color:#cbd5e1;border-radius:10px;padding:.5rem .75rem;font-weight:600;font-size:.85rem;margin-bottom:.8rem">Not yet asked</div>`;
+  const wide="width:100%;margin-top:.5rem;padding:.6rem";
+  openModal(`<h2 style="margin-bottom:1rem">${editing?"Lesson offer":"Pencil in a lesson"}</h2>
+    <form id="lo-form" onsubmit="saveLessonOffer();return false">
+      <div id="lo-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+      ${banner}
+      ${editing?"":'<div id="lo-free"></div>'}
+      <div class="field"><label>Pupil</label>
+        <select id="lo-pupil" required onchange="loFormChanged()"><option value="">Select pupil…</option>${opts}</select>
+        <div id="lo-warn" class="av-warn"></div>
+      </div>
+      <div class="field"><label>Type</label><select id="lo-type">${lessonTypeOptions(type,[])}</select></div>
+      <div class="two">
+        <div class="field"><label>Date</label><input type="date" id="lo-date" required value="${esc(date)}" oninput="loFormChanged()"></div>
+        <div class="field"><label>Start time</label><input type="time" id="lo-start" required value="${esc(start)}" oninput="loFormChanged()"></div>
+        <div class="field"><label>Hours</label><input type="number" min="0" step="0.25" id="lo-hours" value="${esc(hours)}" oninput="loHoursChanged()"></div>
+        <div class="field"><label>Minutes</label><input type="number" min="0" step="15" id="lo-mins" value="${esc(mins)}" oninput="loMinsChanged()"></div>
+      </div>
+      <div class="field"><label>Gearbox</label><select id="lo-gearbox"><option value="manual"${gearbox==="manual"?" selected":""}>Manual</option><option value="automatic"${gearbox==="automatic"?" selected":""}>Automatic</option></select></div>
+      <div class="field"><label>Notes (optional)</label><textarea id="lo-notes" rows="2" placeholder="Private notes…">${esc(notes)}</textarea></div>
+      ${editing?"":`<label style="display:flex;align-items:center;gap:.55rem;font-weight:600;margin:.2rem 0 .6rem"><input type="checkbox" id="lo-ask"> <span id="lo-ask-label">Ask pupil to confirm</span></label>`}
+      ${!editing?"":`${st?"":`<button type="button" class="btn-outline lo-act" id="lo-ask-btn" style="${wide};border-color:#3b82f6;color:#93c5fd" onclick="askLessonOffer()">Ask pupil to confirm</button>`}
+        <button type="button" class="btn-outline lo-act" style="${wide};border-color:#059669;color:#6ee7b7" onclick="convertLessonOffer()">Convert to lesson</button>
+        <button type="button" class="btn-danger lo-act" style="${wide}" onclick="deleteLessonOffer()">Delete</button>`}
+      <div class="actions" style="margin-top:.9rem">
+        <button type="submit" class="btn btn-navy btn-sm lo-act" id="lo-save">Save</button>
+        <button type="button" class="btn-outline" onclick="closeLessonOffer()">${editing?"Cancel":"Close"}</button>
+      </div>
+    </form>`);
+  offerForm={editing, snapshot:""};
+  offerForm.snapshot=loFormJson();
+  loFormChanged();
+}
+function loFormJson(){
+  const ask=loEl("lo-ask");
+  return JSON.stringify([loVal("lo-pupil"),loVal("lo-type"),loVal("lo-date"),loVal("lo-start"),loVal("lo-hours"),loVal("lo-mins"),loVal("lo-gearbox"),loVal("lo-notes"),!!(ask&&ask.checked)]);
+}
+// Hours and minutes follow each other; the length is taken from hours, as in the app.
+function loHoursChanged(){
+  const h=loVal("lo-hours"), n=parseFloat(h);
+  if(h!==""&&!Number.isNaN(n)) loEl("lo-mins").value=String(Math.round(n*60));
+  loFormChanged();
+}
+function loMinsChanged(){
+  const m=loVal("lo-mins"), n=parseInt(m,10);
+  if(m!==""&&!Number.isNaN(n)){ const hrs=n/60; loEl("lo-hours").value=String(Number.isInteger(hrs)?hrs:Math.round(hrs*100)/100); }
+  loFormChanged();
+}
+function loDuration(){ return Math.round((parseFloat(loVal("lo-hours")||"0")||0)*60)||60; }
+function loTimes(){
+  const [y,mo,d]=loVal("lo-date").split("-").map(Number), [hh,mm]=loVal("lo-start").split(":").map(Number);
+  const start=new Date(y,mo-1,d,hh,mm,0,0);
+  return {start, end:new Date(start.getTime()+loDuration()*60000)};
+}
+function loStoredType(){ const t=loVal("lo-type"); return t&&t!=="lesson"?t:null; }
+function loErr(msg){ const el=loEl("lo-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
+function loBusy(on){
+  document.querySelectorAll("#lo-form .lo-act").forEach(b=>{ b.disabled=on; });
+  const s=loEl("lo-save"); if(s) s.textContent=on?"Saving…":"Save";
+}
+function loDone(){ offerForm=null; closeModal(); renderDiary(); }
+// The pupil has a (not cancelled) holiday touching `day` — the app's onHoliday.
+function avOnHoliday(pupilId,day,rows){
+  const ds=new Date(day); ds.setHours(0,0,0,0);
+  const de=new Date(ds); de.setDate(de.getDate()+1);
+  return rows.some(l=>l.lesson_type==="student_away"&&l.status!=="cancelled"&&l.pupil_id===pupilId&&new Date(l.start_time)<de&&new Date(l.end_time)>ds);
+}
+// The app's availability hints, which go by the pupil's own free times and holidays (not other bookings): "Free at this
+// time" = has availability, not booked that week, free for the whole lesson and not on holiday (new offers only); the
+// note under the pupil = lessonFitNote.
+async function loFormChanged(){
+  if(!offerForm) return;
+  const pupils=avPupils(), pid=loVal("lo-pupil"), p=pupils.find(x=>x.id===pid);
+  const askText=p?`Ask ${p.first_name} to confirm`:"Ask pupil to confirm";
+  if(loEl("lo-ask-label")) loEl("lo-ask-label").textContent=askText;
+  if(loEl("lo-ask-btn")) loEl("lo-ask-btn").textContent=askText;
+  const seq=++avFormSeq, freeEl=loEl("lo-free"), warnEl=loEl("lo-warn");
+  const dateStr=loVal("lo-date"), s=avTimeMin(loVal("lo-start")), e=s+loDuration(), day=new Date(dateStr+"T00:00:00");
+  const clear=()=>{ if(freeEl) freeEl.innerHTML=""; if(warnEl) warnEl.textContent=""; };
+  if(!dateStr||isNaN(day)||isNaN(s)){ clear(); return; }
+  const rows=await avWeekRows(day);
+  if(seq!==avFormSeq||!loEl("lo-warn")) return;
+  const dayRanges=x=>avMergeSlots(avSlotsFor(x.availability,AV_DAYS[day.getDay()]));
+  const fits=x=>dayRanges(x).some(([a,b])=>s>=a&&e<=b);
+  if(freeEl){
+    const free=pupils.filter(x=>avHasAny(x.availability)&&!avBookedInWeek(x.id,rows,day)&&!avOnHoliday(x.id,day,rows)&&fits(x));
+    freeEl.innerHTML = !free.length ? "" : `<div style="margin-bottom:.8rem"><div class="muted" style="font-weight:600;margin-bottom:.3rem">Free at this time</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.35rem">${free.map(x=>`<button type="button" class="chip chip-info av-chip${x.id===pid?" on":""}" onclick="diarySetVal('lo-pupil','${x.id}');loFormChanged()">${esc(x.first_name)} ${esc(x.last_name)}</button>`).join("")}</div></div>`;
+  }
+  let note="";
+  if(p&&avHasAny(p.availability)){
+    const ranges=dayRanges(p);
+    if(avOnHoliday(p.id,day,rows)) note=`${p.first_name} is on holiday that day`;
+    else if(!fits(p)){
+      const inside=ranges.find(([a,b])=>s>=a&&s<b);
+      note=inside?`Runs past ${p.first_name}'s free time (until ${avHm(inside[1])})`:`Not in ${p.first_name}'s free times`;
+    }
+  }
+  warnEl.textContent=note;
+}
+// The app's checkClashes, kept to this diary's own entries (a school admin's query would otherwise see every instructor's).
+async function loCheckClashes(start,end){
+  let q=sb.from("lessons").select("id, start_time, end_time, title, lesson_type, pupil:pupils(first_name, last_name)")
+    .eq("instructor_id",diaryOwnerId||currentUserId).neq("status","cancelled").lt("start_time",end.toISOString()).gt("end_time",start.toISOString());
+  if(offerForm&&offerForm.editing) q=q.neq("id",offerForm.editing.id);
+  const {data:existing}=await q;
+  const clashes=(existing||[]).filter(l=>{
+    if(l.title==="Away") return false;
+    if(l.lesson_type==="student_away"||l.lesson_type==="gap") return false;
+    return new Date(l.start_time).getTime()<end.getTime() && new Date(l.end_time).getTime()>start.getTime();
+  });
+  if(!clashes.length) return true;
+  const names=clashes.map(l=>l.pupil?`${l.pupil.first_name} ${l.pupil.last_name}`:(l.title||"Another booking")).join(", ");
+  return confirm(`This time overlaps with: ${names}.\n\nSave anyway?`);
+}
+// The app's sendLessonOffer(): marks it offered and messages the pupil (the push comes from the message).
+async function sendLessonOffer(lessonId,pupilId,start,lessonType){
+  const {error}=await sb.from("lessons").update({offer_status:"offered"}).eq("id",lessonId);
+  if(error) throw error;
+  let type=lessonType;
+  if(type===undefined){
+    const {data}=await sb.from("lessons").select("offer_lesson_type").eq("id",lessonId).maybeSingle();
+    type=(data&&data.offer_lesson_type)??null;
+  }
+  const {data:inserted}=await sb.from("messages").insert({
+    pupil_id:pupilId,
+    body:`Your instructor has a ${lessonTypeNoun(type)} offer just for you — ${offerWhen(start)}. It won't be booked unless you Accept or Decline in the app. Please go to the app home screen to do this.`,
+    direction:"outbound", subject:"Lesson offer"
+  }).select().single();
+  if(inserted&&inserted.id) triggerMsgPush(inserted.id);
+}
+// The app's createReflectiveLogShellIfNeeded (src/lib/reflectiveLogs.ts).
+async function createReflectiveLogShellIfNeeded(pupilId,logDate){
+  const {data:existing}=await sb.from("reflective_logs").select("id").eq("pupil_id",pupilId).eq("log_date",logDate).maybeSingle();
+  if(existing) return;
+  const {data:priorLog}=await sb.from("reflective_logs").select("next_session").eq("pupil_id",pupilId).lt("log_date",logDate)
+    .order("log_date",{ascending:false}).limit(1).maybeSingle();
+  await sb.from("reflective_logs").insert({pupil_id:pupilId, log_date:logDate, session_goal:(priorLog&&priorLog.next_session)||null,
+    achieved:null, developed:null, improve:null, how_develop:null, next_session:null});
+}
+// The app's deleteReflectiveLogForLesson (src/lib/reflectiveLogs.ts): only when no other non-cancelled lesson is left that
+// day, and the next log's goal is re-linked to the previous log's aim first. (deleteReflectiveLogForDate above is simpler.)
+async function deleteReflectiveLogForLesson(pupilId,startTime){
+  if(!pupilId||!startTime) return;
+  const logDate=new Date(startTime).toISOString().slice(0,10);
+  const {data:remaining}=await sb.from("lessons").select("id").eq("pupil_id",pupilId).neq("status","cancelled")
+    .gte("start_time",`${logDate}T00:00:00.000Z`).lte("start_time",`${logDate}T23:59:59.999Z`).limit(1);
+  if(remaining&&remaining.length>0) return;
+  const {data:thisLog}=await sb.from("reflective_logs").select("next_session").eq("pupil_id",pupilId).eq("log_date",logDate).maybeSingle();
+  if(thisLog){
+    const {data:nextLog}=await sb.from("reflective_logs").select("id, session_goal").eq("pupil_id",pupilId).gt("log_date",logDate)
+      .order("log_date",{ascending:true}).limit(1).maybeSingle();
+    if(nextLog&&(nextLog.session_goal||null)===(thisLog.next_session||null)){
+      const {data:priorLog}=await sb.from("reflective_logs").select("next_session").eq("pupil_id",pupilId).lt("log_date",logDate)
+        .order("log_date",{ascending:false}).limit(1).maybeSingle();
+      await sb.from("reflective_logs").update({session_goal:(priorLog&&priorLog.next_session)||null}).eq("id",nextLog.id);
+    }
+  }
+  await sb.from("reflective_logs").delete().eq("pupil_id",pupilId).eq("log_date",logDate);
+}
+// Save, Ask, Convert and Delete share one guard, like the app's single "saving" state.
+function saveLessonOffer(){ return runOnce("lessonOffer", saveLessonOfferNow); }
+function askLessonOffer(){ return runOnce("lessonOffer", askLessonOfferNow); }
+function convertLessonOffer(){ return runOnce("lessonOffer", convertLessonOfferNow); }
+function deleteLessonOffer(){ return runOnce("lessonOffer", deleteLessonOfferNow); }
+// True when saved (and closed).
+async function saveLessonOfferNow(){
+  const f=offerForm; if(!f) return false;
+  const form=loEl("lo-form");
+  if(form&&!form.reportValidity()) return false;
+  const pupilId=loVal("lo-pupil");
+  if(!pupilId){ loErr("Please select a pupil"); return false; }
+  loErr(""); loBusy(true);
+  try{
+    const {start,end}=loTimes();
+    if(!(await loCheckClashes(start,end))){ loBusy(false); return false; }
+    const payload={lesson_type:"lesson_offer", pupil_id:pupilId, start_time:start.toISOString(), end_time:end.toISOString(),
+      status:"booked", payment_status:"unpaid", gearbox:loVal("lo-gearbox"), notes:loVal("lo-notes")||null, offer_lesson_type:loStoredType()};
+    let lessonId=f.editing?f.editing.id:"";
+    if(f.editing){
+      const {error}=await sb.from("lessons").update(payload).eq("id",f.editing.id);
+      if(error) throw error;
+    }else{
+      // instructor_id: the diary being looked at (a school admin may be adding to an instructor's diary).
+      const {data:inserted,error}=await sb.from("lessons").insert({...payload, instructor_id:diaryOwnerId||currentUserId}).select().single();
+      if(error) throw error;
+      lessonId=inserted.id;
+    }
+    const ask=loEl("lo-ask");
+    if(!f.editing&&ask&&ask.checked&&lessonId) await sendLessonOffer(lessonId,pupilId,start,payload.offer_lesson_type);
+    loDone();
+    return true;
+  }catch(err){ loErr((err&&err.message)||"Failed to save"); }
+  loBusy(false);
+  return false;
+}
+async function askLessonOfferNow(){
+  const f=offerForm, pupilId=loVal("lo-pupil");
+  if(!f||!f.editing||!pupilId) return;
+  loErr(""); loBusy(true);
+  try{
+    const {start,end}=loTimes();
+    if(!(await loCheckClashes(start,end))){ loBusy(false); return; }
+    const {error}=await sb.from("lessons").update({start_time:start.toISOString(), end_time:end.toISOString(), gearbox:loVal("lo-gearbox"),
+      notes:loVal("lo-notes")||null, pupil_id:pupilId, offer_lesson_type:loStoredType()}).eq("id",f.editing.id);
+    if(error) throw error;
+    await sendLessonOffer(f.editing.id,pupilId,start,loStoredType());
+    loDone();
+  }catch(err){ loErr((err&&err.message)||"Failed to send"); }
+  loBusy(false);
+}
+async function convertLessonOfferNow(){
+  const f=offerForm, pupilId=loVal("lo-pupil");
+  if(!f||!f.editing||!pupilId) return;
+  if(!confirm("Convert to a fully booked lesson?")) return;
+  loErr(""); loBusy(true);
+  try{
+    const {start,end}=loTimes();
+    if(!(await loCheckClashes(start,end))){ loBusy(false); return; }
+    // Booked as the type it was pencilled in as.
+    const bookedType=loStoredType()||"lesson";
+    const {error}=await sb.from("lessons").update({lesson_type:bookedType, offer_lesson_type:null, offer_status:null,
+      start_time:start.toISOString(), end_time:end.toISOString(), gearbox:loVal("lo-gearbox"), notes:loVal("lo-notes")||null, pupil_id:pupilId}).eq("id",f.editing.id);
+    if(error) throw error;
+    await createReflectiveLogShellIfNeeded(pupilId,loVal("lo-date"));
+    const {data:inserted}=await sb.from("messages").insert({pupil_id:pupilId,
+      body:`Your instructor has confirmed your ${lessonTypeNoun(bookedType)} for ${offerWhen(start)}.`,
+      direction:"outbound", subject:"Lesson confirmed"}).select().single();
+    if(inserted&&inserted.id) triggerMsgPush(inserted.id);
+    loDone();
+  }catch(err){ loErr((err&&err.message)||"Failed to convert"); }
+  loBusy(false);
+}
+async function deleteLessonOfferNow(){
+  const f=offerForm; if(!f||!f.editing) return;
+  if(!confirm("Delete this lesson offer?")) return;
+  loBusy(true);
+  const {error}=await sb.from("lessons").delete().eq("id",f.editing.id);
+  if(error) alert(error.message);
+  else{ await deleteReflectiveLogForLesson(f.editing.pupil_id,f.editing.start_time); loDone(); }
+  loBusy(false);
+}
+// Cancel / Close. A changed existing offer asks first, with the app's own wording; a new one just closes.
+function closeLessonOffer(){
+  if(busyActions.has("lessonOffer")) return;
+  const f=offerForm;
+  if(f&&f.editing&&loFormJson()!==f.snapshot&&confirm("Save changes to this lesson offer?\n\nOK saves, Cancel leaves without saving.")){ saveLessonOffer(); return; }
+  offerForm=null; closeModal();
 }
 
 // --- Franchise fees -------------------------------------------------------

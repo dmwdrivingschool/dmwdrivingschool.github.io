@@ -8162,6 +8162,9 @@ async function openSettings(which){
     if(currentSchoolId){
       const {data:sc}=await sb.from("schools").select("display_name,name,terms_body").eq("id",currentSchoolId).maybeSingle();
       body=(sc&&sc.terms_body)||""; who=(sc&&(sc.display_name||sc.name))||"your driving school"; readOnly=!isSchoolAdminUser;
+      // No driving school terms yet, but this account has its own saved terms: those are what its pupils are shown,
+      // so they count as set (Dale, 16 Sep 2026: the banner asked him to set terms he already had).
+      if(!body.trim()){ const {data:own}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","terms_and_conditions").maybeSingle(); body=(own&&own.value&&own.value.body)||""; }
     } else {
       const {data:own}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","terms_and_conditions").maybeSingle();
       body=(own&&own.value&&own.value.body)||"";
@@ -14549,6 +14552,7 @@ async function renderTermsBanner(){
       if(currentSchoolId){
         const {data,error}=await sb.from("schools").select("terms_body").eq("id",currentSchoolId).maybeSingle();
         if(error) throw error; body=(data&&data.terms_body)||"";
+        if(!String(body).trim()){ const {data:own}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","terms_and_conditions").maybeSingle(); body=(own&&own.value&&own.value.body)||""; }
       } else {
         const {data,error}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","terms_and_conditions").maybeSingle();
         if(error) throw error; body=(data&&data.value&&data.value.body)||"";

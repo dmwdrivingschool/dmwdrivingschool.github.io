@@ -316,6 +316,15 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .gd-card{border:1px solid var(--line);border-radius:12px;padding:.7rem .8rem;background:var(--surface-2,#f8fafc)}
 .gd-card h4{margin:.1rem 0 .3rem;font-size:.95rem;display:flex;align-items:center}
 .gd-card p{color:var(--muted);font-size:.85rem;line-height:1.45;margin:0 0 .55rem}
+/* How-To Videos (Dale, 16 Sep 2026): 3 across on a laptop, 2 on a tablet, 1 on a phone. The clips are portrait, so each
+   video is capped in height rather than filling the screen. */
+.howto-grid{display:grid;grid-template-columns:1fr;gap:.9rem;margin-top:.9rem}
+@media(min-width:600px){.howto-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:900px){.howto-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.howto-card{border:1px solid var(--line);border-radius:12px;padding:.75rem .8rem;background:var(--surface-2,#f8fafc);display:flex;flex-direction:column}
+.howto-card h4{margin:0 0 .2rem;font-size:.95rem}
+.howto-card p{color:var(--muted);font-size:.83rem;line-height:1.4;margin:0 0 .6rem}
+.howto-card video{display:block;width:100%;max-width:300px;max-height:min(62vh,533px);aspect-ratio:9/16;margin:auto auto 0;border-radius:10px;background:#0f172a;object-fit:contain}
 .gd-num{display:inline-flex;flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:var(--navy);color:#fff;font-size:.72rem;font-weight:700;align-items:center;justify-content:center;margin-right:.4rem}
 .settings-list button{display:block;width:100%;text-align:left;padding:.95rem 1rem;border:none;border-bottom:1px solid #eef2f6;background:#fff;font-size:.95rem;font-weight:600;cursor:pointer;font-family:var(--fb);border-radius:0;transition:background .15s}
 .settings-list button:hover{background:#f8fafc}
@@ -616,7 +625,14 @@ tbody tr:hover td{background:#334263}
 
       <div class="panel" style="margin-top:1rem">
         <h2 style="margin-bottom:.75rem">Settings &amp; Tools</h2>
-        <!-- Four groups, 3 across on a laptop (Dale, 16 Sep 2026). The same groups are in the Settings tab list (#settings-menu). -->
+        <!-- Four groups, 3 across on a laptop (Dale, 16 Sep 2026). The same groups are in the Settings tab list (#settings-menu).
+             Getting Started added first (Dale, 16 Sep 2026): the How-To Videos, for every account. -->
+        <div class="dash-settings-group">
+          <h3 class="dash-settings-group-head">Getting Started</h3>
+          <div class="dash-settings-grid">
+            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('howToVideos')"><span class="ico">🎬</span><div><strong>How-To Videos<span class="dash-new">New</span></strong><span>Short videos showing how to set up and use Drive My Way</span></div></button>
+          </div>
+        </div>
         <div class="dash-settings-group">
           <h3 class="dash-settings-group-head">Messages &amp; Reminders</h3>
           <div class="dash-settings-grid">
@@ -934,6 +950,8 @@ tbody tr:hover td{background:#334263}
         <h2>Settings</h2>
         <div class="settings-list" id="settings-menu">
           <button type="button" onclick="openSettings('profile')">Your Profile</button>
+          <div class="settings-group-head">Getting Started</div>
+          <button type="button" onclick="openSettings('howToVideos')">How-To Videos</button>
           <div class="settings-group-head">Messages &amp; Reminders</div>
           <button type="button" onclick="openSettings('reminders')">Lesson Reminders</button>
           <button type="button" onclick="openSettings('passedMessage')">Passed Pupil Messages</button>
@@ -2002,6 +2020,7 @@ document.getElementById("pupil-search").addEventListener("input",renderPupils);
 let pausedMode=null;
 function goTab(tab, pupilFilter){
   if(pausedMode){ showPausedScreen(); return; }
+  stopHowToVideos(); // a hidden How-To video would otherwise keep playing (sound and all) after leaving its screen
   document.querySelectorAll("#main-nav button").forEach(x=>x.classList.toggle("on",x.dataset.tab===tab));
   try{ const onBtn=document.querySelector("#main-nav button.on"); if(onBtn && window.innerWidth<=700) onBtn.scrollIntoView({block:"nearest",inline:"center"}); }catch(e){}
   document.querySelectorAll(".main > section").forEach(s=>s.classList.add("hidden"));
@@ -7889,11 +7908,45 @@ function settingsStickyOffsets(){
   root.style.setProperty("--foot-h",`${foot&&getComputedStyle(foot).position==="fixed"?foot.offsetHeight:0}px`);
 }
 window.addEventListener("resize",()=>{ try{ settingsStickyOffsets(); }catch(e){} });
+// How-To Videos (Dale, 16 Sep 2026): short voiced clips for a new instructor, served from this site (how-to/videos, with a
+// still for each in how-to/posters). Every signed-in account sees them. Nothing loads until Play (preload="none"), only one
+// plays at a time, and goTab stops them when the screen is left.
+const HOW_TO_VIDEOS=[
+  ["01-add-pupil","Add Your First Pupil","Add a pupil's details from the Pupils screen."],
+  ["02-book-lesson","Book a Lesson","Tap a space in your diary, pick the pupil and save."],
+  ["03-working-hours","Set Your Working Hours","Choose the days you teach and each day's start and finish."],
+  ["04-pupil-login","Send a Pupil Their Login","Tap Password on the pupil's page and they're emailed a link to set their own."],
+  ["05-take-payment","Take a Payment","Record a payment on the pupil's page and it appears in Money."],
+  ["06-pencil-in","Pencil In Lessons and Send Offers","Pencil lessons in, then send all the offers in one go."],
+  ["07-availability","See Your Pupils' Free Times","Show up to four pupils' free times on your diary and book straight into them."],
+  ["08-on-the-way","On the Way Tracking","Tap On the way and your pupil gets your arrival time, then watches your car arrive."],
+  ["09-terms","Your Terms and Cancellation Notice","Set your notice period and terms once, and pupils accept them in the app."],
+  ["10-enquiry-form","Your Enquiry Form","Share your enquiry form link or add it to your website."],
+  ["11-pupil-app","The Pupil's App","What your pupils see: lessons, progress and messages."]
+];
+function howToVideosHtml(){
+  return `${settingsHeadHtml("How-To Videos")}
+    <p class="muted" id="howto-intro">Short videos showing how to set up and use Drive My Way. Each one is under 15 seconds.</p>
+    <div class="howto-grid">${HOW_TO_VIDEOS.map(([file,title,line])=>`<div class="howto-card">
+      <h4>${esc(title)}</h4><p>${esc(line)}</p>
+      <video controls playsinline preload="none" poster="/how-to/posters/${esc(file)}.jpg" aria-label="${esc(title)}"><source src="/how-to/videos/${esc(file)}.mp4" type="video/mp4"></video>
+    </div>`).join("")}</div>`;
+}
+function wireHowToVideos(root){
+  root.querySelectorAll(".howto-card video").forEach(v=>v.addEventListener("play",()=>{
+    root.querySelectorAll(".howto-card video").forEach(o=>{ if(o!==v && !o.paused) o.pause(); });
+  }));
+}
+function stopHowToVideos(){
+  try{ document.querySelectorAll(".howto-card video").forEach(v=>{ if(!v.paused) v.pause(); }); }catch(e){}
+}
 async function openSettings(which){
   settingsStickyOffsets();
+  stopHowToVideos();
   document.getElementById("settings-menu").classList.add("hidden");
   const panel=document.getElementById("settings-panel");
   panel.classList.remove("hidden");
+  if(which==="howToVideos"){ panel.innerHTML=howToVideosHtml(); wireHowToVideos(panel); return; }
   if(which==="franchise"){
     if(!(isSchoolAdminUser&&currentSchoolId)){ panel.innerHTML=settingsHeadHtml("Franchise Fees")+'<p class="muted">Franchise fees are set by your school.</p>'; return; }
     if(!schoolInstructorsCache.length) await loadSchoolInstructors();
@@ -8931,6 +8984,10 @@ function renderHelp(){
   const groups={}; items.forEach(x=>{ (groups[x.t]=groups[x.t]||[]).push(x); });
   el.innerHTML=`<h2>Help</h2>
     <p class="muted" style="margin-bottom:.75rem">How to do things in Drive My Way, written for ${label}.</p>
+    ${q?"":`<div style="display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;border:1px solid var(--line);border-left:4px solid #16a34a;border-radius:12px;padding:.75rem 1rem;margin:0 0 1.1rem">
+      <div><strong>🎬 How-To Videos</strong><div class="muted" style="font-size:.85rem;margin-top:.15rem">Short videos showing how to set up and use Drive My Way. Each one is under 15 seconds.</div></div>
+      <button type="button" class="btn btn-navy btn-sm" onclick="goTab('settings');openSettings('howToVideos')">Watch the Videos</button>
+    </div>`}
     ${q?"":`<div style="display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:12px;padding:.75rem 1rem;margin:0 0 1.1rem">
       <div><strong>Need a hand? Contact Drive My Way</strong><div class="muted" style="font-size:.85rem;margin-top:.15rem">Email <a href="mailto:admin@drivemyway.co.uk">admin@drivemyway.co.uk</a> and we'll reply as soon as we can, usually within a day. We're often out teaching, so replies can come early in the morning or in the evening.${aud==="member"?" For anything about your driving school's account or billing, ask your driving school first.":""}</div></div>
       <span style="display:flex;gap:.4rem;flex-wrap:wrap"><a class="btn btn-navy btn-sm" href="mailto:admin@drivemyway.co.uk?subject=Drive%20My%20Way%20support" style="text-decoration:none">Email us</a><button type="button" class="btn-outline btn-sm" onclick="openFeedbackModal()">Send feedback</button><a class="btn-outline btn-sm" href="https://www.drivemyway.co.uk/support" target="_blank" rel="noopener" style="text-decoration:none">Support page</a></span>
@@ -13854,7 +13911,7 @@ async function loadSuperAdminBilling(){
     <p class="muted" style="margin:0 0 .75rem">Each account's billing is on its row in <a href="#" onclick="goTab('teams');return false" style="color:var(--navy)">Instructors</a>: its plan and price, with Payment history, Extend access, Cancel and Ask to resume under Manage.</p>
     <div id="all-accounts-list" class="panel" style="border:none;padding:0">Loading…</div>
 
-    <h3 style="margin:2rem 0 .5rem">Referrals</h3>
+    <h3 id="referrals-admin-head" style="margin:2rem 0 .5rem">Referrals</h3>
     <div id="referrals-admin-list" class="panel" style="border:none;padding:0">Loading…</div>
 
     <h3 style="margin:2rem 0 .5rem">Drive My Way income &amp; expenses</h3>
@@ -14424,9 +14481,19 @@ async function renderReferralTile(){
   const el=document.getElementById("dash-referral"); if(!el) return;
   // The Refer a Friend tile in Settings & Tools (Business) and the Settings tab list follow the same rule as this box.
   const settingsTiles=show=>["dash-set-referral","settings-referral-btn"].forEach(id=>{ const b=document.getElementById(id); if(b) b.classList.toggle("hidden",!show); });
-  const hide=()=>{ el.className="hidden"; el.innerHTML=""; settingsTiles(false); };
+  // The Business tile's line: the usual one, or the super admin's (below).
+  const tileLine=text=>{ const s=document.querySelector("#dash-set-referral > div > span"); if(s) s.textContent=text; };
+  tileLine("Share your link with another driving instructor");
+  // Super admin preview (Dale, 16 Sep 2026): Dale has no subscription, so my_referral gives no code and he never saw the
+  // tile. For the super admin only, with no code: the green box stays hidden, but the Business tile (and the Settings list
+  // entry) still shows and opens Billing at the Referrals list (openReferralFromDash). Everyone else is unchanged.
+  const hide=()=>{
+    el.className="hidden"; el.innerHTML="";
+    if(isSuperAdminUser && !pausedMode && currentUserId){ tileLine("See every referral and reward due"); settingsTiles(true); }
+    else settingsTiles(false);
+  };
   const billingBtn=document.getElementById("nav-billing-btn");
-  if(pausedMode || !currentUserId || !billingBtn || billingBtn.classList.contains("hidden")){ hide(); return; }
+  if(pausedMode || !currentUserId || (!isSuperAdminUser && (!billingBtn || billingBtn.classList.contains("hidden")))){ hide(); return; }
   if(!referralTileCache || referralTileCache.user!==currentUserId){
     try{
       const {data,error}=await sb.rpc("my_referral");
@@ -14454,6 +14521,15 @@ function referralSmallPrintCC(){
 function openReferralFromDash(){
   goTab("billing");
   let tries=0;
+  // The super admin's Billing has no Refer a Friend box, so go to its Referrals list once that has loaded.
+  if(isSuperAdminUser){
+    const ta=setInterval(()=>{
+      const list=document.getElementById("referrals-admin-list"), head=document.getElementById("referrals-admin-head");
+      if(list && head && list.textContent.trim() && list.textContent.trim()!=="Loading…"){ clearInterval(ta); head.scrollIntoView({behavior:"smooth",block:"start"}); }
+      else if(++tries>60) clearInterval(ta);
+    },150);
+    return;
+  }
   const t=setInterval(()=>{
     const box=document.getElementById("referral-box");
     if(box && box.innerHTML.trim()){ clearInterval(t); box.scrollIntoView({behavior:"smooth",block:"start"}); }

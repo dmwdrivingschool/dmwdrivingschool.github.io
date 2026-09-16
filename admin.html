@@ -13731,8 +13731,9 @@ async function loadReferralBox(){
   const list = (data.referrals || []).map(r =>
     `<div class="list-row"><div>${esc(r.first_name || "A friend")}</div><div class="muted">${esc(statusText(r))}</div></div>`).join("");
   box.innerHTML = `
-    <h3 style="margin:1.5rem 0 .5rem">Refer a Friend</h3>
-    <p class="muted">Share your link with another driving instructor or driving school. When they sign up with it and have paid for 3 months, you get ${esc(reward)}.</p>
+    <h3 style="margin:1.5rem 0 .5rem">Refer a Friend and Get 1 Month Free*</h3>
+    <p class="muted">Share your link with another driving instructor or driving school.</p>
+    <p class="muted" style="font-size:.75rem">${esc(referralSmallPrintCC())}</p>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.6rem 0 .3rem">
       <input id="referral-link" readonly value="${esc(url)}" onclick="this.select()" style="flex:1;min-width:240px;font-family:var(--fm);font-size:.78rem;padding:.55rem .7rem;border:1.5px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text)">
       <button class="btn btn-navy btn-sm" onclick="copyEnquiryLink('referral-link')">Copy Link</button>
@@ -14394,7 +14395,7 @@ async function renderReferralTile(){
   }
   const d=referralTileCache.data;
   settingsTiles(true);
-  const headline=d.owner_type==="school" ? `Refer a Friend and Get ${gbp(d.reward_pence)} Off*` : "Refer a Friend and Get a Month Free*";
+  const headline="Refer a Friend and Get 1 Month Free*";
   el.className="panel"; el.style.cssText="border-left:4px solid #16a34a;margin-bottom:1rem;cursor:pointer";
   el.setAttribute("role","button"); el.tabIndex=0;
   el.onclick=openReferralFromDash; el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openReferralFromDash(); } };
@@ -14403,7 +14404,11 @@ async function renderReferralTile(){
       <div><strong style="font-size:1.02rem">${esc(headline)}</strong>
       <div class="muted" style="font-size:.85rem">Share your link with another driving instructor or driving school.</div></div></div>
     <button class="btn btn-navy btn-sm" onclick="event.stopPropagation();openReferralFromDash()">Get Your Link</button></div>
-    <div class="muted" style="font-size:.75rem;margin-top:.45rem">*When they sign up with your link and have paid for 3 months.</div>`;
+    <div class="muted" style="font-size:.75rem;margin-top:.45rem">${esc(referralSmallPrintCC())}</div>`;
+}
+// Small print for "1 month free*" (Dale, 16 Sep 2026): the same wording as drivemyway.co.uk.
+function referralSmallPrintCC(){
+  return "*When a driving instructor or driving school signs up with your link and has paid for 3 months, one monthly payment of yours has your base price taken off: £11.99 (£13.99 on Premium) for a solo instructor, or £13.99 (£15.99 on Premium) for a driving school, where extra instructor seats are still charged.";
 }
 function openReferralFromDash(){
   goTab("billing");

@@ -43,6 +43,10 @@ function buildEnquirySnippet(instructorId, schoolId, opts){
     #dmw-enquiry-widget .dmw-note{font-size:12px;color:#64748b;margin:6px 0}
     #dmw-enquiry-widget .dmw-warn{font-size:12px;color:#7b341e;background:#fffaf0;border-left:3px solid #dd6b20;padding:8px 10px;border-radius:0 6px 6px 0;margin:6px 0}
     #dmw-enquiry-widget .dmw-sum{font-size:13px;margin:4px 0}
+    #dmw-enquiry-widget .dmw-gears{display:flex;gap:8px}
+    #dmw-enquiry-widget .dmw-gear{flex:1;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font:inherit;font-weight:600;cursor:pointer}
+    #dmw-enquiry-widget .dmw-gear.on{background:#0A4CA1;color:#fff;border-color:#0A4CA1}
+    #dmw-enquiry-widget .dmw-gears.dmw-invalid .dmw-gear{border-color:#ef4444;background:#fef2f2}
     #dmw-enquiry-widget h2{font-size:1.35rem;color:#062F63;margin:0 0 4px}
     #dmw-enquiry-widget .dmw-sub{color:#64748b;font-size:.9rem;margin:0 0 14px}
     #dmw-enquiry-widget .dmw-steps{display:flex;gap:6px;margin-bottom:16px}
@@ -64,6 +68,13 @@ ${page ? "" : `
 
   <div id="dmw-p1">
     <div id="dmw-gearbox-warn" class="dmw-warn" style="display:none"></div>
+    <div id="dmw-gearbox-pick" style="display:none">
+      <label>Manual or automatic lessons? *</label>
+      <div class="dmw-gears" id="dmw-gears">
+        <button type="button" class="dmw-gear" data-gear="manual">Manual</button>
+        <button type="button" class="dmw-gear" data-gear="automatic">Automatic</button>
+      </div>
+    </div>
     <label>First name *</label><input id="dmw-fn" autocomplete="given-name" />
     <label>Last name *</label><input id="dmw-ln" autocomplete="family-name" />
     <label>Phone *</label><input id="dmw-phone" type="tel" autocomplete="tel" />
@@ -147,6 +158,9 @@ ${page ? "" : `
   var ALL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
   var DAYS = ALL_DAYS.slice();
   var availability = {};
+  // Gearbox (Dale, 16 Sep 2026): an instructor who teaches both lets the pupil choose; manual only / automatic only sends that.
+  var gearboxMode = "both";
+  var gearbox = "";
   ALL_DAYS.forEach(function (d) { availability[d] = []; });
   var workHours = { start: "09:00", end: "20:00", days: { Monday:true,Tuesday:true,Wednesday:true,Thursday:true,Friday:true,Saturday:false,Sunday:false } };
 
@@ -232,6 +246,8 @@ ${page ? "" : `
   }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
     var mode = rows && rows[0] && rows[0].value && rows[0].value.mode;
     var warn = el("dmw-gearbox-warn");
+    gearboxMode = mode === "manual" || mode === "auto" ? mode : "both";
+    el("dmw-gearbox-pick").style.display = gearboxMode === "both" ? "block" : "none";
     if (mode === "manual") {
       warn.innerHTML = "<strong>Manual only.<\\/strong> I only teach in a manual car. Automatic lessons are not available.";
       warn.style.display = "block";
@@ -239,7 +255,20 @@ ${page ? "" : `
       warn.innerHTML = "<strong>Automatic only.<\\/strong> I only teach in an automatic car. Manual lessons are not available.";
       warn.style.display = "block";
     }
-  }).catch(function () {});
+  }).catch(function () { el("dmw-gearbox-pick").style.display = "block"; });
+
+  Array.prototype.forEach.call(document.querySelectorAll("#dmw-gears .dmw-gear"), function (b) {
+    b.addEventListener("click", function () {
+      gearbox = b.getAttribute("data-gear");
+      Array.prototype.forEach.call(document.querySelectorAll("#dmw-gears .dmw-gear"), function (x) {
+        x.className = "dmw-gear" + (x === b ? " on" : "");
+      });
+      el("dmw-gears").classList.remove("dmw-invalid");
+    });
+  });
+  function chosenGearbox() {
+    return gearboxMode === "manual" ? "manual" : gearboxMode === "auto" ? "automatic" : gearbox;
+  }
 
   function show(page) {
     ["dmw-p1","dmw-p2","dmw-p3"].forEach(function (id, i) { el(id).style.display = i === page - 1 ? "block" : "none"; });
@@ -257,6 +286,9 @@ ${page ? "" : `
       el(id).classList.toggle("dmw-invalid", bad);
       if (bad) missing = true;
     });
+    var gearMissing = !chosenGearbox() && el("dmw-gearbox-pick").style.display !== "none";
+    el("dmw-gears").classList.toggle("dmw-invalid", gearMissing);
+    if (gearMissing) missing = true;
     if (missing) {
       err.textContent = "Please fill in the highlighted required fields.";
       err.style.display = "block";
@@ -281,6 +313,7 @@ ${page ? "" : `
       ["Phone", val("dmw-phone")],
       ["Email", val("dmw-email")],
       ["Date of birth", el("dmw-dob").value],
+      ["Lessons", chosenGearbox() === "automatic" ? "Automatic" : "Manual"],
       ["Address", [val("dmw-a1"), val("dmw-a2"), val("dmw-city"), val("dmw-pc")].filter(Boolean).join(", ")],
       ["Availability", availText],
     ].map(function (kv) {
@@ -320,6 +353,7 @@ ${page ? "" : `
           city: val("dmw-city") || null,
           postcode: val("dmw-pc"),
           availability: payloadAvail,
+          preferred_gearbox: chosenGearbox() || "manual",
           notes: val("dmw-notes") || null
         },
         ${targetLine}

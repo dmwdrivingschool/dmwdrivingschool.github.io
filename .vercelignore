@@ -9,3 +9,6 @@
 # git (they stay tracked, GitHub raw keeps serving them), it just stops
 # Vercel from carrying dead weight it was never using.
 *.mp4
+# ...except the Control Centre's How-To Videos (Dale, 16 Sep 2026), which admin.html plays from this site's own
+# domain (/how-to/videos). 11 short clips, about 20MB in all.
+!how-to/videos/*.mp4

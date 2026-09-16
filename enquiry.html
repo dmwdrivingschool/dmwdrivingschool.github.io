@@ -229,24 +229,37 @@
       return out.length ? out : ["09:00"];
     }
 
+    // Each day has its own hours (Dale, 16 Sep 2026): perDay[day] when it's there and start < end, otherwise the overall start/end.
+    function timeMin(t) {
+      const m = /^(\d{1,2}):(\d{2})/.exec(String(t || ""));
+      return m ? +m[1] * 60 + +m[2] : NaN;
+    }
+    function daySlots(day) {
+      const p = workHours.perDay && typeof workHours.perDay === "object" ? workHours.perDay[day] : null;
+      if (p && timeMin(p.start) < timeMin(p.end)) return slotsFromHours(p.start, p.end);
+      return slotsFromHours(workHours.start, workHours.end);
+    }
+
     function buildAvail() {
       const root = document.getElementById("avail");
       if (!root) return;
       root.innerHTML = "";
-      const list = slotsFromHours(workHours.start, workHours.end);
       const dayFlags = workHours.days || {};
       DAYS = ALL_DAYS.filter(d => dayFlags[d] !== false);
       if (!DAYS.length) DAYS = ALL_DAYS.slice(0, 5);
-      const hasAll = day => list.every(t => (availability[day] || []).includes(t));
+      const slotsByDay = {};
+      DAYS.forEach(d => { slotsByDay[d] = daySlots(d); });
+      const hasAll = day => slotsByDay[day].every(t => (availability[day] || []).includes(t));
       // "All" buttons (Dale, 14 Sep 2026): every day and time at once, or a whole day. Pressing again clears.
       const everything = DAYS.every(hasAll);
       const allBtn = document.createElement("button");
       allBtn.type = "button";
       allBtn.className = "slot slot-all" + (everything ? " on" : "");
       allBtn.textContent = everything ? "Clear all" : "Select all days and times";
-      allBtn.onclick = () => { DAYS.forEach(d => { availability[d] = everything ? [] : list.slice(); }); buildAvail(); };
+      allBtn.onclick = () => { DAYS.forEach(d => { availability[d] = everything ? [] : slotsByDay[d].slice(); }); buildAvail(); };
       root.appendChild(allBtn);
       DAYS.forEach(day => {
+        const list = slotsByDay[day];
         if (!availability[day]) availability[day] = [];
         const div = document.createElement("div");
         div.className = "day";
@@ -304,7 +317,8 @@
             workHours = {
               start: v.start || "09:00",
               end: v.end || "20:00",
-              days: Object.assign({}, workHours.days, v.days || {})
+              days: Object.assign({}, workHours.days, v.days || {}),
+              perDay: v.perDay || null
             };
           }
         }

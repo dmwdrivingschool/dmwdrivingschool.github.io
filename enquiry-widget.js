@@ -167,6 +167,13 @@ ${page ? "" : `
   function el(id) { return document.getElementById(id); }
   function val(id) { return el(id).value.trim(); }
   function toMinutes(hhmm) { var p = String(hhmm || "09:00").split(":"); return (Number(p[0]) || 0) * 60 + (Number(p[1]) || 0); }
+  // Strict "HH:mm" to minutes, NaN if it isn't a time (no regex: this code sits inside a template string).
+  function timeMin(t) {
+    var p = String(t == null ? "" : t).split(":");
+    if (p.length < 2 || p[0] === "" || p[1] === "") return NaN;
+    var h = Number(p[0]), m = Number(p[1].slice(0, 2));
+    return isNaN(h) || isNaN(m) ? NaN : h * 60 + m;
+  }
   function slotsFromHours(start, end) {
     var out = [];
     for (var m = toMinutes(start); m < toMinutes(end); m += 30) {
@@ -174,24 +181,32 @@ ${page ? "" : `
     }
     return out.length ? out : ["09:00"];
   }
+  // Each day has its own hours (Dale, 16 Sep 2026): perDay[day] when it's there and start < end, otherwise the overall start/end.
+  function daySlots(day) {
+    var p = workHours.perDay && typeof workHours.perDay === "object" ? workHours.perDay[day] : null;
+    if (p && timeMin(p.start) < timeMin(p.end)) return slotsFromHours(p.start, p.end);
+    return slotsFromHours(workHours.start, workHours.end);
+  }
 
   function buildAvail() {
     var root = el("dmw-avail");
     root.innerHTML = "";
-    var list = slotsFromHours(workHours.start, workHours.end);
+    var slotsByDay = {};
     var flags = workHours.days || {};
     DAYS = ALL_DAYS.filter(function (d) { return flags[d] !== false; });
     if (!DAYS.length) DAYS = ALL_DAYS.slice(0, 5);
-    function hasAll(day) { return list.every(function (t) { return (availability[day] || []).indexOf(t) >= 0; }); }
+    DAYS.forEach(function (d) { slotsByDay[d] = daySlots(d); });
+    function hasAll(day) { return slotsByDay[day].every(function (t) { return (availability[day] || []).indexOf(t) >= 0; }); }
     // "All" buttons (Dale, 14 Sep 2026): every day and time at once, or a whole day. Pressing again clears.
     var everything = DAYS.every(hasAll);
     var allBtn = document.createElement("button");
     allBtn.type = "button";
     allBtn.className = "dmw-slot dmw-all" + (everything ? " on" : "");
     allBtn.textContent = everything ? "Clear all" : "Select all days and times";
-    allBtn.onclick = function () { DAYS.forEach(function (d) { availability[d] = everything ? [] : list.slice(); }); buildAvail(); };
+    allBtn.onclick = function () { DAYS.forEach(function (d) { availability[d] = everything ? [] : slotsByDay[d].slice(); }); buildAvail(); };
     root.appendChild(allBtn);
     DAYS.forEach(function (day) {
+      var list = slotsByDay[day];
       if (!availability[day]) availability[day] = [];
       var div = document.createElement("div");
       div.className = "dmw-day";
@@ -235,7 +250,7 @@ ${page ? "" : `
   }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
     if (rows && rows[0] && rows[0].value) {
       var v = rows[0].value;
-      workHours = { start: v.start || workHours.start, end: v.end || workHours.end, days: Object.assign({}, workHours.days, v.days || {}) };
+      workHours = { start: v.start || workHours.start, end: v.end || workHours.end, days: Object.assign({}, workHours.days, v.days || {}), perDay: v.perDay || null };
     }
   }).catch(function () {}).then(buildAvail);
 

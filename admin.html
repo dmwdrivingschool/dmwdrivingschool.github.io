@@ -6710,6 +6710,13 @@ function renderTaxSummary(){
     </div>
     <p class="muted" style="margin-bottom:.4rem">${fmtD(from)} → ${fmtD(to)} · ${rows.length} entr${rows.length===1?"y":"ies"}${q&&ytd?" · Making Tax Digital quarterly updates are a running total for the tax year so far":""}</p>
     <p class="muted" style="margin-bottom:.9rem;font-size:.8rem">Using My Tax Digital (HMRC-recognised bridging software): register and choose Income &amp; Expenses, open Bridging mode, then upload the Download for My Tax Digital file with the same "to" date. Check every figure before you submit. Drive My Way doesn't send anything to HMRC itself, and isn't connected with My Tax Digital.</p>
+    <details style="margin:-.5rem 0 .9rem;font-size:.85rem"><summary style="cursor:pointer;font-weight:700;color:var(--navy)">What are Making Tax Digital and My Tax Digital?</summary>
+      <div class="muted" style="margin-top:.4rem;line-height:1.5">
+        <p style="margin:0 0 .4rem"><strong>Making Tax Digital for Income Tax</strong> is HMRC's new way of doing self-assessment. If you're a sole trader and it applies to you, you keep digital records and send HMRC a short update every quarter, as well as your end-of-year tax return.</p>
+        <p style="margin:0 0 .4rem">It depends on your qualifying income (your self-employed and property income before expenses) on your tax return: over £50,000 on your 2024–25 return means it starts from 6 April 2026, over £30,000 on your 2025–26 return from 6 April 2027, and over £20,000 on your 2026–27 return from 6 April 2028. <a href="https://www.gov.uk/guidance/check-if-youre-eligible-for-making-tax-digital-for-income-tax" target="_blank" rel="noopener">Check if it applies to you ↗</a></p>
+        <p style="margin:0"><strong>My Tax Digital</strong> is a separate company's HMRC-recognised bridging software. Drive My Way works out your figures and gives you a file laid out the way My Tax Digital needs; you upload it to My Tax Digital, check it, and it sends the update to HMRC.</p>
+      </div>
+    </details>
     <div class="metric-row" style="margin-bottom:1.2rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
       <div class="metric"><div class="v good">${money(turnover+otherInc)}</div><div class="l">Business income</div></div>
       <div class="metric"><div class="v bad">${money(totClaim)}</div><div class="l">Claimable expenses</div></div>

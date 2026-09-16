@@ -669,7 +669,6 @@ tbody tr:hover td{background:#334263}
         <div class="dash-settings-group">
           <h3 class="dash-settings-group-head">Business</h3>
           <div class="dash-settings-grid">
-            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('paycats')"><span class="ico">💷</span><div><strong>Finance Categories</strong><span>Fixed categories and their HMRC headings</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('importExport')"><span class="ico">📇</span><div><strong>Import / Export</strong><span>CSV backup, or bring records over</span></div></button>
             <!-- Shown by renderReferralTile, on the same rule as the dashboard's Refer a Friend box. -->
             <button type="button" id="dash-set-referral" class="dash-setting hidden" onclick="openReferralFromDash()"><span class="ico">🎁</span><div><strong>Refer a Friend</strong><span>Share your link with another driving instructor</span></div></button>
@@ -975,7 +974,6 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('enquiryWidget')">Your Enquiry Form</button>
           <button type="button" onclick="openSettings('appWidget')">Show the App on Your Website</button>
           <div class="settings-group-head">Business</div>
-          <button type="button" onclick="openSettings('paycats')">Finance Categories</button>
           <button type="button" onclick="openSettings('importExport')">Import / Export</button>
           <button type="button" id="settings-referral-btn" class="hidden" onclick="openReferralFromDash()">Refer a Friend</button>
           <button type="button" id="settings-franchise-btn" class="hidden" onclick="openSettings('franchise')">Franchise Fees</button>
@@ -6707,6 +6705,8 @@ function renderTaxSummary(){
       <button class="btn-outline" onclick="downloadReceiptsZip(taxSum.last.from,taxSum.last.to)">Download receipts</button>
       <button class="btn-outline" onclick="downloadMyTaxDigital()" title="Laid out like My Tax Digital's SA103 template, always the running total from 6 April to the end of the chosen quarter">Download for My Tax Digital</button>
       <a class="btn-outline" href="https://mytaxdigital.co.uk/" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">Open My Tax Digital ↗</a>
+      <!-- The fixed categories are information, not a setting, so they open from here rather than a Settings tile (Dale, 16 Sep 2026). -->
+      <button class="btn-outline" onclick="goTab('settings');openSettings('paycats')">What the Categories Mean</button>
     </div>
     <p class="muted" style="margin-bottom:.4rem">${fmtD(from)} → ${fmtD(to)} · ${rows.length} entr${rows.length===1?"y":"ies"}${q&&ytd?" · Making Tax Digital quarterly updates are a running total for the tax year so far":""}</p>
     <p class="muted" style="margin-bottom:.9rem;font-size:.8rem">Using My Tax Digital (HMRC-recognised bridging software): register and choose Income &amp; Expenses, open Bridging mode, then upload the Download for My Tax Digital file with the same "to" date. Check every figure before you submit. Drive My Way doesn't send anything to HMRC itself, and isn't connected with My Tax Digital.</p>
@@ -8031,7 +8031,7 @@ async function openSettings(which){
     goTab('finance'); openBusinessTypeModal(); return;
   } else if(which==="paycats"){
     panel.innerHTML=`${settingsHeadHtml("Finance Categories")}
-      <p class="muted" style="margin-bottom:1rem">${isCompany()?"These are fixed, so every entry is grouped the way your accountant needs it.":"These are fixed, so every entry lines up with HMRC's Making Tax Digital headings."} They're the ones for your <a href="#" onclick="openBusinessTypeModal();return false">business type</a>. Each expense starts as claimable or not claimable as shown, and you can change that on any entry.</p>
+      <p class="muted" style="margin-bottom:1rem">${isCompany()?"These are fixed, so every entry is grouped the way your accountant needs it.":"These are fixed, so every entry goes under the right HMRC self-assessment heading: the same layout the Download for My Tax Digital file uses."} They're the ones for your <a href="#" onclick="openBusinessTypeModal();return false">business type</a>. Each expense starts as claimable or not claimable as shown, and you can change that on any entry.</p>
       <div id="paycats-lists"></div>
       <div class="err" id="paycats-err" style="margin-top:.5rem"></div>`;
     renderPayCats();

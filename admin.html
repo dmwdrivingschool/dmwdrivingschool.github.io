@@ -6358,7 +6358,15 @@ async function viewReceipt(path,txId,fromDetail){
   receiptBlobUrl=URL.createObjectURL(data);
   const ext=(clean.split(".").pop()||"jpg").toLowerCase();
   const name=r?`receipt_${r.transaction_date||""}_${String(r.category||"expense").replace(/[^A-Za-z0-9]+/g,"-")}_${Number(r.amount||0).toFixed(2)}.${ext}`:`receipt.${ext}`;
-  box.innerHTML=`<div style="text-align:center"><img src="${receiptBlobUrl}" alt="Receipt photo" style="max-width:100%;max-height:65vh;object-fit:contain;border-radius:12px;border:1px solid var(--border,#3a4a6b);background:#fff"></div>`;
+  // A receipt can be a PDF as well as a photo (Dale, 17 Sep 2026: a PDF showed as a broken image). PDFs open in
+  // the browser's own viewer; anything else that is not an image just offers Download / Open full size.
+  const isPdf=(data.type||"").includes("pdf")||ext==="pdf";
+  const isImage=String(data.type||"").startsWith("image/")||["jpg","jpeg","png","gif","webp","avif","bmp"].includes(ext);
+  box.innerHTML=isPdf
+    ? `<iframe src="${receiptBlobUrl}" title="Receipt PDF" style="width:100%;height:65vh;border-radius:12px;border:1px solid var(--border,#3a4a6b);background:#fff"></iframe>`
+    : isImage
+      ? `<div style="text-align:center"><img src="${receiptBlobUrl}" alt="Receipt photo" style="max-width:100%;max-height:65vh;object-fit:contain;border-radius:12px;border:1px solid var(--border,#3a4a6b);background:#fff"></div>`
+      : `<p style="margin:0">This receipt is a ${esc(ext.toUpperCase())} file, which can not be shown here. Use Download or Open full size.</p>`;
   const acts=document.getElementById("receipt-actions");
   if(acts) acts.insertAdjacentHTML("afterbegin",`<a class="btn btn-navy btn-sm" style="text-decoration:none" href="${receiptBlobUrl}" download="${esc(name)}">Download</a><button class="btn-outline" onclick="window.open(receiptBlobUrl,'_blank')">Open full size</button>`);
 }
@@ -14064,8 +14072,8 @@ function platformTxForm(type, existing){
     <div class="field"><label>Description</label><input id="ptx-desc" value="${existing?esc(existing.description||""):""}"></div>
     <div class="field"><label>Payment method (optional)</label><input id="ptx-method" value="${existing?esc(existing.payment_method||""):""}"></div>
     <div class="field"><label>Notes (optional)</label><textarea id="ptx-notes">${existing?esc(existing.notes||""):""}</textarea></div>
-    <div class="field"><label>Receipt photo (optional)</label>
-      <input id="ptx-receipt" type="file" accept="image/*" onchange="onPtxReceiptChosen(event)">
+    <div class="field"><label>Receipt photo or PDF (optional)</label>
+      <input id="ptx-receipt" type="file" accept="image/*,application/pdf" onchange="onPtxReceiptChosen(event)">
       <div id="ptx-receipt-preview" style="margin-top:.4rem">${existing&&existing.receipt_url?`<button type="button" class="btn-outline" onclick="viewPtxReceipt('${String(existing.receipt_url).replace(/'/g,"&#39;")}','${existing.id}')">View attached receipt</button> <button type="button" class="btn-outline" onclick="clearPtxReceipt()">Remove</button>`:""}</div>
     </div>`;
 }
@@ -14083,8 +14091,9 @@ function onPtxReceiptChosen(ev){
   if(!f) return;
   ptxPendingReceiptFile=f;
   ptxReceiptCleared=false;
-  document.getElementById("ptx-receipt-preview").innerHTML=
-    `<img src="${URL.createObjectURL(f)}" style="max-width:100%;max-height:10rem;border-radius:.75rem;border:1px solid var(--border,#3a4a6b)">`;
+  document.getElementById("ptx-receipt-preview").innerHTML=String(f.type||"").startsWith("image/")
+    ? `<img src="${URL.createObjectURL(f)}" style="max-width:100%;max-height:10rem;border-radius:.75rem;border:1px solid var(--border,#3a4a6b)">`
+    : `<span class="muted" style="font-size:.78rem">${esc(f.name||"File")} will be attached.</span>`;
 }
 function clearPtxReceipt(){
   ptxPendingReceiptFile=null;

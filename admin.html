@@ -14063,10 +14063,63 @@ function platformTxForm(type, existing){
     ${isExpense ? `<div class="field"><label>Claimable for tax?</label><select id="ptx-claimable"><option value="true">Claimable</option><option value="false" ${existing&&existing.claimable===false?"selected":""}>Not claimable</option></select></div>` : ""}
     <div class="field"><label>Description</label><input id="ptx-desc" value="${existing?esc(existing.description||""):""}"></div>
     <div class="field"><label>Payment method (optional)</label><input id="ptx-method" value="${existing?esc(existing.payment_method||""):""}"></div>
-    <div class="field"><label>Notes (optional)</label><textarea id="ptx-notes">${existing?esc(existing.notes||""):""}</textarea></div>`;
+    <div class="field"><label>Notes (optional)</label><textarea id="ptx-notes">${existing?esc(existing.notes||""):""}</textarea></div>
+    <div class="field"><label>Receipt photo (optional)</label>
+      <input id="ptx-receipt" type="file" accept="image/*" onchange="onPtxReceiptChosen(event)">
+      <div id="ptx-receipt-preview" style="margin-top:.4rem">${existing&&existing.receipt_url?`<button type="button" class="btn-outline" onclick="viewPtxReceipt('${String(existing.receipt_url).replace(/'/g,"&#39;")}','${existing.id}')">View attached receipt</button> <button type="button" class="btn-outline" onclick="clearPtxReceipt()">Remove</button>`:""}</div>
+    </div>`;
+}
+
+// Receipt photos on Drive My Way's own entries (Dale, 17 Sep 2026: this screen had no receipt option at all,
+// unlike the driving school's Finances). Same private receipts bucket and the same shrink-before-upload; the
+// path starts with the uploader's own id, which is what storage's rules allow.
+let ptxPendingReceiptFile=null, ptxReceiptCleared=false;
+function resetPtxReceiptState(){
+  ptxPendingReceiptFile=null;
+  ptxReceiptCleared=false;
+}
+function onPtxReceiptChosen(ev){
+  const f=ev.target.files[0];
+  if(!f) return;
+  ptxPendingReceiptFile=f;
+  ptxReceiptCleared=false;
+  document.getElementById("ptx-receipt-preview").innerHTML=
+    `<img src="${URL.createObjectURL(f)}" style="max-width:100%;max-height:10rem;border-radius:.75rem;border:1px solid var(--border,#3a4a6b)">`;
+}
+function clearPtxReceipt(){
+  ptxPendingReceiptFile=null;
+  ptxReceiptCleared=true;
+  const input=document.getElementById("ptx-receipt");
+  if(input) input.value="";
+  document.getElementById("ptx-receipt-preview").innerHTML='<span class="muted" style="font-size:.78rem">Photo will be removed when you save.</span>';
+}
+function viewPtxReceipt(path,txId){
+  window.__payRows=window.__payRows||{};
+  const row=(platformTxCache||[]).find(x=>x.id===txId);
+  if(row) window.__payRows[txId]=row;
+  viewReceipt(path,txId);
+}
+// Uploads the chosen photo, if any, and returns what receipt_url should become: a new path, the one it
+// already had, or null when the photo was removed. { failed:true } means the upload itself failed.
+async function ptxReceiptUrlForSave(existingPath, err){
+  if(ptxPendingReceiptFile){
+    const upFile=await shrinkReceiptImage(ptxPendingReceiptFile);
+    const ext=(upFile.name.split(".").pop()||"jpg").toLowerCase();
+    const path=`${currentUserId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const {error:upErr}=await sb.storage.from("receipts").upload(path,upFile,{cacheControl:"3600",upsert:false,contentType:upFile.type||"image/jpeg"});
+    if(upErr){ if(err) err.textContent="Receipt photo not saved: "+upErr.message; return {failed:true}; }
+    if(existingPath) removeReceiptPhoto(existingPath);
+    return {url:path};
+  }
+  if(ptxReceiptCleared){
+    if(existingPath) removeReceiptPhoto(existingPath);
+    return {url:null};
+  }
+  return {url:existingPath||null};
 }
 
 function openAddPlatformTx(type){
+  resetPtxReceiptState();
   openModal(`<h3 style="margin:0 0 1rem">Add ${type==="income"?"income":"expense"}</h3>
     ${platformTxForm(type)}
     <button class="btn btn-navy btn-sm" onclick="savePlatformTx('${type}')">Save</button>
@@ -14077,6 +14130,7 @@ function openAddPlatformTx(type){
 async function openEditPlatformTx(id){
   const {data:t} = await sb.from("platform_transactions").select("*").eq("id",id).single();
   if(!t) return;
+  resetPtxReceiptState();
   openModal(`<h3 style="margin:0 0 1rem">Edit ${t.type}</h3>
     ${platformTxForm(t.type, t)}
     <button class="btn btn-navy btn-sm" onclick="updatePlatformTx('${id}','${t.type}')">Save</button>
@@ -14105,6 +14159,9 @@ async function savePlatformTx(type){
   const err=document.getElementById("ptx-err");
   const fields = readPlatformTxForm(type, err);
   if(!fields) return;
+  const receipt = await ptxReceiptUrlForSave(null, err);
+  if(receipt.failed) return;
+  if(receipt.url) fields.receipt_url = receipt.url;
   const {error} = await sb.from("platform_transactions").insert({type, created_by:currentUserId, ...fields});
   if(error){ err.textContent=error.message; return; }
   closeModal();
@@ -14115,6 +14172,10 @@ async function updatePlatformTx(id, type){
   const err=document.getElementById("ptx-err");
   const fields = readPlatformTxForm(type, err);
   if(!fields) return;
+  const existing=(platformTxCache||[]).find(x=>x.id===id);
+  const receipt = await ptxReceiptUrlForSave(existing&&existing.receipt_url?String(existing.receipt_url):null, err);
+  if(receipt.failed) return;
+  fields.receipt_url = receipt.url;
   const {error} = await sb.from("platform_transactions").update(fields).eq("id",id);
   if(error){ err.textContent=error.message; return; }
   closeModal();
@@ -14123,7 +14184,9 @@ async function updatePlatformTx(id, type){
 
 async function deletePlatformTx(id){
   if(!confirm("Delete this entry?")) return;
+  const existing=(platformTxCache||[]).find(x=>x.id===id);
   await sb.from("platform_transactions").delete().eq("id",id);
+  if(existing&&existing.receipt_url) removeReceiptPhoto(String(existing.receipt_url));
   closeModal();
   await loadPlatformTransactions();
 }
@@ -14275,7 +14338,7 @@ function ptxTable(rows){
       <td><strong>${esc(ptxLabel(t))}</strong>${t.description?`<div class="muted" style="font-size:.78rem">${esc(t.description)}</div>`:""}${flag}</td>
       <td style="text-align:right;white-space:nowrap">${ptxMoney(t.amount)}</td>
       <td>${esc(t.payment_method||"–")}</td>
-      <td class="actions">${auto?'<span class="muted" style="font-size:.72rem" title="Added automatically from GoCardless">Auto</span>':`<button class="btn-outline" onclick="openEditPlatformTx('${t.id}')">Edit</button>`}</td></tr>`;
+      <td class="actions">${t.receipt_url?`<button class="btn-outline" title="View the receipt photo" onclick="viewPtxReceipt('${String(t.receipt_url).replace(/'/g,"&#39;")}','${t.id}')">🧾</button> `:""}${auto?'<span class="muted" style="font-size:.72rem" title="Added automatically from GoCardless">Auto</span>':`<button class="btn-outline" onclick="openEditPlatformTx('${t.id}')">Edit</button>`}</td></tr>`;
   }).join("")}</tbody></table></div>`;
 }
 function showPtxCategory(cat,isExp){

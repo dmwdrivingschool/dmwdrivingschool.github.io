@@ -7926,7 +7926,7 @@ const HOW_TO_VIDEOS=[
   ["05-take-payment","Take a Payment","Record a payment on the pupil's page and it appears in Money."],
   ["06-pencil-in","Pencil In Lessons and Send Offers","Pencil lessons in, then send all the offers in one go."],
   ["07-availability","See Your Pupils' Free Times","Show up to four pupils' free times on your diary and book straight into them."],
-  ["08-on-the-way","On the Way Tracking","Tap On the way and your pupil gets your arrival time, then watches your car arrive."],
+  ["08-on-the-way","On the Way Tracking","Tap On the way: your pupil gets your arrival time straight away, then an automatic update and your car on the map once you're within two miles."],
   ["09-terms","Your Terms and Cancellation Notice","Set your notice period and terms once, and pupils accept them in the app."],
   ["10-enquiry-form","Your Enquiry Form","Share your enquiry form link or add it to your website."],
   ["11-pupil-app","The Pupil's App","What your pupils see: lessons, progress and messages."]
@@ -11778,7 +11778,7 @@ function buildAppShowcaseSnippet(name, premium){
   const intro=(owner ? `${owner} pupils use` : "Our pupils use")+" the free Drive My Way app. Once you start lessons, you get your own login.";
   const item=(ico,title,text)=>`        <li><div class="dmw-ico">${ico}</div><div><b>${title}</b><span>${text}</span></div></li>`;
   const items=[
-    item("🚗","See when your instructor is on the way","Get a message with their arrival time when they set off, and see them on the map."),
+    item("🚗","See when your instructor is on the way","Get a message with their arrival time when they set off, and see them on the map once they're close."),
     item("📅","Your lessons in one place","Upcoming lessons, free slots you can book, and your lesson credit."),
     item("💬","Message your instructor","Questions, changes and photos, all in the app."),
     item("📈","Track your progress","See how each skill is coming on and keep your reflective logs.")

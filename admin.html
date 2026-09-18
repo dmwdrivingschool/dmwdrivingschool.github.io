@@ -10299,7 +10299,12 @@ const DRAFT_FORMS={
     ["gp-sendto","sendTo"],["gp-selected","selected","a"]],
   away:[["am-kind","kind"],["am-start-date","startDate"],["am-end-date","endDate"],["am-allday","allDay","b"],["am-start-time","startTime"],
     ["am-end-time","endTime"],["am-notes","notes"],["am-visible","visibleToPupil","b"],["am-donotdelete","doNotDelete","b"]],
-  "lesson-swap":[["a","pupilAId"],["b","pupilBId"],["la","lessonAId"],["lb","lessonBId"]]
+  "lesson-swap":[["a","pupilAId"],["b","pupilBId"],["la","lessonAId"],["lb","lessonBId"]],
+  // Unsent messages, kept 10 minutes like every other form (Dale, 18 Sep 2026). Same form_keys and field
+  // names as the app (docs/shared-formats.md), so a message started on the phone can be finished here.
+  "message":[["thread-body","body"]],
+  "send-to-all":[["bc-body","body"],["bc-to","to"],["bc-selected","selected","a"]],
+  news:[["news-title","title"],["news-body","body"]]
 };
 function draftFormMap(form){ return Object.prototype.hasOwnProperty.call(DRAFT_FORMS,form)?DRAFT_FORMS[form]:null; }
 // This browser's fields to the shared shape, every field given. Add lesson here has no end date or title (no private events), so
@@ -11515,7 +11520,18 @@ async function openPupilThread(pupilId){
     <div class="field"><label>Reply</label><textarea id="thread-body" rows="3" style="width:100%;padding:.5rem;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit" placeholder="Type a message to ${esc(p?p.first_name:"the pupil")}…"></textarea></div>
     <button class="btn btn-navy btn-sm" onclick="sendThreadMessage()">Send</button>
     <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Close</button>
-    <div class="err" id="thread-err" style="margin-top:.5rem;display:block;text-align:left"></div>`);
+    <div class="err" id="thread-err" style="margin-top:.5rem;display:block;text-align:left"></div>
+    <div id="draft-note" style="margin-top:.6rem"></div>`);
+  // A reply left unsent is kept for 10 minutes, per pupil, the same as in the app (src/lib/formDraft.ts;
+  // form_key "message:<pupilId>" in docs/shared-formats.md, so one started on the phone can be finished here).
+  draftOpen({
+    key: draftKey("message", pupilId),
+    what: "reply",
+    collect: () => formCollect(["thread-body"]),
+    isBlank: f => !String(f["thread-body"]||"").trim(),
+    reset: () => formApply({"thread-body":""}),
+    restore: f => { formApply({"thread-body": f ? (f["thread-body"]||"") : ""}); return !!(f && String(f["thread-body"]||"").trim()); },
+  });
   renderThreadChatLine();
   await renderThread();
 }
@@ -11591,6 +11607,7 @@ async function sendThreadMessageNow(){
   const schoolLabel = fromSchool ? (schoolDisplayNameCache ? `From ${schoolDisplayNameCache}` : "From your driving school") : null;
   const {data:msg,error}=await sb.from("messages").insert({pupil_id:threadPupilId, direction:"outbound", subject:schoolLabel, body, delivered_at:new Date().toISOString()}).select("id").maybeSingle();
   if(error){ err.textContent=error.message; return; }
+  draftSaved();
   document.getElementById("thread-body").value="";
   if(msg?.id) triggerMsgPush(msg.id);
   await renderThread();
@@ -11616,7 +11633,9 @@ function msgTabsHtml(){
   const t=(k,label)=>`<button type="button" class="${msgTab===k?"on":""}" onclick="setMsgTab('${k}')">${label}</button>`;
   return `<div class="tabs-sub">${t("inbox","Inbox")}${t("broadcast","Send to All")}${t("scheduled","Scheduled")}${t("news","News"+(newsUnreadCC?'<span class="nav-dot" title="New news"></span>':""))}</div>`;
 }
-function setMsgTab(k){ msgTab=k; loadMessagesPanel(); }
+// Leaving a tab with a half-written Send to All or News keeps it for 10 minutes, the same as closing a
+// modal does (draftLeave is what openModal/closeModal call). Dale, 18 Sep 2026.
+function setMsgTab(k){ draftLeave(); msgTab=k; loadMessagesPanel(); }
 
 // --- News, the same as the app's Messages → News (Dale, 15 Sep 2026) ----------------------------------------------
 // Drive My Way posts to every instructor and driving school; a driving school admin posts to their own school's
@@ -11654,9 +11673,22 @@ async function renderNewsTab(content){
     ${canPost?`<div class="field"><label>Title</label><input id="news-title" maxlength="120" placeholder="e.g. New in Drive My Way"></div>
     <div class="field"><label>Message</label><textarea id="news-body" rows="5" placeholder="Write your news"></textarea></div>
     <button type="button" class="btn btn-navy" id="news-post" onclick="postNewsCC()">${everyone?"Post to everyone":"Post to your school"}</button>
-    <div class="err" id="news-err" style="margin-top:.5rem;display:block;text-align:left"></div>`:""}
+    <div class="err" id="news-err" style="margin-top:.5rem;display:block;text-align:left"></div>
+    <div id="draft-note" style="margin:.6rem 0 0"></div>`:""}
     <h3 style="margin:1.4rem 0 .3rem">${canPost?"Posted":"News"}</h3>
     <div>${items}</div>`;
+  // An unfinished post is kept for 10 minutes, same form_key and fields as the app's News (Dale, 18 Sep 2026).
+  if(canPost){
+    draftHookBox(content);
+    draftOpen({
+      key: draftKey("news"),
+      what: "news post",
+      collect: () => formCollect(["news-title","news-body"]),
+      isBlank: f => !String(f["news-title"]||"").trim() && !String(f["news-body"]||"").trim(),
+      reset: () => formApply({"news-title":"","news-body":""}),
+      restore: f => { formApply({"news-title":f?(f["news-title"]||""):"","news-body":f?(f["news-body"]||""):""}); return !!(f && (String(f["news-title"]||"").trim() || String(f["news-body"]||"").trim())); },
+    });
+  }
   updateMessagesBadge();
   if(canPost) loadNewsSeenCC(data||[]);
 }
@@ -11692,6 +11724,7 @@ async function postNewsCC(){
     const btn=document.getElementById("news-post"); btn.disabled=true; btn.textContent="Posting…";
     const {error}=await sb.from("platform_announcements").insert({title, body, created_by:currentUserId, school_id:everyone?null:currentSchoolId});
     if(error){ err.textContent=error.message; btn.disabled=false; btn.textContent=everyone?"Post to everyone":"Post to your school"; return; }
+    draftSaved();
     await loadMessagesPanel();
   });
 }
@@ -11748,9 +11781,28 @@ async function renderBroadcastTab(content){
     </div>
     <button type="button" class="btn btn-navy" id="bc-send" onclick="sendBroadcastCC()">Send Now</button>
     <div class="err" id="bc-err" style="margin-top:.5rem;display:block;text-align:left"></div>
+    <div id="draft-note" style="margin:.6rem 0 0"></div>
     <h3 style="margin:1.4rem 0 .3rem">Sent broadcasts</h3>
     <div id="bc-sent">${bcSentHtml(error)}</div>`;
+  // Left unsent, it's kept for 10 minutes — words, who it's going to, and any pupils ticked. Same form_key
+  // and field names as the app's Send to All (docs/shared-formats.md). A photo can't be kept, only the words.
+  draftHookBox(content);
+  draftOpen({
+    key: draftKey("send-to-all"),
+    what: "message",
+    collect: bcCollect,
+    isBlank: f => !String(f["bc-body"]||"").trim(),
+    reset: () => bcApply({"bc-body":"","bc-to":"active","bc-selected":[]}),
+    restore: f => { bcApply(f||{"bc-body":"","bc-to":"active","bc-selected":[]}); return !!(f && String(f["bc-body"]||"").trim()); },
+  });
   updateMessagesBadge();
+}
+function bcCollect(){ const f=formCollect(["bc-body","bc-to"]); f["bc-selected"]=[...document.querySelectorAll(".bc-pick:checked")].map(el=>el.value); return f; }
+function bcApply(f){
+  formApply({"bc-body":f["bc-body"]||"","bc-to":f["bc-to"]||"active"});
+  const sel=Array.isArray(f["bc-selected"])?f["bc-selected"]:[];
+  document.querySelectorAll(".bc-pick").forEach(el=>{ el.checked=sel.includes(el.value); });
+  bcToChanged();
 }
 function bcToChanged(){ document.getElementById("bc-select").classList.toggle("hidden", document.getElementById("bc-to").value!=="select"); }
 function bcFileChosen(input){
@@ -11807,6 +11859,7 @@ async function sendBroadcastCC(){
     const rows=targets.map(p=>Object.assign({pupil_id:p.id, body, direction:"broadcast", subject:"Send to All"}, attach[p.id]?{attachment_url:attach[p.id]}:{}));
     const {error}=await sb.from("messages").insert(rows);
     if(error){ err.textContent=error.message; return; }
+    draftSaved();
     alert(`Sent to ${targets.length} pupil(s)`);
     await loadMessagesPanel();
   }finally{

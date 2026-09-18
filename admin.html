@@ -500,6 +500,7 @@ tbody tr:hover td{background:#334263}
       <button type="button" class="btn-outline full" onclick="showSignup()" style="font-weight:800;font-size:.95rem;padding:.7rem 1rem">Start your free 30 days &rarr;</button>
       <p style="margin:.55rem 0 0;font-size:.78rem;color:var(--muted)">Everything included. No bank details needed.</p>
     </div>
+    <p style="text-align:center;margin-top:.9rem;font-size:.85rem"><a href="https://www.drivemyway.co.uk" style="color:var(--navy);font-weight:700">&larr; Back to the website</a></p>
   </div>
   <div id="gate-mfa" class="hidden">
     <p class="sub">Two-factor authentication is on for this account. Enter the 6-digit code from your authenticator app.</p>
@@ -554,7 +555,7 @@ tbody tr:hover td{background:#334263}
       <div class="err" id="signup-err"></div>
       <p class="muted" style="font-size:.75rem;text-align:center;margin-top:.6rem">You get every feature, Premium included, for 30 days. Before your trial ends, choose Basic or Premium and set up your Direct Debit to carry on. Nothing is taken during the trial.</p>
     </div>
-    <p style="text-align:center;margin-top:1rem;font-size:.85rem;color:var(--muted)"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">← Back to sign in</a></p>
+    <p style="text-align:center;margin-top:1rem;font-size:.85rem;color:var(--muted)"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">&larr; Back to sign in</a> &nbsp;&middot;&nbsp; <a href="https://www.drivemyway.co.uk" style="color:var(--navy);font-weight:700">Back to the website</a></p>
   </div>
 </div>
 
@@ -2632,8 +2633,33 @@ async function saveProfilePanel(){
 let signupKind = null;
 
 function showSignup(){
+  logSignupStep("opened");
   document.getElementById("gate-signin").classList.add("hidden");
   document.getElementById("gate-signup").classList.remove("hidden");
+}
+
+/**
+ * One step of the public sign-up, for the funnel (Dale, 18 Sep 2026).
+ *
+ * signup_source only tells you where the accounts that exist came from. With 22
+ * landing page views and no trials there was no way to tell whether people were
+ * reaching this form at all, which is the difference between a marketing problem
+ * and a form problem.
+ *
+ * No account exists at this point and nothing here identifies anybody: it is the
+ * step reached plus the utm tags that were already in the link. Fire and forget,
+ * and wrapped, because measuring must never stop someone signing up.
+ */
+function logSignupStep(step, kind, detail){
+  try{
+    const s = rememberedSource() || {};
+    sb.rpc("record_signup_event", {
+      p_step: step, p_kind: kind || null,
+      p_source: s.source || null, p_medium: s.medium || null,
+      p_campaign: s.campaign || null, p_referrer: s.referrer || null,
+      p_detail: detail || null
+    }).then(function(){}, function(){});
+  }catch(e){}
 }
 function showSignin(){
   document.getElementById("gate-signup").classList.add("hidden");
@@ -2642,6 +2668,7 @@ function showSignin(){
   document.getElementById("signup-form-fields").classList.add("hidden");
 }
 function pickSignupKind(kind){
+  logSignupStep("kind_chosen", kind);
   signupKind = kind;
   document.getElementById("signup-kind-picker").classList.add("hidden");
   document.getElementById("signup-form-fields").classList.remove("hidden");
@@ -2705,7 +2732,7 @@ function showSignupEmailSent(email){
   document.getElementById("gate-signup").innerHTML =
     '<p class="sub">Almost there</p>' +
     '<p style="text-align:center;padding:1rem 0;line-height:1.5">We\'ve sent a confirmation link to <strong>' + email.replace(/[<>&]/g,"") + '</strong>. Click it and you\'re in: 30 days of everything, free.</p>' +
-    '<p style="text-align:center"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">← Back to sign in</a></p>';
+    '<p style="text-align:center"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">&larr; Back to sign in</a> &nbsp;&middot;&nbsp; <a href="https://www.drivemyway.co.uk" style="color:var(--navy);font-weight:700">Back to the website</a></p>';
 }
 
 const TEMP_EMAIL_MESSAGE = "Please sign up with your usual email address, not a temporary one.";
@@ -2725,9 +2752,10 @@ async function submitSignup(){
 
   // The hidden trap field (Dale, 14 Sep 2026): people never see it, so if it's filled in a bot is signing up.
   // Look as if it worked and create nothing.
-  if(document.getElementById("signup-website").value){ showSignupEmailSent(email); return; }
+  if(document.getElementById("signup-website").value){ logSignupStep("failed", signupKind, "honeypot"); showSignupEmailSent(email); return; }
 
   // Throwaway email services are refused (the database refuses them too); say so plainly before trying.
+  logSignupStep("submitted", signupKind);
   try{
     const { data: blocked } = await sb.rpc("email_domain_blocked", { p_email: email });
     if(blocked === true){ err.textContent = TEMP_EMAIL_MESSAGE; return; }
@@ -2764,6 +2792,7 @@ async function submitSignup(){
     try{ localStorage.removeItem(REFERRAL_KEY); }catch(e){}
 
     if(!signUpData.session){
+      logSignupStep("email_sent", signupKind);
       showSignupEmailSent(email);
       return;
     }
@@ -2775,6 +2804,7 @@ async function submitSignup(){
       : /Database error saving new user/i.test(msg) ? "Sign up failed. If you used a temporary email address, please use your usual one."
       : (msg || "Sign up failed");
     btn.disabled = false;
+    logSignupStep("failed", signupKind, msg.slice(0, 120));
     btn.textContent = "Start free trial";
   }
 }

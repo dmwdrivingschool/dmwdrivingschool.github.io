@@ -493,7 +493,13 @@ tbody tr:hover td{background:#334263}
     <button class="btn btn-navy full" onclick="unlock()">Sign in</button>
     <div class="err" id="gate-err"></div>
     <p style="text-align:center;margin-top:.8rem;font-size:.85rem"><a href="#" onclick="forgotPassword();return false" style="color:var(--navy);font-weight:600">Forgot password?</a></p>
-    <p style="text-align:center;margin-top:.6rem;font-size:.85rem;color:var(--muted)">New here? <a href="#" onclick="showSignup();return false" style="color:var(--navy);font-weight:700">Start your free trial</a></p>
+    <!-- A new instructor who clicks "Instructor login" on the website lands here, on a sign-in box
+         for an account they do not have. This was a 13.6px text link under it (Dale, 18 Sep 2026). -->
+    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--line);text-align:center">
+      <p style="margin:0 0 .6rem;font-size:.9rem;color:var(--muted)">Not got an account yet?</p>
+      <button type="button" class="btn-outline full" onclick="showSignup()" style="font-weight:800;font-size:.95rem;padding:.7rem 1rem">Start your free 30 days &rarr;</button>
+      <p style="margin:.55rem 0 0;font-size:.78rem;color:var(--muted)">Everything included. No bank details needed.</p>
+    </div>
   </div>
   <div id="gate-mfa" class="hidden">
     <p class="sub">Two-factor authentication is on for this account. Enter the 6-digit code from your authenticator app.</p>

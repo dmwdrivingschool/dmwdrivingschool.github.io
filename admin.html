@@ -3437,6 +3437,7 @@ function renderPupilDetailsCC(){
   return `<div class="summary-lines" style="margin-top:1rem">
       ${row("Terms Agreed",p.terms_accepted_at?"Yes":"No")}${row("Terms Accepted",when(p.terms_accepted_at))}
       ${row("Last Viewed App",p.last_app_viewed_at?when(p.last_app_viewed_at):"Never")}
+      ${row("Last Opened App",lastOpenedLabel(p.last_opened_at,p.app_version,p.app_platform)||(p.profile_id?"Never":"No app login yet"))}
       ${row("App Access",p.profile_id?"Linked":"Not linked")}
       ${row("Licence Type",p.licence_type)}${row("Theory Test",theory)}${row("Theory Cert",p.theory_cert_number)}
       ${p.enquiry_type?row("Enquiry Type",String(p.enquiry_type).replace(/_/g," ")):""}
@@ -4734,8 +4735,14 @@ function renderPupilTests(){
 }
 
 function renderPupilLogins(){
-  const {logins}=pupilDetail;
-  if(!logins.length) return '<p class="muted">No logins recorded yet</p>';
+  const {logins,p}=pupilDetail;
+  // Signing in happens once and then never again, so the list below says little about whether they
+  // actually use it. Every open is recorded too (Dale, 17 Sep 2026).
+  const opened=`<div style="border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;margin:0 0 .75rem">
+    <div class="muted" style="font-size:.8rem">Last opened the app</div>
+    <div style="font-weight:600">${esc(lastOpenedLabel(p.last_opened_at, p.app_version, p.app_platform) || (p.profile_id ? "Never opened" : "No app login yet"))}</div>
+  </div>`;
+  if(!logins.length) return opened+'<p class="muted">No logins recorded yet</p>';
   const rows=logins.map(l=>{
     const d=new Date(l.logged_in_at);
     // iPhone / Android and the app version, as in the app's Login tab (Dale, 14 Sep 2026). Logins from builds before
@@ -4744,7 +4751,7 @@ function renderPupilLogins(){
     const version=l.app_version?`App ${l.app_version}`:(l.platform&&l.platform!=="web"?"Not recorded":"");
     return `<tr><td>${d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})} ${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</td><td>${device?esc(device):`<span style="font-size:.75rem">${esc(l.user_agent||"")}</span>`}</td><td class="muted" style="font-size:.85rem">${esc(version)}</td></tr>`;
   }).join("");
-  return `<div style="max-height:60vh;overflow-y:auto"><table><thead><tr><th>When</th><th>Phone</th><th>App version</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return opened+`<div style="max-height:60vh;overflow-y:auto"><table><thead><tr><th>When</th><th>Phone</th><th>App version</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function row(k,v){return `<div style="padding:.4rem 0;border-bottom:1px solid #f1f5f9;font-size:.9rem"><strong style="color:#64748b;display:inline-block;min-width:110px">${k}</strong> ${esc(v||"—")}</div>`}
@@ -5857,7 +5864,8 @@ function openDiaryGap(prefill){
         ${diaryPupils().map(p=>`<label style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem"><input type="checkbox" class="gp-pupil-cb" value="${p.id}"> ${esc(p.first_name)} ${esc(p.last_name)}</label>`).join("")}
       </div>
     </div>
-    <div class="actions" style="margin-top:.75rem">
+    <div id="gp-offer-step" style="display:none;margin-top:.75rem"></div>
+    <div class="actions" id="gp-actions" style="margin-top:.75rem">
       <button type="submit" class="btn btn-navy btn-sm">Create gap</button>
       <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
     </div>
@@ -5883,8 +5891,68 @@ function gpApply(f){
   if(w) w.style.display=fieldChecked("gp-notify")?"":"none";
   if(s) s.style.display=fieldVal("gp-sendto")==="select"?"":"none";
 }
-function saveDiaryGap(){ return runOnce("saveDiaryGap", saveDiaryGapNow); }
-async function saveDiaryGapNow(){
+// Waiting-list matching on a gap — mirrors src/components/GapModal.tsx (Dale, 17 Sep 2026). Somebody on the
+// waiting list who has ticked they're free at this time is offered it as a pencilled-in lesson instead of the
+// slot going out to every active pupil. Accepting moves them to Active and clears the gap, in the database
+// (20260918_waiting_list_gap_offers.sql), so it works the same whichever end the offer came from.
+async function gapWaitingMatches(start,end){
+  const waiting=diaryPupils().filter(p=>p.status==="waiting");
+  if(!waiting.length) return [];
+  const owner=diaryOwnerId||currentUserId;
+  const ds=new Date(start); ds.setHours(0,0,0,0);
+  const de=new Date(ds); de.setDate(de.getDate()+1);
+  const {data:rows}=await sb.from("lessons").select("id,pupil_id,start_time,end_time,lesson_type,status,offer_status")
+    .eq("instructor_id",owner).gte("start_time",ds.toISOString()).lt("start_time",de.toISOString());
+  const day=rows||[];
+  const startMin=start.getHours()*60+start.getMinutes();
+  const endMin=startMin+Math.round((end-start)/60000);
+  const free=waiting.filter(p=>
+    avFitsWholeLesson(p,start,startMin,endMin,day) &&
+    // Already booked in at that time, whatever their availability says.
+    !day.some(l=>l.pupil_id===p.id&&l.status!=="cancelled"&&l.lesson_type!=="gap"
+      &&new Date(l.start_time)<end&&new Date(l.end_time)>start)
+  );
+  // Longest waiting at the top (Dale).
+  free.sort((a,b)=>new Date(a.status_changed_at||a.created_at||0)-new Date(b.status_changed_at||b.created_at||0));
+  return free;
+}
+function showGapOfferStep(matches){
+  const step=document.getElementById("gp-offer-step"), actions=document.getElementById("gp-actions");
+  if(!step||!actions) return;
+  const one=matches.length===1;
+  step.innerHTML=`<div style="border:1px solid var(--line);border-radius:10px;padding:.7rem .85rem">
+    <strong>${one?`${esc(matches[0].first_name)} is on your waiting list and free at this time.`:`${matches.length} pupils on your waiting list are free at this time.`}</strong>
+    <p class="muted" style="margin:.3rem 0 .5rem;font-size:.85rem">Offering it pencils the lesson in for them. They Accept or Decline in the app, and accepting moves them to Active.</p>
+    ${one?"":`<div style="max-height:150px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin-bottom:.6rem">${matches.map((p,i)=>`<label style="display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem"><input type="checkbox" class="gp-offer-cb" value="${p.id}" checked><span style="flex:1">${esc(p.first_name)} ${esc(p.last_name||"")}</span>${i===0?'<span class="muted" style="font-size:.75rem">waiting longest</span>':""}</label>`).join("")}</div>`}
+    <div style="display:flex;flex-direction:column;gap:.4rem">
+      <button type="button" class="btn btn-navy btn-sm" onclick="gapOfferChoice(true,false)">${one?`Offer it to ${esc(matches[0].first_name)}`:"Offer it to them"}</button>
+      <button type="button" class="btn-outline btn-sm" onclick="gapOfferChoice(true,true)">Offer it to them and send the gap as well</button>
+      <button type="button" class="btn-outline btn-sm" onclick="gapOfferChoice(false,true)">No, just send the gap as normal</button>
+      <button type="button" class="btn-outline btn-sm" onclick="hideGapOfferStep()">Back to the gap</button>
+    </div>
+  </div>`;
+  gapOfferMatches=matches;
+  step.style.display=""; actions.style.display="none";
+}
+function hideGapOfferStep(){
+  const step=document.getElementById("gp-offer-step"), actions=document.getElementById("gp-actions");
+  if(step){ step.style.display="none"; step.innerHTML=""; }
+  if(actions) actions.style.display="";
+}
+var gapOfferMatches=[];
+function gapOfferChoice(offer, notifyOthers){
+  let ids=[];
+  if(offer){
+    ids=gapOfferMatches.length===1 ? [gapOfferMatches[0].id]
+      : [...document.querySelectorAll(".gp-offer-cb:checked")].map(el=>el.value);
+    if(!ids.length) return alert("Tick at least one pupil, or choose to send the gap as normal.");
+  }
+  hideGapOfferStep();
+  return runOnce("saveDiaryGap", ()=>saveDiaryGapNow(ids, notifyOthers));
+}
+
+function saveDiaryGap(){ return runOnce("saveDiaryGap", ()=>saveDiaryGapNow(null, true)); }
+async function saveDiaryGapNow(offerIds, notifyOthers){
   const form=document.getElementById("gp-form");
   if(form&&!form.reportValidity()) return;
   const duration=Number(val("gp-duration"));
@@ -5894,6 +5962,15 @@ async function saveDiaryGapNow(){
   const end=new Date(start.getTime()+duration*60000);
   const gearbox=document.getElementById("gp-gearbox").value;
   const session=(await sb.auth.getSession()).data.session;
+
+  // offerIds null means nobody has been asked yet: ask before anything is created or sent.
+  if(offerIds===null){
+    let matches=[];
+    try{ matches=await gapWaitingMatches(start,end); }catch(e){ matches=[]; }
+    if(matches.length) return showGapOfferStep(matches);
+    offerIds=[];
+  }
+
   const {error}=await sb.from("lessons").insert({
     lesson_type:"gap", title:"Gap", start_time:start.toISOString(), end_time:end.toISOString(),
     status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:diaryOwnerId||session?.user?.id||null, gearbox
@@ -5901,7 +5978,19 @@ async function saveDiaryGapNow(){
   if(error) return alert(error.message);
   draftSaved();
 
-  if(document.getElementById("gp-notify").checked){
+  // The same pencilled-in offer as Pencil in on the diary, so the pupil's Accept / Decline is unchanged.
+  for(const pupilId of (offerIds||[])){
+    const {data:offer,error:offerErr}=await sb.from("lessons").insert({
+      lesson_type:"lesson_offer", pupil_id:pupilId, start_time:start.toISOString(), end_time:end.toISOString(),
+      status:"booked", payment_status:"unpaid", instructor_id:diaryOwnerId||session?.user?.id||null,
+      gearbox, offer_lesson_type:"lesson"
+    }).select("id").single();
+    if(offerErr||!offer){ alert("The gap was created, but the offer could not be sent: "+(offerErr?offerErr.message:"unknown error")); continue; }
+    try{ await sendLessonOffer(offer.id, pupilId, start, "lesson"); }
+    catch(e){ alert("The gap was created, but the offer could not be sent: "+(e&&e.message?e.message:"unknown error")); }
+  }
+
+  if(notifyOthers && document.getElementById("gp-notify").checked){
     const sendTo=document.getElementById("gp-sendto").value;
     let targets=diaryPupils();
     if(sendTo==="active") targets=diaryPupils().filter(p=>p.status==="active");
@@ -5911,6 +6000,8 @@ async function saveDiaryGapNow(){
       const selected=[...document.querySelectorAll(".gp-pupil-cb:checked")].map(el=>el.value);
       targets=diaryPupils().filter(p=>selected.includes(p.id));
     }
+    // Anyone just pencilled in has had their own offer — not the open "first come, first served" message too.
+    targets=targets.filter(p=>!(offerIds||[]).includes(p.id));
     const when=start.toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
     const body=`Gap available: ${when} (${duration} mins, ${gearbox}). Open the app and tap Book on this slot if you want it.`;
     if(targets.length){
@@ -11556,7 +11647,7 @@ async function renderNewsTab(content){
   const items=error
     ? `<p class="muted">${esc(error.message)}</p>`
     : (data||[]).length
-    ? (data||[]).map(a=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><strong>📣 ${esc(a.title)}</strong><span class="chip chip-info">${a.school_id?"Your driving school":"Drive My Way"}</span></div><div class="muted" style="font-size:.75rem;margin:.1rem 0 .35rem">${when(a.created_at)}</div><div style="white-space:pre-wrap;font-size:.9rem;overflow-wrap:anywhere">${esc(a.body)}</div></div></div>`).join("")
+    ? (data||[]).map(a=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><strong>📣 ${esc(a.title)}</strong><span class="chip chip-info">${a.school_id?"Your driving school":"Drive My Way"}</span></div><div class="muted" style="font-size:.75rem;margin:.1rem 0 .35rem">${when(a.created_at)}</div><div style="white-space:pre-wrap;font-size:.9rem;overflow-wrap:anywhere">${esc(a.body)}</div>${canPost?`<div class="muted" id="news-seen-${a.id}" style="font-size:.75rem;margin-top:.45rem">Counting who has read it…</div>`:""}</div></div>`).join("")
     : '<p class="muted">No news yet.</p>';
   content.innerHTML=`<h2>Messages</h2>${msgTabsHtml()}
     <p class="muted" style="margin:0 0 .75rem">${intro}</p>
@@ -11567,6 +11658,26 @@ async function renderNewsTab(content){
     <h3 style="margin:1.4rem 0 .3rem">${canPost?"Posted":"News"}</h3>
     <div>${items}</div>`;
   updateMessagesBadge();
+  if(canPost) loadNewsSeenCC(data||[]);
+}
+
+// "Seen by 3 of 9", and the names when you tap it (news_seen_summary; only the poster or a super admin
+// may ask). One call per post, and a post nobody could see yet just says so.
+async function loadNewsSeenCC(rows){
+  for(const a of rows){
+    const box=document.getElementById("news-seen-"+a.id);
+    if(!box) continue;
+    const {data,error}=await sb.rpc("news_seen_summary",{p_announcement:a.id});
+    const r=Array.isArray(data)?data[0]:data;
+    if(error||!r){ box.textContent=error?("Seen by: "+error.message):"Seen by: not available"; continue; }
+    const seenNames=(r.seen_names||[]).join(", ");
+    const notNames=(r.not_seen_names||[]).join(", ");
+    box.innerHTML=`👁 Seen by ${r.seen} of ${r.total}${r.total?` · <a href="#" onclick="event.preventDefault();this.parentElement.querySelector('.news-seen-names').hidden=!this.parentElement.querySelector('.news-seen-names').hidden">who</a>`:""}
+      <div class="news-seen-names" hidden style="margin-top:.25rem">
+        ${seenNames?`<div><strong>Read:</strong> ${esc(seenNames)}</div>`:""}
+        ${notNames?`<div><strong>Not yet:</strong> ${esc(notNames)}</div>`:""}
+      </div>`;
+  }
 }
 async function postNewsCC(){
   return runOnce("post-news", async()=>{
@@ -11888,7 +11999,7 @@ async function loadTeamsPanel(){
 
     const [{data:schools}, {data:instructors}] = await Promise.all([
       sb.from("schools").select("id,display_name,name,locked_at").order("display_name"),
-      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at").in("role",["instructor","super_admin"]).order("full_name")
+      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at,last_opened_at,app_version,app_platform").in("role",["instructor","super_admin"]).order("full_name")
     ]);
     const schoolRows = schools||[];
     // A super admin in a driving school is listed under it, so Dale shows under his own (Dale, 14 Sep 2026).
@@ -12129,6 +12240,28 @@ function accountHidden(ownerType, ownerId){
   return !!(p && Date.now() >= new Date(p.paused_since).getTime() + HIDE_PAUSED_AFTER_DAYS*86400000);
 }
 function shortDate(d){ return d ? new Date(String(d).length===10 ? d+"T12:00:00" : d).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : ""; }
+// When somebody last opened the app, in the same words the app itself uses (src/lib/appOpen.ts).
+// Signing in happens once and then never again, so it says nothing about who is actually using it;
+// every open is recorded instead (Dale, 17 Sep 2026: "is anyone actually using this?").
+const APP_PLATFORM_LABELS={ios:"iPhone",android:"Android",web:"Web browser"};
+function lastOpenedLabel(openedAt, version, platform){
+  if(!openedAt) return "";
+  const when=new Date(openedAt);
+  if(isNaN(when.getTime())) return "";
+  const time=when.toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"});
+  const today=new Date(); today.setHours(0,0,0,0);
+  const days=Math.round((today.getTime()-new Date(when).setHours(0,0,0,0))/86400000);
+  let label;
+  if(days<=0) label="today "+time;
+  else if(days===1) label="yesterday "+time;
+  else if(days<7) label=days+" days ago";
+  else label=when.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  const bits=[];
+  if(version && version!=="web") bits.push("app "+version);
+  const platformLabel=platform ? (APP_PLATFORM_LABELS[platform]||platform) : "";
+  if(platformLabel) bits.push(bits.length ? "on "+platformLabel : platformLabel);
+  return bits.length ? label+" · "+bits.join(" ") : label;
+}
 // A name capitalised; an email address (used when there's no name) left as it is.
 function displayName(n){ n=String(n||""); return n.includes("@") ? n : nameCase(n); }
 // What an account pays a month at today's prices (during the free trial, for the plan chosen for afterwards).
@@ -12288,6 +12421,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
     + (fullControls ? accountChips('instructor', i.id) : "")
     + (isMe ? ' <span class="muted" style="font-size:.75rem">(you)</span>' : "")
     + `<div class="muted">${esc(i.email||"")}${(fullControls && !(opts&&opts.hideSchool))?" · "+schoolLabel:""}</div>`
+    + (fullControls ? `<div class="muted">Last opened: ${esc(lastOpenedLabel(i.last_opened_at, i.app_version, i.app_platform) || "never")}</div>` : "")
     + (fullControls ? accountBillingLines(sub, 'instructor', i.id) : "");
 
   if(!fullControls){
@@ -13250,7 +13384,13 @@ function daysAgo(dateStr){
 }
 
 async function showInstructorDetail(instructorId){
-  const {data:i} = await sb.from("profiles").select("id,full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode,school_id,is_school_admin,created_at").eq("id",instructorId).single();
+  const {data:i} = await sb.from("profiles").select("id,full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode,school_id,is_school_admin,created_at,last_opened_at,app_version,app_platform").eq("id",instructorId).single();
+  // How much they're actually using it, not just that they signed in once. Super admin only.
+  let opens7 = null;
+  if(isSuperAdminUser){
+    const {data:n} = await sb.rpc("app_opens_last_7_days", {p_profile: instructorId});
+    if(typeof n === "number") opens7 = n;
+  }
   // On a school seat, billing is the school's subscription, not their own.
   const {data:sub} = i.school_id
     ? await sb.from("subscriptions").select("id,plan,status,trial_ends_at,current_period_end,past_due_since,manual_payment_note,seats_purchased").eq("owner_type","school").eq("owner_id",i.school_id).maybeSingle()
@@ -13295,6 +13435,10 @@ async function showInstructorDetail(instructorId){
     <div class="field"><label>ADI/PDI badge number</label><p>${i.adi_badge_number?esc(i.adi_badge_number):'<span class="muted">Not provided yet</span>'}</p></div>
     <div class="field"><label>School</label><p>${school?esc(school.display_name||school.name):"Solo"}${i.is_school_admin?" (admin)":""}</p></div>
     <div class="field"><label>Signed up</label><p>${daysAgo(i.created_at)||"—"}</p></div>
+    <div class="field"><label>App use</label>
+      <p>${esc(lastOpenedLabel(i.last_opened_at, i.app_version, i.app_platform) || "Never opened the app")}</p>
+      ${opens7===null?"":`<p class="muted">Opened ${opens7} time${opens7===1?"":"s"} in the last 7 days</p>`}
+    </div>
     ${billingBlock}
     ${paymentsBlock}
     <button class="btn-outline" onclick="closeModal()">Close</button>`);

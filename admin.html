@@ -3623,16 +3623,10 @@ function togglePupilMessagingCC(){
   });
 }
 
-// What changing a pupil's status also does, as in the app's updateStatus (Dale, 16 Sep 2026): the database now turns messaging
-// on for Active and off for Waiting, so nothing is set here. afterStatusChangeCC sends "You are on the waiting list" when an
-// enquiry moves to Waiting, word for word as the app (trg_messages_signoff_instructor_name swaps "DMW Driving School" for the
-// sending instructor's own business name).
-async function afterStatusChangeCC(pupilId,prevStatus,status,firstName){
-  if(!(prevStatus==="enquiry"&&status==="waiting")) return;
-  const body=`Hi ${firstName||""},\n\nGood news — your enquiry has been reviewed and you have been moved to the waiting list.\n\nWe will be in touch as soon as a suitable slot is available.\n\nThank you,\nDMW Driving School`;
-  const {data:msg}=await sb.from("messages").insert({pupil_id:pupilId,subject:"You are on the waiting list",body,direction:"outbound"}).select("id").maybeSingle();
-  if(msg&&msg.id) triggerMsgPush(msg.id);
-}
+// Status side effects live in the database now (Dale, 19 Sep 2026). trg_pupils_waiting_list_message sends
+// "You are on the waiting list" when an enquiry is accepted onto the list, and trg_pupils_accepted_message
+// sends "You are now an active pupil" when they come off it — both fire whichever screen made the change,
+// so the Control Centre and the app cannot drift apart. Messaging on/off is the database's job too.
 
 // Lesson types: which show in the Type lists and in what order (Dale, 13 Sep 2026). The same app_settings row
 // (id 'lesson_types', {order, hidden}) as the app's Settings → Diary Colours & Types, so changing it in either
@@ -5062,13 +5056,10 @@ async function savePupil(id){
     try{ await manageAuthAdmin("update_pupil_email",{pupil_id:id,email:nextEmail}); }
     catch(e){ return alert((e&&e.message)||"Failed to update pupil"); }
   }
-  // Status side effects, as in the app: the database sets messaging; afterStatusChangeCC sends the waiting-list message.
-  const statusChanged=!!saved&&saved.status!==payload.status;
   if(!nowPassed){
     const {error}=await sb.from("pupils").update(payload).eq("id",id);
     if(error) return alert(error.message);
   }
-  if(statusChanged) await afterStatusChangeCC(id,saved.status,payload.status,payload.first_name);
   // Work / School / Other: add, correct, or clear (clearing a box removes it), the same locations rows the pupil edits.
   for(const label of PUPIL_OTHER_ADDRESS_LABELS){
     const el=document.getElementById("ep-loc-"+label); if(!el) continue;
@@ -5216,7 +5207,7 @@ async function assignEnquiryInstructor(pupilId, instructorId){
   if(p) p.instructor_id = value;
 }
 // The one status-change path (Dale, 16 Sep 2026). The database sets messaging (on for Active, off for Waiting); an enquiry
-// accepted onto the waiting list is sent the waiting-list message (afterStatusChangeCC); Passed goes through markPupilPassed,
+// accepted onto the waiting list is sent the waiting-list message by a trigger; Passed goes through markPupilPassed,
 // which asks first. 'deleted' is never set here: that's Delete (removePupil) or Decline (declineEnquiryCC).
 async function setStatus(id,status){
   if(status==="deleted") return;
@@ -5227,7 +5218,6 @@ async function setStatus(id,status){
   }
   const {error}=await sb.from("pupils").update({status}).eq("id",id);
   if(error) return alert(error.message);
-  if(prev&&prev.status!==status) await afterStatusChangeCC(id,prev.status,status,prev.first_name);
   refresh();
 }
 // Marking a pupil as passed, from anywhere (Dale, 16 Sep 2026): always asks, then only sets the status. Nothing is deleted

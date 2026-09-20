@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Set up your Drive My Way app</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <!--
+    The far end of a texted invite link (Dale, 20 Sep 2026): app-invite.html?t=<token>.
+
+    An instructor with a pupil's mobile but not their email had no way to get them into the app — the Invite
+    button needs an email, and the enquiry-form link would have created a second copy of a pupil who already
+    exists. The instructor now texts this link from their own phone; the pupil types their own email and a
+    password here, and pupil-invite attaches the account to the record they are already on.
+
+    Written for a phone held in one hand: one column, big fields, nothing to read before the first box.
+  -->
+  <style>
+    :root { --navy:#0A2A5E; --blue:#0A4CA1; --line:#e2e8f0; --muted:#64748b; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#eef2f6; font-family:"Segoe UI", system-ui, sans-serif; color:#1e293b; line-height:1.5; }
+    .top { background:#fff; border-bottom:1px solid var(--line); padding:18px 16px 14px; text-align:center; }
+    .top img { height:44px; display:block; margin:0 auto 8px; }
+    .top h1 { margin:0; font-size:1.15rem; color:var(--navy); }
+    .top p { margin:6px 0 0; color:var(--muted); font-size:.92rem; }
+    .wrap { max-width:460px; margin:0 auto; padding:18px 16px 40px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px 18px; box-shadow:0 4px 14px rgba(0,0,0,.05); }
+    label { display:block; font-weight:600; margin:0 0 6px; font-size:.95rem; }
+    input { width:100%; padding:14px; font-size:1rem; border:1.5px solid var(--line); border-radius:10px; font-family:inherit; }
+    input:focus { outline:none; border-color:var(--blue); }
+    .field { margin-bottom:16px; }
+    .hint { color:var(--muted); font-size:.85rem; margin:6px 0 0; }
+    button.go { width:100%; padding:16px; font-size:1.05rem; font-weight:700; color:#fff; background:var(--blue); border:none; border-radius:10px; cursor:pointer; }
+    button.go[disabled] { opacity:.6; cursor:default; }
+    .err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; padding:12px 14px; margin:0 0 16px; font-size:.92rem; display:none; }
+    .done h2 { margin:0 0 10px; font-size:1.2rem; color:var(--navy); }
+    .done p { margin:0 0 14px; }
+    .badges { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:18px 0 6px; }
+    .badges a { display:block; }
+    .badges img { height:48px; display:block; }
+    .foot { text-align:center; color:var(--muted); font-size:.8rem; margin:18px 0 0; }
+    .foot a { color:var(--muted); }
+  </style>
+</head>
+<body>
+
+<div class="top">
+  <img src="drive-my-way-logo.png" alt="Drive My Way">
+  <h1 id="head">Set up your app</h1>
+  <p id="sub">One moment…</p>
+</div>
+
+<div class="wrap">
+  <div class="card" id="card">
+    <p class="hint" id="loading">Checking your link…</p>
+
+    <form id="form" style="display:none" autocomplete="on">
+      <div class="err" id="err"></div>
+      <div class="field">
+        <label for="email">Your email address</label>
+        <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required>
+        <p class="hint">This is what you'll sign in with, and where a reset goes if you forget your password.</p>
+      </div>
+      <div class="field">
+        <label for="pw">Choose a password</label>
+        <input id="pw" type="password" autocomplete="new-password" placeholder="At least 8 characters" required>
+      </div>
+      <button class="go" id="go" type="submit">Set up my app</button>
+    </form>
+
+    <div class="done" id="done" style="display:none"></div>
+  </div>
+  <p class="foot"><a href="https://www.drivemyway.co.uk/privacy">Privacy</a> · Drive My Way</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  const SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+  const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4Y3FteXhicGp1ZWV6YXBrbmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUxNzAsImV4cCI6MjEwMTY4MTE3MH0.Qk46wzUGpDHlsqGvsImE9HdrrosL3ERKVbxDUsP4A30";
+  const APP_STORE = "https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508";
+  const PLAY_STORE = "https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor";
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  const token = new URLSearchParams(location.search).get("t") || "";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+  function stop(message) {
+    $("loading").style.display = "none";
+    $("form").style.display = "none";
+    $("sub").textContent = "";
+    $("done").style.display = "block";
+    $("done").innerHTML = "<h2>This link can't be used</h2><p>" + esc(message) + "</p>";
+  }
+
+  function finished(firstName, linkedExisting) {
+    $("head").textContent = firstName ? ("You're all set, " + firstName) : "You're all set";
+    $("sub").textContent = "";
+    $("form").style.display = "none";
+    $("done").style.display = "block";
+    $("done").innerHTML =
+      "<h2>Now download the app</h2>" +
+      "<p>" + (linkedExisting
+        ? "You already had a Drive My Way login with that email, so we've connected it. Sign in with the password you already use."
+        : "Sign in with the email address and password you've just chosen.") + "</p>" +
+      '<div class="badges">' +
+      '<a href="' + APP_STORE + '"><img src="app-store-badge.svg" alt="Download on the App Store"></a>' +
+      '<a href="' + PLAY_STORE + '"><img src="google-play-badge-trimmed.png" alt="Get it on Google Play"></a>' +
+      "</div>";
+  }
+
+  async function start() {
+    if (!token) return stop("The link is incomplete. Ask your instructor to send it again.");
+    let info = null;
+    try {
+      const { data, error } = await sb.rpc("pupil_invite_info", { p_token: token });
+      if (error) throw error;
+      info = data;
+    } catch (e) {
+      return stop("We couldn't check this link. Please try again in a moment.");
+    }
+    if (!info) return stop("This link has expired or has already been used. Ask your instructor for a new one.");
+    if (info.already_has_login) return stop("You already have a Drive My Way login. Open the app and sign in, or tap Forgot password.");
+    if (!info.valid) return stop("This link has expired or has already been used. Ask your instructor for a new one.");
+
+    $("head").textContent = info.first_name ? ("Hi " + info.first_name) : "Set up your app";
+    $("sub").textContent = info.instructor
+      ? ("Set up your Drive My Way app with " + info.instructor + ".")
+      : "Set up your Drive My Way app.";
+    $("loading").style.display = "none";
+    $("form").style.display = "block";
+  }
+
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const err = $("err");
+    err.style.display = "none";
+    const email = $("email").value.trim();
+    const password = $("pw").value;
+    if (password.length < 8) {
+      err.textContent = "Please choose a password of at least 8 characters.";
+      err.style.display = "block";
+      return;
+    }
+    $("go").disabled = true;
+    $("go").textContent = "Setting up…";
+    try {
+      const res = await fetch(SUPABASE_URL + "/functions/v1/pupil-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON, Authorization: "Bearer " + SUPABASE_ANON },
+        body: JSON.stringify({ token: token, email: email, password: password }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || out.error) throw new Error(out.error || "Something went wrong.");
+      finished(out.first_name, out.linked_existing);
+    } catch (e2) {
+      err.textContent = (e2 && e2.message) ? e2.message : "Something went wrong. Please tell your instructor.";
+      err.style.display = "block";
+      $("go").disabled = false;
+      $("go").textContent = "Set up my app";
+    }
+  });
+
+  start();
+</script>
+
+</body>
+</html>

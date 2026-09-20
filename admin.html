@@ -3606,12 +3606,45 @@ function renderPupilAppActionsCC(){
     </div>`:"";
   return `<div style="margin-top:1rem"><div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:.4rem">Pupil App</div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-      <button class="btn-outline btn-sm" onclick="pupilAppInviteCC()">Invite</button>
-      <button class="btn-outline btn-sm" onclick="pupilSetPasswordCC()">Password</button>
+      <button class="btn-outline btn-sm" onclick="pupilLoginLinkCC()">Send login link</button>
       <button class="btn-outline btn-sm" onclick="forceLogoutPupilCC()">Log Out App</button>
     </div>${msg}</div>`;
 }
-// The app's appInvite: a pupil with a login (profile_id) gets a password reset link, one without gets a login made and the
+// --- Send login link (Dale, 20 Sep 2026) ---------------------------------------------------------------
+// One button in place of Invite and Password, which did exactly the same two things in different words. The
+// instructor never picks between "invite" and "reset"; the pupil's state decides that. They only choose HOW
+// to send it, and only from what that pupil's details allow.
+//
+// Copy link is the one that matters here: it makes a one-time link (create_pupil_app_invite) for a pupil with
+// no email at all, to paste into a text or WhatsApp. The pupil types their own email and password on
+// app-invite.html and it attaches to the record they are already on — Raymond's Aimee had a mobile and no
+// email, so there was no way in before this. In the app the same button texts it directly.
+function pupilLoginLinkCC(){
+  const p=pupilDetail&&pupilDetail.p; if(!p) return;
+  const hasLogin=!!p.profile_id, hasEmail=!!(p.email&&p.email.trim());
+  if(!hasEmail&&hasLogin) return alert(`${p.first_name} already has an app login. If they can't get in, add their email on the Edit screen and you can send a reset link.`);
+  if(!hasEmail){
+    if(!confirm(`${p.first_name} has no email address.\n\nCopy a one-time link instead? Send it by text or WhatsApp and they'll choose their own email and password, which also fills in the email you're missing.`)) return;
+    return pupilCopyLoginLinkCC();
+  }
+  const byEmail=confirm(hasLogin
+    ? `Email ${p.first_name} a link to get back into the app? It goes to ${p.email}.\n\nOK to email it, or Cancel to copy a link you can text instead.`
+    : `Email ${p.first_name} a link to set up the app? It goes to ${p.email}.\n\nOK to email it, or Cancel to copy a link you can text instead.`);
+  if(byEmail) return pupilAppInviteCC();
+  return pupilCopyLoginLinkCC();
+}
+async function pupilCopyLoginLinkCC(){
+  const p=pupilDetail&&pupilDetail.p; if(!p) return;
+  try{
+    const {data,error}=await sb.rpc("create_pupil_app_invite",{p_pupil:p.id});
+    if(error) throw error;
+    const url="https://web.drivemyway.co.uk/app-invite.html?t="+encodeURIComponent(data);
+    const text=`Hi ${p.first_name}, here's your link to set up the Drive My Way app: ${url}`;
+    try{ await navigator.clipboard.writeText(text); alert("Copied. Paste it into a text or WhatsApp to "+p.first_name+".\n\nThe link works once and lasts 7 days."); }
+    catch(e){ prompt("Copy this and send it to "+p.first_name+":", text); }
+  }catch(e){ alert("Could not make a link: "+((e&&e.message)||"Unknown error")); }
+}
+// The email route, unchanged: a pupil with a login (profile_id) gets a password reset link, one without gets a login made and the
 // set-password email (manage-auth reset_pupil_password / create_pupil_login). Needs an email (Dale, 16 Sep 2026).
 function pupilAppInviteCC(){
   const p=pupilDetail&&pupilDetail.p; if(!p) return;
@@ -3626,20 +3659,6 @@ function pupilAppInviteCC(){
       else{ await manageAuthAdmin("create_pupil_login",{pupil_id:p.id}); alert(`Invite sent to ${p.email}. They'll get an email with a link to set their password and download the app.`); }
       await refreshPupilDetail();
     }catch(e){ alert("Invite failed: "+((e&&e.message)||"Unknown error")); }
-  });
-}
-// The app's Password: the same two manage-auth actions, worded as a password reset (Dale, 16 Sep 2026).
-function pupilSetPasswordCC(){
-  const p=pupilDetail&&pupilDetail.p; if(!p) return;
-  return runOnce("pupil-invite-"+p.id, async()=>{
-    if(!p.email) return alert("Pupil needs an email address first (Edit)");
-    const hasLogin=!!p.profile_id;
-    if(!confirm(hasLogin?`Send ${p.first_name} a password reset link to ${p.email}?`:`${p.first_name} has no app login yet. Create one and send a password reset link to ${p.email}?`)) return;
-    try{
-      if(hasLogin){ await manageAuthAdmin("reset_pupil_password",{pupil_id:p.id}); alert(`Password reset link sent to ${p.email}. The pupil can use the link to choose a new password.`); }
-      else{ await manageAuthAdmin("create_pupil_login",{pupil_id:p.id}); alert(`Login created for ${p.email} and a password reset link has been sent. The pupil can use the link to choose their password.`); }
-      await refreshPupilDetail();
-    }catch(e){ alert("Password reset failed: "+((e&&e.message)||"Unknown error")); }
   });
 }
 // The app's Log out app: stamps pupils.force_logout_at, and the pupil app signs them out when it next opens (Dale, 16 Sep 2026).

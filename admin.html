@@ -8696,10 +8696,24 @@ async function openSettings(which){
       <div class="set-save"><button class="btn btn-navy btn-sm" id="tb-save" onclick="saveThenBack(saveTestBookingHelp,'tb-save')">Save</button><div class="err" id="tb-err" style="display:block"></div></div>`;
     tbTimesChanged();
   } else if(which==="enquiryWidget"){
-    const snippet = buildEnquirySnippet(currentUserId);
-    // A direct link to the same form as the embed code (Dale, 13 Sep 2026), for
-    // anywhere code can't be pasted. Each instructor has their own, and a
-    // driving school admin also gets the driving school's.
+    // ONE form per account, and which one you get depends on who you are (Dale, 20 Sep 2026: "a solo
+    // instructor should just have 1 type of form. driving school should have 1 form, instructor under school
+    // shouldnt have a form"). A driving school collects its own enquiries and hands them out; an instructor
+    // inside that school doesn't recruit separately, so they have no form at all. Before this, a school admin
+    // saw both theirs and the school's, which only meant choosing between two links that looked identical.
+    const runsSchool = !!(isSchoolAdminUser && currentSchoolId);
+    const underSchool = !!currentSchoolId && !isSchoolAdminUser;
+    if(underSchool){
+      panel.innerHTML=`${settingsHeadHtml("Your Enquiry Form")}
+        <p class="muted" style="margin-bottom:.75rem">New pupils come in through your driving school's own enquiry form, and your school decides who each one goes to. There's nothing to set up here.</p>
+        <p class="muted" style="margin-bottom:.75rem">Taking on someone you already know? Add them on the Pupils tab with their email and press Invite, and they'll get their app login.</p>`;
+      return;
+    }
+    const snippet = runsSchool ? buildSchoolEnquirySnippet(currentSchoolId) : buildEnquirySnippet(currentUserId);
+    // A direct link to the same form as the embed code (Dale, 13 Sep 2026), for anywhere code can't be
+    // pasted. The link always carries the instructor id, because the form's availability grid and gearbox
+    // wording come from whoever generated it; `&s=` is what decides the enquiry lands with the school
+    // unassigned rather than on one person.
     const formLink=(i,s)=>`https://web.drivemyway.co.uk/enquiry-form.html?i=${i}${s?`&s=${s}`:""}`;
     const linkBlock=(url,id)=>`<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.2rem 0 .3rem">
         <input id="${id}" readonly value="${esc(url)}" onclick="this.select()" style="flex:1;min-width:240px;font-family:var(--fm);font-size:.78rem;padding:.55rem .7rem;border:1.5px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text)">
@@ -8707,20 +8721,13 @@ async function openSettings(which){
         <a class="btn-outline btn-sm" href="${esc(url)}" target="_blank" rel="noopener" style="text-decoration:none">Open</a>
       </div>
       <div id="${id}-copied" class="muted" style="display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>`;
-    const schoolBlock = (isSchoolAdminUser && currentSchoolId) ? `
-      <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--line)">
-      <h3 style="margin:0 0 .75rem">Driving School Enquiry Form</h3>
-      <p class="muted" style="margin-bottom:.75rem">Use this one for a general "enquire with our driving school" form. Leads land unassigned in your Enquiries tab so you can hand each one to whichever instructor should take it, rather than always going to you.</p>
-      <h4 style="margin:.6rem 0 .3rem">Direct Link</h4>
-      ${linkBlock(formLink(currentUserId,currentSchoolId),"school-enquiry-link")}
-      <h4 style="margin:1rem 0 .3rem">Embed Code for Your Website</h4>
-      <textarea readonly rows="12" style="width:100%;font-family:var(--fm);font-size:.72rem;padding:.75rem;border:1.5px solid var(--line);border-radius:3px;background:var(--surface-2);color:var(--text)" onclick="this.select()">${esc(buildSchoolEnquirySnippet(currentSchoolId))}</textarea>
-      <button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="copySchoolEnquirySnippet()">Copy Embed Code</button>
-      <div id="school-enquiry-widget-copied" class="muted" style="margin-top:.5rem;display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>` : "";
+    const linkId = runsSchool ? "school-enquiry-link" : "enquiry-link";
     // New pupils can sign themselves up (Dale, 16 Sep 2026): texting them this link means they fill in their own details and choose their app password.
     panel.innerHTML=`${settingsHeadHtml("Your Enquiry Form")}
       <div style="margin:0 0 .9rem;padding:.7rem .85rem;background:#eef4ff;border:1px solid #bfd3f5;border-radius:.5rem;color:#0f172a;font-size:.9rem"><strong>Taking on a new pupil?</strong> Text or WhatsApp them your link below. They fill in their own details and choose their app password, so they're signed up without you typing anything. For a pupil you've already added, add their email on their page and press Invite instead.</div>
-      <p class="muted" style="margin-bottom:.75rem">Your own three-step enquiry form: details, availability (built from each day's Working Hours), then a summary. Leads come straight to you, not anyone else on the platform. Share the link, paste the embed code into your website, or both: they're the same form.</p>
+      <p class="muted" style="margin-bottom:.75rem">${runsSchool
+        ? "Your driving school's three-step enquiry form: details, availability (built from each day's Working Hours), then a summary. Enquiries land unassigned on your Pupils tab, so you can hand each one to whichever instructor should take it. Share the link, paste the embed code into your website, or both: they're the same form."
+        : "Your own three-step enquiry form: details, availability (built from each day's Working Hours), then a summary. Leads come straight to you, not anyone else on the platform. Share the link, paste the embed code into your website, or both: they're the same form."}</p>
       <p class="muted" style="margin:-.35rem 0 .75rem;font-size:.85rem">${(isSuperAdminUser||canSeeVideosTab) ? "With Premium, the link shows your logo and driving school name at the top." : "Without Premium, the form shows the Drive My Way logo with “on behalf of” your name. With Premium, the link shows your own logo and driving school name."} Both have a small “Form provided by Drive My Way” line at the bottom. Pasted the embed code before? Copy it again to pick this up.</p>
       <div class="field" style="max-width:340px"><label>Gearbox on the Form</label>
         <select id="enquiry-gearbox" onchange="saveEnquiryGearbox(this.value)">
@@ -8739,14 +8746,14 @@ async function openSettings(which){
       <p class="muted" style="margin:-.25rem 0 .75rem;font-size:.8rem">Leave it empty to use the email you sign in with. <button class="btn btn-navy btn-sm" style="margin-left:.4rem" onclick="saveEnquiryEmailCC()">Save</button> <span id="enquiry-email-saved" style="display:none;color:#0a7a3d;font-weight:700">Saved ✓</span> <span id="enquiry-email-err" class="err" style="display:inline"></span></p>
       <h4 style="margin:1rem 0 .3rem">Direct Link</h4>
       <p class="muted" style="margin:0 0 .4rem;font-size:.85rem">Share it anywhere you can't paste code: Facebook, Instagram, WhatsApp, your Google Business Profile or a text message.</p>
-      ${linkBlock(formLink(currentUserId),"enquiry-link")}
+      ${linkBlock(runsSchool ? formLink(currentUserId,currentSchoolId) : formLink(currentUserId), linkId)}
       <h4 style="margin:1rem 0 .3rem">Embed Code for Your Website</h4>
       <p class="muted" style="margin:0 0 .4rem;font-size:.85rem">Paste this into your own website. Most site builders have an "HTML" or "Embed" block.</p>
       <textarea readonly rows="12" style="width:100%;font-family:var(--fm);font-size:.72rem;padding:.75rem;border:1.5px solid var(--line);border-radius:3px;background:var(--surface-2);color:var(--text)" onclick="this.select()">${esc(snippet)}</textarea>
-      <button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="copyEnquirySnippet()">Copy Embed Code</button>
-      <div id="enquiry-widget-copied" class="muted" style="margin-top:.5rem;display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>
+      <button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="${runsSchool?"copySchoolEnquirySnippet()":"copyEnquirySnippet()"}">Copy Embed Code</button>
+      <div id="${runsSchool?"school-enquiry-widget-copied":"enquiry-widget-copied"}" class="muted" style="margin-top:.5rem;display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>
       <p class="muted" style="margin-top:1rem;font-size:.85rem">Can't take someone on? Choose whether Decline sends them a message or deletes their enquiry straight away in <a href="#" onclick="openSettings('enquiryDecline');return false" style="color:var(--navy);font-weight:600">Declining Enquiries</a>.</p>
-      ${schoolBlock}`;
+`;
     sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","enquiry_gearbox").maybeSingle().then(({data})=>{
       const sel=document.getElementById("enquiry-gearbox");
       if(sel && data && data.value && data.value.mode) sel.value=data.value.mode;
@@ -17023,7 +17030,9 @@ async function loadTheoryProgress(){
   try {
     // Hazard perception (13 Sep 2026) is read alongside; if those tables can't be read, the theory columns still show.
     const [{data:pupils, error:pErr}, {data:attempts, error:aErr}, {data:hazAttempts}, {data:hazClips}] = await Promise.all([
-      sb.from("pupils").select("id,first_name,last_name,email,portal_username,status").in("status",["active","waiting","passed"]),
+      // Active pupils only (Dale, 20 Sep 2026). Passed pupils kept appearing here long after they'd finished,
+      // and a waiting-list pupil hasn't started lessons — neither is someone whose theory progress you'd act on.
+      sb.from("pupils").select("id,first_name,last_name,email,portal_username,status").eq("status","active"),
       sb.from("theory_attempts").select("pupil_id,mode,category,score,total,passed,created_at").order("created_at",{ascending:false}),
       sb.from("hazard_attempts").select("pupil_id,clip_id,score,max_score,created_at").order("created_at",{ascending:false}),
       sb.from("hazard_clips").select("id").eq("active", true),

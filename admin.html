@@ -647,7 +647,7 @@ tbody tr:hover td{background:#334263}
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('passedMessage')"><span class="ico">🎉</span><div><strong>Passed Pupil Messages<span class="dash-new">New</span></strong><span>Congratulations, follow-up and closing reminder</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openBirthdayMessagesCC()"><span class="ico">🎂</span><div><strong>Birthday Messages<span class="dash-new">New</span></strong><span>Off, Ask Me or Send Automatically</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('enquiryDecline')"><span class="ico">📨</span><div><strong>Declining Enquiries</strong><span>Send a message or delete straight away</span></div></button>
-            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('quietHours')"><span class="ico">🌙</span><div><strong>Message Quiet Hours</strong><span>When pupil messages wait</span></div></button>
+            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('quietHours')"><span class="ico">🌙</span><div><strong>Message Quiet Hours</strong><span>What waits until morning</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('pupilAppMessages')"><span class="ico">💬</span><div><strong>Pupil App Messages</strong><span>Waiting list, enquiry and inactive wording</span></div></button>
           </div>
         </div>
@@ -3479,7 +3479,7 @@ function renderPupilSummary(){
     ? Number(p.delivered_hours_at_pass)
     : deliveredMins/60;
   const credit=Math.round((purchasedHrs-deliveredHrs)*100)/100;
-  return `${renderPassedCardCC()}${renderEnquiryActionsCC()}${renderNextLessonCard()}<div class="summary-lines">
+  return `${renderPassedCardCC()}${renderEnquiryActionsCC()}${renderPupilStatusCC()}${renderNextLessonCard()}<div class="summary-lines">
       ${row("Status",p.status)}${row("Phone",p.phone)}${row("Email",p.email)}
       ${row("Address",[p.address_line1,p.address_line2,p.city,p.postcode].filter(Boolean).join(", ")||p.address)}
       ${row("Licence",p.licence_number)}${row("DOB",p.date_of_birth||p.dob)}
@@ -3493,6 +3493,26 @@ function renderPupilSummary(){
     ${renderPupilAppActionsCC()}`;
 }
 
+
+// Changing a pupil's status from their own page (Dale, 19 Sep 2026: "you cant move a pupil from active to waiting
+// list or anything on control centre"). It was only possible by opening Edit and finding a dropdown of raw values
+// among the address fields, while the app has had a proper Status section all along. Enquiries keep their own
+// Accept / Decline box above, and a deleted pupil is only a name kept with their payments, so neither shows this.
+// Everything goes through setStatus, so Passed still asks first and the database still sends the waiting-list and
+// accepted messages.
+function renderPupilStatusCC(){
+  const {p}=pupilDetail;
+  if(p.status==="enquiry"||p.status==="deleted") return "";
+  const labels={active:"Active",waiting:"Waiting list",enquiry:"Enquiry",inactive:"Inactive",passed:"Passed"};
+  const now=labels[p.status]||p.status||"";
+  const btns=["active","waiting","inactive","passed"].filter(s=>s!==p.status)
+    .map(s=>`<button class="btn-outline btn-sm" onclick="closeModal();setStatus('${p.id}','${s}')">${labels[s]}</button>`).join("");
+  return `<div style="border:1px solid var(--line);border-radius:10px;padding:.8rem;margin-bottom:1rem">
+    <div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:.25rem">Status</div>
+    <div style="margin-bottom:.55rem"><strong>${esc(now)}</strong><span class="muted" style="font-size:.85rem"> — move them to:</span></div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">${btns}</div>
+  </div>`;
+}
 // An enquiry's pupil page starts with Accept / Decline, as on the Enquiries tab (Dale, 16 Sep 2026): Accept moves them to
 // Waiting and sends the waiting-list message (setStatus), Decline follows Settings → Declining Enquiries (declineEnquiryCC).
 function renderEnquiryActionsCC(){
@@ -4681,7 +4701,9 @@ async function saveEnquiryDeclineSetting(){
   const picked=document.querySelector('input[name="ed-mode"]:checked');
   if(err) err.textContent="";
   const mode=picked&&picked.value==="delete"?"delete":"message";
-  const {error}=await sb.from("app_settings").upsert({id:"enquiry_decline",owner_id:currentUserId,value:{mode},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+  const msgEl=document.getElementById("ed-msg");
+  const message=msgEl?msgEl.value.trim().slice(0,600):"";
+  const {error}=await sb.from("app_settings").upsert({id:"enquiry_decline",owner_id:currentUserId,value:{mode,message},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
   if(error){ if(err) err.textContent="Could not save this. Check your connection and try again."; return false; }
   return true;
 }
@@ -4996,7 +5018,7 @@ async function editPupil(p){
       <div class="field"><label>Postcode</label><input id="ep-pc" value="${esc(p.postcode||"")}"></div>
       <div class="field"><label>Status</label>
         <select id="ep-status">
-          ${["active","waiting","passed","inactive","enquiry"].map(s=>`<option ${p.status===s?"selected":""}>${s}</option>`).join("")}
+          ${[["active","Active"],["waiting","Waiting list"],["passed","Passed"],["inactive","Inactive"],["enquiry","Enquiry"]].map(([v,l])=>`<option value="${v}" ${p.status===v?"selected":""}>${l}</option>`).join("")}
         </select>
       </div>
       <div class="field"><label>Licence number</label><input id="ep-lic" value="${esc(p.licence_number||"")}"></div>
@@ -8708,6 +8730,13 @@ async function openSettings(which){
         </select>
       </div>
       <p class="muted" style="margin:-.25rem 0 .75rem;font-size:.8rem">Applies straight away to your link and every form already pasted into a website. <span id="enquiry-gearbox-saved" style="display:none;color:#0a7a3d;font-weight:700">Saved ✓</span></p>
+      <h4 style="margin:1.2rem 0 .3rem">Email Me New Enquiries</h4>
+      <p class="muted" style="margin:0 0 .5rem;font-size:.85rem">As well as the notification, get an email when someone enquires. It carries their name and when they're free, and nothing else — their phone number and address stay in the app, where they belong. If your quiet hours are set to hold enquiries, the email waits with them.</p>
+      <label style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;border:1px solid var(--line);border-radius:10px;padding:.65rem .85rem;margin-bottom:.5rem;font-weight:600;cursor:pointer;max-width:560px">
+        <span>Email me new enquiries</span><input type="checkbox" id="enquiry-email-on" style="width:1.2rem;height:1.2rem">
+      </label>
+      <div class="field" style="max-width:340px"><label>Send Them To</label><input id="enquiry-email-to" type="email" placeholder="Your account email"></div>
+      <p class="muted" style="margin:-.25rem 0 .75rem;font-size:.8rem">Leave it empty to use the email you sign in with. <button class="btn btn-navy btn-sm" style="margin-left:.4rem" onclick="saveEnquiryEmailCC()">Save</button> <span id="enquiry-email-saved" style="display:none;color:#0a7a3d;font-weight:700">Saved ✓</span> <span id="enquiry-email-err" class="err" style="display:inline"></span></p>
       <h4 style="margin:1rem 0 .3rem">Direct Link</h4>
       <p class="muted" style="margin:0 0 .4rem;font-size:.85rem">Share it anywhere you can't paste code: Facebook, Instagram, WhatsApp, your Google Business Profile or a text message.</p>
       ${linkBlock(formLink(currentUserId),"enquiry-link")}
@@ -8722,6 +8751,14 @@ async function openSettings(which){
       const sel=document.getElementById("enquiry-gearbox");
       if(sel && data && data.value && data.value.mode) sel.value=data.value.mode;
     });
+    // Email me new enquiries (Dale, 20 Sep 2026, after a real 3am enquiry arrived with no email at all).
+    // No row means off: an email address only starts being used once it's asked for.
+    sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","enquiry_email").maybeSingle().then(({data})=>{
+      const on=document.getElementById("enquiry-email-on"), to=document.getElementById("enquiry-email-to");
+      const v=(data&&data.value)||{};
+      if(on) on.checked=v.enabled===true;
+      if(to) to.value=v.address||"";
+    });
   } else if(which==="enquiryDecline"){
     // What Decline does to an enquiry (Dale, 16 Sep 2026): app_settings 'enquiry_decline' {mode}, read by manage-auth
     // decline_enquiry. No row = Send a Message. If it can't be read there's no Save, so the default can't overwrite it.
@@ -8730,11 +8767,18 @@ async function openSettings(which){
     const {data,error}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","enquiry_decline").maybeSingle();
     if(error){ panel.innerHTML=head+'<p class="muted">Couldn\'t load this setting. Check your connection and try again.</p>'; return; }
     const mode=data&&data.value&&data.value.mode==="delete"?"delete":"message";
+    const savedMsg=(data&&data.value&&data.value.message)?String(data.value.message):"";
     const radio=(val,title,hint)=>`<label style="display:flex;gap:.6rem;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:.6rem .85rem;margin-bottom:.45rem;font-weight:normal;cursor:pointer;max-width:560px"><input type="radio" name="ed-mode" value="${val}" ${mode===val?"checked":""} style="margin-top:.25rem"><span><strong>${title}</strong><br><span class="muted" style="font-size:.85rem">${hint}</span></span></label>`;
     panel.innerHTML=head+`
       <p class="muted" style="margin-bottom:1rem">What happens when you press Decline on an enquiry.</p>
       ${radio("message","Send a Message","They're told you can't help at the moment. Their details are deleted when they read it in the app.")}
       ${radio("delete","Delete Straight Away","The enquiry and their details are deleted as soon as you decline.")}
+<h4 style="margin:1.2rem 0 .35rem">Your Opening Line</h4>
+<p class="muted" style="margin:0 0 .5rem;font-size:.85rem">Only used by "Send a Message". It goes out in your driving school's name, so put it the way you'd say it.</p>
+<textarea id="ed-msg" rows="3" maxlength="600" style="width:100%;max-width:560px;padding:.65rem;border:1.5px solid var(--line);border-radius:6px;font:inherit" placeholder="Unfortunately we won't be able to help you at this time.">${esc(savedMsg)}</textarea>
+<p class="muted" style="margin:.45rem 0 0;font-size:.85rem">Underneath it, every message always says:</p>
+<p class="muted" style="margin:.3rem 0 0;font-size:.85rem;font-style:italic;border-left:3px solid var(--line);padding-left:.7rem">"Due to GDPR your details will be deleted from our system. You're welcome to enquire again at a later date if your circumstances change."<br>"Thank you for your interest in [your driving school]."</p>
+<p class="muted" style="margin:.45rem 0 0;font-size:.8rem">That part can't be changed — your enquiry form promises people they'll be told, and deleting the line would break that promise.</p>
       <div class="set-save"><button class="btn btn-navy btn-sm" onclick="saveThenBack(saveEnquiryDeclineSetting,'ed-err')">Save</button><div class="err" id="ed-err" style="display:block"></div></div>`;
   } else if(which==="appWidget"){
     let name=(isSchoolAdminUser && currentSchoolId && schoolDisplayNameCache) ? schoolDisplayNameCache : "";
@@ -8964,6 +9008,71 @@ async function saveEnquiryGearbox(mode){
   );
   if(error){ alert("Could not save: "+error.message); return; }
   const ok=document.getElementById("enquiry-gearbox-saved");
+  if(ok){ ok.style.display="inline"; setTimeout(()=>{ ok.style.display="none"; },2000); }
+}
+
+// --- Started signing up, never finished (Dale, 20 Sep 2026) -------------------------------------------------
+// public.pending_signups() reads auth.users, which the browser can't see, and is super-admin only. Anyone who
+// has signed in, or who has a profile or pupil row, is excluded — so a pupil login waiting for its password
+// never shows up here. Klee Thomas signed up at 15:06 on 20 Sep and nothing in the Control Centre knew.
+async function loadPendingSignupsCC(){
+  const section=document.getElementById("pending-signups-section");
+  const list=document.getElementById("pending-signups-list");
+  if(!section||!list) return;
+  let rows=[];
+  try{
+    const {data,error}=await sb.rpc("pending_signups",{p_days:30});
+    if(error) throw error;
+    rows=data||[];
+  }catch(e){ section.hidden=true; return; }
+  if(!rows.length){ section.hidden=true; return; }
+  section.hidden=false;
+  list.innerHTML=rows.map(r=>{
+    const name=esc(r.full_name||"No name given");
+    const kind=r.signup_kind==="school"?"driving school":r.signup_kind==="solo"?"solo instructor":"";
+    const when=r.created_at?timeAgoCC(r.created_at):"";
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:.55rem 0">
+      <div><strong>${name}</strong>${kind?` <span class="muted" style="font-size:.85rem">· ${kind}</span>`:""}<br>
+        <span class="muted" style="font-size:.85rem">${esc(r.email||"")} · started ${esc(when)}</span></div>
+      <button class="btn btn-navy btn-sm" onclick="resendSignupCC('${esc(r.email||"")}',this)">Resend confirmation</button>
+    </div>`;
+  }).join("");
+}
+function timeAgoCC(iso){
+  const mins=Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/60000));
+  if(mins<60) return mins<=1?"just now":mins+" minutes ago";
+  const hrs=Math.round(mins/60);
+  if(hrs<24) return hrs===1?"an hour ago":hrs+" hours ago";
+  const days=Math.round(hrs/24);
+  return days===1?"yesterday":days+" days ago";
+}
+async function resendSignupCC(email,btn){
+  if(!email) return;
+  if(!confirm("Send the confirmation email again to "+email+"?")) return;
+  const original=btn?btn.textContent:"";
+  if(btn){ btn.disabled=true; btn.textContent="Sending…"; }
+  try{
+    await manageAuthAdmin("resend_signup_confirmation",{email});
+    if(btn){ btn.textContent="Sent ✓"; }
+  }catch(e){
+    alert(e&&e.message?e.message:"Could not send that email.");
+    if(btn){ btn.disabled=false; btn.textContent=original||"Resend confirmation"; }
+  }
+}
+
+// Email me new enquiries: app_settings 'enquiry_email' {enabled, address}. send-push reads it when an enquiry
+// arrives, and falls back to the account's own email when no address is given.
+async function saveEnquiryEmailCC(){
+  const on=document.getElementById("enquiry-email-on"), to=document.getElementById("enquiry-email-to");
+  const err=document.getElementById("enquiry-email-err"); if(err) err.textContent="";
+  const address=to?to.value.trim():"";
+  if(address && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address)){ if(err) err.textContent="Check that email address."; return; }
+  const {error}=await sb.from("app_settings").upsert(
+    {owner_id:currentUserId, id:"enquiry_email", value:{enabled:!!(on&&on.checked), address:address||null}, updated_at:new Date().toISOString()},
+    {onConflict:"owner_id,id"}
+  );
+  if(error){ if(err) err.textContent="Could not save. Check your connection and try again."; return; }
+  const ok=document.getElementById("enquiry-email-saved");
   if(ok){ ok.style.display="inline"; setTimeout(()=>{ ok.style.display="none"; },2000); }
 }
 
@@ -12474,7 +12583,13 @@ async function loadTeamsPanel(){
         </div>
         <p class="muted" style="margin:.35rem 0 .75rem">Instructors with no driving school, including anyone a school has removed who is waiting to be set up. Add instructor can also add someone to a driving school.</p>
         <div id="instructors-list">Loading…</div>
+      </section>
+      <section id="pending-signups-section" hidden style="border:1px solid var(--line);border-radius:14px;padding:1rem 1.1rem;margin-top:1rem">
+        <h2 style="margin:0">Started signing up, never finished</h2>
+        <p class="muted" style="margin:.35rem 0 .75rem">They filled in the sign-up form but never clicked the link in the confirmation email, so there's no account yet. Nothing here is a customer — it's a reminder to nudge them. Details are deleted automatically after 30 days.</p>
+        <div id="pending-signups-list">Loading…</div>
       </section>`;
+    loadPendingSignupsCC();
 
     const [{data:schools}, {data:instructors}] = await Promise.all([
       sb.from("schools").select("id,display_name,name,locked_at").order("display_name"),
@@ -15884,6 +15999,36 @@ function leavePupilAppMessagesCC(){
 // like the app's releaseQueuedPupilMessages; here only this instructor's own pupils' held messages, so another instructor's
 // quiet hours in the same driving school aren't cut short. The every-5-minute job then delivers them.
 const DEFAULT_QUIET_HOURS_CC={enabled:false, start:"22:00", end:"08:00", emergencyNote:"If this is an emergency, please call or text your instructor directly rather than messaging in the app."};
+
+// What quiet hours hold, ticked one by one (Dale, 20 Sep 2026: "each school/driving instructor can choose what is
+// held till the end of quiet hours and what is not"). Saved in the same app_settings row under `hold`. A missing
+// tick counts as HELD — quiet hours should be quiet, and covering enquiries is the whole reason for this. Anything
+// held arrives as one catch-up notification when the window ends (send-push, quiet_hold_until).
+// Which ticks somebody sees depends on their role; the keys never change, so a solo instructor who later joins a
+// driving school keeps the choices they already made.
+const QUIET_HOLD_OPTIONS_CC=[
+  {key:"pupil_messages", roles:["super","school","instructor","solo"], label:"Messages from your pupils",
+   note:"Chat is held by the pupil's own app until the window ends, so Off won't bring chat through any sooner. This covers their other activity: accepting a lesson offer, accepting your terms, updating their details."},
+  {key:"enquiries", roles:["super","school","solo"], label:"New website enquiries, and the enquiry email",
+   note:"The enquiry still lands straight away — you just aren't woken for it."},
+  {key:"staff_messages", roles:["super","school"], label:"Messages from your instructors"},
+  {key:"staff_messages", roles:["instructor"], label:"Messages from your driving school"},
+  {key:"cancellations", roles:["super","school","instructor","solo"], label:"A pupil cancelling a lesson, or adding a holiday",
+   note:"A cancellation wakes you today. A holiday a pupil puts in their own app is already held until morning."},
+  {key:"billing", roles:["super","school","solo"], label:"Billing and account alerts"},
+  {key:"news", roles:["super","school","instructor","solo"], label:"Drive My Way news"},
+  {key:"emails", roles:["super","school","solo"], label:"Emails, such as the enquiry email",
+   note:"An email doesn't wake you. Turn this Off to let emails land overnight even when the notification waits."},
+];
+function quietHoldRoleCC(){
+  if(isSuperAdminUser) return "super";
+  if(currentSchoolId) return isSchoolAdminUser?"school":"instructor";
+  return "solo";
+}
+function quietHoldOptionsForRoleCC(){
+  const role=quietHoldRoleCC();
+  return QUIET_HOLD_OPTIONS_CC.filter(o=>o.roles.indexOf(role)>=0);
+}
 let quietHoursCC=null; // {loaded, opened}
 async function renderQuietHoursCC(panel){
   const head=settingsHeadHtml("Message Quiet Hours","leaveQuietHoursCC()");
@@ -15909,13 +16054,33 @@ async function renderQuietHoursCC(panel){
       </div>
       <p class="muted" style="font-size:.8rem;margin:-.3rem 0 1rem">e.g. 22:00 to 08:00 pauses messages overnight. Times can cross midnight.</p>
       <div class="field"><label>Note Shown to Pupils</label><textarea id="qh-note" rows="3" placeholder="e.g. If this is an emergency, call or text 07xxx xxxxxx.">${esc(loaded.emergencyNote)}</textarea></div>
+      <h4 style="margin:1.4rem 0 .35rem">What Quiet Hours Hold</h4>
+      <p class="muted" style="margin:0 0 .6rem;font-size:.85rem">Choose what waits until your quiet hours end. <strong>On</strong> means it's held: it still arrives in the app straight away, your phone just stays quiet, and you get one notification at ${esc(loaded.end||"08:00")} telling you what came in. <strong>Off</strong> means it reaches you the moment it happens, quiet hours or not.</p>
+      ${quietHoldOptionsForRoleCC().map(o=>`
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;border:1px solid var(--line);border-radius:10px;padding:.65rem .85rem;margin-bottom:.5rem">
+          <span><span style="font-weight:600">${esc(o.label)}</span>${o.note?`<br><span class="muted" style="font-size:.82rem">${esc(o.note)}</span>`:""}</span>
+          <select id="qh-hold-${esc(o.key)}" style="flex:none;min-width:168px;padding:.4rem .5rem;border:1.5px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text);font:inherit;font-size:.85rem">
+            <option value="on" ${quietHoldValueCC(loaded,o.key)?"selected":""}>On — held until morning</option>
+            <option value="off" ${quietHoldValueCC(loaded,o.key)?"":"selected"}>Off — comes through</option>
+          </select>
+        </div>`).join("")}
     </div>
     <div class="set-save"><button class="btn btn-navy btn-sm" onclick="saveThenBack(saveQuietHoursCC,'qh-form',leaveQuietHoursCC)">Save</button><div class="err" id="qh-err" style="display:block"></div></div>`;
   Q.opened=JSON.stringify(quietHoursCollectCC());
 }
+// A tick that was never saved counts as held, the same rule the server uses in quiet_hold_until.
+function quietHoldValueCC(value, key){
+  const hold=value&&value.hold;
+  if(!hold||typeof hold[key]==="undefined") return true;
+  return hold[key]!==false;
+}
 function quietHoursCollectCC(){
   const g=id=>document.getElementById(id);
-  return {enabled:!!(g("qh-enabled")&&g("qh-enabled").checked), start:g("qh-start")?g("qh-start").value:"", end:g("qh-end")?g("qh-end").value:"", emergencyNote:g("qh-note")?g("qh-note").value:""};
+  // Start from what's saved so a tick this role never sees (a school's instructor doesn't choose about
+  // enquiries) keeps whatever it had, instead of being wiped by whoever saved last.
+  const hold={...(((quietHoursCC&&quietHoursCC.loaded)||{}).hold||{})};
+  quietHoldOptionsForRoleCC().forEach(o=>{ const el=g("qh-hold-"+o.key); if(el) hold[o.key]=el.value!=="off"; });
+  return {enabled:!!(g("qh-enabled")&&g("qh-enabled").checked), start:g("qh-start")?g("qh-start").value:"", end:g("qh-end")?g("qh-end").value:"", emergencyNote:g("qh-note")?g("qh-note").value:"", hold};
 }
 function saveQuietHoursCC(){ return runOnce("saveQuietHours", saveQuietHoursNowCC); }
 async function saveQuietHoursNowCC(){

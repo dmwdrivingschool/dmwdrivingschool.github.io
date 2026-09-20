@@ -2774,6 +2774,7 @@ async function submitSignup(){
     // email link or a normal sign-in afterward). Everything needed to
     // finish provisioning is stashed in user_metadata now, since none of
     // these form values survive to whenever they click that link.
+    const signupSrc = rememberedSource() || {};
     const { data: signUpData, error: signUpError } = await sb.auth.signUp({
       email, password,
       options: {
@@ -2782,7 +2783,16 @@ async function submitSignup(){
           signup_kind: signupKind,
           full_name: name,
           school_name: signupKind === "school" ? schoolName : null,
-          referral_code: (document.getElementById("signup-ref").value || "").trim().toUpperCase() || null
+          referral_code: (document.getElementById("signup-ref").value || "").trim().toUpperCase() || null,
+          // Where they came from, stashed with everything else and for the same reason (Dale, 20 Sep 2026).
+          // It used to be read from localStorage when they came back, which breaks whenever the confirmation
+          // link opens in a different browser from the one that held the form: Pamela Yu arrived from a
+          // Facebook ad, filled the form in Facebook's in-app browser and confirmed from Gmail, so her account
+          // recorded no source at all and the ad looked like it had produced nothing.
+          signup_source: signupSrc.source || null,
+          signup_medium: signupSrc.medium || null,
+          signup_campaign: signupSrc.campaign || null,
+          signup_referrer: signupSrc.referrer || null
         },
         emailRedirectTo: window.location.origin + window.location.pathname
       }
@@ -2941,7 +2951,16 @@ async function provisionIfNeededAndEnter(user){
       // Where they came from, written once (record_signup_source only fills nulls).
       // Never allowed to fail the sign-up: it is a marketing number, not the account.
       try{
-        const src = rememberedSource();
+        // What the form captured wins, because that browser is the one that had the link they clicked.
+        // Only fall back to this browser's localStorage for accounts made before the source was stashed:
+        // otherwise a confirmation opened from an email app records the app itself as the referrer
+        // (Pamela Yu came out as "com.google.android.gm" rather than the Facebook ad that sent her).
+        const meta = user.user_metadata || {};
+        const stashed = Object.prototype.hasOwnProperty.call(meta, "signup_source");
+        const src = stashed
+          ? { source: meta.signup_source || "", medium: meta.signup_medium || "",
+              campaign: meta.signup_campaign || "", referrer: meta.signup_referrer || "" }
+          : rememberedSource();
         if(src && (src.source || src.referrer)){
           await sb.rpc("record_signup_source", { p_source: src.source || null, p_medium: src.medium || null,
                                                  p_campaign: src.campaign || null, p_referrer: src.referrer || null });

@@ -485,7 +485,7 @@ tbody tr:hover td{background:#334263}
 <body>
 <div id="gate">
   <img src="/drive-my-way-logo.png" alt="Drive My Way" style="display:block;height:84px;margin:0 auto 1rem" onerror="this.remove()">
-  <h1>Drive My Way Control Centre</h1>
+  <h1 id="gate-title">Drive My Way Control Centre</h1>
   <div id="gate-signin">
     <p class="sub">Sign in with your instructor app account</p>
     <input type="email" id="gate-email" placeholder="Email" autocomplete="username">
@@ -2200,6 +2200,7 @@ let pendingMfaEnter=null;
 function showMfaGate(onVerified){
   pendingMfaEnter=onVerified;
   document.getElementById("gate").style.display="block";
+  setGateTitle(GATE_TITLE_DEFAULT);
   ["gate-signin","gate-recovery","gate-pupil","gate-signup"].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add("hidden"); });
   document.getElementById("gate-mfa").classList.remove("hidden");
   document.getElementById("gate-mfa-err").style.display="none";
@@ -2657,8 +2658,21 @@ async function saveProfilePanel(){
 
 let signupKind = null;
 
+/**
+ * The heading over the sign-in box is also the heading over the SIGN-UP box, and "Drive My Way Control Centre"
+ * is jargon to someone who has just tapped an advert about an app (Dale, 21 Sep 2026). Two of the four people
+ * who started signing up on 20 Sep left at this screen without choosing anything.
+ *
+ * The name stays in it — "so they know they are still on drive my way" — and only the second half changes,
+ * to say what they came for.
+ */
+const GATE_TITLE_DEFAULT = "Drive My Way Control Centre";
+const GATE_TITLE_SIGNUP = "Drive My Way — start your 30 days free";
+function setGateTitle(t){ const el=document.getElementById("gate-title"); if(el) el.textContent = t; }
+
 function showSignup(){
   logSignupStep("opened");
+  setGateTitle(GATE_TITLE_SIGNUP);
   document.getElementById("gate-signin").classList.add("hidden");
   document.getElementById("gate-signup").classList.remove("hidden");
 }
@@ -2687,6 +2701,7 @@ function logSignupStep(step, kind, detail){
   }catch(e){}
 }
 function showSignin(){
+  setGateTitle(GATE_TITLE_DEFAULT);
   document.getElementById("gate-signup").classList.add("hidden");
   document.getElementById("gate-signin").classList.remove("hidden");
   document.getElementById("signup-kind-picker").classList.remove("hidden");

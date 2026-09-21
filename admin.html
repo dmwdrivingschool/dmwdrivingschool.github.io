@@ -7048,7 +7048,17 @@ function fillCats(keepCat){
 function fillPayPupils(keep){
   const pupSel=document.getElementById("pay-pupil"); if(!pupSel) return;
   const cur=keep?keep.id:pupSel.value, list=(pupilsCache||[]).filter(p=>p.status!=="deleted");
-  let opts='<option value="">— none —</option>'+list.map(p=>`<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`).join("");
+  // Current pupils first, past ones under their own heading (Dale, 21 Sep 2026): they used to sit in one run as
+  // though nothing had changed. A late payment from someone who has passed, or who went inactive still owing, is
+  // a real thing to record — so they stay here, where there is room to say which is which. The APP drops them
+  // from its list entirely, because that is for the payment you take at the kerbside.
+  const CURRENT=["active","waiting","enquiry"];
+  const current=list.filter(p=>CURRENT.indexOf(p.status)>=0);
+  const past=list.filter(p=>CURRENT.indexOf(p.status)<0);
+  const opt=p=>`<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}${past.indexOf(p)>=0?" ("+esc(p.status)+")":""}</option>`;
+  let opts='<option value="">— none —</option>'
+    + (current.length?'<optgroup label="Current">'+current.map(opt).join("")+'</optgroup>':"")
+    + (past.length?'<optgroup label="Past pupils">'+past.map(opt).join("")+'</optgroup>':"");
   const editing=!!keep||!!(document.getElementById("pay-edit-id")||{}).value;
   if(cur&&editing&&!list.some(p=>p.id===cur)){
     const was=[...pupSel.options].find(o=>o.value===cur);

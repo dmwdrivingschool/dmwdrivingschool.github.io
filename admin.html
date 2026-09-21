@@ -603,6 +603,7 @@ tbody tr:hover td{background:#334263}
       <div id="dash-notices" class="hidden"></div>
       <div id="dash-car-reminders" class="hidden"></div>
       <div id="dash-finance-keep" class="hidden"></div>
+      <div id="dash-pupil-clear" class="hidden"></div>
       <div id="dash-referral" class="hidden"></div>
       <div class="stat-row">
         <button type="button" class="stat" onclick="goTab('pupils','active')"><strong id="n-active">–</strong><span>Active pupils</span></button>
@@ -637,6 +638,8 @@ tbody tr:hover td{background:#334263}
         <div class="dash-settings-group">
           <h3 class="dash-settings-group-head">Getting Started</h3>
           <div class="dash-settings-grid">
+            <a class="dash-setting" href="https://www.drivemyway.co.uk/download" target="_blank" rel="noopener" style="text-decoration:none;color:inherit"><span class="ico">📱</span><div><strong>Get the App</strong><span>Your diary and pupils on your phone. Sign in with these same details</span></div></a>
+            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('appWidget')"><span class="ico">🌐</span><div><strong>Show the App on Your Website</strong><span>A ready-made section about the app, for your own website</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('howToVideos')"><span class="ico">🎬</span><div><strong>How-To Videos<span class="dash-new">New</span></strong><span>Short videos showing how to set up and use Drive My Way</span></div></button>
           </div>
         </div>
@@ -671,7 +674,6 @@ tbody tr:hover td{background:#334263}
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('testbooking')"><span class="ico">🚦</span><div><strong>Booking Your Driving Test</strong><span>What pupils see when booking on GOV.UK</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('showtell')"><span class="ico">🔧</span><div><strong>Show me / Tell me</strong><span>Your own answers for your car</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('enquiryWidget')"><span class="ico">🧲</span><div><strong>Your Enquiry Form</strong><span>Link, website code and gearbox message</span></div></button>
-            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('appWidget')"><span class="ico">📱</span><div><strong>Show the App on Your Website</strong><span>A ready-made section about the app</span></div></button>
           </div>
         </div>
         <div class="dash-settings-group">
@@ -962,6 +964,8 @@ tbody tr:hover td{background:#334263}
         <div class="settings-list" id="settings-menu">
           <button type="button" onclick="openSettings('profile')">Your Profile</button>
           <div class="settings-group-head">Getting Started</div>
+          <button type="button" onclick="window.open('https://www.drivemyway.co.uk/download','_blank','noopener')">Get the App</button>
+          <button type="button" onclick="openSettings('appWidget')">Show the App on Your Website</button>
           <button type="button" onclick="openSettings('howToVideos')">How-To Videos</button>
           <div class="settings-group-head">Messages &amp; Reminders</div>
           <button type="button" onclick="openSettings('reminders')">Lesson Reminders</button>
@@ -985,7 +989,6 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('testbooking')">Booking Your Driving Test</button>
           <button type="button" onclick="openSettings('showtell')">Show me / Tell me</button>
           <button type="button" onclick="openSettings('enquiryWidget')">Your Enquiry Form</button>
-          <button type="button" onclick="openSettings('appWidget')">Show the App on Your Website</button>
           <div class="settings-group-head">Business</div>
           <button type="button" onclick="openSettings('importExport')">Import / Export</button>
           <button type="button" id="settings-referral-btn" class="hidden" onclick="openReferralFromDash()">Refer a Friend</button>
@@ -3274,6 +3277,7 @@ function loadDash(){
   renderPdiUpgradeRequests();
   renderOwedBanner();
   renderFinanceKeepWarning();
+  loadPupilClearDue();
   renderFranchisePanel();
   renderTeamSnapshot();
   const pupils=pupilsCache||[];
@@ -8449,6 +8453,88 @@ function hideFinanceKeepWarning(del){
   try{ const k="dmw_fin_keep_hidden_"+currentUserId; const h=JSON.parse(localStorage.getItem(k)||"{}")||{}; h[del]=1; localStorage.setItem(k,JSON.stringify(h)); }catch(e){}
   renderFinanceKeepWarning();
 }
+// --- Pupils due to be cleared ------------------------------------------
+// A year after a pupil goes inactive, dmw_purge_inactive_pupils_1yr deletes
+// everything about them except their name: lessons, messages, progress,
+// reflective logs, mock tests and contact details. It used to happen in
+// silence. Three months out the instructor now gets an email and a notice in
+// the app (the pupil-clearing-warning function), and this card, so a copy can
+// be downloaded first. Dale, 21 Sep 2026: "so they can download them before
+// deleted".
+//
+// There is deliberately NO "keep them" button here, unlike the finance card
+// above. The finance hold exists because HMRC can require records to be kept
+// longer; this clean-up exists BECAUSE a former pupil's personal details
+// shouldn't be held for ever, so a button to keep them anyway would undermine
+// the reason it runs. The way to keep a pupil is to make them Active again,
+// which the card says.
+let pupilClearDue=[];
+async function loadPupilClearDue(){
+  // The database decides who is due, so the card and the email can never disagree.
+  const {data,error}=await sb.rpc("pupils_due_for_clearing");
+  pupilClearDue=error?[]:(data||[]);
+  renderPupilClearWarning();
+}
+function renderPupilClearWarning(){
+  const el=document.getElementById("dash-pupil-clear"); if(!el) return;
+  let hidden={};
+  try{ hidden=JSON.parse(localStorage.getItem("dmw_pupil_clear_hidden_"+currentUserId)||"{}")||{}; }catch(e){}
+  const list=(pupilClearDue||[]).filter(p=>!hidden[p.id]);
+  if(!list.length){ el.className="hidden"; el.innerHTML=""; return; }
+  const one=list.length===1, fmt=finImportDay;
+  const names=list.map(p=>{
+    const nm=esc([p.first_name,p.last_name].filter(Boolean).join(" ").trim()||"A pupil");
+    return `<li><strong>${nm}</strong> — ${fmt(p.due_on)}${p.days_left<=14?" (in "+p.days_left+" day"+(p.days_left===1?"":"s")+")":""}</li>`;
+  }).join("");
+  el.className="panel";
+  el.style.cssText="margin-bottom:1rem;border-left:4px solid #d97706";
+  el.innerHTML=`<h2 style="margin-bottom:.4rem">Pupil details due to be cleared</h2>
+    <p style="margin:0 0 .45rem">🗓️ ${one?"This pupil has":"These pupils have"} been inactive for nearly a year. On the date shown, ${one?"their":"each pupil's"} details are deleted automatically — lessons, messages, progress, reflective logs and contact details all go. ${one?"They then move":"They then move"} to <strong>Kept for records</strong>, where ${one?"their name and their":"their names and their"} payments stay for your accounts.</p>
+    <ul style="margin:.2rem 0 .55rem 1.1rem">${names}</ul>
+    <p class="muted" style="margin:0 0 .5rem">Download a copy if you want one. If ${one?"they are":"any of them are"} still your pupil, move ${one?"them":"them"} back to Active and nothing is cleared.</p>
+    <div class="actions" style="margin:0;flex-wrap:wrap">
+      <button class="btn-outline btn-sm" onclick="downloadPupilClearPack('${list.map(p=>p.id).join(",")}')">Download their records</button>
+      <button class="btn-outline btn-sm" onclick="goTab('pupils','inactive')">Open Inactive pupils</button>
+      <button class="btn-outline btn-sm" onclick="hidePupilClearWarning('${list.map(p=>p.id).join(",")}')">Hide</button>
+    </div>`;
+}
+function hidePupilClearWarning(ids){
+  try{
+    const k="dmw_pupil_clear_hidden_"+currentUserId, h=JSON.parse(localStorage.getItem(k)||"{}")||{};
+    String(ids||"").split(",").filter(Boolean).forEach(id=>{ h[id]=1; });
+    localStorage.setItem(k,JSON.stringify(h));
+  }catch(e){}
+  renderPupilClearWarning();
+}
+/** Everything the clean-up is about to delete, as one CSV, section by section. */
+async function downloadPupilClearPack(ids){
+  const list=String(ids||"").split(",").filter(Boolean);
+  if(!list.length) return;
+  const q=s=>'"'+String(s==null?"":(typeof s==="object"?JSON.stringify(s):s)).replace(/"/g,'""')+'"';
+  // The same tables dmw_purge_inactive_pupils_1yr empties, plus the pupil row it strips.
+  const sets=[["Pupil details","pupils","id"],["Lessons","lessons","pupil_id"],
+    ["Progress","pupil_progress","pupil_id"],["Reflective logs","reflective_logs","pupil_id"],
+    ["Mock tests","mock_tests","pupil_id"],["Messages","messages","pupil_id"]];
+  const lines=[q("Drive My Way: pupil records due to be cleared"),
+    [q("Downloaded"),q(finImportDay(new Date().toISOString().slice(0,10)))].join(",")];
+  for(const [label,table,col] of sets){
+    const {data,error}=await sb.from(table).select("*").in(col,list);
+    lines.push("",q(label));
+    if(error){ lines.push(q("Could not be downloaded: "+error.message)); continue; }
+    const rows=data||[];
+    if(!rows.length){ lines.push(q("None")); continue; }
+    const cols=Object.keys(rows[0]);
+    lines.push(cols.map(q).join(","));
+    rows.forEach(r=>lines.push(cols.map(c=>q(r[c])).join(",")));
+  }
+  const blob=new Blob(["\ufeff"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="pupil-records-"+new Date().toISOString().slice(0,10)+".csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 function openFinanceHold(from,to){
   const p1=financePeriodFor(from), p2=financePeriodFor(to);
   window.__finHoldPending=p1.from===p2.from?[p1]:[p1,p2];

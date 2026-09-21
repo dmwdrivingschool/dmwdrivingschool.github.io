@@ -5476,19 +5476,13 @@ async function loadEnquiryDeclineMode(){
 // Delete a pupil (Dale, 16 Sep 2026): manage-auth purge_pupil deletes everything about them and their login, but keeps their
 // payments and driving test results under just their name (a 'deleted' pupil). It used to unlink the payments and delete the
 // pupil row, which took their test results with it.
+// One pupil asks exactly what Delete All asks (Dale, 21 Sep 2026): keep what the records need, or take the
+// lot. It used to decide for you — always keeping — and only say so afterwards.
 function removePupil(id){
-  return runOnce("remove-pupil-"+id, async()=>{
-    const p=allPupils().find(x=>x.id===id)||(pupilDetail&&pupilDetail.p&&pupilDetail.p.id===id?pupilDetail.p:{});
-    const name=[p.first_name,p.last_name].filter(Boolean).join(" ")||"this pupil";
-    if(!confirm(`Delete ${name}?\n\nThis deletes their lessons, messages, reflective logs, progress, mock tests, personal details and app login.\n\nTheir payments and driving test results are kept, with just their name. Delete payments from the Payments tab if you want them gone too.\n\nThis cannot be undone.`)) return;
-    let res;
-    try{ res=await manageAuthAdmin("purge_pupil",{pupil_id:id}); }
-    catch(e){ return alert((e&&e.message)||"Couldn't delete this pupil. Try again."); }
-    alert(res&&res.outcome==="kept_name"
-      ? `${name} has been deleted. Their payments and test results are kept under their name.`
-      : `${name} has been deleted.`);
-    refresh();
-  });
+  const p=allPupils().find(x=>x.id===id)||(pupilDetail&&pupilDetail.p&&pupilDetail.p.id===id?pupilDetail.p:null);
+  if(!p) return;
+  const name=[p.first_name,p.last_name].filter(Boolean).join(" ")||"this pupil";
+  return openDeletePupilsDialog([p], false, "Delete "+name);
 }
 
 /**
@@ -5542,11 +5536,11 @@ function deleteAllMoneyPhraseCC(pay){
 
 function openDeleteAllInactive(){ return openDeletePupilsDialog(inactivePupilsCC(), true); }
 
-async function openDeletePupilsDialog(list, allInactive){
+async function openDeletePupilsDialog(list, allInactive, namedTitle){
   if(!list || !list.length) return;
   deleteTargetsCC=list.slice();
   const noun=list.length===1?"pupil":"pupils";
-  const title=allInactive ? "Delete all "+list.length+" inactive "+noun : "Delete "+list.length+" "+noun;
+  const title=namedTitle || (allInactive ? "Delete all "+list.length+" inactive "+noun : "Delete "+list.length+" "+noun);
   openModal('<h3 style="margin-top:0">'+title+'</h3><p class="muted">Checking what these pupils have against them…</p>');
   deleteAllPaymentsCC=await deletePaymentsForCC(deleteTargetsCC);
   const money=deleteAllMoneyPhraseCC(deleteAllPaymentsCC);

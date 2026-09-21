@@ -1117,10 +1117,25 @@ const INCOME_CATS=INCOME_CAT_DEFS.map(c=>c.name);
 const EXPENSE_CATS=EXPENSE_CAT_DEFS.map(c=>c.name);
 // The categories offered for this account's business type.
 // Business mileage only shows for a sole trader using the mileage rate.
+// Only a driving school with other instructors can use these (Dale, 21 Sep 2026): School payment and the
+// Franchise fee INCOME are money coming in from its own instructors, Instructor payment is money going out to
+// them. Franchise fee as an EXPENSE stays for everyone — a solo instructor on a national franchise pays one
+// every week and it is a real deduction.
+const SCHOOL_ONLY_INCOME_CATS=["School payment","Franchise fee"];
+const SCHOOL_ONLY_EXPENSE_CATS=["Instructor payment"];
+function isSchoolOnlyCat(name,isExp){
+  return (isExp?SCHOOL_ONLY_EXPENSE_CATS:SCHOOL_ONLY_INCOME_CATS).indexOf(name)>=0;
+}
 function catDefsFor(isExp){
   return (isExp?EXPENSE_CAT_DEFS:INCOME_CAT_DEFS).filter(d=>(!d.only||d.only.includes(businessType.type))
     &&!(d.mileage&&!isCompany()&&businessType.car_costs!=="mileage"));
 }
+/** The pick-list when adding or editing an entry. catDefsFor stays whole, so reports still know every category. */
+function catDefsForPicking(isExp){
+  const all=catDefsFor(isExp);
+  return (isSchoolAdminUser&&currentSchoolId) ? all : all.filter(d=>!isSchoolOnlyCat(d.name,isExp));
+}
+function catsForPicking(isExp){ return catDefsForPicking(isExp).map(d=>d.name); }
 function catsFor(isExp){ return catDefsFor(isExp).map(d=>d.name); }
 // Where a category sits for tax: its own definition, a retired category's
 // mapping, or (anything else, e.g. an imported label) other income / other
@@ -7034,7 +7049,7 @@ function filteredPayments(){
 function isExpense(r){const t=(r.type||r.category||"").toLowerCase(); return t.includes("expense")||t.includes("cost")}
 function fillCats(keepCat){
   const type=document.getElementById("pay-type").value;
-  const standard=catsFor(type==="expense");
+  const standard=catsForPicking(type==="expense");
   // An older entry being edited keeps its retired category until it's moved.
   const extra=keepCat&&!standard.includes(keepCat)?[keepCat]:[];
   document.getElementById("pay-cat").innerHTML=standard.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("")+

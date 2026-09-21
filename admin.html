@@ -547,7 +547,7 @@ tbody tr:hover td{background:#334263}
       </div>
       <input type="text" id="signup-school-name" class="hidden" placeholder="Driving school name">
       <input type="email" id="signup-email" placeholder="Email" autocomplete="username">
-      <input type="password" id="signup-pass" placeholder="Password" autocomplete="new-password">
+      <input type="password" id="signup-pass" placeholder="Password (at least 6 characters)" autocomplete="new-password">
       <input type="text" id="signup-ref" placeholder="Referral code (optional)" autocapitalize="characters" autocomplete="off" maxlength="12">
       <!-- Trap for bots: hidden from people, so anything typed here means a script filled the form in. -->
       <input type="text" id="signup-website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
@@ -2728,11 +2728,42 @@ async function showReferralInvite(){
   }catch(e){}
 }
 
+// Sending the confirmation email again, from the sign-up page itself (Dale, 21 Sep 2026). Klee Thomas signed
+// up at 15:06 on 20 Sep, never clicked the link, and the screen below gave them nowhere to go: no mention of
+// the junk folder (they were on Yahoo), no way to send it again, no way back if the address was wrong. This
+// is Supabase's own public resend endpoint, so it needs no login — the address has to match an unconfirmed
+// account or it does nothing.
+async function resendSignupConfirmation(email){
+  const btn = document.getElementById("signup-resend-btn");
+  const note = document.getElementById("signup-resend-note");
+  if(btn){ btn.disabled = true; btn.textContent = "Sending…"; }
+  try{
+    const res = await fetch(SUPABASE_URL + "/auth/v1/resend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON, Authorization: "Bearer " + SUPABASE_ANON },
+      body: JSON.stringify({ type: "signup", email: email })
+    });
+    if(!res.ok){
+      const body = await res.json().catch(()=>({}));
+      throw new Error((body && (body.msg || body.error_description || body.message)) || "Could not send it again.");
+    }
+    if(note){ note.textContent = "Sent again. It can take a minute to arrive."; note.style.display = "block"; }
+    if(btn){ btn.textContent = "Sent ✓"; }
+  }catch(e){
+    if(note){ note.textContent = (e && e.message) ? e.message : "Could not send it again — try in a few minutes."; note.style.display = "block"; }
+    if(btn){ btn.disabled = false; btn.textContent = "Send it again"; }
+  }
+}
 function showSignupEmailSent(email){
-  document.getElementById("gate-signup").innerHTML =
-    '<p class="sub">Almost there</p>' +
-    '<p style="text-align:center;padding:1rem 0;line-height:1.5">We\'ve sent a confirmation link to <strong>' + email.replace(/[<>&]/g,"") + '</strong>. Click it and you\'re in: 30 days of everything, free.</p>' +
-    '<p style="text-align:center"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">&larr; Back to sign in</a> &nbsp;&middot;&nbsp; <a href="https://www.drivemyway.co.uk" style="color:var(--navy);font-weight:700">Back to the website</a></p>';
+  const safe = email.replace(/[<>&]/g,'');
+  document.getElementById('gate-signup').innerHTML =
+    '<p class="sub">Almost there — one last step</p>' +
+    '<p style="text-align:center;padding:.75rem 0 .5rem;line-height:1.5">We&#39;ve sent a confirmation link to <strong>' + safe + '</strong>. Click it and you&#39;re in: 30 days of everything, free.</p>' +
+    '<p style="text-align:center;line-height:1.5;color:var(--muted);font-size:.9rem"><strong>Can&#39;t see it?</strong> Have a look in your junk or spam folder — it often lands there. It can take a minute to arrive.</p>' +
+    '<div style="text-align:center;margin:1rem 0 .25rem"><button id="signup-resend-btn" class="btn btn-navy btn-sm" onclick="resendSignupConfirmation(&quot;' + safe + '&quot;)">Send it again</button></div>' +
+    '<p id="signup-resend-note" style="display:none;text-align:center;color:var(--muted);font-size:.85rem;margin:.4rem 0 0"></p>' +
+    '<p style="text-align:center;color:var(--muted);font-size:.85rem;margin:.75rem 0 0">Typed the wrong address? <a href="#" onclick="showSignup();return false" style="color:var(--navy);font-weight:700">Start again</a></p>' +
+    '<p style="text-align:center;margin-top:1rem"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">&larr; Back to sign in</a> &nbsp;&middot;&nbsp; <a href="https://www.drivemyway.co.uk" style="color:var(--navy);font-weight:700">Back to the website</a></p>';
 }
 
 const TEMP_EMAIL_MESSAGE = "Please sign up with your usual email address, not a temporary one.";
@@ -2748,7 +2779,12 @@ async function submitSignup(){
   const password = document.getElementById("signup-pass").value;
   if(!firstName || !lastName){ err.textContent = "Enter your first and last name"; return; }
   if(signupKind === "school" && !schoolName){ err.textContent = "Enter your driving school name"; return; }
-  if(!email || !password){ err.textContent = "Enter your email and password"; return; }
+  if(!email){ err.textContent = "Enter your email address"; return; }
+  // Say the rule before they press the button, not after (Dale, 21 Sep 2026). Supabase refuses anything under
+  // 6 and its message reads like an error rather than an instruction; one visitor got as far as this form and
+  // never submitted it.
+  if(!password){ err.textContent = "Choose a password — at least 6 characters"; return; }
+  if(password.length < 6){ err.textContent = "That password is too short — please use at least 6 characters"; return; }
 
   // The hidden trap field (Dale, 14 Sep 2026): people never see it, so if it's filled in a bot is signing up.
   // Look as if it worked and create nothing.

@@ -5516,16 +5516,21 @@ let deleteAllPaymentsCC=null;
  */
 async function deletePaymentsForCC(list){
   const ids=(list||[]).map(p=>p.id);
-  if(!ids.length) return { count:0, total:0 };
+  if(!ids.length) return { count:0, total:0, tests:0 };
   try{
-    let count=0, total=0;
+    let count=0, total=0, tests=0;
     // In pages, so a few hundred pupils can't make a URL too long to send.
     for(let i=0;i<ids.length;i+=50){
-      const {data,error}=await sb.from("transactions").select("amount").eq("type","income").in("pupil_id", ids.slice(i,i+50));
+      const slice=ids.slice(i,i+50);
+      const {data,error}=await sb.from("transactions").select("amount").eq("type","income").in("pupil_id", slice);
       if(error) return null;
       (data||[]).forEach(r=>{ count++; total+=Number(r.amount)||0; });
+      // Test results keep a name too, so "nothing is kept" can only be said once these have been counted.
+      const {data:t,error:tErr}=await sb.from("practical_tests").select("id").in("pupil_id", slice);
+      if(tErr) return null;
+      tests += (t||[]).length;
     }
-    return { count, total };
+    return { count, total, tests };
   }catch(e){ return null; }
 }
 
@@ -5544,13 +5549,29 @@ async function openDeletePupilsDialog(list, allInactive, namedTitle){
   openModal('<h3 style="margin-top:0">'+title+'</h3><p class="muted">Checking what these pupils have against them…</p>');
   deleteAllPaymentsCC=await deletePaymentsForCC(deleteTargetsCC);
   const money=deleteAllMoneyPhraseCC(deleteAllPaymentsCC);
-  const keepLine = money ? money+" and any test results stay" : "Any payments and test results stay";
-  const goneLine = money ? "Their "+money+" and test results are deleted too" : "Their payments and test results are deleted too";
+  // Say where they GO, not just what survives (Dale, 21 Sep 2026): Kept for records is a real tab, and a pupil
+  // who simply vanishes from every list looks deleted whatever the button said. Anyone with nothing attached
+  // genuinely is gone, so the wording says that as well rather than promising a place they won't appear in.
+  const many=deleteTargetsCC.length>1;
+  const tests=(deleteAllPaymentsCC&&deleteAllPaymentsCC.tests)||0;
+  const nothingKept = !!deleteAllPaymentsCC && !deleteAllPaymentsCC.count && !tests;
+  const testPhrase = tests ? tests+" test "+(tests===1?"result":"results") : "";
+  const bits=[money, testPhrase].filter(Boolean).join(" and ");
+  const keepLine = nothingKept
+    ? (many
+        ? "None of them have payments or test results, so nothing is kept and they are removed completely"
+        : "They have no payments or test results, so nothing is kept and they are removed completely")
+    : (bits ? bits+" stay" : "Any payments and test results stay")
+      + ", under their name, in Kept for records"
+      + (many ? ". Anyone with nothing against them is removed completely" : "");
+  const goneLine = nothingKept
+    ? "There is nothing else to delete — the same as the option above"
+    : (bits ? "Their "+bits+" are deleted too" : "Their payments and test results are deleted too");
   openModal(`<h3 style="margin-top:0">${title}</h3>
     <p class="muted" style="line-height:1.5">Their lessons, messages, reflective logs, progress, mock tests, personal details and app logins are deleted either way. This cannot be undone.</p>
     <button type="button" class="btn-outline" style="display:block;width:100%;text-align:left;padding:.8rem;margin:.75rem 0 .5rem" onclick="runDeleteAllInactive(true)">
       <strong>Delete, keep the income</strong>
-      <span class="muted" style="display:block;font-size:.85rem;margin-top:.15rem">${keepLine}, under their name.</span>
+      <span class="muted" style="display:block;font-size:.85rem;margin-top:.15rem">${keepLine}.</span>
     </button>
     <button type="button" class="btn-danger" style="display:block;width:100%;text-align:left;padding:.8rem;margin:0 0 .75rem" onclick="confirmDeleteAllEverythingCC()">
       <strong>Delete everything</strong>

@@ -2185,7 +2185,7 @@ async function enterApp(user,prof,pause){
   refreshTrialBanner(prof);
   refreshFeedbackCard(prof);
   refreshTwoFaBanner(prof);
-  maybeShowWelcomeTour();
+  maybeAskHowHeard();
 }
 // Two-factor authentication in the Control Centre (Dale, 14 Sep 2026). The app already had it (Supabase TOTP, the
 // same authenticator code), but this page only asked for the password, so an account with 2FA on could sign in here
@@ -10075,6 +10075,45 @@ function finishTour(goCall){
   if(goCall){ try{ new Function(goCall)(); }catch(e){} }
   if(tourFirst){ tourFirst=false; checkProfileCompletion(); }
 }
+// --- Where did you hear about us? (Dale, 22 Sep 2026) ---------------------------------------------------
+// signup_events only tags links Dale controls, so it can never see "someone in my ADI group mentioned it" —
+// which is where he thinks most sign-ups come from. Asked here, on the first Control Centre sign-in, and NOT
+// on the sign-up form: two of the three tagged visitors so far picked their account type and then abandoned
+// the form, so nothing new goes on it.
+//
+// Runs before the welcome tour and hands on to it either way, so the order is: thank you, tour, profile.
+// Anyone who signed up before this existed has how_heard null and gets asked once, next time they sign in —
+// which is how Dale finds out about the instructors he already has.
+const HOW_HEARD_OPTIONS=[
+  ["facebook_ad","A Facebook ad"],
+  ["facebook_post","A Facebook post or group"],
+  ["recommendation","Someone recommended it"],
+  ["search","A search engine"],
+  ["other","Somewhere else"]
+];
+async function maybeAskHowHeard(){
+  if(isSuperAdminUser){ maybeShowWelcomeTour(); return; }
+  let answered=true;
+  try{
+    const {data,error}=await sb.from("profiles").select("how_heard").eq("id",currentUserId).maybeSingle();
+    // Anything unexpected: say nothing rather than ask twice.
+    answered = error ? true : !!(data && data.how_heard);
+  }catch(e){ answered=true; }
+  if(answered){ maybeShowWelcomeTour(); return; }
+  openModal(`<h3 style="margin:0 0 .4rem">Thanks for signing up</h3>
+    <p class="muted" style="margin-bottom:1rem">One quick question: where did you hear about Drive My Way? It tells me what's worth doing more of.</p>
+    <div style="display:flex;flex-direction:column;gap:.45rem">
+      ${HOW_HEARD_OPTIONS.map(([v,label])=>`<button type="button" class="btn-outline" style="text-align:left" onclick="answerHowHeard('${v}')">${label}</button>`).join("")}
+    </div>
+    <p style="text-align:center;margin:.9rem 0 0"><button type="button" onclick="answerHowHeard('skipped')" style="background:none;border:none;color:var(--muted);font-size:.85rem;cursor:pointer;font-family:var(--fb)">Skip</button></p>`);
+}
+/** Best effort: a failed save must never block somebody getting into their account. */
+async function answerHowHeard(value){
+  try{ await sb.rpc("instructor_set_how_heard",{p_value:value}); }catch(e){}
+  closeModal();
+  maybeShowWelcomeTour();
+}
+
 async function maybeShowWelcomeTour(){
   if(isSuperAdminUser){ checkProfileCompletion(); return; }
   let seen=true;

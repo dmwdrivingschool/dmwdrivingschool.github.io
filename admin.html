@@ -3215,8 +3215,10 @@ async function loadPayments(){
   const pageSize=1000;
   let all=[],from=0;
   while(true){
-    let {data,error}=await sb.from("transactions").select("*, pupil:pupils(first_name,last_name)").order("transaction_date",{ascending:false}).range(from,from+pageSize-1);
-    if(error){const r2=await sb.from("transactions").select("*").order("transaction_date",{ascending:false}).range(from,from+pageSize-1); data=r2.data; error=r2.error}
+    // Newest added first within a day (Dale, 21 Sep 2026), so an entry just added sits at the top of its date
+    // instead of anywhere among the others. Date stays the primary sort so the ledger still reads by date.
+    let {data,error}=await sb.from("transactions").select("*, pupil:pupils(first_name,last_name)").order("transaction_date",{ascending:false}).order("created_at",{ascending:false}).range(from,from+pageSize-1);
+    if(error){const r2=await sb.from("transactions").select("*").order("transaction_date",{ascending:false}).order("created_at",{ascending:false}).range(from,from+pageSize-1); data=r2.data; error=r2.error}
     if(error){ if(from===0){txCache=[]; return} break }
     all=all.concat(data||[]);
     if(!data||data.length<pageSize) break;

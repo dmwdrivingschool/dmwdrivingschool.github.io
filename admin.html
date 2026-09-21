@@ -1047,7 +1047,6 @@ const TAX_HEADINGS={
 const TAX_EXPENSE_ORDER=["costOfGoods","wagesAndStaffCosts","carVanTravelExpenses","premisesRunningCosts","maintenanceCosts","adminCosts","advertisingCosts","interestOnBankOtherLoans","financeCharges","professionalFees","otherExpenses"];
 const INCOME_CAT_DEFS=[
   {name:"Pupil Lesson",heading:"turnover"},
-  {name:"Pupil Test Fee",heading:"turnover"},
   {name:"School payment",heading:"turnover"},
   {name:"Franchise fee",heading:"turnover"},
   // A company's bank interest is its own income; a sole trader's goes on the savings part of the tax return.
@@ -1082,7 +1081,6 @@ const EXPENSE_CAT_DEFS=[
   {name:"ADI registration & training",heading:"otherExpenses",claimable:true},
   {name:"Subscriptions",heading:"otherExpenses",claimable:true},
   {name:"Lesson Refund",heading:"refunds",claimable:true},
-  {name:"Pupil Test Fee",heading:"costOfGoods",claimable:true},
   {name:"Instructor payment",heading:"otherExpenses",claimable:true},
   // Sole traders (Dale, 12 Sep 2026): HMRC's mileage rate (worked out from the
   // miles) and the flat rate for working from home.
@@ -1111,6 +1109,9 @@ const LEGACY_CATS={
     "Franchise / Car Rental":{heading:"otherExpenses",claimable:true,now:"Franchise fee"},
     "Pupil Lesson":{heading:"refunds",claimable:true,now:"Lesson Refund"},
     "Student Lesson Refund":{heading:"refunds",claimable:true,now:"Lesson Refund"},
+    // Retired 21 Sep 2026 (Dale: "instructors cannot book pupil test anymore") — no booking, no fee to pay,
+    // nothing to charge back. Kept so entries already filed under it stay where they are.
+    "Pupil Test Fee":{heading:"costOfGoods",claimable:true,now:"Miscellaneous"},
     "Square Payment Charge":{heading:"financeCharges",claimable:true,now:"Card reader charge"},
     "Payment Service Fee":{heading:"financeCharges",claimable:true,now:"Payment processing fee"},
     // Removed 12 Sep 2026 (Dale): HP interest is worked out from Your cars
@@ -7087,10 +7088,10 @@ function fillPayPupils(keep){
   pupSel.innerHTML=opts;
   pupSel.value=cur||"";
 }
-function isLessonCat(cat){return cat==="Pupil Lesson"||cat==="Pupil Test Fee"}
+function isLessonCat(cat){return cat==="Pupil Lesson"}
 // Money going OUT that belongs to a pupil too (Dale, 21 Sep 2026): the DVSA fee paid for THAT pupil's test,
 // and a refund given to THAT pupil. Neither offered a pupil box, though both are about one person.
-function isPupilExpenseCat(cat){return cat==="Lesson Refund"||cat==="Pupil Test Fee"}
+function isPupilExpenseCat(cat){return cat==="Lesson Refund"}
 function payEntryHasPupil(type,cat){return type==="income"?isLessonCat(cat):isPupilExpenseCat(cat)}
 function onPayCatChange(setDefault){
   const type=document.getElementById("pay-type").value;

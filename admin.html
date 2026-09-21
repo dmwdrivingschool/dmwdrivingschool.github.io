@@ -703,6 +703,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" class="btn btn-navy btn-sm" onclick="openAddPupilForm()">+ Add pupil</button>
           <button type="button" class="btn-outline" onclick="document.getElementById('pupil-import-file').click()">Import pupils CSV</button>
           <button type="button" class="btn-outline" onclick="downloadPupilTemplate()">CSV template</button>
+          <button type="button" class="btn-danger hidden" id="pupil-delete-all-btn" onclick="openDeleteAllInactive()">Delete all inactive</button>
           <input type="file" id="pupil-import-file" accept=".csv,text/csv" class="hidden" onchange="importPupilsCsv(event)">
         </div>
         <p class="muted" style="margin-bottom:.75rem">CSV columns: first_name, last_name, phone, email, address_line1, address_line2, city, postcode, status (active/waiting/passed/inactive)</p>
@@ -3303,6 +3304,16 @@ function renderPupils(){
         <option value="">Assign to…</option>
         ${schoolInstructorsCache.map(i=>`<option value="${i.id}">${esc(i.full_name||i.email)}${i.id===currentUserId?" (me)":""}</option>`).join("")}
       </select>` : "";
+  // Delete all inactive (Dale, 21 Sep 2026, Control Centre only): an imported pupil list can arrive as hundreds
+  // of inactive pupils and clearing it one at a time is unusable. Counted from the whole list rather than the
+  // filtered one — a button reading "Delete all 3" must never delete 127 — and hidden while searching.
+  const delAllBtn=document.getElementById("pupil-delete-all-btn");
+  if(delAllBtn){
+    const inactive=inactivePupilsCC();
+    const show = pupilStatusFilter==="inactive" && inactive.length>0 && !q && !unassignedView && !instructorsView;
+    delAllBtn.classList.toggle("hidden", !show);
+    delAllBtn.textContent = "Delete all "+inactive.length+" inactive";
+  }
   const el=document.getElementById("pupil-list");
   if(instructorsView){
     if(!list.length){ el.innerHTML='<p class="muted">No pupils with other instructors yet. Assign pupils from the Unassigned tab, or move one of yours with Edit.</p>'; return; }
@@ -5397,6 +5408,131 @@ function removePupil(id){
     alert(res&&res.outcome==="kept_name"
       ? `${name} has been deleted. Their payments and test results are kept under their name.`
       : `${name} has been deleted.`);
+    refresh();
+  });
+}
+
+/**
+ * Delete every inactive pupil (Dale, 21 Sep 2026). Control Centre only, like quiet hours and the decline
+ * wording: clearing out a pupil list is a sit-down job, and it is the one action with no undo.
+ *
+ * Two choices, always both shown whatever the account holds (Dale: "best to have the 2 buttons explaining what
+ * each does"), because a control that comes and goes is one nobody learns:
+ *   keep the income  - payments and test results stay under the pupil's name, as single-pupil Delete has always
+ *                      worked, and as the six-year HMRC retention expects
+ *   everything       - those go too, so nothing of the pupil is left
+ *
+ * manage-auth purge_pupils does the work, up to 25 at a time; these go in tens with the count on screen, so one
+ * timeout can't take a whole run with it and a pupil that refuses (a protected demo account) is reported rather
+ * than stopping the rest.
+ */
+function inactivePupilsCC(){ return (pupilsCache||[]).filter(p=>p.status==="inactive"); }
+
+/**
+ * What these pupils' payments come to, read from the database rather than the cached rows. This number is what
+ * someone decides by when choosing whether to destroy financial records, so it has to be the real one — a cache
+ * that simply hadn't loaded would otherwise say "no payments found" about an account that has them.
+ * Returns null if it can't be read, and the wording then claims nothing either way.
+ */
+async function inactivePaymentsCC(){
+  const ids=inactivePupilsCC().map(p=>p.id);
+  if(!ids.length) return { count:0, total:0 };
+  try{
+    let count=0, total=0;
+    // In pages, so a few hundred pupils can't make a URL too long to send.
+    for(let i=0;i<ids.length;i+=50){
+      const {data,error}=await sb.from("transactions").select("amount").eq("type","income").in("pupil_id", ids.slice(i,i+50));
+      if(error) return null;
+      (data||[]).forEach(r=>{ count++; total+=Number(r.amount)||0; });
+    }
+    return { count, total };
+  }catch(e){ return null; }
+}
+
+function deleteAllMoneyPhraseCC(pay){
+  if(!pay) return null;
+  if(!pay.count) return null;
+  return pay.count+" "+(pay.count===1?"payment":"payments")+" ("+gbp(Math.round(pay.total*100))+")";
+}
+
+let deleteAllPaymentsCC=null;
+
+async function openDeleteAllInactive(){
+  const list=inactivePupilsCC();
+  if(!list.length) return;
+  const noun=list.length===1?"pupil":"pupils";
+  openModal('<h3 style="margin-top:0">Delete all '+list.length+' inactive '+noun+'</h3><p class="muted">Checking what these pupils have against them…</p>');
+  deleteAllPaymentsCC=await inactivePaymentsCC();
+  const pay=deleteAllPaymentsCC;
+  const money=deleteAllMoneyPhraseCC(pay);
+  const keepLine = money ? money+" and any test results stay" : "Any payments and test results stay";
+  const goneLine = money ? "Their "+money+" and test results are deleted too" : "Their payments and test results are deleted too";
+  openModal(`<h3 style="margin-top:0">Delete all ${list.length} inactive ${noun}</h3>
+    <p class="muted" style="line-height:1.5">Their lessons, messages, reflective logs, progress, mock tests, personal details and app logins are deleted either way. This cannot be undone.</p>
+    <button type="button" class="btn-outline" style="display:block;width:100%;text-align:left;padding:.8rem;margin:.75rem 0 .5rem" onclick="runDeleteAllInactive(true)">
+      <strong>Delete, keep the income</strong>
+      <span class="muted" style="display:block;font-size:.85rem;margin-top:.15rem">${keepLine}, under their name.</span>
+    </button>
+    <button type="button" class="btn-danger" style="display:block;width:100%;text-align:left;padding:.8rem;margin:0 0 .75rem" onclick="confirmDeleteAllEverythingCC()">
+      <strong>Delete everything</strong>
+      <span style="display:block;font-size:.85rem;margin-top:.15rem;opacity:.9">${goneLine}.</span>
+    </button>
+    <div id="delete-all-progress" class="muted" style="margin-bottom:.5rem"></div>
+    <div style="text-align:right"><button type="button" class="btn-outline" onclick="closeModal()">Cancel</button></div>`);
+}
+
+// The second ask, only for the option that leaves nothing behind. It names the money, because "are you sure"
+// on its own is the kind of warning people click through without reading.
+function confirmDeleteAllEverythingCC(){
+  const list=inactivePupilsCC();
+  const pay=deleteAllPaymentsCC;
+  const noun=list.length===1?"pupil":"pupils";
+  let money;
+  if(pay && pay.count>0){
+    money=pay.count+" "+(pay.count===1?"payment":"payments")+" totalling "+gbp(Math.round(pay.total*100))+" will be deleted from your records.\n\nIf you need those figures for your tax return, choose \"Delete, keep the income\" instead.\n\n";
+  }else if(pay){
+    money="No payments were found for these pupils, so there is nothing to keep.\n\n";
+  }else{
+    money="Any payments and test results they have will be deleted as well.\n\n";
+  }
+  if(!confirm("Delete "+list.length+" inactive "+noun+" and everything about them?\n\n"+money+"This cannot be undone.")) return;
+  runDeleteAllInactive(false);
+}
+
+function runDeleteAllInactive(keepIncome){
+  return runOnce("delete-all-inactive", async()=>{
+    const targets=inactivePupilsCC();
+    if(!targets.length) return;
+    const note=document.getElementById("delete-all-progress");
+    const say=t=>{ if(note) note.textContent=t; };
+    const failures=[];
+    let done=0;
+    say("Deleting 0 of "+targets.length+"…");
+    try{
+      for(let i=0;i<targets.length;i+=10){
+        const batch=targets.slice(i,i+10);
+        const res=await manageAuthAdmin("purge_pupils",{pupil_ids:batch.map(p=>p.id), keep_income:keepIncome});
+        ((res&&res.results)||[]).forEach(r=>{
+          if(!r.error) return;
+          const p=targets.find(t=>t.id===r.pupil_id);
+          failures.push(([p&&p.first_name,p&&p.last_name].filter(Boolean).join(" ")||"A pupil")+": "+r.error);
+        });
+        done+=batch.length;
+        say("Deleting "+done+" of "+targets.length+"…");
+      }
+    }catch(e){
+      closeModal();
+      return alert("The pupils could not all be deleted: "+((e&&e.message)||"Unknown error"));
+    }
+    closeModal();
+    const deleted=targets.length-failures.length;
+    if(failures.length){
+      alert(deleted+" of "+targets.length+" deleted.\n\nThese could not be:\n\n"+failures.slice(0,10).join("\n")+(failures.length>10?"\n…and "+(failures.length-10)+" more.":""));
+    }else{
+      alert(keepIncome
+        ? deleted+" inactive "+(deleted===1?"pupil has":"pupils have")+" been deleted. Their payments and test results are kept under their name."
+        : deleted+" inactive "+(deleted===1?"pupil has":"pupils have")+" been deleted, along with their payments and test results.");
+    }
     refresh();
   });
 }

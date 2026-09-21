@@ -695,6 +695,7 @@ tbody tr:hover td{background:#334263}
           <button data-status="waiting" id="pupil-filter-waiting">Waiting</button>
           <button data-status="passed">Passed</button>
           <button data-status="inactive">Inactive</button>
+          <button data-status="kept">Kept for records</button>
           <button data-status="unassigned" id="pupil-filter-unassigned" class="hidden">Unassigned</button>
           <button data-status="instructors" id="pupil-filter-instructors" class="hidden">Instructors' pupils</button>
         </div>
@@ -3300,7 +3301,14 @@ function renderPupils(){
   const q=(document.getElementById("pupil-search").value||"").toLowerCase();
   const unassignedView = pupilStatusFilter==="unassigned";
   const instructorsView = pupilStatusFilter==="instructors";
-  let list = unassignedView ? unassignedCache.slice() : instructorsView ? schoolPupilsCache.slice() : pupilsCache.filter(p=>p.status!=="enquiry" && p.status===pupilStatusFilter);
+  // "Kept for records" (Dale, 21 Sep 2026): a name with nothing behind it, kept because of what is attached.
+  // Two ways in — a pupil deleted by hand whose payments or test results kept their name, and one cleaned up
+  // after a year on Inactive. Both are status 'deleted', so they are the same list.
+  const keptView = pupilStatusFilter==="kept";
+  let list = unassignedView ? unassignedCache.slice()
+    : instructorsView ? schoolPupilsCache.slice()
+    : keptView ? pupilsCache.filter(p=>p.status==="deleted")
+    : pupilsCache.filter(p=>p.status!=="enquiry" && p.status!=="deleted" && p.status===pupilStatusFilter);
   if(q) list=list.filter(p=>`${p.first_name} ${p.last_name} ${p.phone||""} ${p.email||""}`.toLowerCase().includes(q));
   const assignSel = (p) => unassignedView ? `<select onchange="assignPoolPupil('${p.id}',this.value)" style="font-size:.8rem">
         <option value="">Assign to…</option>
@@ -3335,7 +3343,26 @@ function renderPupils(){
         </div></div>`).join("")}`).join("");
     return;
   }
-  if(!list.length){el.innerHTML=unassignedView?'<p class="muted">No unassigned pupils — every pupil in the school has an instructor.</p>':'<p class="muted">No pupils</p>';return}
+  if(!list.length){
+    el.innerHTML = unassignedView ? '<p class="muted">No unassigned pupils — every pupil in the school has an instructor.</p>'
+      : keptView ? '<p class="muted">Nothing here. Names appear when a pupil you delete still has payments or test results against them, or after a year on Inactive when their details are cleared automatically.</p>'
+      : '<p class="muted">No pupils</p>';
+    return;
+  }
+  if(keptView){
+    el.innerHTML='<p class="muted" style="margin-bottom:.75rem">Only their name is left. Payments and driving test results are kept for six years for tax, and the name goes with the last of them — delete the payments from Finances if you want a name gone sooner.</p>'
+      + list.map(p=>`<div class="list-row">
+      <div style="flex:1;min-width:0">
+        <strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
+        <div class="muted">${keptReasonCC(p)}</div>
+      </div>
+      <div class="actions">
+        <button class="btn-outline" onclick="showPupilById('${p.id}')">Details</button>
+        <button class="btn-danger" onclick="removePupil('${p.id}')">Delete</button>
+      </div>
+    </div>`).join("");
+    return;
+  }
   renderPupilSelectBar(list);
   el.innerHTML=list.map(p=>`<div class="list-row">
     ${pupilSelectMode?`<label style="display:flex;align-items:center;padding-right:.2rem"><input type="checkbox" class="pupil-pick" value="${p.id}" ${pupilPicked.has(p.id)?"checked":""} onchange="onPupilPick('${p.id}',this.checked)" style="width:1.1rem;height:1.1rem"></label>`:""}
@@ -3362,6 +3389,16 @@ function renderPupils(){
 // silently break the button (click does nothing, no error visible). Looking
 // the pupil up by id from the already-loaded cache — same pattern the diary
 // already used for its own "open pupil" clicks — is robust to that.
+/** Why this name is still here: cleared automatically after a year, or deleted with records attached. */
+function keptReasonCC(p){
+  const m=String(p.notes||"").match(/\[Purged (\d{4}-\d{2}-\d{2})\]/);
+  if(m){
+    const d=new Date(m[1]+"T00:00:00");
+    return "Details cleared "+(isNaN(d)?m[1]:d.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}))+" — a year after going inactive";
+  }
+  return "Deleted — kept because of their payments or test results";
+}
+
 function showPupilById(id){ const p=allPupils().find(x=>x.id===id); if(p) showPupil(p); }
 function editPupilById(id){ const p=allPupils().find(x=>x.id===id); if(p) editPupil(p); }
 

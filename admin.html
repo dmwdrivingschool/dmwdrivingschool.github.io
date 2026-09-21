@@ -1073,8 +1073,11 @@ const EXPENSE_CAT_DEFS=[
   {name:"Office Expenses",heading:"adminCosts",claimable:true},
   {name:"Printing & Stationery",heading:"adminCosts",claimable:true},
   {name:"Bank Charges",heading:"financeCharges",claimable:true},
-  {name:"Payment Service Fee",heading:"financeCharges",claimable:true},
-  {name:"Square Payment Charge",heading:"financeCharges",claimable:true},
+  // Renamed 21 Sep 2026: "Square Payment Charge" named one brand (SumUp, Zettle and Dojo are just as common)
+  // and "Payment Service Fee" said nothing at all. Both stay under finance charges, and the old names are in
+  // the retired list below so entries already filed under them don't move.
+  {name:"Payment processing fee",heading:"financeCharges",claimable:true},
+  {name:"Card reader charge",heading:"financeCharges",claimable:true},
   {name:"Accountancy & professional fees",heading:"professionalFees",claimable:true},
   {name:"ADI registration & training",heading:"otherExpenses",claimable:true},
   {name:"Subscriptions",heading:"otherExpenses",claimable:true},
@@ -1108,6 +1111,8 @@ const LEGACY_CATS={
     "Franchise / Car Rental":{heading:"otherExpenses",claimable:true,now:"Franchise fee"},
     "Pupil Lesson":{heading:"refunds",claimable:true,now:"Lesson Refund"},
     "Student Lesson Refund":{heading:"refunds",claimable:true,now:"Lesson Refund"},
+    "Square Payment Charge":{heading:"financeCharges",claimable:true,now:"Card reader charge"},
+    "Payment Service Fee":{heading:"financeCharges",claimable:true,now:"Payment processing fee"},
     // Removed 12 Sep 2026 (Dale): HP interest is worked out from Your cars
     // instead of being typed in. Any older entries still count as interest.
     "Car HP interest":{heading:"interestOnBankOtherLoans",claimable:true,now:"Interest on bank and other loans"}
@@ -8238,8 +8243,9 @@ const FIN_IMPORT_SYNONYMS={
     office:"Office Expenses",officecosts:"Office Expenses",officeexpenses:"Office Expenses",
     stationery:"Printing & Stationery",printing:"Printing & Stationery",postage:"Printing & Stationery",
     bankcharges:"Bank Charges",bankfees:"Bank Charges",
-    cardfees:"Payment Service Fee",paymentfees:"Payment Service Fee",transactionfees:"Payment Service Fee",stripe:"Payment Service Fee",sumup:"Payment Service Fee",paypal:"Payment Service Fee",
-    square:"Square Payment Charge",squarefees:"Square Payment Charge",
+    cardfees:"Payment processing fee",paymentfees:"Payment processing fee",transactionfees:"Payment processing fee",stripe:"Payment processing fee",paypal:"Payment processing fee",gocardless:"Payment processing fee",
+    sumup:"Card reader charge",zettle:"Card reader charge",izettle:"Card reader charge",dojo:"Card reader charge",cardreader:"Card reader charge",
+    square:"Card reader charge",squarefees:"Card reader charge",
     accountant:"Accountancy & professional fees",accountancy:"Accountancy & professional fees",professionalfees:"Accountancy & professional fees",legal:"Accountancy & professional fees",
     adi:"ADI registration & training",adiregistration:"ADI registration & training",adibadge:"ADI registration & training",dvsa:"ADI registration & training",training:"ADI registration & training",cpd:"ADI registration & training",
     subscriptions:"Subscriptions",subscription:"Subscriptions",software:"Subscriptions",membership:"Subscriptions",
@@ -8454,7 +8460,8 @@ function finImportGuess(text,isExp){
     [/\b(public liability|business insurance|instructor insurance)\b/,"Business insurance"],
     [/insur/,"Car insurance"],
     [/\b(lease|leasing|car hire|car rental)\b/,"Car lease / rental"],
-    [/\b(stripe|sumup|paypal|card fees?|transaction fees?)\b/,"Payment Service Fee"],
+    [/\b(sumup|zettle|izettle|dojo|square|card reader)\b/,"Card reader charge"],
+    [/\b(stripe|gocardless|paypal|card fees?|transaction fees?|payment fees?)\b/,"Payment processing fee"],
     [/\b(petrol|diesel|fuel|shell|bp|esso|texaco|charging)\b/,"Fuel"],
     [/\b(parking|toll|tolls|congestion|ulez|dart ?charge)\b/,"Parking & tolls"],
     [/\b(mot|servicing|service|tyres?|repairs?|garage|brakes?|clutch|valet|car wash|dual controls?|wipers?|bulbs?)\b/,"Motor Expenses"],

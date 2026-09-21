@@ -703,10 +703,12 @@ tbody tr:hover td{background:#334263}
           <button type="button" class="btn btn-navy btn-sm" onclick="openAddPupilForm()">+ Add pupil</button>
           <button type="button" class="btn-outline" onclick="document.getElementById('pupil-import-file').click()">Import pupils CSV</button>
           <button type="button" class="btn-outline" onclick="downloadPupilTemplate()">CSV template</button>
+          <button type="button" class="btn-outline" id="pupil-select-btn" onclick="togglePupilSelect()">Select</button>
           <button type="button" class="btn-danger hidden" id="pupil-delete-all-btn" onclick="openDeleteAllInactive()">Delete all inactive</button>
           <input type="file" id="pupil-import-file" accept=".csv,text/csv" class="hidden" onchange="importPupilsCsv(event)">
         </div>
         <p class="muted" style="margin-bottom:.75rem">CSV columns: first_name, last_name, phone, email, address_line1, address_line2, city, postcode, status (active/waiting/passed/inactive)</p>
+        <div id="pupil-select-bar" class="hidden" style="border:1px solid var(--line);border-radius:10px;padding:.7rem .8rem;margin-bottom:.75rem"></div>
         <div id="pupil-list">Loading…</div>
       </div>
     </section>
@@ -3334,7 +3336,9 @@ function renderPupils(){
     return;
   }
   if(!list.length){el.innerHTML=unassignedView?'<p class="muted">No unassigned pupils — every pupil in the school has an instructor.</p>':'<p class="muted">No pupils</p>';return}
+  renderPupilSelectBar(list);
   el.innerHTML=list.map(p=>`<div class="list-row">
+    ${pupilSelectMode?`<label style="display:flex;align-items:center;padding-right:.2rem"><input type="checkbox" class="pupil-pick" value="${p.id}" ${pupilPicked.has(p.id)?"checked":""} onchange="onPupilPick('${p.id}',this.checked)" style="width:1.1rem;height:1.1rem"></label>`:""}
     <div style="flex:1;min-width:0">
       <strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
       <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div>
@@ -3596,7 +3600,9 @@ function renderPupilStatusCC(){
   if(p.status==="enquiry"||p.status==="deleted") return "";
   const labels={active:"Active",waiting:"Waiting list",enquiry:"Enquiry",inactive:"Inactive",passed:"Passed"};
   const now=labels[p.status]||p.status||"";
-  const btns=["active","waiting","inactive","passed"].filter(s=>s!==p.status)
+  // An inactive pupil can only go to Active or Passed (Dale, 21 Sep 2026): inactive is where people end up when
+  // they stop having lessons, so putting one back on the waiting list describes something that already happened.
+  const btns=(p.status==="inactive"?["active","passed"]:["active","waiting","inactive","passed"]).filter(s=>s!==p.status)
     .map(s=>`<button class="btn-outline btn-sm" onclick="closeModal();setStatus('${p.id}','${s}')">${labels[s]}</button>`).join("");
   return `<div style="border:1px solid var(--line);border-radius:10px;padding:.8rem;margin-bottom:1rem">
     <div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:.25rem">Status</div>
@@ -5413,8 +5419,11 @@ function removePupil(id){
 }
 
 /**
- * Delete every inactive pupil (Dale, 21 Sep 2026). Control Centre only, like quiet hours and the decline
- * wording: clearing out a pupil list is a sit-down job, and it is the one action with no undo.
+ * Deleting pupils in bulk (Dale, 21 Sep 2026). Control Centre only, like quiet hours and the decline wording:
+ * clearing out a pupil list is a sit-down job, and it is the one action with no undo.
+ *
+ * One dialog serves both ways in — "Delete all inactive", and the pupils ticked in Select mode — so there is a
+ * single set of words and a single set of rules however you got here.
  *
  * Two choices, always both shown whatever the account holds (Dale: "best to have the 2 buttons explaining what
  * each does"), because a control that comes and goes is one nobody learns:
@@ -5428,14 +5437,18 @@ function removePupil(id){
  */
 function inactivePupilsCC(){ return (pupilsCache||[]).filter(p=>p.status==="inactive"); }
 
+// Who the open dialog is about, and what their payments come to once looked up.
+let deleteTargetsCC=[];
+let deleteAllPaymentsCC=null;
+
 /**
  * What these pupils' payments come to, read from the database rather than the cached rows. This number is what
  * someone decides by when choosing whether to destroy financial records, so it has to be the real one — a cache
  * that simply hadn't loaded would otherwise say "no payments found" about an account that has them.
  * Returns null if it can't be read, and the wording then claims nothing either way.
  */
-async function inactivePaymentsCC(){
-  const ids=inactivePupilsCC().map(p=>p.id);
+async function deletePaymentsForCC(list){
+  const ids=(list||[]).map(p=>p.id);
   if(!ids.length) return { count:0, total:0 };
   try{
     let count=0, total=0;
@@ -5450,24 +5463,23 @@ async function inactivePaymentsCC(){
 }
 
 function deleteAllMoneyPhraseCC(pay){
-  if(!pay) return null;
-  if(!pay.count) return null;
+  if(!pay || !pay.count) return null;
   return pay.count+" "+(pay.count===1?"payment":"payments")+" ("+gbp(Math.round(pay.total*100))+")";
 }
 
-let deleteAllPaymentsCC=null;
+function openDeleteAllInactive(){ return openDeletePupilsDialog(inactivePupilsCC(), true); }
 
-async function openDeleteAllInactive(){
-  const list=inactivePupilsCC();
-  if(!list.length) return;
+async function openDeletePupilsDialog(list, allInactive){
+  if(!list || !list.length) return;
+  deleteTargetsCC=list.slice();
   const noun=list.length===1?"pupil":"pupils";
-  openModal('<h3 style="margin-top:0">Delete all '+list.length+' inactive '+noun+'</h3><p class="muted">Checking what these pupils have against them…</p>');
-  deleteAllPaymentsCC=await inactivePaymentsCC();
-  const pay=deleteAllPaymentsCC;
-  const money=deleteAllMoneyPhraseCC(pay);
+  const title=allInactive ? "Delete all "+list.length+" inactive "+noun : "Delete "+list.length+" "+noun;
+  openModal('<h3 style="margin-top:0">'+title+'</h3><p class="muted">Checking what these pupils have against them…</p>');
+  deleteAllPaymentsCC=await deletePaymentsForCC(deleteTargetsCC);
+  const money=deleteAllMoneyPhraseCC(deleteAllPaymentsCC);
   const keepLine = money ? money+" and any test results stay" : "Any payments and test results stay";
   const goneLine = money ? "Their "+money+" and test results are deleted too" : "Their payments and test results are deleted too";
-  openModal(`<h3 style="margin-top:0">Delete all ${list.length} inactive ${noun}</h3>
+  openModal(`<h3 style="margin-top:0">${title}</h3>
     <p class="muted" style="line-height:1.5">Their lessons, messages, reflective logs, progress, mock tests, personal details and app logins are deleted either way. This cannot be undone.</p>
     <button type="button" class="btn-outline" style="display:block;width:100%;text-align:left;padding:.8rem;margin:.75rem 0 .5rem" onclick="runDeleteAllInactive(true)">
       <strong>Delete, keep the income</strong>
@@ -5481,10 +5493,116 @@ async function openDeleteAllInactive(){
     <div style="text-align:right"><button type="button" class="btn-outline" onclick="closeModal()">Cancel</button></div>`);
 }
 
+/**
+ * Picking several pupils at once (Dale, 21 Sep 2026). Control Centre only, like Delete All.
+ *
+ * Moving is capped at 10 at a time on purpose (Dale: "think limit to 10 at a time"). Moving a pupil to Active
+ * or Waiting can send them a message — "You are now an active pupil", "You are on the waiting list" — so a
+ * careless Select All would text a hundred people at once. Deleting has no such cap: it sends nothing, and
+ * clearing out an import is the whole reason this exists.
+ *
+ * Where a pupil can be moved TO still follows the same rule as the buttons on their own page: an inactive
+ * pupil can only become Active or Passed.
+ */
+const PUPIL_MOVE_LIMIT=10;
+let pupilSelectMode=false;
+let pupilPicked=new Set();
+
+function togglePupilSelect(){
+  pupilSelectMode=!pupilSelectMode;
+  if(!pupilSelectMode) pupilPicked.clear();
+  const btn=document.getElementById("pupil-select-btn");
+  if(btn){ btn.textContent=pupilSelectMode?"Done":"Select"; btn.classList.toggle("btn-navy",pupilSelectMode); btn.classList.toggle("btn-outline",!pupilSelectMode); }
+  renderPupils();
+}
+
+function onPupilPick(id,on){
+  if(on) pupilPicked.add(id); else pupilPicked.delete(id);
+  renderPupilSelectBar();
+}
+
+function pickAllShown(){
+  (pupilSelectShown||[]).forEach(p=>pupilPicked.add(p.id));
+  renderPupils();
+}
+function clearPicked(){ pupilPicked.clear(); renderPupils(); }
+
+let pupilSelectShown=[];
+
+function renderPupilSelectBar(list){
+  if(list) pupilSelectShown=list;
+  const bar=document.getElementById("pupil-select-bar");
+  if(!bar) return;
+  if(!pupilSelectMode){ bar.classList.add("hidden"); bar.innerHTML=""; return; }
+  bar.classList.remove("hidden");
+  const shown=pupilSelectShown||[];
+  // Only ever counts and acts on what is on screen, so "Select all" can never do more than it says.
+  const picked=shown.filter(p=>pupilPicked.has(p.id));
+  const n=picked.length;
+  if(!n){
+    bar.innerHTML='<span class="muted">Tick the pupils you want, then choose what to do with them.</span>'+
+      (shown.length?' <button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="pickAllShown()">Select all '+shown.length+'</button>':"");
+    return;
+  }
+  const tooMany=n>PUPIL_MOVE_LIMIT;
+  // Inactive pupils can only go to Active or Passed; a mixed selection offers what suits all of them.
+  const anyInactive=picked.some(p=>p.status==="inactive");
+  const dests=anyInactive?["active","passed"]:["active","waiting","passed"];
+  const labels={active:"Active",waiting:"Waiting",passed:"Passed"};
+  bar.innerHTML=
+    '<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.55rem">'+
+      '<strong>'+n+' selected</strong>'+
+      (n<shown.length?'<button class="btn-outline btn-sm" onclick="pickAllShown()">Select all '+shown.length+'</button>':"")+
+      '<button class="btn-outline btn-sm" onclick="clearPicked()">Clear</button>'+
+    '</div>'+
+    '<div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">'+
+      '<span class="muted" style="font-size:.85rem">Move to</span>'+
+      dests.map(d=>'<button class="btn-outline btn-sm" '+(tooMany?"disabled":"")+' onclick="movePickedPupils(\''+d+'\')">'+labels[d]+'</button>').join("")+
+      '<span style="flex:1"></span>'+
+      '<button class="btn-danger btn-sm" onclick="deletePickedPupils()">Delete '+n+'</button>'+
+    '</div>'+
+    (tooMany?'<div class="muted" style="font-size:.82rem;margin-top:.5rem">Moving is limited to '+PUPIL_MOVE_LIMIT+' at a time, because moving a pupil to Active or Waiting sends them a message. Deleting has no limit.</div>':"")+
+    '<div id="pupil-select-progress" class="muted" style="font-size:.85rem;margin-top:.4rem"></div>';
+}
+
+function pickedPupilRows(){
+  return (pupilSelectShown||[]).filter(p=>pupilPicked.has(p.id));
+}
+
+function movePickedPupils(status){
+  return runOnce("move-picked-pupils", async()=>{
+    const picked=pickedPupilRows();
+    if(!picked.length) return;
+    if(picked.length>PUPIL_MOVE_LIMIT) return alert("Please pick no more than "+PUPIL_MOVE_LIMIT+" at a time to move.");
+    const labels={active:"Active",waiting:"Waiting",passed:"Passed"};
+    const warn = status==="active" || status==="waiting"
+      ? "\n\nEach of them gets a message telling them."
+      : "";
+    if(!confirm("Move "+picked.length+" "+(picked.length===1?"pupil":"pupils")+" to "+labels[status]+"?"+warn)) return;
+    const note=document.getElementById("pupil-select-progress");
+    const failures=[];
+    for(let i=0;i<picked.length;i++){
+      if(note) note.textContent="Moving "+(i+1)+" of "+picked.length+"…";
+      const {error}=await sb.from("pupils").update({status, status_changed_at:new Date().toISOString()}).eq("id",picked[i].id);
+      if(error) failures.push([picked[i].first_name,picked[i].last_name].filter(Boolean).join(" ")+": "+error.message);
+    }
+    pupilPicked.clear();
+    if(failures.length) alert((picked.length-failures.length)+" of "+picked.length+" moved.\n\nThese could not be:\n\n"+failures.slice(0,10).join("\n"));
+    else alert(picked.length+" "+(picked.length===1?"pupil has":"pupils have")+" been moved to "+labels[status]+".");
+    refresh();
+  });
+}
+
+function deletePickedPupils(){
+  const picked=pickedPupilRows();
+  if(!picked.length) return;
+  openDeletePupilsDialog(picked);
+}
+
 // The second ask, only for the option that leaves nothing behind. It names the money, because "are you sure"
 // on its own is the kind of warning people click through without reading.
 function confirmDeleteAllEverythingCC(){
-  const list=inactivePupilsCC();
+  const list=deleteTargetsCC;
   const pay=deleteAllPaymentsCC;
   const noun=list.length===1?"pupil":"pupils";
   let money;
@@ -5495,13 +5613,13 @@ function confirmDeleteAllEverythingCC(){
   }else{
     money="Any payments and test results they have will be deleted as well.\n\n";
   }
-  if(!confirm("Delete "+list.length+" inactive "+noun+" and everything about them?\n\n"+money+"This cannot be undone.")) return;
+  if(!confirm("Delete "+list.length+" "+noun+" and everything about them?\n\n"+money+"This cannot be undone.")) return;
   runDeleteAllInactive(false);
 }
 
 function runDeleteAllInactive(keepIncome){
   return runOnce("delete-all-inactive", async()=>{
-    const targets=inactivePupilsCC();
+    const targets=deleteTargetsCC;
     if(!targets.length) return;
     const note=document.getElementById("delete-all-progress");
     const say=t=>{ if(note) note.textContent=t; };
@@ -5525,13 +5643,14 @@ function runDeleteAllInactive(keepIncome){
       return alert("The pupils could not all be deleted: "+((e&&e.message)||"Unknown error"));
     }
     closeModal();
+    if(typeof pupilPicked!=="undefined") pupilPicked.clear();
     const deleted=targets.length-failures.length;
     if(failures.length){
       alert(deleted+" of "+targets.length+" deleted.\n\nThese could not be:\n\n"+failures.slice(0,10).join("\n")+(failures.length>10?"\n…and "+(failures.length-10)+" more.":""));
     }else{
       alert(keepIncome
-        ? deleted+" inactive "+(deleted===1?"pupil has":"pupils have")+" been deleted. Their payments and test results are kept under their name."
-        : deleted+" inactive "+(deleted===1?"pupil has":"pupils have")+" been deleted, along with their payments and test results.");
+        ? deleted+" "+(deleted===1?"pupil has":"pupils have")+" been deleted. Their payments and test results are kept under their name."
+        : deleted+" "+(deleted===1?"pupil has":"pupils have")+" been deleted, along with their payments and test results.");
     }
     refresh();
   });
@@ -11320,16 +11439,19 @@ function testCentreFieldsHtml(p){
 // showAppointments}; no row = all off and 1 hour. Appointments (private entries titled 'Appointment') show as their own times, no travel. A driving test's own lessons.test_travel_minutes overrides the standard (null = the standard).
 // All day (Dale, 15 Sep 2026) is stored as 1440, as the setting's travelMinutes and a test's test_travel_minutes: pupils avoid the
 // whole day of the test.
-const TEST_TRAVEL_CHOICES=[30,45,60,90,120,1440];
+// None (0) is a real choice (Clair Taberner via Dale, 21 Sep 2026): 30 minutes used to be the smallest, so an
+// instructor who wants no buffer at all around a test couldn't say so. The database already accepted 0.
+const TEST_TRAVEL_CHOICES=[0,30,45,60,90,120,1440];
 var testBookingCache={};
 // A stored travel time: whole minutes from 0 to 240, or 1440 for All day (a digits-only string counts); null otherwise.
 function testTravelValid(v){
   const n=typeof v==="string"&&/^\s*\d+\s*$/.test(v)?Number(v):v;
   return typeof n==="number"&&Number.isInteger(n)&&((n>=0&&n<=240)||n===1440)?n:null;
 }
-function testTravelLabel(m){ return Number(m)===1440?"All day":({30:"30 min",45:"45 min",60:"1 hour",90:"1½ hours",120:"2 hours"})[m]||`${m} min`; }
+function testTravelLabel(m){ return Number(m)===1440?"All day":Number(m)===0?"None":({30:"30 min",45:"45 min",60:"1 hour",90:"1½ hours",120:"2 hours"})[m]||`${m} min`; }
 // Travel time is that amount EACH side of the whole Test Slot (Dale, 15 Sep 2026): "1 hour each side". All day is only "All day".
-function testTravelEachSide(m){ return Number(m)===1440?"All day":`${testTravelLabel(m)} each side`; }
+// "None each side" reads like nonsense, and so does "All day each side".
+function testTravelEachSide(m){ return (Number(m)===1440||Number(m)===0)?testTravelLabel(m):`${testTravelLabel(m)} each side`; }
 // The Settings boxes: the six choices, plus a stored time that isn't one of them (so saving doesn't change it).
 function testTravelSettingChoices(current){ const n=testTravelValid(current); return n!=null&&!TEST_TRAVEL_CHOICES.includes(n)?[...TEST_TRAVEL_CHOICES,n]:TEST_TRAVEL_CHOICES.slice(); }
 function testBookingNormalise(v){

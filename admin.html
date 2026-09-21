@@ -806,7 +806,7 @@ tbody tr:hover td{background:#334263}
             <div class="field" id="pay-claim-wrap"><label>Claimable for tax?</label>
               <select id="pay-claimable"><option value="true">Claimable</option><option value="false">Not claimable</option></select>
             </div>
-            <div class="field" id="pay-pupil-wrap"><label>Pupil (for lesson/test income)</label>
+            <div class="field" id="pay-pupil-wrap"><label>Pupil</label>
               <select id="pay-pupil"><option value="">— none —</option></select>
             </div>
             <div class="field" id="pay-miles-wrap" style="display:none"><label>Business miles</label><input id="pay-miles" type="number" step="1" min="0" oninput="onPayMilesInput()"><div class="muted" id="pay-miles-note" style="font-size:.75rem;margin-top:.2rem"></div></div>
@@ -7088,12 +7088,18 @@ function fillPayPupils(keep){
   pupSel.value=cur||"";
 }
 function isLessonCat(cat){return cat==="Pupil Lesson"||cat==="Pupil Test Fee"}
+// Money going OUT that belongs to a pupil too (Dale, 21 Sep 2026): the DVSA fee paid for THAT pupil's test,
+// and a refund given to THAT pupil. Neither offered a pupil box, though both are about one person.
+function isPupilExpenseCat(cat){return cat==="Lesson Refund"||cat==="Pupil Test Fee"}
+function payEntryHasPupil(type,cat){return type==="income"?isLessonCat(cat):isPupilExpenseCat(cat)}
 function onPayCatChange(setDefault){
   const type=document.getElementById("pay-type").value;
   const cat=document.getElementById("pay-cat").value;
-  const show=type==="income"&&isLessonCat(cat);
+  const show=payEntryHasPupil(type,cat);
   document.getElementById("pay-pupil-wrap").style.display=show?"block":"none";
-  document.getElementById("pay-hours-wrap").style.display=show?"block":"none";
+  // Hours stay on the income side only: they are what becomes lesson credit, and a refund does not touch
+  // credit yet (see the note on refunds — whether it should is the instructor's choice, and unbuilt).
+  document.getElementById("pay-hours-wrap").style.display=(type==="income"&&isLessonCat(cat))?"block":"none";
   document.getElementById("pay-receipt-wrap").style.display=type==="expense"?"block":"none";
   // Dividends, Corporation Tax and director's loan money aren't expenses, so claimable doesn't apply.
   const notExp=type==="expense"&&outsideProfit({type:"expense",category:cat});

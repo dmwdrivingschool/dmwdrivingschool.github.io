@@ -2766,6 +2766,23 @@ function showSignupEmailSent(email){
     '<p style="text-align:center;margin-top:1rem"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">&larr; Back to sign in</a> &nbsp;&middot;&nbsp; <a href="https://www.drivemyway.co.uk" style="color:var(--navy);font-weight:700">Back to the website</a></p>';
 }
 
+/**
+ * Signing up with an address that already has an account (Dale, 21 Sep 2026). Supabase does not treat this as
+ * an error: it returns a user with no identities and sends no email, so the old code showed "check your email"
+ * for an email that was never going to arrive, and the person sat waiting.
+ *
+ * The address is never shown back, so this says nothing about who is or isn't registered.
+ */
+function showSignupAlreadyHaveAccount(){
+  document.getElementById('gate-signup').innerHTML =
+    '<p class="sub">You already have an account</p>' +
+    '<p style="text-align:center;padding:.75rem 0 .5rem;line-height:1.5">There is already an account set up with those details, so there is nothing more to sign up for — just sign in.</p>' +
+    '<div style="text-align:center;margin:1rem 0 .25rem"><button class="btn btn-navy" onclick="showSignin();return false">Sign in</button></div>' +
+    '<p style="text-align:center;color:var(--muted);font-size:.9rem;margin:.9rem 0 0">Forgotten your password? Tap <strong>Forgot password</strong> on the sign-in screen and we&#39;ll email you a new one.</p>' +
+    '<p style="text-align:center;color:var(--muted);font-size:.85rem;margin:.75rem 0 0">Meant to use a different address? <a href="#" onclick="showSignup();return false" style="color:var(--navy);font-weight:700">Start again</a></p>' +
+    '<p style="text-align:center;margin-top:1rem"><a href="https://www.drivemyway.co.uk" style="color:var(--navy);font-weight:700">Back to the website</a></p>';
+}
+
 const TEMP_EMAIL_MESSAGE = "Please sign up with your usual email address, not a temporary one.";
 
 async function submitSignup(){
@@ -2836,6 +2853,14 @@ async function submitSignup(){
     if(signUpError) throw signUpError;
     if(!signUpData.user) throw new Error("Sign up did not return an account");
     try{ localStorage.removeItem(REFERRAL_KEY); }catch(e){}
+
+    // An address that already has an account comes back with an empty identities array and no session, and no
+    // email is sent — so this has to be caught before the "check your email" screen (Dale, 21 Sep 2026).
+    if(!signUpData.session && Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0){
+      logSignupStep("already_registered", signupKind);
+      showSignupAlreadyHaveAccount();
+      return;
+    }
 
     if(!signUpData.session){
       logSignupStep("email_sent", signupKind);

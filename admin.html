@@ -2023,6 +2023,11 @@ let syllabusItems=[
   {id:"independent",name:"Independent Driving",group:"Advanced"},
   {id:"eco",name:"Eco-Safe Driving",group:"Advanced"},
 ];
+// A pupil's manoeuvre method is matched on the topic id, so losing one of these topics would strand it
+// (Dale, 22 Sep 2026). The app shows "Always on" for the same three; this is the Control Centre's half.
+const LOCKED_TOPIC_IDS=["reverse_bay","forward_bay","parallel"];
+const ALWAYS_ON_CELL='<span class="muted" style="padding:2px 8px;font-size:.72rem" title="A test manoeuvre - rename it if you like, but it cannot be removed">Always on</span>';
+
 // Single shared source of truth (app_settings id='syllabus') — the instructor
 // app's Settings > Progress syllabus and the pupil app both read/write the
 // same row, so editing here (or there) updates every surface. Falls back to
@@ -4131,11 +4136,36 @@ function renderPupilProgress(){
     topics.forEach(t=>{
       const level=progress[t.id]||0;
       html+=`<div style="margin-bottom:.6rem"><div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.25rem"><span>${esc(t.name)}</span><span class="muted">${PUPIL_COMPETENCE_LEVELS[level]}</span></div>
-        <div style="display:flex;gap:3px">${[1,2,3,4,5].map(s=>`<button type="button" onclick="setPupilProgress('${t.id}',${s},${level})" style="flex:1;height:16px;border:none;border-radius:99px;cursor:pointer;padding:0;background:${s<=level?"#10b981":"#e2e8f0"}"></button>`).join("")}</div></div>`;
+        <div style="display:flex;gap:3px">${[1,2,3,4,5].map(s=>`<button type="button" onclick="setPupilProgress('${t.id}',${s},${level})" style="flex:1;height:16px;border:none;border-radius:99px;cursor:pointer;padding:0;background:${s<=level?"#10b981":"#e2e8f0"}"></button>`).join("")}</div>${methodCellCC(t.id)}</div>`;
     });
     html+="</div>";
   });
   return html;
+}
+// How this pupil is taught a manoeuvre (Dale, 22 Sep 2026) — instructor only, the pupil app never shows it.
+// Matched on the topic id, which survives a rename, and those topics cannot be removed (LOCKED_TOPIC_IDS),
+// so the match cannot be lost. Mirrors the app's PupilDetail.
+function methodCellCC(topicId){
+  const methods=(pupilDetail.p&&pupilDetail.p.manoeuvre_methods)||{};
+  const cur=methods[topicId]||"";
+  if(topicId==="reverse_bay"){
+    const btn=a=>'<button type="button" onclick="setPupilMethod(\'reverse_bay\',\''+(cur===a?"":a)+'\')" style="padding:2px 9px;border-radius:8px;font-size:.72rem;font-weight:600;cursor:pointer;border:1px solid '+(cur===a?"#0A4CA1":"var(--line)")+';background:'+(cur===a?"#0A4CA1":"var(--card)")+';color:'+(cur===a?"#fff":"inherit")+'">'+a+'\u00B0</button>';
+    return '<div style="display:flex;align-items:center;gap:.35rem;margin-top:.35rem"><span class="muted" style="font-size:.72rem">Teach as</span>'+btn("90")+btn("45")+'</div>';
+  }
+  if(topicId==="parallel"){
+    return '<div style="margin-top:.35rem"><input value="'+esc(cur)+'" placeholder="How you teach it with this pupil" onchange="setPupilMethod(\'parallel\',this.value)" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:.3rem .5rem;font-size:.75rem;background:var(--card)"></div>';
+  }
+  return "";
+}
+async function setPupilMethod(topicId,value){
+  const p=pupilDetail.p; if(!p) return;
+  const next=Object.assign({},p.manoeuvre_methods||{});
+  const v=(value||"").trim();
+  if(v) next[topicId]=v; else delete next[topicId]; // an empty note is an absence, not a stored blank
+  const {error}=await sb.from("pupils").update({manoeuvre_methods:next}).eq("id",p.id);
+  if(error){ alert(error.message); return; }
+  p.manoeuvre_methods=next;
+  renderPupilModal();
 }
 async function setPupilProgress(topicId,clickedLevel,currentLevel){
   const level=(clickedLevel===currentLevel)?clickedLevel-1:clickedLevel; // tap the current top dot again to step back down
@@ -16454,7 +16484,7 @@ function renderSyllabusList(){
       <input value="${esc(t.group)}" list="syllabus-groups-dl" onchange="syllabusFieldChanged('${t.id}','group',this.value)" style="width:9.5rem;border:1px solid var(--line);border-radius:6px;padding:.35rem .5rem;font-size:.85rem">
       <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move up" onclick="syllabusMove('${t.id}',-1)" ${idx===0?"disabled":""}>↑</button>
       <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move down" onclick="syllabusMove('${t.id}',1)" ${idx===syllabusItems.length-1?"disabled":""}>↓</button>
-      <button type="button" class="btn-danger" style="padding:2px 8px;font-size:.75rem" onclick="syllabusRemove('${t.id}')">Del</button>
+      ${LOCKED_TOPIC_IDS.includes(t.id) ? ALWAYS_ON_CELL : '<button type="button" class="btn-danger" style="padding:2px 8px;font-size:.75rem" onclick="syllabusRemove(\'' + t.id + '\')">Del</button>'}
     </div>`;
   });
   list.innerHTML=html||'<p class="muted">No topics yet.</p>';
@@ -16486,6 +16516,7 @@ async function syllabusMove(id,dir){
 async function syllabusRemove(id){
   const item=syllabusItems.find(i=>i.id===id);
   if(!item) return;
+  if(LOCKED_TOPIC_IDS.includes(id)){ alert("This is a test manoeuvre. Rename it if you like, but it cannot be removed."); return; }
   if(!confirm(`Remove "${item.name}" from the syllabus? Any progress already recorded against it is kept but will no longer be shown.`)) return;
   syllabusItems=syllabusItems.filter(i=>i.id!==id);
   await syllabusPersist();

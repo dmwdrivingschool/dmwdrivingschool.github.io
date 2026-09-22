@@ -17895,10 +17895,10 @@ async function loadVideoProgress(){
   // which kept showing old topic names for videos that no longer existed.
   let moduleVideos = {}; mounts.forEach(k=>{ moduleVideos[k]=[]; });
   try {
-    const { data: vids } = await sb.from("learning_videos").select("title,module,sort_order").order("sort_order",{ascending:true});
+    const { data: vids } = await sb.from("learning_videos").select("id,title,module,sort_order").order("sort_order",{ascending:true});
     (vids||[]).forEach(v=>{
       const key = "m"+v.module;
-      if(moduleVideos[key]) moduleVideos[key].push(v.title);
+      if(moduleVideos[key]) moduleVideos[key].push({id:v.id, title:v.title});
     });
   } catch(e){}
 
@@ -17934,8 +17934,15 @@ async function loadVideoProgress(){
     return;
   }
 
-  function cellFor(learnerKey, videoTitle){
-    const logs = allLogs.filter(l => (l.username||"").toLowerCase()===learnerKey && l.action && l.action.includes(videoTitle));
+  // Match on the video's id, which survives a rename (Dale, 22 Sep 2026). Rows logged before
+  // 22 Sep have no id, so those fall back to the title — but compared EXACTLY, not with the old
+  // includes() test: "Approaching Junctions Turning Right" is a substring of three longer titles,
+  // so watching any of those used to tick the short one as well.
+  const logTitle = a => { const m=/^(?:Started|Halfway Through|Completed) Video: (.*)$/.exec(a||""); return m?m[1]:null; };
+  function cellFor(learnerKey, video){
+    const logs = allLogs.filter(l =>
+      (l.username||"").toLowerCase()===learnerKey && l.action &&
+      (l.video_id ? l.video_id===video.id : logTitle(l.action)===video.title));
     let cls="st-0", txt="0%";
     if(logs.some(l=>l.action.includes("Completed Video:"))){ cls="st-100"; txt="100%"; }
     else if(logs.some(l=>l.action.includes("Halfway Through Video:"))){ cls="st-50"; txt="50%"; }
@@ -17948,9 +17955,9 @@ async function loadVideoProgress(){
     let html=`<table class="matrix-table"><thead><tr><th>Video topic</th>`;
     learners.forEach(l=>{ html+=`<th title="${esc(l.key)}">${esc(l.label.split(" ")[0]||l.label)}</th>`; });
     html+=`</tr></thead><tbody>`;
-    videoArray.forEach(title=>{
-      html+=`<tr><td class="vname">${esc(title)}</td>`;
-      learners.forEach(l=>{ html+=`<td>${cellFor(l.key, title)}</td>`; });
+    videoArray.forEach(v=>{
+      html+=`<tr><td class="vname">${esc(v.title)}</td>`;
+      learners.forEach(l=>{ html+=`<td>${cellFor(l.key, v)}</td>`; });
       html+=`</tr>`;
     });
     html+=`</tbody></table>`;

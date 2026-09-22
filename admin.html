@@ -5499,7 +5499,7 @@ async function loadEnquiries(){
   // should actually take it, not just accept/decline.
   let assignRow = () => "";
   if(isSchoolAdminUser && currentSchoolId){
-    const {data:instrs} = await sb.from("profiles").select("id,full_name,email").eq("role","instructor").eq("school_id",currentSchoolId).order("full_name");
+    const {data:instrs} = await sb.from("profiles").select("id,full_name,email").in("role",["instructor","super_admin"]).eq("school_id",currentSchoolId).order("full_name");
     schoolInstructorsCache = instrs||[];
     assignRow = (p) => `<div class="field" style="margin:.5rem 0 0"><label>Assign to instructor</label>
       <select onchange="assignEnquiryInstructor('${p.id}',this.value)">
@@ -5533,7 +5533,7 @@ async function loadSchoolInstructors(){
   if(currentSchoolId && !schoolDisplayNameCache){ try{ const {data:sn}=await sb.from("schools").select("display_name,name").eq("id",currentSchoolId).maybeSingle(); schoolDisplayNameCache=(sn&&(sn.display_name||sn.name))||""; }catch(e){} }
   if(!(isSchoolAdminUser && currentSchoolId)) return;
   try{ const {data:sc}=await sb.from("schools").select("display_name,name").eq("id",currentSchoolId).maybeSingle(); schoolDisplayNameCache=(sc&&(sc.display_name||sc.name))||""; }catch(e){}
-  const {data:instrs} = await sb.from("profiles").select("id,full_name,email").eq("role","instructor").eq("school_id",currentSchoolId).is("locked_at",null).order("full_name");
+  const {data:instrs} = await sb.from("profiles").select("id,full_name,email").in("role",["instructor","super_admin"]).eq("school_id",currentSchoolId).is("locked_at",null).order("full_name");
   schoolInstructorsCache = instrs||[];
 }
 async function assignEnquiryInstructor(pupilId, instructorId){
@@ -17626,9 +17626,12 @@ function fmt(iso){if(!iso)return"–";try{return new Date(iso).toLocaleString("e
 // "new row violates row-level security policy" (Dale, 2026-09-10).
 // A school admin who also teaches picks which instructor gets the pupil;
 // everyone else gets themselves.
+// "instructor" alone left out a school admin whose own role is super_admin: the picker came back empty, so
+// the select fell to its first option and the pupil saved with no instructor at all (Dale, 22 Sep 2026:
+// "there is no way to assign it to me").
 async function instructorPickerHtml(selectId, selectedId){
   if(!(isSchoolAdminUser && currentSchoolId)) return "";
-  const {data:instrs} = await sb.from("profiles").select("id,full_name,email").eq("role","instructor").eq("school_id",currentSchoolId).is("locked_at",null).order("full_name");
+  const {data:instrs} = await sb.from("profiles").select("id,full_name,email").in("role",["instructor","super_admin"]).eq("school_id",currentSchoolId).is("locked_at",null).order("full_name");
   schoolInstructorsCache = instrs||[];
   const sel = selectedId===undefined ? currentUserId : selectedId;
   return `<div class="field"><label>Instructor</label>

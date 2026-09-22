@@ -2816,6 +2816,10 @@ function showSignupEmailSent(email){
     '<div style="text-align:center;margin:1rem 0 .25rem"><button id="signup-resend-btn" class="btn btn-navy btn-sm" onclick="resendSignupConfirmation(&quot;' + safe + '&quot;)">Send it again</button></div>' +
     '<p id="signup-resend-note" style="display:none;text-align:center;color:var(--muted);font-size:.85rem;margin:.4rem 0 0"></p>' +
     '<p style="text-align:center;color:var(--muted);font-size:.85rem;margin:.75rem 0 0">Typed the wrong address? <a href="#" onclick="showSignup();return false" style="color:var(--navy);font-weight:700">Start again</a></p>' +
+    // The last resort, for an address with a typo they cannot spot or a mail server bouncing it silently
+    // (Dale, 22 Sep 2026). Three sign-ups were sitting unconfirmed, two of them from after the junk-folder
+    // line and the resend button went in — so there has to be a way to reach a person.
+    '<p style="text-align:center;color:var(--muted);font-size:.85rem;margin:.4rem 0 0">Still nothing after 15 minutes? Email <a href="mailto:admin@drivemyway.co.uk?subject=Confirmation%20email%20not%20arrived" style="color:var(--navy);font-weight:700">admin@drivemyway.co.uk</a> and we&#39;ll sort it out.</p>' +
     '<p style="text-align:center;margin-top:1rem"><a href="#" onclick="showSignin();return false" style="color:var(--navy);font-weight:700">&larr; Back to sign in</a> &nbsp;&middot;&nbsp; <a href="https://www.drivemyway.co.uk" style="color:var(--navy);font-weight:700">Back to the website</a></p>';
 }
 

@@ -9127,14 +9127,27 @@ async function openSettings(which){
       <button class="btn btn-navy btn-sm" onclick="openSettings('terms')">Open Terms &amp; Conditions</button>
       <hr style="margin:1.4rem 0;border:none;border-top:1px solid var(--line)">
       <h3 style="font-size:.95rem;font-weight:700;margin-bottom:.35rem">Availability Reminders</h3>
-      <p class="muted" style="margin-bottom:.8rem">A pupil who has never told you when they are free gets a message asking them to. They are asked twice — three days after they first open the app, then a week later — and never again once they have set anything.</p>
+      <p style="margin-bottom:.6rem">Turn this on and Drive My Way asks your pupils to fill in when they are free, so a short-notice gap can go to somebody who can actually take it.</p>
+      <ul class="muted" style="margin:0 0 .9rem;padding-left:1.1rem;font-size:.86rem;line-height:1.55">
+        <li><strong>Who gets one:</strong> a pupil of yours who has the app and has never set a single time. Anyone who has already filled theirs in is never messaged.</li>
+        <li><strong>When:</strong> automatically at <strong>7pm</strong>.</li>
+        <li><strong>How often:</strong> twice, then never again — three days after they first open the app, and a week after that. They drop out the moment they set anything.</li>
+      </ul>
+      <p class="muted" style="margin-bottom:.35rem;font-size:.86rem;font-weight:600">What they get</p>
+      <blockquote style="margin:0 0 1rem;padding:.7rem .9rem;border-left:3px solid var(--line);background:var(--surface-2,#f8fafc);border-radius:0 8px 8px 0;font-size:.84rem;line-height:1.5;white-space:pre-line">Hi Jamie,
+
+You haven't told me when you're free for lessons yet.
+
+Setting your availability helps me find you a lesson when one comes up — especially a short-notice gap that would otherwise go to somebody else.
+
+It takes a minute: open the app, go to Availability, and tap the times that suit you. You can change it whenever you like.</blockquote>
       <label style="display:flex;gap:.6rem;align-items:flex-start;font-weight:600;cursor:pointer;margin:0">
         <input type="checkbox" id="avail-rem" ${availOn?"checked":""} onchange="saveAvailabilityReminders(this.checked)" style="margin-top:.25rem">
-        <span>Remind my pupils to set their availability
-          <span class="muted" style="display:block;font-weight:400;font-size:.82rem">Off unless you turn it on. Nobody who has already filled it in is ever messaged.</span></span>
+        <span>Send these automatically at 7pm
+          <span class="muted" style="display:block;font-weight:400;font-size:.82rem">Off unless you turn it on.</span></span>
       </label>
       <div style="margin-top:.9rem"><button class="btn-outline btn-sm" onclick="sendAvailabilityRemindersNow()">Send a reminder now</button></div>
-      <p class="muted" style="margin-top:.4rem;font-size:.8rem">Sends to anyone who still has not set theirs, whether the switch above is on or not. Nobody is sent one twice in the same week.</p>
+      <p class="muted" style="margin-top:.4rem;font-size:.8rem">Sends straight away to anyone who still has not set theirs, whether the switch above is on or not. It tells you how many first, and nobody is sent one twice in the same week.</p>
       <div class="err" id="avail-rem-err" style="margin-top:.5rem"></div>`;
   } else if(which==="workinghours"){
     // One start and finish per day (Dale, 16 Sep 2026), e.g. Monday 09:00–15:00, Saturday 10:00–14:00. A day that isn't ticked

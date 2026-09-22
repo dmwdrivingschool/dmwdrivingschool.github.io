@@ -9133,6 +9133,8 @@ async function openSettings(which){
         <span>Remind my pupils to set their availability
           <span class="muted" style="display:block;font-weight:400;font-size:.82rem">Off unless you turn it on. Nobody who has already filled it in is ever messaged.</span></span>
       </label>
+      <div style="margin-top:.9rem"><button class="btn-outline btn-sm" onclick="sendAvailabilityRemindersNow()">Send a reminder now</button></div>
+      <p class="muted" style="margin-top:.4rem;font-size:.8rem">Sends to anyone who still has not set theirs, whether the switch above is on or not. Nobody is sent one twice in the same week.</p>
       <div class="err" id="avail-rem-err" style="margin-top:.5rem"></div>`;
   } else if(which==="workinghours"){
     // One start and finish per day (Dale, 16 Sep 2026), e.g. Monday 09:00–15:00, Saturday 10:00–14:00. A day that isn't ticked
@@ -10473,6 +10475,22 @@ function lessonRepeatUnitOf(occurrences){
 }
 // Availability reminders (Damian Ashton via Dale, 22 Sep 2026). Opt-in, because it messages the
 // instructor's pupils — the cron reads the same row through availability_reminder_enabled().
+// The manual send (Dale, 22 Sep 2026: "could there be a button to press to send"). Counts first so the
+// confirm can say how many, and the RPC only ever touches this instructor's own pupils.
+async function sendAvailabilityRemindersNow(){
+  const err=document.getElementById("avail-rem-err");
+  if(err) err.textContent="";
+  return runOnce("avail-send-now", async()=>{
+    const {data:count, error:countError}=await sb.rpc("availability_reminders_send_now",{p_dry_run:true});
+    if(countError){ if(err) err.textContent=countError.message; return; }
+    const n=Number(count||0);
+    if(!n) return alert("Nobody to remind — everyone who has the app has either set their availability already or been sent one in the last week.");
+    if(!confirm(`Send a reminder to ${n} pupil${n===1?"":"s"}?\n\nThey get a message and a notification asking them to set when they are free.`)) return;
+    const {data:sent, error}=await sb.rpc("availability_reminders_send_now",{p_dry_run:false});
+    if(error){ if(err) err.textContent=error.message; return; }
+    alert(`Sent to ${sent} pupil${Number(sent)===1?"":"s"}.`);
+  });
+}
 async function availabilityRemindersOn(){
   try{
     const {data}=await sb.from("app_settings").select("value").eq("id","availability_reminders").eq("owner_id",currentUserId).maybeSingle();

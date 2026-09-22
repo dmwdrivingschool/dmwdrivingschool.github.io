@@ -9121,6 +9121,8 @@ async function openSettings(which){
     // notice 48 → about 49 hours before). The old browser-only timing/message settings here never reached pupils.
     const noticeHours=await cancellationNoticeHours(currentUserId);
     const availOn=await availabilityRemindersOn();
+    // The preview signs off with their own name, the way their pupils will see it. #who already holds it.
+    const myFirst=((document.getElementById("who")||{}).textContent||"").trim().split(" ")[0]||"";
     panel.innerHTML=`${settingsHeadHtml("Lesson Reminders")}
       <p style="margin-bottom:.8rem">Your pupils get a lesson reminder message and notification about <strong>${noticeHours+1} hours</strong> before each lesson: one hour before your cancellation notice period of ${noticeHours} hours starts.</p>
       <p class="muted" style="margin-bottom:1rem">It's sent automatically for every booked lesson. To change when it goes, change the Cancellation Notice Period in Terms &amp; Conditions.</p>
@@ -9140,7 +9142,10 @@ You haven't told me when you're free for lessons yet.
 
 Setting your availability helps me find you a lesson when one comes up — especially a short-notice gap that would otherwise go to somebody else.
 
-It takes a minute: open the app, go to Availability, and tap the times that suit you. You can change it whenever you like.</blockquote>
+It takes a minute: open the app, go to Availability, and tap the times that suit you. You can change it whenever you like.
+
+Thanks,
+${esc(myFirst||"you")}</blockquote>
       <label style="display:flex;gap:.6rem;align-items:flex-start;font-weight:600;cursor:pointer;margin:0">
         <input type="checkbox" id="avail-rem" ${availOn?"checked":""} onchange="saveAvailabilityReminders(this.checked)" style="margin-top:.25rem">
         <span>Send these automatically at 7pm

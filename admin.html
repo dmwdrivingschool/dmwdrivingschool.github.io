@@ -2176,9 +2176,11 @@ async function enterApp(user,prof,pause){
   document.getElementById("settings-franchise-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
   document.getElementById("dash-set-franchise").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
   document.getElementById("fin-pay-instr-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
-  // A school's waiting list is the Unassigned pool (assigning makes a pupil active), so no separate Waiting tab for school admins.
-  // Dale still teaches his own waiting pupils, so the super admin keeps the Waiting tab.
-  document.getElementById("pupil-filter-waiting").classList.toggle("hidden", !!(isSchoolAdminUser && currentSchoolId && !isSuperAdminUser));
+  // The Waiting tab is for everyone now. It used to be hidden from school admins because assigning a pupil made
+  // them Active, so a school's waiting list WAS its Unassigned pool. Assigning no longer changes their status
+  // (Dale, 22 Sep 2026), so an assigned pupil sits on Waiting until someone starts them — and without this tab a
+  // school admin would have nowhere to see them: not Active, not Unassigned any more.
+  document.getElementById("pupil-filter-waiting").classList.remove("hidden");
   document.getElementById("nav-messages-btn").classList.remove("hidden"); // everyone: school/instructors + own pupils
   await loadSchoolInstructors();
   await loadBusinessType();

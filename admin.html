@@ -662,7 +662,6 @@ tbody tr:hover td{background:#334263}
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('lessontypes')"><span class="ico">🗂️</span><div><strong>Lesson Types</strong><span>Which types you can book, and their order</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('syllabus')"><span class="ico">🎓</span><div><strong>Progress Syllabus</strong><span>The topics you track progress against</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('reflect')"><span class="ico">📝</span><div><strong>Reflective Logs</strong><span>Wording of the reflective log questions</span></div></button>
-            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('voicenotes')"><span class="ico">🎙️</span><div><strong>Lesson Voice Notes</strong><span>Record a note after a lesson and play it back</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('mockreports')"><span class="ico">📋</span><div><strong>Mock Test Reports</strong><span>Share reports and print a blank sheet</span></div></button>
           </div>
         </div>
@@ -981,7 +980,6 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('lessontypes')">Lesson Types</button>
           <button type="button" onclick="openSettings('syllabus')">Progress Syllabus</button>
           <button type="button" onclick="openSettings('reflect')">Reflective Logs</button>
-          <button type="button" onclick="openSettings('voicenotes')">Lesson Voice Notes</button>
           <button type="button" onclick="openSettings('mockreports')">Mock Test Reports</button>
           <button type="button" onclick="printBlankMockTestSheetCC()">Print Blank Mock Test Sheet</button>
           <div class="settings-group-head">Your Pupil App &amp; Website</div>
@@ -9264,6 +9262,11 @@ ${esc(myFirst||"you")}</blockquote>
     panel.innerHTML=`${settingsHeadHtml("Reflective Logs")}
       ${Object.entries(labels).map(([k,v])=>`<div class="field"><label>${esc(k)}</label><input data-rk="${k}" value="${esc(v)}"></div>`).join("")}
       <div class="set-save"><button class="btn btn-navy btn-sm" onclick="saveThenBack(saveReflect)">Save</button></div>`;
+  // NOT LINKED FROM EITHER SETTINGS MENU YET (Dale, 23 Sep 2026). The switch works, but the
+  // microphone it turns on only exists in the app, which has not been released — so an instructor
+  // ticking this would get nothing. Put the two menu buttons back when the app release goes out:
+  // one in the dashboard settings list beside Mock Test Reports, one in the Settings tab list
+  // after Reflective Logs.
   } else if(which==="voicenotes"){
     // Recording lives in the app; this is only the switch that decides whether the mic appears
     // there at all (Dale, 22 Sep 2026). Off unless an instructor turns it on.

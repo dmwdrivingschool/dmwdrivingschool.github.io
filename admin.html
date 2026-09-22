@@ -2016,6 +2016,9 @@ let syllabusItems=[
   {id:"reverse_bay",name:"Reverse Bay Park",group:"Manoeuvres"},
   {id:"parallel",name:"Parallel Park",group:"Manoeuvres"},
   {id:"forward_bay",name:"Forward Bay Park",group:"Manoeuvres"},
+  // A current DVSA test manoeuvre this list was missing (Dale, 22 Sep 2026) — both instructors using the app
+  // had added it themselves under different names. Same id as the app's copy so they stay one topic.
+  {id:"pull_up_on_the_right",name:"Pull up on the Right & Reverse",group:"Manoeuvres"},
   {id:"emergency",name:"Emergency Stop",group:"Manoeuvres"},
   {id:"independent",name:"Independent Driving",group:"Advanced"},
   {id:"eco",name:"Eco-Safe Driving",group:"Advanced"},
@@ -3930,26 +3933,77 @@ function renderPupilLessons(){
     const statusChip=l.status==="cancelled"?'<span class="chip chip-bad">Cancelled</span>':l.status==="delivered"?'<span class="chip chip-ok">Delivered</span>':'<span class="chip chip-wait">Booked</span>';
     const payChip=l.payment_status==="paid"?'<span class="chip chip-ok">Paid</span>':'<span class="chip chip-bad">Unpaid</span>';
     const chargedChip=(l.status==="cancelled"&&l.charged)?' <span class="chip chip-bad">Charged</span>':'';
-    return `<tr><td>${when}</td><td><span style="text-transform:capitalize">${type}</span>${l.lesson_type==="mock_test"?renderMockTestLessonButtons(l):""}</td><td>${statusChip}${chargedChip}</td><td>${payChip}</td>
+    const pickable=l.lesson_type!=="student_away"&&l.lesson_type!=="lesson_offer";
+    const tick=lessonSelectMode
+      ? `<td>${pickable?`<input type="checkbox" ${lessonSelectIds.includes(l.id)?"checked":""} onchange="toggleLessonPick('${l.id}',this.checked)">`:""}</td>`
+      : "";
+    return `<tr>${tick}<td>${when}</td><td><span style="text-transform:capitalize">${type}</span>${l.lesson_type==="mock_test"?renderMockTestLessonButtons(l):""}</td><td>${statusChip}${chargedChip}</td><td>${payChip}</td>
       <td class="actions">
         <button class="btn-outline" onclick="openLessonEditor('${l.id}','pupil')">Edit</button>
         <button class="btn-danger" onclick="deletePupilLesson('${l.id}')">Del</button>
       </td></tr>`;
   }).join("");
-  const delAll=lessons.some(l=>l.lesson_type!=="student_away"&&l.lesson_type!=="lesson_offer")
-    ?`<div style="display:flex;justify-content:flex-end;margin-bottom:.5rem"><button class="btn-danger btn-sm" onclick="deleteAllPupilLessonsCC()">Delete All</button></div>`:"";
-  return `${delAll}<div style="max-height:60vh;overflow-y:auto"><table><thead><tr><th>When</th><th>Type</th><th>Status</th><th>Payment</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  // Tick the ones to go, or All (Dale, 22 Sep 2026). Mirrors the app: booking too many used to leave you
+  // deleting them one at a time or throwing the lot away, which matters more now a repeat books up to 26.
+  const anyPickable=lessons.some(l=>l.lesson_type!=="student_away"&&l.lesson_type!=="lesson_offer");
+  const pickableIds=lessons.filter(l=>l.lesson_type!=="student_away"&&l.lesson_type!=="lesson_offer").map(l=>l.id);
+  const bar=!anyPickable?"":lessonSelectMode
+    ? `<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem">
+        <button class="btn-outline btn-sm" onclick="toggleAllLessonPicks()">${lessonSelectIds.length===pickableIds.length?"None":"All"}</button>
+        <span class="muted" style="flex:1;font-size:.8rem">${lessonSelectIds.length?lessonSelectIds.length+" selected":"Tick the lessons to delete"}</span>
+        <button class="btn-danger btn-sm" ${lessonSelectIds.length?"":"disabled"} onclick="deletePickedPupilLessonsCC()">Delete${lessonSelectIds.length?" ("+lessonSelectIds.length+")":""}</button>
+        <button class="btn-outline btn-sm" onclick="setLessonSelectMode(false)">Cancel</button>
+      </div>`
+    : `<div style="display:flex;justify-content:flex-end;margin-bottom:.5rem"><button class="btn-danger btn-sm" onclick="setLessonSelectMode(true)">Delete</button></div>`;
+  const tickHead=lessonSelectMode?"<th></th>":"";
+  return `${bar}<div style="max-height:60vh;overflow-y:auto"><table><thead><tr>${tickHead}<th>When</th><th>Type</th><th>Status</th><th>Payment</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-// The app's Delete all on the Lessons tab: every lesson row for this pupil and their reflective logs (Dale, 16 Sep 2026).
-function deleteAllPupilLessonsCC(){
-  const p=pupilDetail&&pupilDetail.p; if(!p) return;
-  return runOnce("pupil-del-lessons-"+p.id, async()=>{
-    if(!confirm(`Delete ALL lessons for ${p.first_name}?\n\nTheir reflective logs are deleted too.\n\nThis cannot be undone.`)) return;
-    const {error}=await sb.from("lessons").delete().eq("pupil_id",p.id);
+
+let lessonSelectMode=false, lessonSelectIds=[];
+function setLessonSelectMode(on){ lessonSelectMode=!!on; lessonSelectIds=[]; renderPupilModal(); }
+function toggleLessonPick(id,on){
+  lessonSelectIds = on ? [...lessonSelectIds,id] : lessonSelectIds.filter(x=>x!==id);
+  renderPupilModal();
+}
+function toggleAllLessonPicks(){
+  const ids=(pupilDetail&&pupilDetail.lessons||[]).filter(l=>l.lesson_type!=="student_away"&&l.lesson_type!=="lesson_offer").map(l=>l.id);
+  lessonSelectIds = lessonSelectIds.length===ids.length ? [] : ids;
+  renderPupilModal();
+}
+function deletePickedPupilLessonsCC(){
+  const p=pupilDetail&&pupilDetail.p; if(!p||!lessonSelectIds.length) return;
+  const ids=[...lessonSelectIds];
+  const all=(pupilDetail.lessons||[]).filter(l=>l.lesson_type!=="student_away"&&l.lesson_type!=="lesson_offer").length===ids.length;
+  return runOnce("pupil-del-picked-"+p.id, async()=>{
+    // Warn before taking written notes with the lesson (Dale, 22 Sep 2026: "i think delete but warn"). The two
+    // paths used to disagree — Delete all cleared written logs silently, a partial delete kept them and left
+    // them orphaned on days with no lesson. Now both delete, and both say how many were written in first.
+    const gone=(pupilDetail.lessons||[]).filter(l=>ids.includes(l.id));
+    const goneDays=[...new Set(gone.map(l=>reflectiveLogDate(l.start_time)))];
+    const {data:logsOnThoseDays}=await sb.from("reflective_logs").select("*").eq("pupil_id",p.id).in("log_date",goneDays);
+    const written=(logsOnThoseDays||[]).filter(l=>logHasContentCC(l));
+    const what=all
+      ? `Delete ALL ${ids.length} lessons for ${p.first_name}?`
+      : `Delete ${ids.length} lesson${ids.length===1?"":"s"} for ${p.first_name}?`;
+    const logNote=written.length
+      ? `\n\n${written.length} of them ${written.length===1?"has a reflective log":"have reflective logs"} written in. ${written.length===1?"That will be deleted":"Those will be deleted"} too.`
+      : "\n\nTheir reflective logs will be deleted too.";
+    if(!confirm(`${what}${logNote}\n\nThis cannot be undone.`)) return;
+    const {error}=await sb.from("lessons").delete().in("id",ids);
     if(error) return alert(error.message);
-    // With every lesson gone their reflective logs go too (Dale, 16 Sep 2026): they were left behind with no lessons.
-    const {error:logError}=await sb.from("reflective_logs").delete().eq("pupil_id",p.id);
-    if(logError) alert("The lessons were deleted, but their reflective logs could not be: "+logError.message);
+    if(all){
+      const {error:logError}=await sb.from("reflective_logs").delete().eq("pupil_id",p.id);
+      if(logError) alert("The lessons were deleted, but their reflective logs could not be: "+logError.message);
+    }else{
+      // Every log on a day with no lesson left, written in or not — they were told above.
+      const stillBooked=new Set((pupilDetail.lessons||[]).filter(l=>!ids.includes(l.id)).map(l=>reflectiveLogDate(l.start_time)));
+      const orphanDays=goneDays.filter(d=>!stillBooked.has(d));
+      if(orphanDays.length){
+        const {error:logError}=await sb.from("reflective_logs").delete().eq("pupil_id",p.id).in("log_date",orphanDays);
+        if(logError) alert("The lessons were deleted, but their reflective logs could not be: "+logError.message);
+      }
+    }
+    lessonSelectMode=false; lessonSelectIds=[];
     await refreshPupilDetail();
     if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   });
@@ -5007,8 +5061,13 @@ function buildLogEntriesCC(logs,lessons){
     if(new Date(d+"T00:00:00").getTime()<oldest) continue;
     days.add(d);
   }
-  const sorted=[...real].sort((a,b)=>a.log_date<b.log_date?-1:1);
-  const goalFor=d=>{ let carry=""; for(const l of sorted){ if(l.log_date>=d) break; carry=l.next_session||""; } return carry; };
+  // An aim carries into the NEXT lesson day only, and stops (Dale, 22 Sep 2026). It used to hand the newest
+  // written aim to every later day, so one "aim for next session" appeared on the session goal of every future
+  // lesson at once. Nothing was ever saved — these are virtual cards — but it looked exactly like the app had
+  // filled in months of logs by itself. Matches buildLogEntries in the app's src/lib/reflectiveLogs.ts.
+  const allDays=[...new Set([...real.map(l=>l.log_date),...days])].sort();
+  const aimByDate=new Map(real.map(l=>[l.log_date,l.next_session||""]));
+  const goalFor=d=>{ const i=allDays.indexOf(d); return i<=0?"":(aimByDate.get(allDays[i-1])||""); };
   const virtual=[...days].map(d=>{ const e={id:"new:"+d, log_date:d, virtual:true, session_goal:goalFor(d)||null};
     REFLECT_FIELDS.forEach(k=>{ if(!(k in e)) e[k]=null; });
     e.pupil_feeling=null; e.pupil_progress=null; e.pupil_note=null; e.pupil_rated_at=null; return e; });
@@ -6302,7 +6361,7 @@ function openDiaryAddLesson(prefill){
     ${dropoffFieldHtml("dl")}
     <div class="field" id="dl-repeat-wrap"><label>Repeat</label>
       <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-        <span class="d-views" role="group" aria-label="Repeat by"><button type="button" data-unit="day" onclick="dlRepeatUnit('day')">Day</button><button type="button" data-unit="week" onclick="dlRepeatUnit('week')">Week</button></span>
+        <span class="d-views" role="group" aria-label="Repeat by"><button type="button" data-unit="day" onclick="dlRepeatUnit('day')">Day</button><button type="button" data-unit="week" onclick="dlRepeatUnit('week')">Week</button><button type="button" data-unit="fortnight" onclick="dlRepeatUnit('fortnight')">Fortnight</button></span>
         <input type="hidden" id="dl-repeat-unit" value="week">
         <span style="display:inline-flex;align-items:center;gap:.4rem">+ <input type="number" id="dl-repeat-count" min="0" max="4" step="1" inputmode="numeric" aria-label="How many more" style="width:4.5rem" oninput="dlRepeatChanged()" onchange="dlRepeatTidy()"> <span id="dl-repeat-word">weeks</span></span>
       </div>
@@ -6350,11 +6409,11 @@ function dlTypeChanged(){
   dlRepeatChanged();
 }
 function dlPupilChanged(){ pickupLoadLocations("dl",fieldVal("dl-pupil")); avAddFormChanged(); }
-function dlRepeatUnitValue(){ return fieldVal("dl-repeat-unit")==="day"?"day":"week"; }
+function dlRepeatUnitValue(){ const v=fieldVal("dl-repeat-unit"); return v==="day"?"day":v==="fortnight"?"fortnight":"week"; }
 // How many more (0 = just this one): the number box as lessonRepeatParse reads it (never past the unit's limit), 0 for a driving test.
 function dlRepeatCount(){ return fieldVal("dl-type")==="driving_test"?0:lessonRepeatParse(fieldVal("dl-repeat-count"),dlRepeatUnitValue()).count; }
 // Switching Day / Week puts a number past the new limit back to the limit.
-function dlRepeatUnit(u){ diarySetVal("dl-repeat-unit",u==="day"?"day":"week"); dlRepeatTidy(); }
+function dlRepeatUnit(u){ diarySetVal("dl-repeat-unit",u==="day"?"day":u==="fortnight"?"fortnight":"week"); dlRepeatTidy(); }
 // Leaving the box (or switching unit): a number that can't be booked becomes the one that will be.
 function dlRepeatTidy(){
   const raw=fieldVal("dl-repeat-count").trim(), r=lessonRepeatParse(raw,dlRepeatUnitValue());
@@ -10316,13 +10375,28 @@ async function sendLessonBooked(lesson,occurrences){
   // Booking no longer creates an empty reflective log (Dale, 18 Sep 2026): the
   // lesson itself puts a card on the Reflective Log tab, and the row is created
   // when it is written in. See buildLogEntriesCC.
-  for(const o of occurrences){
-    const now=new Date().toISOString();
-    const {data:msg,error}=await sb.from("messages").insert({pupil_id:lesson.pupil_id,
-      body:`Your ${lessonTypeNoun(lesson.lesson_type)} is booked for ${dDayShort(o.start)} at ${dLocalTime(o.start)}. Pick-up: ${lessonPickupLabel(lesson)}.${lessonDropoffLabel(lesson)?` Drop-off: ${lessonDropoffLabel(lesson)}.`:""}`,
-      direction:"outbound", subject:null, delivered_at:now, created_at:now}).select().single();
-    if(!error&&msg&&msg.id) triggerMsgPush(msg.id);
-  }
+  // ONE message for the whole series, not one per lesson (Dale, 22 Sep 2026). This used to loop, so a repeat
+  // sent that many messages and that many pushes — already too many at four, and the limit is now 26. The app
+  // does the same (AddLessonModal); the wording must match.
+  if(!occurrences||!occurrences.length) return;
+  const firstOcc=occurrences[0], lastOcc=occurrences[occurrences.length-1], more=occurrences.length-1;
+  const unit=lessonRepeatUnitOf(occurrences);
+  const unitWord=more===1?unit:unit+"s";
+  const when=more>0
+    ? `${dDayShort(firstOcc.start)} at ${dLocalTime(firstOcc.start)}, and for ${more} more ${unitWord} at the same time. The last one is ${dDayShort(lastOcc.start)}.`
+    : `${dDayShort(firstOcc.start)} at ${dLocalTime(firstOcc.start)}.`;
+  const now=new Date().toISOString();
+  const {data:msg,error}=await sb.from("messages").insert({pupil_id:lesson.pupil_id,
+    body:`Your ${lessonTypeNoun(lesson.lesson_type)} is booked for ${when} Pick-up: ${lessonPickupLabel(lesson)}.${lessonDropoffLabel(lesson)?` Drop-off: ${lessonDropoffLabel(lesson)}.`:""}`,
+    direction:"outbound", subject:null, delivered_at:now, created_at:now}).select().single();
+  if(!error&&msg&&msg.id) triggerMsgPush(msg.id);
+}
+
+/** day / week / fortnight, worked out from the gap between the first two, so the caller needn't pass it. */
+function lessonRepeatUnitOf(occurrences){
+  if(!occurrences||occurrences.length<2) return "week";
+  const days=Math.round((occurrences[1].start-occurrences[0].start)/86400000);
+  return days<=1?"day":days>=14?"fortnight":"week";
 }
 // Cancellation notice hours (Dale, 15 Sep 2026): the school's cancellation_notice_hours when the instructor is in a school,
 // else the instructor's own cancellation_policy.noticeHours, else 48. Used by the cancellation message and the Terms screen.
@@ -11135,18 +11209,25 @@ function stripCentreTime(notes){
 }
 // Repeat by week or by day (Dale, 15 Sep 2026; day = the following consecutive days, for intensive courses). The same UK time
 // on the calendar, never by adding 7×24 or 24 hours, so a 10:00 lesson is still at 10:00 after the clocks change (adding hours
-// would put it at 09:00 after 25 Oct). repeatCount = how many more (0 = just this one), at most 4 weeks or 13 days.
+// would put it at 09:00 after 25 Oct). repeatCount = how many more (0 = just this one).
+//
+// Week went 4 -> 26 and a fortnight step was added on 22 Sep 2026 (Clair Taberner: "Will there be the option
+// to pre pop bi weekly lessons?" and "Will the 4 lesson repeat limit be increased?"). Matches the app's
+// REPEAT_MAX in src/lib/lessonRepeat.ts; a fortnight stops at 13 because thirteen fortnights is six months,
+// the same distance ahead as 26 weeks.
+function lessonRepeatStep(unit){ return unit==="day"?1:unit==="fortnight"?14:7; }
 function lessonRepeatOccurrences(dateStr,timeStr,durationMins,repeatCount,unit){
   const first=dLocalDateTime(dateStr,timeStr); if(!first) return [];
-  const byDay=unit==="day", n=Math.min(byDay?13:4,Math.max(0,Math.floor(Number(repeatCount)||0)));
+  const n=Math.min(lessonRepeatMax(unit),Math.max(0,Math.floor(Number(repeatCount)||0)));
+  const step=lessonRepeatStep(unit);
   const out=[];
   for(let i=0;i<=n;i++){
-    const s=new Date(first.getFullYear(),first.getMonth(),first.getDate()+(byDay?1:7)*i,first.getHours(),first.getMinutes(),0,0);
+    const s=new Date(first.getFullYear(),first.getMonth(),first.getDate()+step*i,first.getHours(),first.getMinutes(),0,0);
     out.push({start:s,end:new Date(s.getTime()+durationMins*60000)});
   }
   return out;
 }
-function lessonRepeatMax(unit){ return unit==="day"?13:4; }
+function lessonRepeatMax(unit){ return unit==="day"?13:unit==="fortnight"?13:26; }
 // Holidays and appointments repeat much further than lessons: a standing commitment is
 // months, not a fortnight (Dale, 18 Sep 2026; the app's REPEAT_MAX_BLOCK).
 function blockRepeatMax(unit){ return unit==="day"?30:26; }

@@ -662,6 +662,7 @@ tbody tr:hover td{background:#334263}
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('lessontypes')"><span class="ico">🗂️</span><div><strong>Lesson Types</strong><span>Which types you can book, and their order</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('syllabus')"><span class="ico">🎓</span><div><strong>Progress Syllabus</strong><span>The topics you track progress against</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('reflect')"><span class="ico">📝</span><div><strong>Reflective Logs</strong><span>Wording of the reflective log questions</span></div></button>
+            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('voicenotes')"><span class="ico">🎙️</span><div><strong>Lesson Voice Notes</strong><span>Record a note after a lesson and play it back</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('mockreports')"><span class="ico">📋</span><div><strong>Mock Test Reports</strong><span>Share reports and print a blank sheet</span></div></button>
           </div>
         </div>
@@ -980,6 +981,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('lessontypes')">Lesson Types</button>
           <button type="button" onclick="openSettings('syllabus')">Progress Syllabus</button>
           <button type="button" onclick="openSettings('reflect')">Reflective Logs</button>
+          <button type="button" onclick="openSettings('voicenotes')">Lesson Voice Notes</button>
           <button type="button" onclick="openSettings('mockreports')">Mock Test Reports</button>
           <button type="button" onclick="printBlankMockTestSheetCC()">Print Blank Mock Test Sheet</button>
           <div class="settings-group-head">Your Pupil App &amp; Website</div>
@@ -9262,6 +9264,25 @@ ${esc(myFirst||"you")}</blockquote>
     panel.innerHTML=`${settingsHeadHtml("Reflective Logs")}
       ${Object.entries(labels).map(([k,v])=>`<div class="field"><label>${esc(k)}</label><input data-rk="${k}" value="${esc(v)}"></div>`).join("")}
       <div class="set-save"><button class="btn btn-navy btn-sm" onclick="saveThenBack(saveReflect)">Save</button></div>`;
+  } else if(which==="voicenotes"){
+    // Recording lives in the app; this is only the switch that decides whether the mic appears
+    // there at all (Dale, 22 Sep 2026). Off unless an instructor turns it on.
+    const vnOn=await voiceNotesOn();
+    panel.innerHTML=`${settingsHeadHtml("Lesson Voice Notes")}
+      <p style="margin-bottom:.6rem">Talk your thoughts through after a lesson on your phone, then play it back while you write the reflective log and fill in their progress \u2014 instead of sitting down to type it all up from memory later.</p>
+      <ul class="muted" style="margin:0 0 .9rem;padding-left:1.1rem;font-size:.86rem;line-height:1.55">
+        <li><strong>Only you ever hear them.</strong> A voice note is never shown to the pupil.</li>
+        <li><strong>One note per lesson.</strong> Record it on the day; press the mic again to add more to the same note rather than starting another.</li>
+        <li><strong>Listening back:</strong> the newest sits at the top of the pupil's screen, and older ones are on their lesson \u2014 open Lessons and tap the mic on that row.</li>
+        <li><strong>How long they are kept:</strong> the last four for a pupil. Record a fifth and the oldest drops off. If you stop recording for a pupil, their notes are cleared after 30 days.</li>
+      </ul>
+      <label style="display:flex;gap:.6rem;align-items:flex-start;font-weight:600;cursor:pointer;margin:0">
+        <input type="checkbox" id="vn-on" ${vnOn?"checked":""} onchange="saveVoiceNotes(this.checked)" style="margin-top:.25rem">
+        <span>Let me record voice notes about a lesson
+          <span class="muted" style="display:block;font-weight:400;font-size:.82rem">Off unless you turn it on. The microphone only appears in the app once this is on.</span></span>
+      </label>
+      <p class="muted" style="margin-top:.7rem;font-size:.8rem">Turning this off hides the microphone. Notes you have already recorded stay until they are cleared as above.</p>
+      <div class="err" id="vn-err" style="margin-top:.5rem"></div>`;
   } else if(which==="branding"){
     if(!currentSchoolId){
       const ownId=(await sb.auth.getUser()).data.user?.id;
@@ -10512,6 +10533,26 @@ async function sendAvailabilityRemindersNow(){
     if(error){ if(err) err.textContent=error.message; return; }
     alert(`Sent to ${sent} pupil${Number(sent)===1?"":"s"}.`);
   });
+}
+// Lesson voice notes (Damian Ashton via Dale, 22 Sep 2026). The app reads the same row through
+// voice_notes_enabled(), resolved school-first like the other settings.
+async function voiceNotesOn(){
+  try{
+    const {data}=await sb.from("app_settings").select("value").eq("id","voice_notes").eq("owner_id",currentUserId).maybeSingle();
+    return !!(data && data.value && data.value.enabled);
+  }catch(e){ return false; }
+}
+async function saveVoiceNotes(on){
+  const err=document.getElementById("vn-err");
+  if(err) err.textContent="";
+  const {error}=await sb.from("app_settings").upsert(
+    {id:"voice_notes", owner_id:currentUserId, value:{enabled:!!on}, updated_at:new Date().toISOString()},
+    {onConflict:"owner_id,id"});
+  if(error){
+    if(err) err.textContent=error.message;
+    const box=document.getElementById("vn-on");
+    if(box) box.checked=!on;
+  }
 }
 async function availabilityRemindersOn(){
   try{

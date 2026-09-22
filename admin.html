@@ -9120,10 +9120,20 @@ async function openSettings(which){
     // Lesson reminders are sent by the server one hour before the cancellation notice period starts (Dale, 15 Sep 2026:
     // notice 48 → about 49 hours before). The old browser-only timing/message settings here never reached pupils.
     const noticeHours=await cancellationNoticeHours(currentUserId);
+    const availOn=await availabilityRemindersOn();
     panel.innerHTML=`${settingsHeadHtml("Lesson Reminders")}
       <p style="margin-bottom:.8rem">Your pupils get a lesson reminder message and notification about <strong>${noticeHours+1} hours</strong> before each lesson: one hour before your cancellation notice period of ${noticeHours} hours starts.</p>
       <p class="muted" style="margin-bottom:1rem">It's sent automatically for every booked lesson. To change when it goes, change the Cancellation Notice Period in Terms &amp; Conditions.</p>
-      <button class="btn btn-navy btn-sm" onclick="openSettings('terms')">Open Terms &amp; Conditions</button>`;
+      <button class="btn btn-navy btn-sm" onclick="openSettings('terms')">Open Terms &amp; Conditions</button>
+      <hr style="margin:1.4rem 0;border:none;border-top:1px solid var(--line)">
+      <h3 style="font-size:.95rem;font-weight:700;margin-bottom:.35rem">Availability Reminders</h3>
+      <p class="muted" style="margin-bottom:.8rem">A pupil who has never told you when they are free gets a message asking them to. They are asked twice — three days after they first open the app, then a week later — and never again once they have set anything.</p>
+      <label style="display:flex;gap:.6rem;align-items:flex-start;font-weight:600;cursor:pointer;margin:0">
+        <input type="checkbox" id="avail-rem" ${availOn?"checked":""} onchange="saveAvailabilityReminders(this.checked)" style="margin-top:.25rem">
+        <span>Remind my pupils to set their availability
+          <span class="muted" style="display:block;font-weight:400;font-size:.82rem">Off unless you turn it on. Nobody who has already filled it in is ever messaged.</span></span>
+      </label>
+      <div class="err" id="avail-rem-err" style="margin-top:.5rem"></div>`;
   } else if(which==="workinghours"){
     // One start and finish per day (Dale, 16 Sep 2026), e.g. Monday 09:00–15:00, Saturday 10:00–14:00. A day that isn't ticked
     // hides its times but keeps them, so ticking it again brings them back.
@@ -10460,6 +10470,26 @@ function lessonRepeatUnitOf(occurrences){
   if(!occurrences||occurrences.length<2) return "week";
   const days=Math.round((occurrences[1].start-occurrences[0].start)/86400000);
   return days<=1?"day":days>=14?"fortnight":"week";
+}
+// Availability reminders (Damian Ashton via Dale, 22 Sep 2026). Opt-in, because it messages the
+// instructor's pupils — the cron reads the same row through availability_reminder_enabled().
+async function availabilityRemindersOn(){
+  try{
+    const {data}=await sb.from("app_settings").select("value").eq("id","availability_reminders").eq("owner_id",currentUserId).maybeSingle();
+    return !!(data && data.value && data.value.enabled);
+  }catch(e){ return false; }
+}
+async function saveAvailabilityReminders(on){
+  const err=document.getElementById("avail-rem-err");
+  if(err) err.textContent="";
+  const {error}=await sb.from("app_settings").upsert(
+    {id:"availability_reminders", owner_id:currentUserId, value:{enabled:!!on}, updated_at:new Date().toISOString()},
+    {onConflict:"owner_id,id"});
+  if(error){
+    if(err) err.textContent=error.message;
+    const box=document.getElementById("avail-rem");
+    if(box) box.checked=!on;   // put the tick back where it was
+  }
 }
 // Cancellation notice hours (Dale, 15 Sep 2026): the school's cancellation_notice_hours when the instructor is in a school,
 // else the instructor's own cancellation_policy.noticeHours, else 48. Used by the cancellation message and the Terms screen.

@@ -9706,6 +9706,42 @@ async function importPupilsCsv(ev){
   const existingEmails = new Set((existing||[]).map(p=>String(p.email||"").toLowerCase()).filter(Boolean));
 
   const VALID_STATUS = ["enquiry","waiting","active","inactive","passed"];
+
+  // A row whose status column is missing or unrecognised used to land on the WAITING LIST, and moving it
+  // to Active then messaged that pupil "a slot has come up and you are now an active pupil" - untrue for
+  // an instructor importing the book they already teach, which is what nearly every import is (Damian
+  // Ashton via Dale, 23 Sep 2026, after 13 of his pupils got it at once). Ask once rather than guess.
+  //
+  // Only the gaps are filled: a row that does carry a valid status keeps it, exactly as before.
+  const statusCol = headerKeys.indexOf("status");
+  let dataRows = 0, needStatus = 0;
+  for(let r=1;r<rows.length;r++){
+    const rec={};
+    rows[r].forEach((cellVal,i)=>{ const k=headerKeys[i]; if(k) rec[k]=String(cellVal).trim(); });
+    if(!rec.first_name) continue;
+    dataRows++;
+    const v = statusCol < 0 ? "" : String(rows[r][statusCol]||"").trim().toLowerCase();
+    if(VALID_STATUS.indexOf(v) < 0) needStatus++;
+  }
+  if(dataRows === 0){ status.textContent = "That file has no pupils in it - check the First name column."; return; }
+
+  let fallbackStatus = "active";
+  if(needStatus > 0){
+    const chosen = await askChoiceCC(
+      "How should these pupils start?",
+      needStatus + " of " + dataRows + " pupil" + (dataRows===1?"":"s") + " in this file don't say."
+        + (needStatus < dataRows ? " The others keep what the file says." : ""),
+      [
+        { value:"active", primary:true, label:"Pupils I already teach",
+          hint:"Active. They go straight into your pupil list and diary, and nothing is sent to them." },
+        { value:"waiting", label:"Waiting for a slot",
+          hint:"Waiting list. Each one is messaged to say a slot has come up when you move them to Active." },
+        { value:"inactive", label:"Not teaching them at the moment",
+          hint:"Kept on file only. An inactive pupil's records are cleared after a year." }
+      ]);
+    if(!chosen){ status.textContent = "Import cancelled - nothing was added."; return; }
+    fallbackStatus = chosen;
+  }
   let imported=0, skipped=0, failed=0;
   const errors=[];
 
@@ -9727,7 +9763,7 @@ async function importPupilsCsv(ev){
       address_line2: rec.address_line2 || null,
       city: rec.city || null,
       postcode: rec.postcode || null,
-      status: VALID_STATUS.indexOf((rec.status||"").toLowerCase())>=0 ? rec.status.toLowerCase() : "waiting",
+      status: VALID_STATUS.indexOf((rec.status||"").toLowerCase())>=0 ? rec.status.toLowerCase() : fallbackStatus,
       licence_type: ["provisional","full","international"].indexOf((rec.licence_type||"").toLowerCase())>=0 ? rec.licence_type.toLowerCase() : "provisional",
       licence_number: rec.licence_number || null,
       preferred_gearbox: /auto/i.test(rec.preferred_gearbox||"") ? "automatic" : "manual",

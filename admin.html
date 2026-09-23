@@ -9124,6 +9124,7 @@ async function openSettings(which){
     // Lesson reminders are sent by the server one hour before the cancellation notice period starts (Dale, 15 Sep 2026:
     // notice 48 → about 49 hours before). The old browser-only timing/message settings here never reached pupils.
     const noticeHours=await cancellationNoticeHours(currentUserId);
+    const myNote=await lessonReminderNote();
     const availOn=await availabilityRemindersOn();
     // The preview signs off with their own name, the way their pupils will see it. #who already holds it.
     const myFirst=((document.getElementById("who")||{}).textContent||"").trim().split(" ")[0]||"";
@@ -9131,6 +9132,17 @@ async function openSettings(which){
       <p style="margin-bottom:.8rem">Your pupils get a lesson reminder message and notification about <strong>${noticeHours+1} hours</strong> before each lesson: one hour before your cancellation notice period of ${noticeHours} hours starts.</p>
       <p class="muted" style="margin-bottom:1rem">It's sent automatically for every booked lesson. To change when it goes, change the Cancellation Notice Period in Terms &amp; Conditions.</p>
       <button class="btn btn-navy btn-sm" onclick="openSettings('terms')">Open Terms &amp; Conditions</button>
+      <hr style="margin:1.4rem 0;border:none;border-top:1px solid var(--line)">
+      <h3 style="font-size:.95rem;font-weight:700;margin-bottom:.35rem">Your Own Line</h3>
+      <p style="margin-bottom:.6rem">Add something of your own to the bottom of every lesson reminder. Instructors take payment in all sorts of different ways, so this is yours to word however suits you &mdash; for example &ldquo;don't forget to pay if your balance is low&rdquo;.</p>
+      <p class="muted" style="margin-bottom:.6rem;font-size:.86rem">Leave it empty and your reminders go out exactly as they do now. The reminder itself and the cancellation line stay as they are.</p>
+      <textarea id="lr-note" data-notice="${noticeHours}" maxlength="300" rows="3" oninput="previewLessonNote()" placeholder="Nothing added" style="width:100%;box-sizing:border-box;padding:.55rem .7rem;border:1px solid var(--line);border-radius:8px;font:inherit;resize:vertical">${esc(myNote)}</textarea>
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem"><span id="lr-count">0</span>/300</div>
+      <p class="muted" style="margin:.9rem 0 .35rem;font-size:.86rem;font-weight:600">What your pupils will get</p>
+      <blockquote id="lr-preview" style="margin:0 0 .9rem;padding:.7rem .9rem;border-left:3px solid var(--line);background:var(--surface-2,#f8fafc);border-radius:0 8px 8px 0;font-size:.84rem;line-height:1.5;white-space:pre-line"></blockquote>
+      <button class="btn btn-navy btn-sm" onclick="saveLessonReminderNote()">Save</button>
+      <span class="muted" id="lr-saved" style="margin-left:.6rem;font-size:.84rem"></span>
+      <div class="err" id="lr-err" style="margin-top:.5rem"></div>
       <hr style="margin:1.4rem 0;border:none;border-top:1px solid var(--line)">
       <h3 style="font-size:.95rem;font-weight:700;margin-bottom:.35rem">Availability Reminders</h3>
       <p style="margin-bottom:.6rem">Turn this on and Drive My Way asks your pupils to fill in when they are free, so a short-notice gap can go to somebody who can actually take it.</p>
@@ -9158,6 +9170,7 @@ ${esc(myFirst||"you")}</blockquote>
       <div style="margin-top:.9rem"><button class="btn-outline btn-sm" onclick="sendAvailabilityRemindersNow()">Send a reminder now</button></div>
       <p class="muted" style="margin-top:.4rem;font-size:.8rem">Sends straight away to anyone who still has not set theirs, whether the switch above is on or not. It tells you how many first, and nobody is sent one twice in the same week.</p>
       <div class="err" id="avail-rem-err" style="margin-top:.5rem"></div>`;
+    previewLessonNote();
   } else if(which==="workinghours"){
     // One start and finish per day (Dale, 16 Sep 2026), e.g. Monday 09:00–15:00, Saturday 10:00–14:00. A day that isn't ticked
     // hides its times but keeps them, so ticking it again brings them back.
@@ -10562,6 +10575,44 @@ async function availabilityRemindersOn(){
     const {data}=await sb.from("app_settings").select("value").eq("id","availability_reminders").eq("owner_id",currentUserId).maybeSingle();
     return !!(data && data.value && data.value.enabled);
   }catch(e){ return false; }
+}
+// The instructor's own line on the end of every lesson reminder (Dale, 23 Sep 2026) - his answer to Damian
+// Ashton asking for payment reminders. A line they write themselves claims nothing about what anyone owes,
+// so it cannot be wrong, unlike an automatic chaser reading payment_status, which nothing sets for a bank
+// transfer. lesson_reminder_note_resolve() in the database decides whose line is used (a school's wins
+// outright and carries the school's sign-off), caps it at 300 and strips anything marker-shaped.
+async function lessonReminderNote(){
+  try{
+    const {data}=await sb.from("app_settings").select("value").eq("id","lesson_reminder_note").eq("owner_id",currentUserId).maybeSingle();
+    return (data&&data.value&&typeof data.value.note==="string")?data.value.note:"";
+  }catch(e){ return ""; }
+}
+// The whole message as the pupil sees it, their line included, so nobody has to guess where it lands.
+function previewLessonNote(){
+  const ta=document.getElementById("lr-note"); if(!ta) return;
+  const count=document.getElementById("lr-count"); if(count) count.textContent=String(ta.value.length);
+  const box=document.getElementById("lr-preview"); if(!box) return;
+  const hours=Number(ta.dataset.notice||48), note=ta.value.trim();
+  box.textContent="Reminder: you have a driving lesson in about "+(hours+1)+" hours (Friday 25 September, 14:30).\n\n"
+    +"Please cancel in the app if you cannot attend — cancellations within "+hours+" hours may still be charged."
+    +(note?"\n\n"+note:"");
+}
+async function saveLessonReminderNote(){
+  const ta=document.getElementById("lr-note"); if(!ta) return;
+  const err=document.getElementById("lr-err"), ok=document.getElementById("lr-saved");
+  if(err) err.textContent=""; if(ok) ok.textContent="";
+  const note=ta.value.trim();
+  // Square-bracket tags are how the reminder jobs mark a message as already sent, and one in here would be
+  // stripped before the pupil saw it - so say so rather than silently dropping part of their line.
+  if(/\[[A-Za-z][A-Za-z0-9_]*:/.test(note)){
+    if(err) err.textContent="Please don't use tags like [NAME:something] - they're used internally and would be removed.";
+    return;
+  }
+  const {error}=await sb.from("app_settings").upsert(
+    {id:"lesson_reminder_note", owner_id:currentUserId, value:{note:note}, updated_at:new Date().toISOString()},
+    {onConflict:"owner_id,id"});
+  if(error){ if(err) err.textContent=error.message; return; }
+  if(ok) ok.textContent=note?"Saved":"Saved - nothing will be added";
 }
 async function saveAvailabilityReminders(on){
   const err=document.getElementById("avail-rem-err");

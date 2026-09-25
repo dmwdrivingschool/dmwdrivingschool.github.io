@@ -663,6 +663,7 @@ tbody tr:hover td{background:#334263}
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('syllabus')"><span class="ico">🎓</span><div><strong>Progress Syllabus</strong><span>The topics you track progress against</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('reflect')"><span class="ico">📝</span><div><strong>Reflective Logs</strong><span>Wording of the reflective log questions</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('mockreports')"><span class="ico">📋</span><div><strong>Mock Test Reports</strong><span>Share reports and print a blank sheet</span></div></button>
+            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('inactiveAccess')"><span class="ico">💬</span><div><strong>Inactive Pupils</strong><span>Whether they can still message you</span></div></button>
           </div>
         </div>
         <div class="dash-settings-group">
@@ -981,6 +982,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('syllabus')">Progress Syllabus</button>
           <button type="button" onclick="openSettings('reflect')">Reflective Logs</button>
           <button type="button" onclick="openSettings('mockreports')">Mock Test Reports</button>
+          <button type="button" onclick="openSettings('inactiveAccess')">Inactive Pupils</button>
           <button type="button" onclick="printBlankMockTestSheetCC()">Print Blank Mock Test Sheet</button>
           <div class="settings-group-head">Your Pupil App &amp; Website</div>
           <button type="button" onclick="openSettings('terms')">Terms &amp; Conditions</button>
@@ -5043,6 +5045,32 @@ async function renderMockReportsSettingsCC(panel){
     <button class="btn-outline btn-sm" style="margin-top:.75rem" onclick="printBlankMockTestSheetCC()">Print Blank Mock Test Sheet</button>
     <span id="mock-share-ok" style="display:none;color:#0a7a3d;font-weight:700;margin-top:.5rem">✓ Saved</span>`;
 }
+// Whether a pupil made inactive can still reach Messages and Test Booking & Resources (Dale, 25 Sep 2026).
+// Before this they were locked to their home screen and could not message their instructor at all, which is
+// no use to somebody who failed their test and wants to book back in. On unless turned off - the same
+// default the app and pupil_inactive_access() use.
+async function renderInactiveAccessSettingsCC(panel){
+  let on=true;
+  try{
+    const {data}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","inactive_pupil_access").maybeSingle();
+    on=!(data&&data.value&&data.value.enabled===false);
+  }catch(e){}
+  panel.innerHTML=`${settingsHeadHtml("Inactive Pupils")}
+    <label style="display:flex;gap:.6rem;align-items:flex-start;font-weight:normal;cursor:pointer">
+      <input type="checkbox" id="inact-access" ${on?"checked":""} style="margin-top:.25rem;width:1.1rem;height:1.1rem" onchange="saveInactiveAccessCC(this)">
+      <span><strong>Inactive pupils can still contact you</strong><br><span class="muted" style="font-size:.85rem">A pupil you have made inactive keeps Messages and Test Booking &amp; Resources, so they can get back in touch. Everything else is closed to them.</span></span>
+    </label>
+    <p class="muted" style="margin-top:1rem;font-size:.85rem">Turn this off and an inactive pupil sees only a note saying their account is inactive.</p>
+    <span id="inact-access-ok" style="display:none;color:#0a7a3d;font-weight:700;margin-top:.5rem">✓ Saved</span>`;
+}
+async function saveInactiveAccessCC(input){
+  const want=input.checked; input.disabled=true;
+  const {error}=await sb.from("app_settings").upsert({id:"inactive_pupil_access",owner_id:currentUserId,value:{enabled:want},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+  input.disabled=false;
+  if(error){ input.checked=!want; alert("Could not save this. Check your connection and try again."); return; }
+  const ok=document.getElementById("inact-access-ok"); if(ok){ ok.style.display="inline"; setTimeout(()=>{ ok.style.display="none"; },2000); }
+}
+
 // Saves as soon as it's ticked, like the app's switch; if the save fails it goes back.
 async function saveMockReportsSettingCC(input){
   const want=input.checked; input.disabled=true;
@@ -9311,6 +9339,8 @@ ${esc(myFirst||"you")}</blockquote>
     renderLessonTypesList();
   } else if(which==="mockreports"){
     await renderMockReportsSettingsCC(panel);
+  } else if(which==="inactiveAccess"){
+    await renderInactiveAccessSettingsCC(panel);
   } else if(which==="passedMessage"){
     await renderPassedMessageSettingsCC(panel);
   } else if(which==="quietHours"){

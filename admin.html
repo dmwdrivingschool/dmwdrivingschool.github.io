@@ -3837,14 +3837,29 @@ function licencePhotosHtmlCC(){
 }
 
 // Invite, Password and Log Out App from the app's pupil page, and its Pupil Messaging switch for a waiting-list pupil
-// (Dale, 16 Sep 2026). Not shown once a pupil has passed, as in the app.
+// (Dale, 16 Sep 2026). A pupil who has passed keeps only the messaging row: sending them a fresh login or
+// logging them out makes no sense on an account that is closing on its own.
+//
+// That row now shows for them (Dale, 25 Sep 2026). Passing switches their messaging on automatically for their
+// last 30 days, and this was the only way to turn it off - but it only ever appeared for a waiting-list pupil,
+// so there was no way to close it early. Same row, same column, same wording as the app.
 function renderPupilAppActionsCC(){
   const {p}=pupilDetail;
-  if(p.status==="passed"||p.status==="deleted") return "";
-  const msg=p.status==="waiting"?`<div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;margin-top:.75rem">
-      <div><strong style="font-size:.9rem">Pupil Messaging</strong><div class="muted" style="font-size:.8rem">${p.messaging_enabled?"Waiting-list pupil can send messages.":"Waiting-list pupil cannot message until you enable this."}</div></div>
-      <button class="${p.messaging_enabled?"btn btn-sm":"btn btn-navy btn-sm"}" ${p.messaging_enabled?'style="background:#16a34a;color:#fff"':""} onclick="togglePupilMessagingCC()">${p.messaging_enabled?"Enabled":"Enable Messages"}</button>
+  if(p.status==="deleted") return "";
+  const passed=p.status==="passed";
+  const msgLine=passed
+    ? (p.messaging_enabled
+        ? "They can message you until their account closes. Turn it off to stop it now."
+        : "Turned off. They cannot message you, and their account still closes on the date above.")
+    : (p.messaging_enabled
+        ? "Waiting-list pupil can send messages."
+        : "Waiting-list pupil cannot message until you enable this.");
+  const msgBtn=p.messaging_enabled?(passed?"Turn Off":"Enabled"):"Enable Messages";
+  const msg=(p.status==="waiting"||passed)?`<div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;margin-top:.75rem">
+      <div><strong style="font-size:.9rem">Pupil Messaging</strong><div class="muted" style="font-size:.8rem">${esc(msgLine)}</div></div>
+      <button class="${p.messaging_enabled&&!passed?"btn btn-sm":"btn btn-navy btn-sm"}" ${p.messaging_enabled&&!passed?'style="background:#16a34a;color:#fff"':""} onclick="togglePupilMessagingCC()">${msgBtn}</button>
     </div>`:"";
+  if(passed) return msg?`<div style="margin-top:1rem"><div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:.4rem">Pupil App</div>${msg}</div>`:"";
   return `<div style="margin-top:1rem"><div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:.4rem">Pupil App</div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap">
       <button class="btn-outline btn-sm" onclick="pupilLoginLinkCC()">Send login link</button>

@@ -5054,6 +5054,37 @@ async function saveMockReportsSettingCC(input){
 
 // Settings → Reflective Logs wording (this browser's), keyed by column. Settings saves improve as "improving" and
 // next_session as "aim_next".
+// The photo picked for each question, held here until Save so a cancelled edit changes nothing.
+let showTellPics={};
+function showTellPicHtml(key){
+  const url=showTellPics[key];
+  if(url) return `<div style="margin-top:.4rem"><img src="${esc(url)}" alt="" style="max-width:100%;max-height:180px;border:1px solid var(--line);border-radius:8px;display:block">`
+    +`<button type="button" class="btn-outline btn-sm" style="margin-top:.35rem" onclick="removeShowTellPic('${esc(key)}')">Remove photo</button></div>`;
+  return `<label class="btn-outline btn-sm" style="margin-top:.4rem;display:inline-block;cursor:pointer">Add a photo of your car`
+    +`<input type="file" accept="image/*" style="display:none" onchange="pickShowTellPic('${esc(key)}',this)"></label>`;
+}
+// Straight into the resource-photos bucket under this instructor's own folder, the same place and the same
+// rules as the photos they add to Resources.
+async function pickShowTellPic(key,input){
+  const file=input.files&&input.files[0]; input.value="";
+  if(!file) return;
+  const box=document.getElementById("st-pic-"+key);
+  if(box) box.innerHTML='<div class="muted" style="font-size:.8rem;margin-top:.4rem">Adding…</div>';
+  try{
+    const ext=(file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
+    const path=currentUserId+"/"+Date.now()+"-"+Math.random().toString(36).slice(2,8)+"."+ext;
+    const {error}=await sb.storage.from("resource-photos").upload(path,file,{cacheControl:"31536000",upsert:false,contentType:file.type||"image/jpeg"});
+    if(error) throw error;
+    const {data:pub}=sb.storage.from("resource-photos").getPublicUrl(path);
+    showTellPics[key]=pub.publicUrl;
+  }catch(e){ alert("Could not upload that photo: "+(e.message||e)); }
+  if(box) box.innerHTML=showTellPicHtml(key);
+}
+function removeShowTellPic(key){
+  delete showTellPics[key];
+  const box=document.getElementById("st-pic-"+key);
+  if(box) box.innerHTML=showTellPicHtml(key);
+}
 async function saveShowTellCC(){
   const rows=[], cleared=[];
   for(const q of SHOW_TELL_QUESTIONS){
@@ -5061,7 +5092,10 @@ async function saveShowTellCC(){
     const el=document.getElementById("st-"+q.k);
     if(!el) continue;
     const v=String(el.value||"").trim();
-    if(v) rows.push({instructor_id:currentUserId, question_key:q.k, answer:v});
+    const pic=showTellPics[q.k]||null;
+    // A photo on its own is a perfectly good answer to "where do I put the oil in", so a row is kept when it
+    // has either one.
+    if(v||pic) rows.push({instructor_id:currentUserId, question_key:q.k, answer:v, photo_url:pic});
     else cleared.push(q.k);
   }
   let error=null;
@@ -9414,16 +9448,22 @@ ${esc(myFirst||"you")}</blockquote>
     // while driving, so there is nothing to change on those.
     const back=settingsHeadHtml("Show me / Tell me");
     panel.innerHTML=back+'<p class="muted">Loading…</p>';
-    const {data:rows,error}=await sb.from("show_tell_answers").select("question_key,answer").eq("instructor_id",currentUserId);
+    const {data:rows,error}=await sb.from("show_tell_answers").select("question_key,answer,photo_url").eq("instructor_id",currentUserId);
     if(error){ panel.innerHTML=back+"<p class=\"muted\">Could not load these. Check your connection and try again.</p>"; return; }
-    const have={}; for(const r of rows||[]) have[r.question_key]=r.answer;
+    const have={}, havePic={};
+    for(const r of rows||[]){ have[r.question_key]=r.answer; if(r.photo_url) havePic[r.question_key]=r.photo_url; }
+    // A photo of this car alongside the answer (Dale, 25 Sep 2026). Most of the 21 are about the car itself -
+    // where the oil goes, the tyre pressure sticker, which switch is the rear fog light - and a picture of
+    // their own instructor's engine bay teaches more than any wording can. Held in showTellPics until Save.
+    showTellPics={...havePic};
     panel.innerHTML=back+
       '<p class="muted" style="margin-bottom:1rem">Your pupils practise these in their app. Leave a box empty and they see the DVSA&rsquo;s standard answer &mdash; fill it in to give them the answer for your car instead.</p>'
       +'<div class="le-box" style="max-width:640px">'
       +SHOW_TELL_QUESTIONS.filter(q=>q.t==="tell").map(q=>
         '<div class="field"><label>'+esc(q.q)+'</label>'
         +'<div class="muted" style="font-size:.78rem;margin:-.2rem 0 .35rem">Standard answer: '+esc(q.a)+'</div>'
-        +'<textarea id="st-'+esc(q.k)+'" rows="2" placeholder="Your answer for your car (optional)">'+esc(have[q.k]||"")+'</textarea></div>').join("")
+        +'<textarea id="st-'+esc(q.k)+'" rows="2" placeholder="Your answer for your car (optional)">'+esc(have[q.k]||"")+'</textarea>'
+        +'<div id="st-pic-'+esc(q.k)+'">'+showTellPicHtml(q.k)+'</div></div>').join("")
       +'<div class="muted" style="font-size:.8rem">The 7 &ldquo;show me&rdquo; questions are done while driving, so there is no answer to change.</div>'
       +'<div class="muted" style="font-size:.72rem;margin-top:.4rem">Questions and standard answers from GOV.UK, under the Open Government Licence.</div>'
       +'<div class="actions" style="margin-top:.8rem"><button class="btn btn-navy btn-sm" onclick="saveShowTellCC()">Save</button></div></div>';

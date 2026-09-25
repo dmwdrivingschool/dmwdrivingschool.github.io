@@ -5708,7 +5708,8 @@ async function makePupilInactiveCC(id,prev){
   let keep=false;
 
   if(prompt&&prompt.has_test_booked){
-    const go=await askChoiceCC(`${first} has a test booked`,
+    const on=prompt.test_booked_on?new Date(prompt.test_booked_on).toLocaleDateString("en-GB",{day:"numeric",month:"long"}):"";
+    const go=await askChoiceCC(on?`${first} has a test booked on ${on}`:`${first} has a test booked`,
       `Making them inactive stops gap invites and Send to All reaching them, and closes the app to them. Their test stays in your diary either way.`,
       [{label:"Make them inactive anyway",value:"yes"}]);
     if(go!=="yes") return false;

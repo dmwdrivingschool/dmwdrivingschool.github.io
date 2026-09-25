@@ -244,6 +244,11 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
 .modal-box{background:#fff;border-radius:20px 20px 0 0;padding:1.4rem;width:100%;max-width:540px;max-height:90vh;overflow:auto;box-shadow:0 -8px 40px rgba(15,23,42,.2)}
 @media(min-width:600px){.modal{align-items:center}.modal-box{border-radius:20px;box-shadow:0 24px 70px -20px rgba(15,23,42,.35)}}
+/* The choice dialog floats clear of the edges at every width (Dale, 25 Sep 2026), matching the app's
+   ChoiceDialog. Its Cancel used to sit against the bottom of the screen, next to the phone's own buttons -
+   a mis-tap there locks a pupil out of their app. Only this one; every other modal keeps its sheet. */
+.modal.choice-modal{align-items:center;padding:1rem}
+.modal.choice-modal .modal-box{border-radius:20px;max-height:calc(100vh - 2rem);box-shadow:0 24px 70px -20px rgba(15,23,42,.35)}
 .modal-box h2{font-weight:700;font-size:1.1rem;letter-spacing:-.01em}
 /* "Save changes?" (the app's UnsavedChangesDialog), in its own layer over the form's modal */
 .save-ask{z-index:60}
@@ -3890,7 +3895,7 @@ function renderPupilAppActionsCC(){
 function askChoiceCC(title, body, choices){
   return new Promise(resolve=>{
     const wrap=document.createElement("div");
-    wrap.className="modal"; wrap.style.zIndex="60";
+    wrap.className="modal choice-modal"; wrap.style.zIndex="60";
     const btns=choices.map((c,i)=>'<button type="button" data-i="'+i+'" class="btn '+(c.primary?"btn-navy":"btn-outline")+'" style="width:100%;text-align:left;padding:.7rem .9rem;margin-bottom:.5rem">'
       +'<span style="font-weight:700;display:block">'+esc(c.label)+'</span>'
       +(c.hint?'<span style="font-weight:400;font-size:.78rem;opacity:.85">'+esc(c.hint)+'</span>':'')

@@ -663,7 +663,6 @@ tbody tr:hover td{background:#334263}
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('syllabus')"><span class="ico">🎓</span><div><strong>Progress Syllabus</strong><span>The topics you track progress against</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('reflect')"><span class="ico">📝</span><div><strong>Reflective Logs</strong><span>Wording of the reflective log questions</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('mockreports')"><span class="ico">📋</span><div><strong>Mock Test Reports</strong><span>Share reports and print a blank sheet</span></div></button>
-            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('inactiveAccess')"><span class="ico">💬</span><div><strong>Inactive Pupils</strong><span>Whether they can still message you</span></div></button>
           </div>
         </div>
         <div class="dash-settings-group">
@@ -982,7 +981,6 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('syllabus')">Progress Syllabus</button>
           <button type="button" onclick="openSettings('reflect')">Reflective Logs</button>
           <button type="button" onclick="openSettings('mockreports')">Mock Test Reports</button>
-          <button type="button" onclick="openSettings('inactiveAccess')">Inactive Pupils</button>
           <button type="button" onclick="printBlankMockTestSheetCC()">Print Blank Mock Test Sheet</button>
           <div class="settings-group-head">Your Pupil App &amp; Website</div>
           <button type="button" onclick="openSettings('terms')">Terms &amp; Conditions</button>
@@ -3847,17 +3845,24 @@ function renderPupilAppActionsCC(){
   const {p}=pupilDetail;
   if(p.status==="deleted") return "";
   const passed=p.status==="passed";
+  const inactive=p.status==="inactive";
   const msgLine=passed
     ? (p.messaging_enabled
         ? "They can message you until their account closes. Turn it off to stop it now."
         : "Turned off. They cannot message you, and their account still closes on the date above.")
+    : inactive
+    ? (p.messaging_enabled
+        ? "They can message you. Turn it off and they keep Test Booking & Resources, so they can still see when you are free."
+        : (p.inactive_access
+            ? "Turned off. They still have Test Booking & Resources."
+            : "Turned off, and they have no access to the app."))
     : (p.messaging_enabled
         ? "Waiting-list pupil can send messages."
         : "Waiting-list pupil cannot message until you enable this.");
-  const msgBtn=p.messaging_enabled?(passed?"Turn Off":"Enabled"):"Enable Messages";
-  const msg=(p.status==="waiting"||passed)?`<div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;margin-top:.75rem">
+  const msgBtn=p.messaging_enabled?((passed||inactive)?"Turn Off":"Enabled"):"Enable Messages";
+  const msg=(p.status==="waiting"||passed||inactive)?`<div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;margin-top:.75rem">
       <div><strong style="font-size:.9rem">Pupil Messaging</strong><div class="muted" style="font-size:.8rem">${esc(msgLine)}</div></div>
-      <button class="${p.messaging_enabled&&!passed?"btn btn-sm":"btn btn-navy btn-sm"}" ${p.messaging_enabled&&!passed?'style="background:#16a34a;color:#fff"':""} onclick="togglePupilMessagingCC()">${msgBtn}</button>
+      <button class="${p.messaging_enabled&&!passed&&!inactive?"btn btn-sm":"btn btn-navy btn-sm"}" ${p.messaging_enabled&&!passed&&!inactive?'style="background:#16a34a;color:#fff"':""} onclick="togglePupilMessagingCC()">${msgBtn}</button>
     </div>`:"";
   if(passed) return msg?`<div style="margin-top:1rem"><div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:.4rem">Pupil App</div>${msg}</div>`:"";
   return `<div style="margin-top:1rem"><div class="muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:.4rem">Pupil App</div>
@@ -5119,35 +5124,6 @@ async function renderMockReportsSettingsCC(panel){
     <button class="btn-outline btn-sm" style="margin-top:.75rem" onclick="printBlankMockTestSheetCC()">Print Blank Mock Test Sheet</button>
     <span id="mock-share-ok" style="display:none;color:#0a7a3d;font-weight:700;margin-top:.5rem">✓ Saved</span>`;
 }
-// Whether a pupil made inactive can still reach Messages and Test Booking & Resources (Dale, 25 Sep 2026).
-// Before this they were locked to their home screen and could not message their instructor at all, which is
-// no use to somebody who failed their test and wants to book back in. On unless turned off - the same
-// default the app and pupil_inactive_access() use.
-//
-// Only a pupil whose last test was a fail (Dale, 25 Sep 2026). It used to be every inactive pupil, so someone
-// the instructor had binned could still message them. pupil_has_inactive_access() decides, for both products.
-async function renderInactiveAccessSettingsCC(panel){
-  let on=true;
-  try{
-    const {data}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","inactive_pupil_access").maybeSingle();
-    on=!(data&&data.value&&data.value.enabled===false);
-  }catch(e){}
-  panel.innerHTML=`${settingsHeadHtml("Inactive Pupils")}
-    <label style="display:flex;gap:.6rem;align-items:flex-start;font-weight:normal;cursor:pointer">
-      <input type="checkbox" id="inact-access" ${on?"checked":""} style="margin-top:.25rem;width:1.1rem;height:1.1rem" onchange="saveInactiveAccessCC(this)">
-      <span><strong>Pupils who failed can still contact you</strong><br><span class="muted" style="font-size:.85rem">A pupil whose last test was a fail keeps Messages and Test Booking &amp; Resources when you make them inactive, so they can book back in. Everything else is closed to them.</span></span>
-    </label>
-    <p class="muted" style="margin-top:1rem;font-size:.85rem">Anyone else you make inactive only sees a note saying their account is inactive - turn this off and that is what a pupil who failed sees too.</p>
-    <span id="inact-access-ok" style="display:none;color:#0a7a3d;font-weight:700;margin-top:.5rem">✓ Saved</span>`;
-}
-async function saveInactiveAccessCC(input){
-  const want=input.checked; input.disabled=true;
-  const {error}=await sb.from("app_settings").upsert({id:"inactive_pupil_access",owner_id:currentUserId,value:{enabled:want},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
-  input.disabled=false;
-  if(error){ input.checked=!want; alert("Could not save this. Check your connection and try again."); return; }
-  const ok=document.getElementById("inact-access-ok"); if(ok){ ok.style.display="inline"; setTimeout(()=>{ ok.style.display="none"; },2000); }
-}
-
 // Saves as soon as it's ticked, like the app's switch; if the save fails it goes back.
 async function saveMockReportsSettingCC(input){
   const want=input.checked; input.disabled=true;
@@ -5707,9 +5683,43 @@ async function setStatus(id,status){
     if(await markPupilPassed(prev||{id})) refresh();
     return;
   }
+  if(status==="inactive"){
+    if(await makePupilInactiveCC(id,prev)) refresh();
+    return;
+  }
   const {error}=await sb.from("pupils").update({status}).eq("id",id);
   if(error) return alert(error.message);
   refresh();
+}
+// Making a pupil inactive is a question, not a switch (Dale, 25 Sep 2026). Only ever asked about a pupil whose
+// last test was a fail - passing moves them to Passed, so a passed pupil never reaches Inactive. Moving them
+// stops gap invites and Send to All reaching them, but they are also the one person who needs a way back in,
+// so the instructor picks. Word for word what the app asks in pupilStatus.ts, and the same two functions
+// underneath, so neither product can ask a different question or save a different answer.
+async function makePupilInactiveCC(id,prev){
+  let prompt=null;
+  try{ const {data}=await sb.rpc("pupil_inactive_prompt",{p_pupil:id}); prompt=data; }catch(e){}
+  const first=(prompt&&prompt.first_name)||(prev&&prev.first_name)||"They";
+  let keep=false;
+  if(!prompt||prompt.failed_last_test!==false){
+    const booked=prompt&&prompt.has_test_booked
+      ? `
+
+${first} already has a test booked, so nothing will be cleared while that stands.` : "";
+    const whatFollows=`
+
+Either way: a year from now, if ${first} still has no test booked, they are asked in the app whether they still want their account and you are told. You can keep them for another 3 months. If nobody answers, their details are removed and their name and payments move to Kept for records.`;
+    keep=confirm(`${first} failed their last test.
+
+Making them inactive stops gap invites and Send to All reaching them.
+
+OK — keep their access: they keep Messages and Test Booking & Resources, so they can see when you are free and book back in. You can turn the messages off later from their profile.
+
+Cancel — fully inactive: no access to the app at all.${booked}${whatFollows}`);
+  }
+  const {data:ok,error}=await sb.rpc("pupil_set_inactive",{p_pupil:id,p_keep_access:keep});
+  if(error||!ok){ alert((error&&error.message)||"Could not update this pupil."); return false; }
+  return true;
 }
 // Marking a pupil as passed, from anywhere (Dale, 16 Sep 2026): always asks, then only sets the status. Nothing is deleted
 // then: the database sends the congratulations message, a follow-up 7 days later and a reminder 3 days before closing, and
@@ -9416,8 +9426,6 @@ ${esc(myFirst||"you")}</blockquote>
     renderLessonTypesList();
   } else if(which==="mockreports"){
     await renderMockReportsSettingsCC(panel);
-  } else if(which==="inactiveAccess"){
-    await renderInactiveAccessSettingsCC(panel);
   } else if(which==="passedMessage"){
     await renderPassedMessageSettingsCC(panel);
   } else if(which==="quietHours"){

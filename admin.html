@@ -5719,7 +5719,14 @@ async function makePupilInactiveCC(id,prev){
       [{label:"Make them inactive anyway",value:"yes"}]);
     if(go!=="yes") return false;
     keep=false;
-  } else if(!prompt||prompt.failed_last_test!==false){
+  } else if(prompt&&prompt.failed_last_test===false){
+    // No choice to make, but still worth saying what happens (Dale, 25 Sep 2026).
+    const go=await askChoiceCC(`Make ${first} inactive?`,
+      `They stop getting gap invites and Send to All, and the app closes to them. A year from today their details are removed and their name and payments move to Kept for records. You are warned a month before, and you can keep them for another 3 months. Moving them back to Active at any point stops all of that.`,
+      [{label:`Make ${first} inactive`,value:"yes",primary:true}]);
+    if(go!=="yes") return false;
+    keep=false;
+  } else {
     const answer=await askChoiceCC(`${first} failed their last test`,
       `Making them inactive stops gap invites and Send to All reaching them. A year from now, if ${first} still has no test booked, they are asked in the app whether they still want their account and you are told. You can keep them for another 3 months. If nobody answers, their details are removed and their name and payments move to Kept for records.`,
       [{label:"Keep their access",value:"keep",primary:true,hint:"They keep Messages and Test Booking & Resources, so they can see when you are free and book back in."},

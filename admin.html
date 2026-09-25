@@ -3340,9 +3340,14 @@ function loadDash(){
     document.getElementById("dvsa-note").textContent="No practical test results in the last 12 months yet — these indicators only mean something once you have data to calculate them from.";
   }
   (async()=>{
+    // "Cancelled (14 days)" now actually ends today. With only a lower bound it ran from a fortnight ago to
+    // the end of the diary, so the whole future was in the denominator and the rate read near zero for
+    // everybody - Darren Wilby's three real lessons were divided by 117 (Dale, 25 Sep 2026). The app had the
+    // same fault on the same figure. A holiday or an appointment is a row here with no pupil on it and is not
+    // a lesson, so those come out too.
     const since=new Date(Date.now()-14*864e5).toISOString();
-    const {data:lessons}=await sb.from("lessons").select("id,status,pupil_id,lesson_type,start_time").gte("start_time",since);
-    const real=(lessons||[]).filter(l=>l.lesson_type!=="gap"&&l.lesson_type!=="student_away");
+    const {data:lessons}=await sb.from("lessons").select("id,status,pupil_id,lesson_type,start_time").gte("start_time",since).lte("start_time",new Date().toISOString());
+    const real=(lessons||[]).filter(l=>l.pupil_id&&l.lesson_type!=="gap"&&l.lesson_type!=="student_away");
     const cancelled=real.filter(l=>l.status==="cancelled").length;
     document.getElementById("m-cancel").textContent=(real.length?Math.round(cancelled/real.length*100):0)+"%";
     const {data:future}=await sb.from("lessons").select("pupil_id").gte("start_time",now).neq("status","cancelled");

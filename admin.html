@@ -3733,26 +3733,27 @@ function renderPupilSummary(){
 // Accept / Decline box above, and a deleted pupil is only a name kept with their payments, so neither shows this.
 // Everything goes through setStatus, so Passed still asks first and the database still sends the waiting-list and
 // accepted messages.
-// Shown once the year warning has gone out (Dale, 25 Sep 2026), with the one button that stops it. Keeping
-// them puts the full year back on the clock rather than holding them for ever - keeping somebody's details
-// indefinitely is the thing the clear-out exists to prevent.
+// Shown once the warning has gone out (Dale, 25 Sep 2026), with the one button that stops it. Keeping them is
+// 3 months, not a year: somebody already quiet for a year shouldn't get another one on a maybe, and keeping
+// details indefinitely is the thing the clear-out exists to prevent. The date is 30 days from the warning, the
+// same sum the database does - if the pupil answers first, the warning clears and this panel goes with it.
+// Identical to the app's panel in PupilDetail.tsx, off the same columns, so the two always agree.
 function renderPurgeWarningCC(){
   const {p}=pupilDetail;
   if(p.status!=="inactive"||!p.purge_warned_at) return "";
-  const base=p.status_changed_at||p.updated_at||p.created_at;
-  const due=new Date(new Date(base).getTime()+365*864e5);
+  const due=new Date(new Date(p.purge_warned_at).getTime()+30*864e5);
   return `<div class="panel" style="border-left:4px solid #b45309;margin-bottom:1rem">
     <strong>Their details are cleared on ${esc(due.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}))}</strong>
     <div class="muted" style="font-size:.85rem;margin-top:.2rem">${p.purge_warned_pupil
-      ? "They have been messaged in the app explaining why, and that you will be in touch."
-      : "They have not opened the app recently, so they have not been messaged."} Lessons, messages and their personal details go; payments and test results stay.</div>
-    <button class="btn btn-navy btn-sm" style="margin-top:.6rem" onclick="keepPupilAnotherYearCC('${p.id}')">Keep them for another year</button>
+      ? "They have been asked in the app to confirm they still want their account, and told why. If they answer, this stops and you will be told."
+      : "They have not opened the app recently, so they could not be asked."} Lessons, messages and their personal details go; payments and test results stay.</div>
+    <button class="btn btn-navy btn-sm" style="margin-top:.6rem" onclick="keepPupilLongerCC('${p.id}')">Keep them for another 3 months</button>
   </div>`;
 }
-async function keepPupilAnotherYearCC(id){
-  const {data:ok,error}=await sb.rpc("pupil_keep_another_year",{p_pupil:id});
+async function keepPupilLongerCC(id){
+  const {data:ok,error}=await sb.rpc("pupil_keep_longer",{p_pupil:id});
   if(error||!ok){ alert(error&&error.message?error.message:"Could not do that."); return; }
-  toast("Kept — nothing will be cleared for another year");
+  toast("Kept — nothing will be cleared for another 3 months");
   await loadPupils();
   closeModal();
 }

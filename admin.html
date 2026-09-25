@@ -5694,47 +5694,39 @@ async function setStatus(id,status){
 // Making a pupil inactive is a question, not a switch (Dale, 25 Sep 2026). Only ever asked about a pupil whose
 // last test was a fail - passing moves them to Passed, so a passed pupil never reaches Inactive. Moving them
 // stops gap invites and Send to All reaching them, but they are also the one person who needs a way back in,
-// so the instructor picks. Word for word what the app asks in pupilStatus.ts, and the same two functions
-// underneath, so neither product can ask a different question or save a different answer.
+// so the instructor picks.
+//
+// A pupil with a test already booked is a different question: that is probably a mistake, so it is a warning
+// rather than a choice, and confirming takes the ordinary route - no access.
+//
+// Every answer is its own button and Cancel only ever backs out, same as the app's ChoiceDialog. Same wording,
+// same order, and the same two functions underneath, so neither product can ask differently or save differently.
 async function makePupilInactiveCC(id,prev){
   let prompt=null;
   try{ const {data}=await sb.rpc("pupil_inactive_prompt",{p_pupil:id}); prompt=data; }catch(e){}
   const first=(prompt&&prompt.first_name)||(prev&&prev.first_name)||"They";
   let keep=false;
-  if(!prompt||prompt.failed_last_test!==false){
-    const booked=prompt&&prompt.has_test_booked
-      ? `
 
-${first} already has a test booked, so nothing will be cleared while that stands.` : "";
-    const whatFollows=`
-
-Either way: a year from now, if ${first} still has no test booked, they are asked in the app whether they still want their account and you are told. You can keep them for another 3 months. If nobody answers, their details are removed and their name and payments move to Kept for records.`;
-    keep=confirm(`${first} failed their last test.
-
-Making them inactive stops gap invites and Send to All reaching them.
-
-OK — keep their access: they keep Messages and Test Booking & Resources, so they can see when you are free and book back in. You can turn the messages off later from their profile.
-
-Cancel — fully inactive: no access to the app at all.${booked}${whatFollows}`);
+  if(prompt&&prompt.has_test_booked){
+    const go=await askChoiceCC(`${first} has a test booked`,
+      `Making them inactive stops gap invites and Send to All reaching them, and closes the app to them. Their test stays in your diary either way.`,
+      [{label:"Make them inactive anyway",value:"yes"}]);
+    if(go!=="yes") return false;
+    keep=false;
+  } else if(!prompt||prompt.failed_last_test!==false){
+    const answer=await askChoiceCC(`${first} failed their last test`,
+      `Making them inactive stops gap invites and Send to All reaching them. A year from now, if ${first} still has no test booked, they are asked in the app whether they still want their account and you are told. You can keep them for another 3 months. If nobody answers, their details are removed and their name and payments move to Kept for records.`,
+      [{label:"Keep their access",value:"keep",primary:true,hint:"They keep Messages and Test Booking & Resources, so they can see when you are free and book back in."},
+       {label:"Fully inactive",value:"lock",hint:"No access to the app at all."}]);
+    if(answer===null||answer===undefined) return false;
+    keep=answer==="keep";
   }
+
   const {data:ok,error}=await sb.rpc("pupil_set_inactive",{p_pupil:id,p_keep_access:keep});
   if(error||!ok){ alert((error&&error.message)||"Could not update this pupil."); return false; }
   return true;
 }
-// Marking a pupil as passed, from anywhere (Dale, 16 Sep 2026): always asks, then only sets the status. Nothing is deleted
-// then: the database sends the congratulations message, a follow-up 7 days later and a reminder 3 days before closing, and
-// the nightly job closes the account 30 days on (lessons apart from driving tests, messages, logs, progress, mock tests,
-// personal details, notes and the login go; payments and driving test results are always kept). Moving them back to active
-// before then keeps everything. extra = other columns saved in the same update (Edit Pupil). True when it was marked passed.
-function passedDayCC(d){ return new Date(d).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}).replace(/,/g,"").replace(/Sept/,"Sep"); }
-async function markPupilPassed(pupil, extra){
-  if(!pupil||!pupil.id) return false;
-  const name=(pupil.first_name||"").trim(), day=n=>passedDayCC(Date.now()+n*86400000);
-  if(!confirm(`Mark ${name||"this pupil"} as passed?\n\n${name||"They"} will be sent:\n• A congratulations message now\n• A follow-up about motorway lessons on ${day(7)}\n• A reminder on ${day(27)} that their account closes on ${day(30)}\n\nThey can still message you until then. After that, their lessons (apart from driving tests), messages, contact details and app login are deleted. Payments and driving test results are always kept.\n\nChange these messages in Settings → Pupil Messages.`)) return false;
-  const {error}=await sb.from("pupils").update({...(extra||{}), status:"passed", updated_at:new Date().toISOString()}).eq("id",pupil.id);
-  if(error){ alert(error.message); return false; }
-  return true;
-}
+
 // Declining an enquiry (Dale, 16 Sep 2026), from the Enquiries tab or an enquiry's pupil page. Settings → Declining Enquiries
 // (app_settings 'enquiry_decline', {mode}) decides what happens and so the wording: 'message' (the default) sends "Enquiry
 // declined" and their details go once they've read it; 'delete' deletes them now. manage-auth decline_enquiry does either.

@@ -13781,7 +13781,7 @@ async function loadTeamsPanel(){
 
     const [{data:schools}, {data:instructors}] = await Promise.all([
       sb.from("schools").select("id,display_name,name,locked_at").order("display_name"),
-      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at,last_opened_at,app_version,app_platform").in("role",["instructor","super_admin"]).order("full_name"),
+      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at,last_opened_at,app_version,app_platform,last_web_at").in("role",["instructor","super_admin"]).order("full_name"),
       // Only app 1.3.3 and later record an app open, so until everyone is on it the
       // rows fall back to when they last signed in (Dale, 18 Sep 2026).
       loadInstructorLastSeen()
@@ -14062,7 +14062,11 @@ function instructorSeenRow(id){ return (instructorLastSeen&&instructorLastSeen[i
 /** Best of what we know: an app open, else the last thing they did, else a sign-in that led to nothing. */
 function instructorSeenLabel(i){
   const opened=lastOpenedLabel(i.last_opened_at, i.app_version, i.app_platform);
-  if(opened) return "Last opened: "+opened;
+  // A Control Centre visit is its own thing, not an app open (Dale, 25 Sep 2026). Somebody can run their
+  // whole week from this page and never pick the phone up, and the card called them dormant for it.
+  const web=whenLabelCC(i.last_web_at);
+  if(opened) return "Last opened: "+opened+(web?" · Control Centre "+web:"");
+  if(web) return "Control Centre "+web+", app not used";
   const row=instructorSeenRow(i.id);
   const used=whenLabelCC(row.active);
   if(used) return "Last used: "+used;
@@ -15225,7 +15229,7 @@ function daysAgo(dateStr){
 }
 
 async function showInstructorDetail(instructorId){
-  const {data:i} = await sb.from("profiles").select("id,full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode,school_id,is_school_admin,created_at,last_opened_at,app_version,app_platform").eq("id",instructorId).single();
+  const {data:i} = await sb.from("profiles").select("id,full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode,school_id,is_school_admin,created_at,last_opened_at,app_version,app_platform,last_web_at").eq("id",instructorId).single();
   // Their last sign-in, in case their app is too old to record opens.
   await loadInstructorLastSeen();
   // How much they're actually using it, not just that they signed in once. Super admin only.

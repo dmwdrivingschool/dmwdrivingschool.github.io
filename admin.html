@@ -2225,7 +2225,9 @@ async function enterApp(user,prof,pause){
   // Records this sign-in as a "web" open (Dale, 24 Sep 2026). Its own function, not record_app_open, which
   // would overwrite the phone version and platform on the profile and lose what device they actually use.
   // Deduped to one every half hour server side, so a refresh or a second tab is not a second visit.
-  try{ sb.rpc("record_web_open"); }catch(e){}
+  // .then is not optional: supabase-js rpc() builds the request lazily and only sends it when something
+  // awaits it. Without this it silently never called PostgREST, which is why nothing was stamped 24-25 Sep.
+  try{ sb.rpc("record_web_open").then(()=>{},()=>{}); }catch(e){}
 }
 // Two-factor authentication in the Control Centre (Dale, 14 Sep 2026). The app already had it (Supabase TOTP, the
 // same authenticator code), but this page only asked for the password, so an account with 2FA on could sign in here

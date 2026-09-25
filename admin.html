@@ -818,7 +818,7 @@ tbody tr:hover td{background:#334263}
             <div class="field"><label>Method</label>
               <select id="pay-method"><option>Bank Transfer</option><option>Cash</option><option>Cheque</option><option>Card</option><option>Direct Debit</option><option>Gift Card</option><option>PayPal</option></select>
             </div>
-            <div class="field" id="pay-hours-wrap"><label>Lesson hours (optional — adjusts pupil credit)</label>
+            <div class="field" id="pay-hours-wrap"><label>Lesson hours (adjusts pupil credit — enter 0 if it buys none)</label>
               <div style="display:flex;gap:.5rem"><input id="pay-hrs" type="number" step="0.25" min="0" placeholder="Hours" style="flex:1"><input id="pay-mins" type="number" step="1" min="0" placeholder="Mins" style="flex:1"></div>
             </div>
             <div class="field"><label>Notes</label><input id="pay-notes"></div>
@@ -8285,7 +8285,15 @@ async function savePayment(){
   const isLesson=type==="income"&&isLessonCat(cat);
   const pupilId=isLesson?(document.getElementById("pay-pupil").value||null):null;
   const hrsVal=document.getElementById("pay-hrs").value, minsVal=document.getElementById("pay-mins").value;
-  if(isLesson&&(hrsVal||minsVal)){
+  // Required, the same as the app has been since 21 Sep 2026 - this screen was missed at the time and still
+  // said "optional" (Dale, 25 Sep 2026: "i thought we fixed this so the hours couldnt be left blank"). Left
+  // blank, the hours fall back to matching the amount against a hard-coded price list, which is right for
+  // Dale's own prices and gives zero for anybody else's. Zero is a real answer - a deposit, a test fee - so
+  // it is the blank that is rejected, not the zero.
+  if(isLesson&&hrsVal===""&&minsVal===""){
+    return alert("Enter how long they are paying for (hours and/or minutes). Enter 0 if it buys no hours.");
+  }
+  if(isLesson){
     notes=(notes?notes+" ":"")+`(${hrsVal||0}h ${minsVal||0}m)`;
   }
   if(type==="expense"&&isMileageCat(cat)){

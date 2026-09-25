@@ -3567,7 +3567,7 @@ function renderPupilModal(){
       <p class="muted" style="margin-bottom:.8rem">${DELETED_PUPIL_NOTE}</p>
       <div class="tabs-sub">${dBtns}</div>
       <div>${dTab==="tests"?renderPupilTests():renderPupilPayments(true)}</div>
-      <div class="actions" style="margin-top:1rem"><button class="btn-outline" onclick="closeModal()">Close</button></div>`);
+      <div class="actions" style="margin-top:1rem"><button class="btn btn-navy btn-sm" onclick="reinvitePupilCC('${p.id}')">Invite back</button><button class="btn-outline" onclick="closeModal()">Close</button></div>`);
     return;
   }
   const tabs=[["summary","Summary"],["lessons","Lessons"],["payments","Payments"],["progress","Progress"],["reflect","Reflective Log"],["tests","Tests"],["logins","Logins"]];
@@ -3662,6 +3662,40 @@ async function closePupilAvailabilityCC(){
   pupilAvail=null; renderPupilModal();
 }
 
+// Bringing a cleared pupil back (Dale, 25 Sep 2026). The clear-out keeps the row, the name and every payment,
+// so this only ever puts fresh contact details on a record that is still there - and their payment history
+// comes back with them.
+//
+// Two steps on purpose. Attaching a real person's new details to a record holding somebody's payment history
+// is how two similarly-named pupils get merged and one person's money ends up against another's name, so
+// what is attached is shown and has to be agreed to before anything is typed.
+async function reinvitePupilCC(id){
+  const {data:info,error}=await sb.rpc("pupil_reinvite_preview",{p_pupil:id});
+  if(error||!info){ alert("Could not load this record."); return; }
+  const money=n=>"£"+Number(n||0).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const bits=[];
+  if(info.payments) bits.push(info.payments+" payment"+(info.payments===1?"":"s")+" totalling "+money(info.payments_total));
+  if(info.tests) bits.push(info.tests+" test result"+(info.tests===1?"":"s"));
+  openModal(`<h2 style="margin-bottom:.6rem">Invite ${esc(info.name)} back</h2>
+    <p class="muted" style="margin-bottom:.6rem">Their details were cleared${info.cleared_on?" on "+esc(info.cleared_on):""}. This record still holds ${bits.length?esc(bits.join(" and ")):"no payments or test results"}.</p>
+    <p style="margin-bottom:.8rem"><strong>Only do this if it is the same person.</strong> Whatever is above will be restored to whoever you invite, so a pupil with a similar name would end up with someone else's payment history.</p>
+    <div class="field"><label>Their email</label><input id="reinv-email" type="email" placeholder="name@example.com"></div>
+    <div class="field"><label>Or their mobile</label><input id="reinv-phone" placeholder="07..."></div>
+    <div class="actions" style="margin-top:.8rem">
+      <button class="btn btn-navy btn-sm" onclick="doReinvitePupilCC('${id}')">Yes, this is the same person</button>
+      <button class="btn-outline" onclick="closeModal()">Cancel</button></div>`);
+}
+async function doReinvitePupilCC(id){
+  const email=(document.getElementById("reinv-email").value||"").trim();
+  const phone=(document.getElementById("reinv-phone").value||"").trim();
+  if(!email&&!phone){ alert("Enter an email address or a mobile number so they can be invited."); return; }
+  const {data:ok,error}=await sb.rpc("pupil_reinvite",{p_pupil:id,p_email:email||null,p_phone:phone||null});
+  if(error||!ok){ alert(error&&error.message?error.message:"Could not invite them back."); return; }
+  closeModal();
+  toast("Invited back — send them their login link from their profile");
+  await loadPupils();
+}
+
 function renderPupilSummary(){
   const {p,lessons,txs}=pupilDetail;
   const totalPaid=txs.reduce((s,t)=>s+Number(t.amount||0),0);
@@ -3678,7 +3712,7 @@ function renderPupilSummary(){
     ? Number(p.delivered_hours_at_pass)
     : deliveredMins/60;
   const credit=Math.round((purchasedHrs-deliveredHrs)*100)/100;
-  return `${renderPassedCardCC()}${renderEnquiryActionsCC()}${renderPupilStatusCC()}${renderNextLessonCard()}<div class="summary-lines">
+  return `${renderPassedCardCC()}${renderPurgeWarningCC()}${renderEnquiryActionsCC()}${renderPupilStatusCC()}${renderNextLessonCard()}<div class="summary-lines">
       ${row("Status",p.status)}${row("Phone",p.phone)}${row("Email",p.email)}
       ${row("Address",[p.address_line1,p.address_line2,p.city,p.postcode].filter(Boolean).join(", ")||p.address)}
       ${row("Licence",p.licence_number)}${row("DOB",p.date_of_birth||p.dob)}
@@ -3699,6 +3733,30 @@ function renderPupilSummary(){
 // Accept / Decline box above, and a deleted pupil is only a name kept with their payments, so neither shows this.
 // Everything goes through setStatus, so Passed still asks first and the database still sends the waiting-list and
 // accepted messages.
+// Shown once the year warning has gone out (Dale, 25 Sep 2026), with the one button that stops it. Keeping
+// them puts the full year back on the clock rather than holding them for ever - keeping somebody's details
+// indefinitely is the thing the clear-out exists to prevent.
+function renderPurgeWarningCC(){
+  const {p}=pupilDetail;
+  if(p.status!=="inactive"||!p.purge_warned_at) return "";
+  const base=p.status_changed_at||p.updated_at||p.created_at;
+  const due=new Date(new Date(base).getTime()+365*864e5);
+  return `<div class="panel" style="border-left:4px solid #b45309;margin-bottom:1rem">
+    <strong>Their details are cleared on ${esc(due.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}))}</strong>
+    <div class="muted" style="font-size:.85rem;margin-top:.2rem">${p.purge_warned_pupil
+      ? "They have been messaged in the app explaining why, and that you will be in touch."
+      : "They have not opened the app recently, so they have not been messaged."} Lessons, messages and their personal details go; payments and test results stay.</div>
+    <button class="btn btn-navy btn-sm" style="margin-top:.6rem" onclick="keepPupilAnotherYearCC('${p.id}')">Keep them for another year</button>
+  </div>`;
+}
+async function keepPupilAnotherYearCC(id){
+  const {data:ok,error}=await sb.rpc("pupil_keep_another_year",{p_pupil:id});
+  if(error||!ok){ alert(error&&error.message?error.message:"Could not do that."); return; }
+  toast("Kept — nothing will be cleared for another year");
+  await loadPupils();
+  closeModal();
+}
+
 function renderPupilStatusCC(){
   const {p}=pupilDetail;
   if(p.status==="enquiry"||p.status==="deleted") return "";

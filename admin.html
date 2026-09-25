@@ -7656,13 +7656,22 @@ function taxSetAsideHtml(y,to){
   const day=86400000;
   const share=Math.min(1,Math.max(1,(Date.parse(upTo)-Date.parse(yearFrom))/day+1)/((Date.parse(yearTo)-Date.parse(yearFrom))/day+1));
   const soFar=taxFigures(yearFrom,upTo).profitTax;
-  const projected=share>=1?soFar:soFar/share;
+  // Not until there is a month of figures to go on (Dale, 25 Sep 2026). Dividing by the share is fine in
+  // September and nonsense on 8 April, where two days of takings got multiplied by 365 and the screen
+  // announced a tax bill off the back of one lesson. Under 30 days it shows the profit so far instead, and
+  // says the year estimate starts once there is enough of the year to work from.
+  const daysIn=Math.round((Date.parse(upTo)-Date.parse(yearFrom))/day)+1;
+  const tooEarly=share<1&&daysIn<30;
+  const projected=(share>=1||tooEarly)?soFar:soFar/share;
   const cap=accr?capitalFigures(yearFrom,upTo):null;
   const taxable=projected-(cap?cap.allowances-cap.charges:0);
   const t=estimateSoleTraderTax(taxable,y);
   const money=n=>(n<0?"-£":"£")+Math.abs(n).toLocaleString("en-GB",{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtD=d=>new Date(d+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
   const whole=share>=1;
+  // One column, not two, while it is too early to project: a "by today" share of a figure that is already
+  // only today's would just be the same number twice.
+  const single=whole||tooEarly;
   // Laid out like the Control Centre page on drivemyway.co.uk (Dale, 13 Sep 2026):
   // profit, then income tax and each class of National Insurance, then the total.
   // Part way through the year a second column shows the share to have put aside by now.
@@ -7677,12 +7686,12 @@ function taxSetAsideHtml(y,to){
     :t.classTwo||!t.classTwoPayable?"":"There's no Class 2 National Insurance to pay: at this profit it counts as paid. ";
   return `<div style="border:1px solid var(--line);border-radius:12px;padding:.8rem 1rem;margin:0 0 1.2rem">
     <h3 style="margin:0 0 .5rem">Tax to set aside · ${y}–${String(y+1).slice(2)} (estimate)</h3>
-    <table><thead><tr><th></th><th style="text-align:right">${whole?"For the year":"For the year at this rate"}</th>${whole?"":`<th style="text-align:right">By ${fmtD(upTo)}</th>`}</tr></thead><tbody>
-      <tr><td>Profit</td>${num(projected)}${whole?"":num(soFar)}</tr>
-      ${capNet?`<tr><td>${capNet>0?"Taken off for cars and equipment bought":"Added back for cars and equipment sold"}${cap.allowances&&cap.charges?` (${money(cap.allowances)} bought, ${money(cap.charges)} sold)`:""}</td>${num(-capNet)}${whole?"":'<td style="text-align:right">–</td>'}</tr>`:""}
-      ${taxLines.map(([label,v])=>`<tr><td>${label}</td>${num(v)}${whole?"":num(part(v))}</tr>`).join("")}
-    </tbody><tfoot><tr style="background:var(--soft);font-weight:700"><td>Set aside</td>${num(t.total)}${whole?"":num(setAside)}</tr></tfoot></table>
-    <p class="muted" style="margin:.6rem 0 0;font-size:.78rem;line-height:1.5">${classTwoNote}${whole?"":`Worked out as if you keep making profit at the same rate for the rest of the tax year: ${money(soFar)} by ${fmtD(upTo)} is about ${money(projected)} for the year. That year's tax is spread across the year, so by ${fmtD(upTo)} you'd have ${money(setAside)} of it put aside. It changes as your profit does. `}It assumes no other income such as a job or pension, and England, Wales and Northern Ireland rates (Scotland's income tax rates are different). If your bill is over £1,000, HMRC usually also asks for two payments towards next year, each half of this year's bill, due 31 January and 31 July.</p>
+    <table><thead><tr><th></th><th style="text-align:right">${whole?"For the year":tooEarly?`So far, to ${fmtD(upTo)}`:"For the year at this rate"}</th>${single?"":`<th style="text-align:right">By ${fmtD(upTo)}</th>`}</tr></thead><tbody>
+      <tr><td>Profit</td>${num(projected)}${single?"":num(soFar)}</tr>
+      ${capNet?`<tr><td>${capNet>0?"Taken off for cars and equipment bought":"Added back for cars and equipment sold"}${cap.allowances&&cap.charges?` (${money(cap.allowances)} bought, ${money(cap.charges)} sold)`:""}</td>${num(-capNet)}${single?"":'<td style="text-align:right">–</td>'}</tr>`:""}
+      ${taxLines.map(([label,v])=>`<tr><td>${label}</td>${num(v)}${single?"":num(part(v))}</tr>`).join("")}
+    </tbody><tfoot><tr style="background:var(--soft);font-weight:700"><td>Set aside</td>${num(t.total)}${single?"":num(setAside)}</tr></tfoot></table>
+    <p class="muted" style="margin:.6rem 0 0;font-size:.78rem;line-height:1.5">${classTwoNote}${tooEarly?"This is the tax on what you have made so far, not a guess at the year. There is not enough of the tax year gone to say where you will end up — that starts once you are a month in. ":""}${single?"":`Worked out as if you keep making profit at the same rate for the rest of the tax year: ${money(soFar)} by ${fmtD(upTo)} is about ${money(projected)} for the year. That year's tax is spread across the year, so by ${fmtD(upTo)} you'd have ${money(setAside)} of it put aside. It changes as your profit does. `}It assumes no other income such as a job or pension, and England, Wales and Northern Ireland rates (Scotland's income tax rates are different). If your bill is over £1,000, HMRC usually also asks for two payments towards next year, each half of this year's bill, due 31 January and 31 July.</p>
   </div>`;
 }
 // Cars and equipment bought and sold in a period, from Your cars and the
@@ -16182,9 +16191,13 @@ function platformSetAsideHtml(y,to){
   const day=86400000;
   const share=Math.min(1,Math.max(1,(Date.parse(upTo)-Date.parse(yearFrom))/day+1)/((Date.parse(yearTo)-Date.parse(yearFrom))/day+1));
   const whole=share>=1;
+  // Same rule as the instructor's own summary above: no projecting off a handful of days.
+  const daysIn=Math.round((Date.parse(upTo)-Date.parse(yearFrom))/day)+1;
+  const tooEarly=share<1&&daysIn<30;
+  const single=whole||tooEarly;
   const r2=n=>Math.round(n*100)/100;
   const dmwSoFar=ptxFigures(ptxBetween(yearFrom,upTo),yearFrom,upTo).profitTax;
-  const dmwYear=whole?dmwSoFar:dmwSoFar/share;
+  const dmwYear=single?dmwSoFar:dmwSoFar/share;
   // A limited company's profit isn't self-employed profit, so only a sole trader's driving school counts here.
   const withSchool=!isCompany();
   const schoolSoFar=withSchool?taxFigures(yearFrom,upTo).profitTax:0;
@@ -16199,12 +16212,12 @@ function platformSetAsideHtml(y,to){
   const num=v=>`<td style="text-align:right">${ptxMoney(v)}</td>`;
   return `<div style="border:1px solid var(--line);border-radius:12px;padding:.8rem 1rem;margin:0 0 1.2rem">
     <h3 style="margin:0 0 .5rem">Tax to set aside for Drive My Way · ${y}–${String(y+1).slice(2)} (estimate)</h3>
-    <div style="overflow-x:auto"><table><thead><tr><th></th><th style="text-align:right">${whole?"For the year":"For the year at this rate"}</th>${whole?"":`<th style="text-align:right">By ${ptxDate(upTo)}</th>`}</tr></thead><tbody>
-      <tr><td>Drive My Way profit</td>${num(dmwYear)}${whole?"":num(dmwSoFar)}</tr>
-      ${withSchool?`<tr><td class="muted">Your driving school profit (from Finances)</td>${num(schoolYear)}${whole?"":num(schoolSoFar)}</tr>`:""}
-      ${lines.map(([label,v])=>`<tr><td>${label}</td>${num(v)}${whole?"":num(part(v))}</tr>`).join("")}
-    </tbody><tfoot><tr style="background:var(--soft);font-weight:700"><td>Set aside for Drive My Way</td>${num(total)}${whole?"":num(setAside)}</tr></tfoot></table></div>
-    <p class="muted" style="margin:.6rem 0 0;font-size:.78rem;line-height:1.5">${dmwYear<=0?"Drive My Way hasn't made a profit in this tax year so far, so there's nothing extra to set aside. ":""}${withSchool?"Income tax and National Insurance are worked out on all your self-employed profit together, so this is the extra that Drive My Way's profit adds on top of the tax on your driving school's profit. The Tax summary in Finances covers your driving school's share. ":""}${whole?"":"Worked out as if both keep making profit at the same rate for the rest of the tax year. "}It assumes no other income such as a job or pension, and England, Wales and Northern Ireland rates (Scotland's income tax rates are different).</p>
+    <div style="overflow-x:auto"><table><thead><tr><th></th><th style="text-align:right">${whole?"For the year":tooEarly?`So far, to ${ptxDate(upTo)}`:"For the year at this rate"}</th>${single?"":`<th style="text-align:right">By ${ptxDate(upTo)}</th>`}</tr></thead><tbody>
+      <tr><td>Drive My Way profit</td>${num(dmwYear)}${single?"":num(dmwSoFar)}</tr>
+      ${withSchool?`<tr><td class="muted">Your driving school profit (from Finances)</td>${num(schoolYear)}${single?"":num(schoolSoFar)}</tr>`:""}
+      ${lines.map(([label,v])=>`<tr><td>${label}</td>${num(v)}${single?"":num(part(v))}</tr>`).join("")}
+    </tbody><tfoot><tr style="background:var(--soft);font-weight:700"><td>Set aside for Drive My Way</td>${num(total)}${single?"":num(setAside)}</tr></tfoot></table></div>
+    <p class="muted" style="margin:.6rem 0 0;font-size:.78rem;line-height:1.5">${dmwYear<=0?"Drive My Way hasn't made a profit in this tax year so far, so there's nothing extra to set aside. ":""}${withSchool?"Income tax and National Insurance are worked out on all your self-employed profit together, so this is the extra that Drive My Way's profit adds on top of the tax on your driving school's profit. The Tax summary in Finances covers your driving school's share. ":""}${tooEarly?"This is the tax on what has been made so far, not a guess at the year — there is not enough of the tax year gone yet. ":""}${single?"":"Worked out as if both keep making profit at the same rate for the rest of the tax year. "}It assumes no other income such as a job or pension, and England, Wales and Northern Ireland rates (Scotland's income tax rates are different).</p>
   </div>`;
 }
 function downloadPlatformTaxSummary(){

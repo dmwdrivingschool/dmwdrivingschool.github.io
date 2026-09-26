@@ -9966,13 +9966,16 @@ async function delGap(id){if(!confirm("Delete gap?"))return; await sb.from("less
  */
 let photoChannels = [];
 let photoChannelsSaved = [];
+let photoOptOutHow = "";
 
 async function loadPhotoChannels(){
   const {data} = await sb.from("app_settings").select("value")
     .eq("id","media_channels").eq("owner_id",currentUserId).maybeSingle();
-  const list = (data && data.value && Array.isArray(data.value.channels)) ? data.value.channels : [];
+  const v = (data && data.value) || {};
+  const list = Array.isArray(v.channels) ? v.channels : [];
   photoChannels = list.slice();
   photoChannelsSaved = list.slice();
+  photoOptOutHow = typeof v.opt_out_how === "string" ? v.opt_out_how : "";
   renderPhotoChannels();
 }
 
@@ -9991,6 +9994,16 @@ function renderPhotoChannels(){
     <button class="btn-outline btn-sm" onclick="addPhotoChannel()">+ Add a place</button>
     <p class="muted" style="font-size:.8rem;max-width:640px;margin-top:.8rem">Leave it empty if you never post pass
       photos. Your pupils are still asked before a photo goes on your Drive My Way pass wall.</p>
+
+    <h3 class="sf-head">If they change their mind later</h3>
+    <p class="muted" style="font-size:.85rem;max-width:640px;margin-top:-.3rem">Tell your pupils how to ask you to take
+      a photo down. This is shown to them with the places above. A photo on your own Facebook page can only be removed
+      by you, so they need to know how to reach you — nothing in the app can pull it back.</p>
+    <div class="sf-row" style="max-width:560px">
+      <input id="pc-optout" class="sf-in" value="${esc(photoOptOutHow)}"
+        placeholder="Message me in the app, or ring me on 07700 900000">
+    </div>
+
     <div class="set-save" style="margin-top:1rem">
       <button class="btn btn-navy" onclick="savePhotoChannels()">Save</button>
       <div class="err" id="pc-err" style="display:block"></div>
@@ -10020,12 +10033,21 @@ async function savePhotoChannels(){
       + "Your pupils have not agreed to that yet, so they will be asked next time they open the app. "
       + "What they have already agreed to is not affected.")) return;
   }
+  const optOutEl = document.getElementById("pc-optout");
+  const optOut = optOutEl ? optOutEl.value.trim() : "";
+  // Somewhere to post but no way to be asked to take it down is the half that gets an instructor in
+  // trouble, so it is refused rather than saved quietly.
+  if (list.length && !optOut){
+    if (err){ err.style.color="#b91c1c"; err.textContent="Tell your pupils how to ask you to take a photo down."; }
+    return;
+  }
   const {error} = await sb.from("app_settings").upsert({
-    id:"media_channels", owner_id:currentUserId, value:{channels:list}, updated_at:new Date().toISOString()
+    id:"media_channels", owner_id:currentUserId, value:{channels:list, opt_out_how:optOut}, updated_at:new Date().toISOString()
   },{onConflict:"owner_id,id"});
   if (error){ if (err){ err.style.color="#b91c1c"; err.textContent=error.message; } return; }
   photoChannels = list.slice();
   photoChannelsSaved = list.slice();
+  photoOptOutHow = optOut;
   renderPhotoChannels();
   const after = document.getElementById("pc-err");
   if (after){ after.style.color="#15803d"; after.textContent="Saved."; }

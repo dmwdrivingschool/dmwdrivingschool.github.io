@@ -271,6 +271,18 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .offer-list li:before{content:"\2713";position:absolute;left:0;color:#2E9E4F;font-weight:800}
 .embed-snip{background:#0f172a;color:#e2e8f0;padding:.8rem;border-radius:8px;overflow-x:auto;font-size:.82rem}
 @media(max-width:820px){.tpl-row{grid-template-columns:1fr}.offer-grid{grid-template-columns:1fr}}
+.sf-strip{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem;margin:.8rem 0 1.2rem}
+.sf-head{margin:1.4rem 0 .6rem;font-size:1rem}
+.sf-row{margin-bottom:.8rem;max-width:560px}
+.sf-row label{display:block;font-size:.82rem;font-weight:700;margin-bottom:.25rem}
+.sf-in{width:100%;padding:.55rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;font:inherit}
+.sf-three{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;max-width:560px}
+.sf-price{display:grid;grid-template-columns:1.3fr 1fr 1.3fr auto;gap:.5rem;margin-bottom:.5rem;max-width:700px;align-items:center}
+.tpl-pick.on{border:2px solid var(--navy)}
+.tpl-pick{cursor:pointer;font:inherit;text-align:left}
+.dns-tbl{border-collapse:collapse;margin:.4rem 0}
+.dns-tbl th,.dns-tbl td{border:1px solid var(--line);padding:.35rem .6rem;font-size:.85rem;text-align:left}
+@media(max-width:700px){.sf-three,.sf-price{grid-template-columns:1fr}}
 .modal.choice-modal{align-items:center;padding:1rem}
 .modal.choice-modal .modal-box{border-radius:20px;max-height:calc(100vh - 2rem);box-shadow:0 24px 70px -20px rgba(15,23,42,.35)}
 .modal-box h2{font-weight:700;font-size:1.1rem;letter-spacing:-.01em}
@@ -5668,6 +5680,206 @@ async function setVideosOverride(ownerType, ownerId, val){
   });
   if(error){ if(err) err.textContent=error.message; return; }
   await loadTeamsPanel();
+}
+
+// The Website tab once they have one (Dale, 26 Sep 2026). Never a blank form: the first time it
+// opens it fills itself from what DMW already knows — their name, town and phone from the profile,
+// their days and hours from the working hours they set for the enquiry form. A wizard you must
+// finish before anything exists is where a £149 purchase dies; they should be changing things, not
+// creating them from nothing.
+//
+// Prices are the one thing deliberately left empty. A wrong price on somebody's website is worse
+// than no price, and it is the field they will certainly fill in themselves.
+let siteRow = null;
+// On a trial the countdown sits above the editor, so the editor adds to the panel rather than
+// replacing it — a trial you cannot edit tells the instructor nothing about the product.
+let websiteEditorAppend = false;
+
+async function loadWebsiteEditor(append){
+  websiteEditorAppend = !!append;
+  const {data} = await sb.from("instructor_sites").select("*").eq("instructor_id", currentUserId).maybeSingle();
+  siteRow = data || null;
+  if (siteRow && (!siteRow.content || Object.keys(siteRow.content).length === 0)){
+    const {data: def} = await sb.rpc("instructor_site_defaults", {p_instructor: currentUserId});
+    if (def) { siteRow.content = def; }
+  }
+  renderWebsiteEditor();
+}
+
+function siteField(key, label, hint, type){
+  const c = (siteRow && siteRow.content) || {};
+  const v = c[key] == null ? "" : String(c[key]);
+  const input = type === "area"
+    ? `<textarea id="sf-${key}" rows="3" class="sf-in">${esc(v)}</textarea>`
+    : `<input id="sf-${key}" class="sf-in" value="${esc(v)}">`;
+  return `<div class="sf-row"><label for="sf-${key}">${esc(label)}</label>${input}` +
+    (hint ? `<div class="muted" style="font-size:.78rem">${hint}</div>` : "") + `</div>`;
+}
+
+function renderWebsiteEditor(){
+  const host = document.getElementById("website-offer");
+  if (!host || !siteRow) return;
+  const c = siteRow.content || {};
+  const stats = c.stats || {};
+  const addr = siteRow.domain || (siteRow.subdomain ? siteRow.subdomain + ".drivemyway.co.uk" : "");
+  const preview = "https://web.drivemyway.co.uk/site.html?i=" + encodeURIComponent(currentUserId);
+  const areas = Array.isArray(c.areas) ? c.areas.join(", ") : "";
+  const prices = Array.isArray(c.prices) ? c.prices : [];
+
+  const html = `<div class="panel">
+    <h2>Your website</h2>
+    <p class="muted">Everything here is yours to change, and it goes live the moment you save.</p>
+
+    <div class="sf-strip">
+      <div><strong>${siteRow.published ? "Live" : "Not live yet"}</strong>
+        <div class="muted" style="font-size:.82rem">${addr ? esc(addr) : "No address set up yet"}</div></div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <a class="btn-outline btn-sm" href="${preview}" target="_blank" rel="noopener">Preview</a>
+        <button class="btn ${siteRow.published ? "btn-outline" : "btn-navy"} btn-sm" onclick="toggleSitePublished()">
+          ${siteRow.published ? "Take it offline" : "Put it live"}</button>
+      </div>
+    </div>
+
+    <h3 class="sf-head">Which design</h3>
+    <div class="tpl-row">
+      ${[["classic","Classic"],["bold","Bold"],["calm","Calm"]].map(([slug,name])=>`
+        <button type="button" class="tpl-pick${siteRow.template===slug?" on":""}" onclick="setSiteTemplate('${slug}')">
+          <span class="tpl-pick-shot tpl-${slug}"></span><strong>${name}</strong>
+          <span class="tpl-see">${siteRow.template===slug?"Chosen":"Use this one"}</span>
+        </button>`).join("")}
+    </div>
+
+    <h3 class="sf-head">What it says</h3>
+    ${siteField("tagline","The big line at the top","This is the first thing anyone reads.")}
+    ${siteField("about","A few lines about how you teach","Two or three sentences is plenty.","area")}
+    ${siteField("town","Your town","")}
+    ${siteField("phone","Phone number","")}
+    <div class="sf-row"><label for="sf-areas">Areas you cover</label>
+      <input id="sf-areas" class="sf-in" value="${esc(areas)}">
+      <div class="muted" style="font-size:.78rem">Separate them with commas.</div></div>
+
+    <h3 class="sf-head">Your numbers</h3>
+    <div class="sf-three">
+      <div class="sf-row"><label for="sf-pass_rate">First-time pass rate</label>
+        <input id="sf-pass_rate" class="sf-in" value="${esc(stats.pass_rate||"")}" placeholder="92%"></div>
+      <div class="sf-row"><label for="sf-reviews">Five-star reviews</label>
+        <input id="sf-reviews" class="sf-in" value="${esc(stats.reviews||"")}" placeholder="48"></div>
+      <div class="sf-row"><label for="sf-years">Years teaching</label>
+        <input id="sf-years" class="sf-in" value="${esc(stats.years||"")}" placeholder="11"></div>
+    </div>
+    <p class="muted" style="font-size:.8rem">Leave any of these blank and it simply will not show.</p>
+
+    <h3 class="sf-head">Prices</h3>
+    <div id="sf-prices">${prices.map((p,i)=>priceRowHtml(p,i)).join("")}</div>
+    <button class="btn-outline btn-sm" onclick="addPriceRow()">+ Add a price</button>
+
+    <div class="set-save" style="margin-top:1.2rem">
+      <button class="btn btn-navy" onclick="saveWebsiteEditor()">Save</button>
+      <div class="err" id="sf-err" style="display:block"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top:0">Your web address</h3>
+    <p class="muted">Your site already works on <strong>${esc(siteRow.subdomain||"")}.drivemyway.co.uk</strong>.
+      If you have bought your own, put it in here and we will set it up.</p>
+    <div class="sf-row" style="max-width:420px">
+      <input id="sf-domain" class="sf-in" value="${esc(siteRow.domain||"")}" placeholder="yourschool.co.uk">
+    </div>
+    <button class="btn btn-navy btn-sm" onclick="attachSiteDomain()">Set this address up</button>
+    <div id="sf-domain-out" style="margin-top:.8rem"></div>
+  </div>`;
+  if (websiteEditorAppend) host.insertAdjacentHTML("beforeend", html); else host.innerHTML = html;
+}
+
+function priceRowHtml(p, i){
+  return `<div class="sf-price" data-i="${i}">
+    <input class="sf-in" placeholder="Single lesson" value="${esc(p.label||"")}" data-k="label">
+    <input class="sf-in" placeholder="£36" value="${esc(p.amount||"")}" data-k="amount">
+    <input class="sf-in" placeholder="per hour" value="${esc(p.note||"")}" data-k="note">
+    <button class="btn-outline btn-sm" onclick="this.parentElement.remove()">Remove</button>
+  </div>`;
+}
+function addPriceRow(){
+  const box = document.getElementById("sf-prices");
+  box.insertAdjacentHTML("beforeend", priceRowHtml({}, box.children.length));
+}
+function setSiteTemplate(slug){
+  siteRow.template = slug;
+  renderWebsiteEditor();
+}
+
+function collectSiteContent(){
+  const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+  const prices = [...document.querySelectorAll("#sf-prices .sf-price")].map(row=>{
+    const o = {};
+    row.querySelectorAll("input").forEach(i => o[i.dataset.k] = i.value.trim());
+    return o;
+  }).filter(p => p.label || p.amount);
+  return Object.assign({}, siteRow.content || {}, {
+    tagline: v("sf-tagline"), about: v("sf-about"), town: v("sf-town"), phone: v("sf-phone"),
+    areas: v("sf-areas").split(",").map(s=>s.trim()).filter(Boolean),
+    prices,
+    stats: { pass_rate: v("sf-pass_rate"), reviews: v("sf-reviews"), years: v("sf-years") }
+  });
+}
+
+async function saveWebsiteEditor(){
+  const err = document.getElementById("sf-err");
+  if (err) err.textContent = "";
+  const content = collectSiteContent();
+  const {error} = await sb.from("instructor_sites")
+    .update({ content, template: siteRow.template }).eq("instructor_id", currentUserId);
+  if (error){ if (err) err.textContent = error.message; return; }
+  siteRow.content = content;
+  if (err){ err.style.color = "#15803d"; err.textContent = "Saved."; }
+}
+
+async function toggleSitePublished(){
+  const next = !siteRow.published;
+  const {error} = await sb.from("instructor_sites").update({published: next}).eq("instructor_id", currentUserId);
+  if (error){ alert(error.message); return; }
+  siteRow.published = next;
+  renderWebsiteEditor();
+}
+
+// Attaching is done by an edge function, because the Vercel token cannot live in this page.
+async function attachSiteDomain(){
+  const out = document.getElementById("sf-domain-out");
+  const domain = (document.getElementById("sf-domain").value || "").trim();
+  if (!domain){ out.innerHTML = '<span class="muted">Type your address in first.</span>'; return; }
+  out.innerHTML = '<span class="muted">Setting it up…</span>';
+  try{
+    const {data: sess} = await sb.auth.getSession();
+    const res = await fetch("https://cxcqmyxbpjueezapknim.supabase.co/functions/v1/instructor-site-domain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + (sess?.session?.access_token || "") },
+      body: JSON.stringify({ action: "attach", domain })
+    });
+    const d = await res.json();
+    if (!res.ok){ out.innerHTML = '<span style="color:#b91c1c">' + esc(d.error || "That did not work.") + '</span>'; return; }
+    siteRow.domain = d.domain;
+    out.innerHTML = `<p>Now add these two records wherever you bought <strong>${esc(d.domain)}</strong>:</p>
+      <table class="dns-tbl"><tr><th>Type</th><th>Name</th><th>Value</th></tr>
+      ${(d.records||[]).map(r=>`<tr><td>${esc(r.type)}</td><td>${esc(r.name)}</td><td><code>${esc(r.value)}</code></td></tr>`).join("")}
+      </table>
+      <p class="muted" style="font-size:.82rem">It can take an hour or two to start working after you add them.</p>
+      <button class="btn-outline btn-sm" onclick="checkSiteDomain()">Check if it is working</button>`;
+  }catch(e){ out.innerHTML = '<span style="color:#b91c1c">' + esc(String(e)) + '</span>'; }
+}
+
+async function checkSiteDomain(){
+  const out = document.getElementById("sf-domain-out");
+  const {data: sess} = await sb.auth.getSession();
+  const res = await fetch("https://cxcqmyxbpjueezapknim.supabase.co/functions/v1/instructor-site-domain", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + (sess?.session?.access_token || "") },
+    body: JSON.stringify({ action: "check" })
+  });
+  const d = await res.json();
+  out.insertAdjacentHTML("beforeend", d.live
+    ? '<p style="color:#15803d;font-weight:700">That is working — your site is live on your own address.</p>'
+    : '<p class="muted">Not showing yet. Give it another hour and check again.</p>');
 }
 
 // Website access (Dale, 26 Sep 2026). Same shape as the Video access control: super admin only, on
@@ -18041,13 +18253,15 @@ function renderWebsiteOffer(){
   }
   if (e && e.in_trial){
     const days = e.trial_days_left;
-    host.innerHTML = `<div class="panel"><h2>Your website</h2>
+    host.innerHTML = `<div class="panel trial-strip"><h2>Your website</h2>
       <p class="muted">Live now at <strong>${addr}</strong>. Have a look, fill it in, show somebody.</p>
       <p><strong>${days} day${days === 1 ? "" : "s"} left</strong> on your trial. After that it comes down unless you keep it.</p>
       <button class="btn btn-navy" onclick="startWebsitePurchase('website')">Keep it, ${due}</button></div>`;
+    // They can still edit it while trying it — a trial you cannot change tells you nothing.
+    loadWebsiteEditor(true);
     return;
   }
-  if (e && e.website){ host.innerHTML = `<div class="panel"><h2>Your website</h2><p class="muted">Live at <strong>${addr}</strong>. Editing it from here is coming next.</p></div>`; return; }
+  if (e && e.website){ loadWebsiteEditor(); return; }
   // Bought the wall only: the wall and the snippet, and nothing else.
   if (e && e.pass_wall){
     host.innerHTML = `<div class="panel"><h2>Your pass wall</h2>

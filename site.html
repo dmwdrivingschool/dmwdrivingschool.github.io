@@ -115,6 +115,14 @@
 
   // pass_wall returns a date; the wall shows a month, because "Passed in September" reads like a
   // person and "2026-09-04" reads like a database.
+  // Instructors type "50", not "£50". Putting the sign on here rather than making them do it
+  // means a price already saved without one is fixed too, and typing "£50" does not double it.
+  function money(v){
+    var t = String(v == null ? "" : v).trim();
+    if (!t) return "";
+    return /^[0-9]/.test(t) ? "£" + t : t;
+  }
+
   function passedLabel(iso){
     if (!iso) return "";
     var d = new Date(String(iso).slice(0,10) + "T12:00:00");
@@ -235,7 +243,7 @@
       (prices.length ? '<section class="band"><h2>Prices</h2><div class="prices">' +
         prices.map(function(pr){
           return '<div class="price"><div class="l">' + esc(pr.label || "") + '</div>' +
-            '<div class="a">' + esc(pr.amount || "") + '</div>' +
+            '<div class="a">' + esc(money(pr.amount)) + '</div>' +
             (pr.note ? '<div class="n">' + esc(pr.note) + '</div>' : '') + '</div>';
         }).join("") + '</div></section>' : '') +
 

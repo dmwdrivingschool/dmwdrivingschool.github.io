@@ -5795,7 +5795,7 @@ function renderWebsiteEditor(){
 function priceRowHtml(p, i){
   return `<div class="sf-price" data-i="${i}">
     <input class="sf-in" placeholder="Single lesson" value="${esc(p.label||"")}" data-k="label">
-    <input class="sf-in" placeholder="£36" value="${esc(p.amount||"")}" data-k="amount">
+    <input class="sf-in" placeholder="£36" value="${esc(p.amount||"")}" data-k="amount" onblur="this.value=this.value.trim().replace(/^([0-9])/,'£$1')">
     <input class="sf-in" placeholder="per hour" value="${esc(p.note||"")}" data-k="note">
     <button class="btn-outline btn-sm" onclick="this.parentElement.remove()">Remove</button>
   </div>`;

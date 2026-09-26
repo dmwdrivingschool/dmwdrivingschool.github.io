@@ -7,7 +7,7 @@
 <link rel="icon" type="image/png" href="drivemyway-favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=Archivo:wght@500;700;800;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,WONK@9..144,500,0;9..144,600,0;9..144,700,0&family=Public+Sans:wght@400;500;600;700&family=Archivo:wght@500;700;800;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   /* This is drivemyway.co.uk/examples/classic rendered from the database instead of hardcoded.
      The examples are what a customer is shown BEFORE they buy, so they are the specification.
@@ -37,7 +37,12 @@
   }
   *{box-sizing:border-box;max-width:100%}
   html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--body);line-height:1.6;overflow-x:hidden}
-  h1,h2,h3{font-family:var(--head);font-weight:600;letter-spacing:-0.01em;margin:0}
+  /* WONK is Fraunces' "wonky" alternates: a curled j, a hooked f, a cocked y. Dale, 26 Sep:
+     "some of the font is wierd - look at j and f". It is on by default, which is a lovely thing
+     on a poster and a distraction on a driving instructor's headline, so it is pinned off here and
+     in the font request. */
+  h1,h2,h3{font-family:var(--head);font-weight:600;letter-spacing:-0.01em;margin:0;font-variation-settings:"WONK" 0,"SOFT" 0}
+  .brand-name,.mark,.pass .who,.price .a{font-variation-settings:"WONK" 0,"SOFT" 0}
   [data-template="bold"] h1,[data-template="bold"] h2{text-transform:uppercase;letter-spacing:-.03em;font-weight:900}
   a{color:var(--accent)}
   img{display:block}
@@ -322,13 +327,17 @@
     var passes = Array.isArray(d.passes) ? d.passes : [];
     var stats  = c.stats || {};
     var gearbox = c.gearbox === "automatic" ? "Automatic" : c.gearbox === "both" ? "Manual and automatic" : "Manual";
+    // What they call their passes page. "Passes" is fine, but plenty of instructors already have a
+    // Wall of Fame or Success Stories with their own following, and a website that renames it is a
+    // website that has taken something off them.
+    var passLabel = String(c.passes_label || "").trim() || "Passes";
     var enquiry = "https://web.drivemyway.co.uk/enquiry-form.html?i=" + encodeURIComponent(d.instructor_id);
 
     var navBits = [];
     if (feats.length)  navBits.push('<a href="' + urlFor("") + '#about">About</a>');
     if (areas.length)  navBits.push('<a href="' + urlFor("") + '#areas">Areas</a>');
     if (prices.length) navBits.push('<a href="' + urlFor("") + '#prices">Prices</a>');
-    if (passes.length) navBits.push('<a href="' + urlFor("passes") + '">Passes</a>');
+    if (passes.length) navBits.push('<a href="' + urlFor("passes") + '">' + esc(passLabel) + '</a>');
     navBits.push('<a href="' + urlFor("app") + '">The app</a>');
 
     var header =
@@ -351,9 +360,9 @@
     // A page of every pass. Seventy-odd photos do not belong on a home page, but they are the best
     // thing an instructor has, so they get a page of their own with the lot on it.
     if (page === "passes") {
-      document.title = "Recent passes — " + name;
+      document.title = passLabel + " — " + name;
       root.innerHTML = header +
-        '<div class="wrap"><section class="page-head"><h1>Recent passes</h1>' +
+        '<div class="wrap"><section class="page-head"><h1>' + esc(passLabel) + '</h1>' +
         '<p class="sub">Every one of them, added the day they passed.</p></section>' +
         '<section class="band" style="border-top:0;padding-top:0"><div class="passes">' +
           passes.map(passCard).join("") +
@@ -444,11 +453,11 @@
 
       // Four on the home page, the rest on their own page. Dale, 26 Sep: the wall is the best thing
       // they have, but not seventy photos before anybody has read the prices.
-      (passes.length ? '<section class="band" id="passes"><h2>Recent passes</h2>' +
+      (passes.length ? '<section class="band" id="passes"><h2>' + esc(passLabel) + '</h2>' +
         '<p class="sub">Added the day they passed, in their own words.</p><div class="passes">' +
         passes.slice(0, 4).map(passCard).join("") + '</div>' +
         (passes.length > 4 ? '<div class="more-passes"><a class="btn btn-quiet" href="' + urlFor("passes") +
-          '">See all ' + passes.length + ' passes</a></div>' : '') +
+          '">See all ' + passes.length + '</a></div>' : '') +
         '</section>' : '') +
 
       (areas.length ? '<section class="band" id="areas"><h2>Where I teach</h2>' +

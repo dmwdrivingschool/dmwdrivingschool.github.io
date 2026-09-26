@@ -275,10 +275,15 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .sf-strip{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem;margin:.8rem 0 1.2rem}
 .sf-head{margin:1.4rem 0 .6rem;font-size:1rem}
 .sf-row{margin-bottom:.8rem;max-width:560px}
+.sf-row.wide{max-width:none}
 .sf-row label{display:block;font-size:.82rem;font-weight:700;margin-bottom:.25rem}
 .sf-in{width:100%;padding:.55rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;font:inherit}
 .sf-three{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;max-width:560px}
-.sf-feat{display:grid;grid-template-columns:1fr 2fr;gap:.5rem;margin-bottom:.5rem;max-width:700px;align-items:start}
+.sf-feat{display:grid;grid-template-columns:minmax(180px,1fr) 2.4fr;gap:.5rem;margin-bottom:.5rem;align-items:start}
+/* Dale, 26 Sep: the boxes "should use the empty space on the right and get bigger as you type so you
+   dont need to scroll". A 700px cap on a 1100px panel left a third of the row empty while the text
+   scrolled inside a two-line box. */
+textarea.sf-in{resize:vertical;overflow:hidden;min-height:2.6rem}
 @media(max-width:700px){.sf-feat{grid-template-columns:1fr}}
 .sf-money{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--card);overflow:hidden}
 .sf-money-sign{padding:0 .1rem 0 .6rem;color:var(--muted);font-weight:700}
@@ -5766,7 +5771,7 @@ function siteField(key, label, hint, type){
   const c = (siteRow && siteRow.content) || {};
   const v = c[key] == null ? "" : String(c[key]);
   const input = type === "area"
-    ? `<textarea id="sf-${key}" rows="3" class="sf-in">${esc(v)}</textarea>`
+    ? `<textarea id="sf-${key}" rows="3" class="sf-in" oninput="autoGrow(this)">${esc(v)}</textarea>`
     : `<input id="sf-${key}" class="sf-in" value="${esc(v)}">`;
   return `<div class="sf-row"><label for="sf-${key}">${esc(label)}</label>${input}` +
     (hint ? `<div class="muted" style="font-size:.78rem">${hint}</div>` : "") + `</div>`;
@@ -5859,6 +5864,7 @@ function renderWebsiteEditor(){
     ${siteField("about","A few lines about how you teach","Two or three sentences is plenty.","area")}
     ${siteField("town","Your town","")}
     ${siteField("phone","Phone number","")}
+    ${siteField("passes_label","What to call your passes page","Shows in the menu at the top and as the heading. Leave it blank for “Passes”.")}
     <div class="sf-row"><label for="sf-areas">Areas you cover</label>
       <input id="sf-areas" class="sf-in" value="${esc(areas)}">
       <div class="muted" style="font-size:.78rem">Separate them with commas.</div></div>
@@ -5905,12 +5911,27 @@ function renderWebsiteEditor(){
     <div id="sf-domain-out" style="margin-top:.8rem"></div>
   </div>`;
   if (websiteEditorAppend) host.insertAdjacentHTML("beforeend", html); else host.innerHTML = html;
+  autoGrowAll(host);
+}
+
+/**
+ * A textarea that is the size of what is in it. Every one of these holds two or three sentences that
+ * somebody is writing about themselves, and a fixed two-line box with a scrollbar hides most of it
+ * while they are trying to read it back.
+ */
+function autoGrow(el){
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = Math.max(el.scrollHeight, 40) + "px";
+}
+function autoGrowAll(root){
+  (root || document).querySelectorAll("textarea.sf-in").forEach(autoGrow);
 }
 
 function featRowHtml(f, i){
   return `<div class="sf-feat" data-i="${i}">
     <input class="sf-in" placeholder="Patient, calm lessons" value="${esc(f.title||"")}" data-k="title">
-    <textarea class="sf-in" rows="2" placeholder="What a lesson with you is actually like." data-k="text">${esc(f.text||"")}</textarea>
+    <textarea class="sf-in" rows="2" oninput="autoGrow(this)" placeholder="What a lesson with you is actually like." data-k="text">${esc(f.text||"")}</textarea>
   </div>`;
 }
 function socialField(key, label, val){
@@ -6057,7 +6078,7 @@ function collectSiteContent(){
   });
   return Object.assign({}, siteRow.content || {}, {
     tagline: v("sf-tagline"), about: v("sf-about"), town: v("sf-town"), phone: v("sf-phone"),
-    email: v("sf-email"), about_heading: v("sf-about_heading"),
+    email: v("sf-email"), about_heading: v("sf-about_heading"), passes_label: v("sf-passes_label"),
     areas: v("sf-areas").split(",").map(s=>s.trim()).filter(Boolean),
     prices, features, social,
     // Pass rate and five-star count are gone: claims nobody can substantiate, sitting next to real

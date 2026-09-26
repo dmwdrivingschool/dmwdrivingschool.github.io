@@ -280,6 +280,10 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .sf-three{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;max-width:560px}
 .sf-feat{display:grid;grid-template-columns:1fr 2fr;gap:.5rem;margin-bottom:.5rem;max-width:700px;align-items:start}
 @media(max-width:700px){.sf-feat{grid-template-columns:1fr}}
+.sf-money{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--card);overflow:hidden}
+.sf-money-sign{padding:0 .1rem 0 .6rem;color:var(--muted);font-weight:700}
+.sf-money .sf-in{border:0;background:transparent;padding-left:.25rem}
+.sf-price-head{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem}
 .sf-price{display:grid;grid-template-columns:1.3fr 1fr 1.3fr auto;gap:.5rem;margin-bottom:.5rem;max-width:700px;align-items:center}
 .tpl-pick.on{border:2px solid var(--navy)}
 .tpl-pick{cursor:pointer;font:inherit;text-align:left}
@@ -5782,6 +5786,7 @@ function renderWebsiteEditor(){
     <p class="muted" style="font-size:.8rem">Manual or automatic comes from your enquiry form settings, so it is only set in one place.</p>
 
     <h3 class="sf-head">Prices</h3>
+    ${priceHeaderHtml()}
     <div id="sf-prices">${prices.map((p,i)=>priceRowHtml(p,i)).join("")}</div>
     <button class="btn-outline btn-sm" onclick="addPriceRow()">+ Add a price</button>
 
@@ -5811,16 +5816,29 @@ function featRowHtml(f, i){
   </div>`;
 }
 function socialField(key, label, val){
+  // Each one shows its own example. They all said "facebook.com/yourschool", including the Google
+  // box, which reads like a mistake in the product.
+  const eg = {
+    facebook: "facebook.com/yourschool",
+    instagram: "instagram.com/yourschool",
+    tiktok: "tiktok.com/@yourschool",
+    google: "your Google reviews link"
+  }[key] || "";
   return `<div class="sf-row"><label for="sf-soc-${key}">${esc(label)}</label>
-    <input id="sf-soc-${key}" class="sf-in" value="${esc(val||"")}" placeholder="facebook.com/yourschool"></div>`;
+    <input id="sf-soc-${key}" class="sf-in" value="${esc(val||"")}" placeholder="${esc(eg)}"></div>`;
 }
 function priceRowHtml(p, i){
+  // The pound sign is shown fixed to the left of the box rather than typed, so it is obvious it
+  // will be there. The stored value stays a bare number and the website adds the symbol.
   return `<div class="sf-price" data-i="${i}">
     <input class="sf-in" placeholder="Single lesson" value="${esc(p.label||"")}" data-k="label">
-    <input class="sf-in" placeholder="£36" value="${esc(p.amount||"")}" data-k="amount" onblur="this.value=this.value.trim().replace(/^([0-9])/,'£$1')">
+    <span class="sf-money"><span class="sf-money-sign">£</span><input class="sf-in" placeholder="36" inputmode="decimal" value="${esc(String(p.amount||"").replace(/^£/,""))}" data-k="amount"></span>
     <input class="sf-in" placeholder="per hour" value="${esc(p.note||"")}" data-k="note">
     <button class="btn-outline btn-sm" onclick="this.parentElement.remove()">Remove</button>
   </div>`;
+}
+function priceHeaderHtml(){
+  return `<div class="sf-price sf-price-head"><span>What it is</span><span>Price</span><span>Note (optional)</span><span></span></div>`;
 }
 function addPriceRow(){
   const box = document.getElementById("sf-prices");

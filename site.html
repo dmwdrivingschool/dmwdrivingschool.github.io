@@ -335,11 +335,11 @@
     if (page === "app") {
       document.title = "The Drive My Way app — " + name;
       var feats = APP_FEATURES.filter(function(f){ return d.premium !== false || !f[3]; });
+      // No page heading here: the block below opens with "Your lessons, in one app" and its own
+      // intro line, and saying it twice reads like a mistake.
       root.innerHTML = header +
-        '<div class="wrap"><section class="page-head"><h1>Your lessons, in one app</h1>' +
-        '<p class="sub">' + esc(name) + '’s pupils use the free Drive My Way app. ' +
-        'Once you start lessons you get your own login, on iPhone or Android, at no cost to you.</p></section>' +
-        '<section class="band" style="border-top:0;padding-top:0">' +
+        '<div class="wrap">' +
+        '<section class="band" style="border-top:0;padding-top:48px">' +
           (typeof buildAppShowcaseSnippet === "function" ? buildAppShowcaseSnippet(name, d.premium !== false) : "") +
         '</section>' +
         '<section class="band"><h2>What you can do in it</h2><div class="app-feats">' +

@@ -115,6 +115,20 @@
   footer.site{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:.9rem;text-align:center}
   .loading,.gone{padding:80px 20px;text-align:center;color:var(--muted)}
   .app-band{padding:60px 0;border-top:1px solid var(--line)}
+  /* Home page gets a light mention, not the full block. Dale, 26 Sep: "more simple and then the
+     tab which shows everything." Five features and three phones above the prices was the app
+     selling itself on somebody else's website. */
+  .app-strip{display:grid;grid-template-columns:auto 1fr auto;gap:26px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px 28px}
+  .app-strip .shots{display:flex;gap:8px}
+  .app-strip .shots img{width:72px;border-radius:10px;border:2px solid var(--ink);background:var(--ink)}
+  .app-strip h3{font-size:1.25rem;margin:0 0 4px}
+  .app-strip p{margin:0;color:var(--muted);font-size:.96rem}
+  .app-feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;margin-top:8px}
+  .app-feat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px}
+  .app-feat .ic{font-size:1.5rem;line-height:1;margin-bottom:10px}
+  .app-feat h3{font-size:1.08rem;margin:0 0 8px}
+  .app-feat p{margin:0;color:var(--muted);font-size:.96rem}
+  @media(max-width:760px){.app-strip{grid-template-columns:1fr;text-align:center}.app-strip .shots{justify-content:center}}
   .page-head{padding:54px 0 10px}
   .page-head h1{font-size:2.6rem}
 
@@ -228,6 +242,19 @@
     return out.join("");
   }
 
+  var SHOT = "https://web.drivemyway.co.uk/app-screenshots/";
+  // From Dale's own app-features page, written for a pupil rather than an instructor. The last
+  // three are Premium, so a Basic instructor's page simply does not list them.
+  var APP_FEATURES = [
+    ["🗺️","Watch your instructor arrive","As soon as your instructor sets off you get a message with their arrival time. Once they are close by, the app switches to a live map showing where they are. No more standing at the window wondering.",false],
+    ["📅","Your lessons, offers and credit in one place","Your home screen shows your upcoming lessons and how many hours of credit you have. If a slot comes up, your instructor can offer it and you accept or decline with one tap.",false],
+    ["🗓️","Holidays, both ways","Add your holiday in the app and it shows in your instructor's diary straight away, so nothing gets booked while you are away. When they are away, you see that too.",false],
+    ["💬","Messages that do not get lost","Message your instructor in the app, send photos, and get a notification when there is a reply. Anything important shows when you open the app.",false],
+    ["🎓","Theory practice and mock tests","Practice questions by topic, mock tests marked like the real thing at the real pass mark, and road signs to learn, with your progress saved as you go.",true],
+    ["🎬","Videos to watch between lessons","Short videos on moving off, junctions, roundabouts and manoeuvres, so you can go over what you have learnt before your next lesson.",true],
+    ["📖","The full Highway Code in your pocket","The official Highway Code, split into sections you can open any time. No separate app, no searching for it online.",true]
+  ];
+
   function passCard(p){
     var when = passedLabel(p.passed_on);
     // Older photos imported from an instructor's own gallery have no name, date or words. Drawing
@@ -270,6 +297,7 @@
     if (areas.length)  navBits.push('<a href="' + urlFor("") + '#areas">Areas</a>');
     if (prices.length) navBits.push('<a href="' + urlFor("") + '#prices">Prices</a>');
     if (passes.length) navBits.push('<a href="' + urlFor("passes") + '">Passes</a>');
+    navBits.push('<a href="' + urlFor("app") + '">The app</a>');
 
     var header =
       '<header class="site"><div class="wrap nav">' +
@@ -299,6 +327,32 @@
           passes.map(passCard).join("") +
         '</div><div class="more-passes"><a class="btn btn-quiet" href="' + urlFor("") + '">← Back to the main page</a></div>' +
         '</section></div>' + footer;
+      return;
+    }
+
+    // The whole app, on its own page. The home page only teases it — five features and three
+    // phones above somebody's prices is the app selling itself on their website.
+    if (page === "app") {
+      document.title = "The Drive My Way app — " + name;
+      var feats = APP_FEATURES.filter(function(f){ return d.premium !== false || !f[3]; });
+      root.innerHTML = header +
+        '<div class="wrap"><section class="page-head"><h1>Your lessons, in one app</h1>' +
+        '<p class="sub">' + esc(name) + '’s pupils use the free Drive My Way app. ' +
+        'Once you start lessons you get your own login, on iPhone or Android, at no cost to you.</p></section>' +
+        '<section class="band" style="border-top:0;padding-top:0">' +
+          (typeof buildAppShowcaseSnippet === "function" ? buildAppShowcaseSnippet(name, d.premium !== false) : "") +
+        '</section>' +
+        '<section class="band"><h2>What you can do in it</h2><div class="app-feats">' +
+          feats.map(function(f){
+            return '<div class="app-feat"><div class="ic">' + f[0] + '</div>' +
+              '<h3>' + esc(f[1]) + '</h3><p>' + esc(f[2]) + '</p></div>';
+          }).join("") +
+        '</div></section>' +
+        '<section class="band"><div class="enquire"><h2>Ready to get started?</h2>' +
+          '<p class="sub">Get in touch and I will sort your lessons out. The app comes with them.</p>' +
+          '<a class="btn" href="' + enquiry + '">Enquire now</a></div></section>' +
+        '<div class="more-passes" style="padding-bottom:40px"><a class="btn btn-quiet" href="' + urlFor("") + '">← Back to the main page</a></div>' +
+        '</div>' + footer;
       return;
     }
 
@@ -358,9 +412,15 @@
 
       // Drive My Way's own block, on every site. Shared with the Control Centre's embed builder so
       // the two cannot drift.
-      '<section class="app-band">' +
-        (typeof buildAppShowcaseSnippet === "function" ? buildAppShowcaseSnippet(name, d.premium !== false) : "") +
-      '</section>' +
+      '<section class="app-band"><div class="app-strip">' +
+        '<div class="shots">' +
+          '<img src="' + SHOT + 'pupil-tracking-map.jpg" alt="" loading="lazy">' +
+          '<img src="' + SHOT + 'pupil-home-lessons.jpg" alt="" loading="lazy">' +
+        '</div>' +
+        '<div><h3>Your own app, free with your lessons</h3>' +
+        '<p>Watch me arrive on a map, see your lessons and credit, and message me between them.</p></div>' +
+        '<a class="btn btn-quiet" href="' + urlFor("app") + '">See what is in it</a>' +
+      '</div></section>' +
 
       '<section class="band" id="enquire"><div class="enquire"><h2>Ready to get started?</h2>' +
         '<p class="sub">Fill this in and it comes straight through to me. ' +

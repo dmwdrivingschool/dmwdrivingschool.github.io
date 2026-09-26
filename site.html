@@ -337,8 +337,11 @@
   }
 
   var SHOT = "https://web.drivemyway.co.uk/app-screenshots/";
-  // From Dale's own app-features page, written for a pupil rather than an instructor. The last
-  // three are Premium, so a Basic instructor's page simply does not list them.
+  // From Dale's own app-features page, written for a pupil rather than an instructor. The last flag
+  // is Premium-only, and it has to match PupilHome.tsx rather than be guessed at: only Learning
+  // Videos and Theory & Hazard Perception are gated there. The Highway Code is free official content
+  // and every pupil gets it, so flagging it Premium had Basic instructors leaving out something their
+  // pupils actually have.
   var APP_FEATURES = [
     ["🗺️","Watch your instructor arrive","As soon as your instructor sets off you get a message with their arrival time. Once they are close by, the app switches to a live map showing where they are. No more standing at the window wondering.",false],
     ["📅","Your lessons, offers and credit in one place","Your home screen shows your upcoming lessons and how many hours of credit you have. If a slot comes up, your instructor can offer it and you accept or decline with one tap.",false],
@@ -346,7 +349,7 @@
     ["💬","Messages that do not get lost","Message your instructor in the app, send photos, and get a notification when there is a reply. Anything important shows when you open the app.",false],
     ["🎓","Theory practice and mock tests","Practice questions by topic, mock tests marked like the real thing at the real pass mark, and road signs to learn, with your progress saved as you go.",true],
     ["🎬","Videos to watch between lessons","Short videos on moving off, junctions, roundabouts and manoeuvres, so you can go over what you have learnt before your next lesson.",true],
-    ["📖","The full Highway Code in your pocket","The official Highway Code, split into sections you can open any time. No separate app, no searching for it online.",true]
+    ["📖","The full Highway Code in your pocket","The official Highway Code, split into sections you can open any time. No separate app, no searching for it online.",false]
   ];
 
   function passCard(p){

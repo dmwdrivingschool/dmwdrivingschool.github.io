@@ -99,11 +99,19 @@
   // Control Centre before any DNS exists.
   var sub = (q.get("s") || "").trim();
   var id  = (q.get("i") || "").trim();
-  // Live on their own address: the subdomain is the first label of the hostname.
-  if (!sub && !id && /\.drivemyway\.co\.uk$/i.test(location.hostname) && location.hostname.split(".").length > 3) {
-    sub = location.hostname.split(".")[0];
+  var dom = "";
+  if (!sub && !id) {
+    var host = location.hostname.toLowerCase();
+    if (/\.drivemyway\.co\.uk$/i.test(host) && host.split(".").length > 3) {
+      // ashtondrivingschool.drivemyway.co.uk -> the first label is the site.
+      sub = host.split(".")[0];
+    } else if (host !== "localhost" && host.indexOf(".") > 0) {
+      // Their own domain. This was missing: the page only understood DMW subdomains, so a
+      // customer on ashtondrivingschool.co.uk would have got a blank page.
+      dom = host;
+    }
   }
-  if (!sub && (!id || !uuid.test(id))) return gone();
+  if (!sub && !dom && (!id || !uuid.test(id))) return gone();
 
   // pass_wall returns a date; the wall shows a month, because "Passed in September" reads like a
   // person and "2026-09-04" reads like a database.
@@ -121,7 +129,11 @@
   fetch(SUPABASE_URL + "/rest/v1/rpc/instructor_site_public", {
     method: "POST",
     headers: { apikey: SUPABASE_ANON, Authorization: "Bearer " + SUPABASE_ANON, "Content-Type": "application/json" },
-    body: JSON.stringify({ p_subdomain: sub || null, p_instructor: sub ? null : id })
+    body: JSON.stringify({
+      p_domain: dom || null,
+      p_subdomain: sub || null,
+      p_instructor: (sub || dom) ? null : id
+    })
   }).then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){ d ? draw(d) : gone(); })
     .catch(gone);

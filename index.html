@@ -394,7 +394,7 @@
         }
 
         fetch(
-            DMW_SUPABASE_URL + "/rest/v1/website_photos?type=eq.carousel&select=url&order=sort_order.asc",
+            DMW_SUPABASE_URL + "/rest/v1/website_photos?type=eq.carousel&owner_id=eq.94029bf9-8e62-47bf-b6d5-10d99f2ca7a3&select=url&order=sort_order.asc",
             { headers: { apikey: DMW_SUPABASE_ANON, Authorization: "Bearer " + DMW_SUPABASE_ANON }, cache: "no-store" }
         )
         .then(r => r.ok ? r.json() : null)

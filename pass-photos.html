@@ -154,6 +154,28 @@
         </p>
     </div>
 
+    <!-- The pass wall (Dale, 25 Sep 2026). This is the same embed an instructor pastes into their own website,
+         pointed at Dale's own id: photo, first name, the month they passed, and the pupil's own words once the
+         app starts collecting them. It draws into a shadow root, so none of the css above can reach it.
+
+         The old grid below is left exactly as it was and stays on screen until the wall says it has drawn
+         (dmw-pass-wall-ready). If the wall is slow, blocked or broken, this page is what it has always been. -->
+    <!-- A PLAIN wrapper, deliberately not .gallery-grid-workspace: that class is itself a 3-column grid, so
+         using it made the whole wall one cell of it, about 380px wide, and the cards then stacked one per row
+         inside that column (Dale spotted it, 25 Sep 2026). Same width and padding, no display:grid. -->
+    <div style="padding: 0 20px; max-width: 1140px; margin: 35px auto; box-sizing: border-box;">
+        <div id="dmw-pass-wall" data-instructor="94029bf9-8e62-47bf-b6d5-10d99f2ca7a3"></div>
+    </div>
+    <script src="pass-wall.js" async></script>
+    <script>
+        // Once the wall has drawn, the legacy grid underneath would be the same faces twice.
+        document.addEventListener('dmw-pass-wall-ready', function (e) {
+            if (!e.detail || !e.detail.cards) return;
+            var old = document.getElementById('wall-of-fame-grid');
+            if (old) old.style.display = 'none';
+        });
+    </script>
+
     <!-- Empty Target Grid Container for GitHub Compilation -->
     <div class="gallery-grid-workspace" id="wall-of-fame-grid"></div>
     <script>
@@ -191,7 +213,7 @@
 
         // Prefer live list from Supabase (website_photos table)
         fetch(
-            DMW_SUPABASE_URL + "/rest/v1/website_photos?type=eq.gallery&select=url&order=sort_order.asc",
+            DMW_SUPABASE_URL + "/rest/v1/website_photos?type=eq.gallery&owner_id=eq.94029bf9-8e62-47bf-b6d5-10d99f2ca7a3&select=url&order=sort_order.asc",
             {
                 headers: {
                     apikey: DMW_SUPABASE_ANON,

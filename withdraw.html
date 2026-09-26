@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Take my photo down | Drive My Way</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="drivemyway-favicon.png">
+  <style>
+    :root { --green: #2E9E4F; --red: #D62E2E; --ink: #222; --muted: #64748b; }
+    html, body { margin: 0; padding: 0; background: #F4F7FA; color: var(--ink); font-family: Arial, Helvetica, sans-serif; line-height: 1.6; }
+    .wrap { max-width: 540px; margin: 0 auto; padding: 40px 20px 60px 20px; }
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 30px 26px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); }
+    .logo { display: block; height: 46px; margin: 0 auto 26px auto; }
+    h1 { margin: 0 0 14px 0; font-size: 1.45rem; }
+    p { margin: 0 0 16px 0; color: #475569; }
+    p.lead { color: var(--ink); }
+    button { display: block; width: 100%; border: 0; border-radius: 999px; padding: 15px 20px; font-size: 1.02rem; font-weight: 800; cursor: pointer; font-family: inherit; }
+    .go { background: var(--red); color: #fff; }
+    .go:disabled { opacity: 0.6; cursor: default; }
+    .note { font-size: 0.9rem; color: var(--muted); margin-top: 18px; }
+    .done { border-left: 4px solid var(--green); background: #F0FDF4; padding: 16px 18px; border-radius: 10px; }
+    .problem { border-left: 4px solid var(--red); background: #FEF2F2; padding: 16px 18px; border-radius: 10px; }
+    a { color: #1d4ed8; }
+    footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 0 20px 30px 20px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <img class="logo" src="drive-my-way-logo.png" alt="Drive My Way">
+      <div id="panel">
+        <h1>Take my photo down</h1>
+        <p class="lead">This will remove your pass photo, and anything you wrote, from your instructor&rsquo;s website.</p>
+        <p>It comes down straight away. You do not need to sign in, and you do not have to give a reason.</p>
+        <button class="go" id="go">Yes, take it down</button>
+        <p class="note">Changed your mind? You can just close this page &mdash; nothing happens until you press the button.</p>
+      </div>
+    </div>
+  </div>
+  <footer>Drive My Way &middot; <a href="https://drivemyway.co.uk/privacy.html">Privacy</a></footer>
+
+  <script>
+    (function () {
+      // Nothing happens on load, deliberately. Mail apps and link scanners fetch every URL in an email
+      // before anyone reads it, so a page that withdrew on sight would take photos down by itself.
+      // It takes a press.
+      var SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+      var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4Y3FteXhicGp1ZWV6YXBrbmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUxNzAsImV4cCI6MjEwMTY4MTE3MH0.Qk46wzUGpDHlsqGvsImE9HdrrosL3ERKVbxDUsP4A30";
+      var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      var token = (new URLSearchParams(location.search).get("t") || "").trim();
+      var panel = document.getElementById("panel");
+
+      function show(cls, title, body) {
+        panel.innerHTML = '<h1></h1><div class="' + cls + '"></div>';
+        panel.querySelector("h1").textContent = title;
+        panel.querySelector("div").textContent = body;
+      }
+
+      if (!uuid.test(token)) {
+        show("problem", "This link isn't working",
+          "It may have been cut in half by your email app. Try opening the email again and tapping the link rather than copying it, or email admin@drivemyway.co.uk and we will take it down for you.");
+        return;
+      }
+
+      document.getElementById("go").addEventListener("click", function () {
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = "Taking it down…";
+        fetch(SUPABASE_URL + "/rest/v1/rpc/pass_card_withdraw", {
+          method: "POST",
+          headers: { apikey: SUPABASE_ANON, Authorization: "Bearer " + SUPABASE_ANON, "Content-Type": "application/json" },
+          body: JSON.stringify({ p_token: token })
+        }).then(function (r) {
+          return r.ok ? r.json() : null;
+        }).then(function (d) {
+          // The function reports whether it actually found a card. Saying "done" when nothing matched
+          // would leave somebody believing their photo was gone while it was still up.
+          if (d && d.found) {
+            show("done", "That's done", "Your photo has been taken off your instructor's website. Nothing else of yours is affected.");
+          } else {
+            show("problem", "We couldn't find that one",
+              "It may already have been taken down, or the link may be incomplete. Email admin@drivemyway.co.uk and we will sort it out for you.");
+          }
+        }).catch(function () {
+          show("problem", "Something went wrong",
+            "Please try again in a minute. If it still will not work, email admin@drivemyway.co.uk and we will take it down for you.");
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- noindex on purpose: this page must never compete in Google with the instructor's own website, which is
+       where the wall is meant to be embedded. It exists so they have a link to send someone, and so they can
+       see their own wall before pasting anything. Same reasoning as enquiry-form.html. -->
+  <meta name="robots" content="noindex">
+  <title>Driving test passes</title>
+  <!-- The Drive My Way tile, not favicon.png (the L-plate and key, which belongs to DMW Driving School). This
+       page is served from web.drivemyway.co.uk and is a Drive My Way page, so it wears the same icon the
+       Control Centre does (Dale, 25 Sep 2026). -->
+  <link rel="icon" type="image/png" href="/drivemyway-favicon.png">
+  <!-- Direct link to an instructor's or driving school's pass wall (Dale, 25 Sep 2026):
+       passes.html?i=<instructor id>[&s=<driving school id>]. The wall itself is pass-wall.js, the same code
+       as the embed, so this page and a customer's website can never drift apart. -->
+  <style>
+    body { margin: 0; background: #eef2f6; font-family: "Segoe UI", system-ui, sans-serif; color: #1e293b; }
+    .top { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 18px 16px 14px; text-align: center; }
+    .top img { max-height: 64px; max-width: 220px; display: block; margin: 0 auto 8px; }
+    .top h1 { margin: 0; font-size: 1.2rem; color: #062F63; }
+    .top p { margin: 2px 0 0; color: #64748b; font-size: .9rem; }
+    .wrap { max-width: 980px; margin: 20px auto; padding: 0 14px 32px; }
+    .card { background: #fff; border-radius: 16px; padding: 20px 16px; box-shadow: 0 8px 28px rgba(0,0,0,.06); }
+    .msg { text-align: center; color: #475569; margin: 8px 0; line-height: 1.5; }
+    footer { text-align: center; font-size: .78rem; color: #94a3b8; padding: 0 14px 24px; }
+    footer a { color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="top" id="top" hidden></div>
+  <div class="wrap">
+    <div class="card">
+      <p class="msg" id="loading">Loading…</p>
+      <div id="dmw-pass-wall" hidden></div>
+    </div>
+  </div>
+  <footer>Pass wall provided by <a href="https://drivemyway.co.uk" target="_blank" rel="noopener">Drive My Way</a></footer>
+
+  <script>
+    (function () {
+      var SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+      var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4Y3FteXhicGp1ZWV6YXBrbmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUxNzAsImV4cCI6MjEwMTY4MTE3MH0.Qk46wzUGpDHlsqGvsImE9HdrrosL3ERKVbxDUsP4A30";
+      var q = new URLSearchParams(location.search);
+      var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      var i = (q.get("i") || "").trim(), s = (q.get("s") || "").trim();
+      var loading = document.getElementById("loading");
+      var esc = function (t) {
+        return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+      };
+      function fail() {
+        loading.textContent = "This link isn’t working. Please ask your driving instructor or driving school for their link.";
+      }
+      if (!uuid.test(i) || (s && !uuid.test(s))) return fail();
+
+      // The header is drawn here from the same call the wall makes, so the page has their name on it before the
+      // photos arrive. The wall then fetches its own copy — one extra request, and it keeps pass-wall.js the
+      // single place a wall is ever drawn.
+      fetch(SUPABASE_URL + "/rest/v1/rpc/pass_wall", {
+        method: "POST",
+        headers: { apikey: SUPABASE_ANON, Authorization: "Bearer " + SUPABASE_ANON, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_instructor: i, p_school: s || null })
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data || !data.name) return fail();
+          var top = document.getElementById("top");
+          if (data.premium === false) {
+            var who = data.kind === "instructor" && data.school ? data.name + " at " + data.school : data.name;
+            top.innerHTML = '<img src="drive-my-way-logo.png" alt=""><h1>Drive My Way</h1><p>on behalf of ' + esc(who) + '</p>';
+          } else {
+            top.innerHTML = (data.logo_url && /^https:\/\//.test(data.logo_url) ? '<img src="' + esc(data.logo_url) + '" alt="">' : "")
+              + '<h1>' + esc(data.name) + '</h1>' + (data.school ? '<p>' + esc(data.school) + '</p>' : "");
+          }
+          top.hidden = false;
+          document.title = "Driving test passes | " + (data.school || data.name);
+
+          var host = document.getElementById("dmw-pass-wall");
+          host.setAttribute("data-instructor", i);
+          if (s) host.setAttribute("data-school", s);
+          host.hidden = false;
+          loading.hidden = true;
+
+          var sc = document.createElement("script");
+          sc.src = "pass-wall.js";
+          document.body.appendChild(sc);
+        })
+        .catch(function () {
+          loading.textContent = "Couldn’t load this page just now. Please check your connection and refresh.";
+        });
+    })();
+  </script>
+</body>
+</html>

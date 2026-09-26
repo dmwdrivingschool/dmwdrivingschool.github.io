@@ -35,6 +35,15 @@
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.googletagmanager.com https://googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://cxcqmyxbpjueezapknim.supabase.co https://raw.githubusercontent.com https://www.google-analytics.com https://www.googletagmanager.com; media-src 'self' blob: https://cxcqmyxbpjueezapknim.supabase.co; connect-src 'self' https://cxcqmyxbpjueezapknim.supabase.co wss://cxcqmyxbpjueezapknim.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://www.googletagmanager.com https://raw.githubusercontent.com; frame-src 'self' blob: https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
         }
       ]
+    },
+    {
+      "source": "/pass-wall.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300, must-revalidate"
+        }
+      ]
     }
   ],
   "rewrites": [

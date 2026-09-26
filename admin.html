@@ -700,6 +700,7 @@ tbody tr:hover td{background:#334263}
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('testbooking')"><span class="ico">🚦</span><div><strong>Booking Your Driving Test</strong><span>What pupils see when booking on GOV.UK</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('showtell')"><span class="ico">🔧</span><div><strong>Show me / Tell me</strong><span>Your own answers for your car</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('enquiryWidget')"><span class="ico">🧲</span><div><strong>Your Enquiry Form</strong><span>Link, website code and gearbox message</span></div></button>
+            <button type="button" id="dash-passwall-btn" class="dash-setting hidden" onclick="goTab('settings');openSettings('passWall')"><span class="ico">🎓</span><div><strong>Your Pass Wall</strong><span>Your pass photos on your own website</span></div></button>
           </div>
         </div>
         <div class="dash-settings-group">
@@ -931,7 +932,7 @@ tbody tr:hover td{background:#334263}
         </p>
         <div class="tabs-sub">
           <button type="button" class="on" onclick="websiteShow('carousel',this)">Carousel (home)</button>
-          <button type="button" onclick="websiteShow('gallery',this)">Pass photos page</button>
+          <button type="button" onclick="websiteShow('gallery',this)">Pass wall</button>
         </div>
 
         <div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:1rem">
@@ -1015,6 +1016,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('testbooking')">Booking Your Driving Test</button>
           <button type="button" onclick="openSettings('showtell')">Show me / Tell me</button>
           <button type="button" onclick="openSettings('enquiryWidget')">Your Enquiry Form</button>
+          <button type="button" id="nav-passwall-btn" class="hidden" onclick="openSettings('passWall')">Your Pass Wall</button>
           <div class="settings-group-head">Business</div>
           <button type="button" onclick="openSettings('importExport')">Import / Export</button>
           <button type="button" id="settings-referral-btn" class="hidden" onclick="openReferralFromDash()">Refer a Friend</button>
@@ -2197,6 +2199,12 @@ async function enterApp(user,prof,pause){
   document.getElementById("nav-teams-btn").classList.toggle("hidden", !isSuperAdminUser && !isSchoolAdminUser);
   document.getElementById("nav-billing-btn").classList.remove("hidden"); // seat instructors get the tab too, but only a pointer to their admin (see loadBillingPanel)
   document.getElementById("nav-website-btn").classList.toggle("hidden", !isSuperAdminUser); // public website is your (platform admin's) tool only — never a driving school's
+  // The pass wall is a PAID product and is not being sold yet (Dale, 26 Sep 2026: "this was supposed to be
+  // behind a paywall"). Until the £149 flag exists it is super-admin only, like the Website tab — otherwise
+  // every instructor sees a finished-looking feature whose link and embed are not deployed and would 404.
+  // When it goes on sale this becomes that flag, not isSuperAdminUser.
+  document.getElementById("dash-passwall-btn")?.classList.toggle("hidden", !isSuperAdminUser);
+  document.getElementById("nav-passwall-btn")?.classList.toggle("hidden", !isSuperAdminUser);
   document.getElementById("pupil-filter-unassigned").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
   document.getElementById("pupil-filter-instructors").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
   document.getElementById("settings-franchise-btn").classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
@@ -9717,6 +9725,47 @@ ${esc(myFirst||"you")}</blockquote>
       if(on) on.checked=v.enabled===true;
       if(to) to.value=v.address||"";
     });
+  } else if(which==="passWall"){
+    // Hiding a button is not access control: this is the check that actually matters.
+    if(!isSuperAdminUser){ panel.innerHTML=`${settingsHeadHtml("Your Pass Wall")}<p class="muted">Not available on your account.</p>`; return; }
+    // Your Pass Wall (Dale, 25 Sep 2026). The wall itself is made in the app, one card at a time, as pupils
+    // pass; this panel exists only to hand over the link and the one line of code, which is desk work — the
+    // same reason Your Enquiry Form lives here rather than on a phone.
+    const wallLink = `https://web.drivemyway.co.uk/passes.html?i=${currentUserId}`;
+    const embed = `<div id="dmw-pass-wall" data-instructor="${currentUserId}"></div>
+<script src="https://web.drivemyway.co.uk/pass-wall.js" async><\/script>`;
+    panel.innerHTML=`${settingsHeadHtml("Your Pass Wall")}
+      <p class="muted" style="margin-bottom:.75rem">Your pass photos, on your own website, updating themselves. Every time you mark a pupil as passed the app offers to take their photo and add it — first name and the month, filled in for you. Once your pupils start writing a few words about you, those appear on the card underneath their photo, and nothing goes up until you have accepted it.</p>
+      <p class="muted" style="margin:-.35rem 0 .75rem;font-size:.85rem">Nobody can copy this: every card is a pupil who really did pass with you, and the date comes from their test record, not from you typing it.</p>
+      <div class="field" style="max-width:340px"><label>Photos Across</label>
+        <select id="pass-wall-columns" onchange="savePassWallColumns(this.value)">
+          <option value="2">2 — big photos</option>
+          <option value="3" selected>3 — recommended</option>
+          <option value="4">4</option>
+          <option value="5">5 — small photos</option>
+        </select>
+      </div>
+      <p class="muted" style="margin:-.25rem 0 .75rem;font-size:.8rem">How many pass photos sit side by side on your website. Phones always show two, whatever you pick, so faces stay big enough to see. Applies straight away to every wall already pasted into a website. <span id="pass-wall-columns-saved" style="display:none;color:#0a7a3d;font-weight:700">Saved ✓</span></p>
+      <h4 style="margin:1rem 0 .3rem">Direct Link</h4>
+      <p class="muted" style="margin:0 0 .4rem;font-size:.85rem">Share it anywhere you can't paste code: Facebook, Instagram, WhatsApp or your Google Business Profile.</p>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.2rem 0 .3rem">
+        <input id="pass-wall-link" readonly value="${esc(wallLink)}" onclick="this.select()" style="flex:1;min-width:240px;font-family:var(--fm);font-size:.78rem;padding:.55rem .7rem;border:1.5px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--text)">
+        <button class="btn btn-navy btn-sm" onclick="copyEnquiryLink('pass-wall-link')">Copy Link</button>
+        <a class="btn-outline btn-sm" href="${esc(wallLink)}" target="_blank" rel="noopener" style="text-decoration:none">Open</a>
+      </div>
+      <div id="pass-wall-link-copied" class="muted" style="display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>
+      <h4 style="margin:1.2rem 0 .3rem">Embed Code for Your Website</h4>
+      <p class="muted" style="margin:0 0 .4rem;font-size:.85rem">Paste these two lines into your own website, wherever you want the photos to appear. Most site builders have an "HTML" or "Embed" block. You only ever paste it once — the wall fills itself from then on.</p>
+      <textarea id="pass-wall-embed" readonly rows="3" style="width:100%;font-family:var(--fm);font-size:.72rem;padding:.75rem;border:1.5px solid var(--line);border-radius:3px;background:var(--surface-2);color:var(--text)" onclick="this.select()">${esc(embed)}</textarea>
+      <button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="copyEnquiryLink('pass-wall-embed')">Copy Embed Code</button>
+      <div id="pass-wall-embed-copied" class="muted" style="margin-top:.5rem;display:none;color:#0a7a3d;font-weight:700">Copied ✓</div>
+      <h4 style="margin:1.2rem 0 .3rem">Asking Your Pupils First</h4>
+      <p class="muted" style="margin:0 0 .5rem;font-size:.85rem">The photo is of them, not of you, so it is theirs to agree to. The app asks you to confirm you have asked before a photo goes up, and a pupil can have theirs taken down at any time — including long after their account has closed. You can remove any card yourself from that pupil's page.</p>`;
+    sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","pass_wall_layout").maybeSingle().then(({data})=>{
+      const sel=document.getElementById("pass-wall-columns");
+      const n=data&&data.value&&parseInt(data.value.columns,10);
+      if(sel&&n>=2&&n<=5) sel.value=String(n);
+    });
   } else if(which==="enquiryDecline"){
     // What Decline does to an enquiry (Dale, 16 Sep 2026): app_settings 'enquiry_decline' {mode}, read by manage-auth
     // decline_enquiry. No row = Send a Message. If it can't be read there's no Save, so the default can't overwrite it.
@@ -9993,6 +10042,19 @@ async function importPupilsCsv(ev){
   if(!statusEl) alert("Pupil import: "+summary);
   // Refresh whatever pupil UI is on screen.
   try{ await loadPupils(); renderPupils(); loadDash(); }catch(e){}
+}
+
+// How many pass photos across on the instructor's own website (Dale, 25 Sep 2026). Read by pass_wall(), so a
+// change reaches every already-pasted embed without anyone re-pasting anything.
+async function savePassWallColumns(columns){
+  const n=Math.max(2,Math.min(5,parseInt(columns,10)||3));
+  const {error}=await sb.from("app_settings").upsert(
+    {owner_id:currentUserId, id:"pass_wall_layout", value:{columns:n}, updated_at:new Date().toISOString()},
+    {onConflict:"owner_id,id"}
+  );
+  if(error){ alert("Could not save: "+error.message); return; }
+  const ok=document.getElementById("pass-wall-columns-saved");
+  if(ok){ ok.style.display="inline"; setTimeout(()=>{ ok.style.display="none"; },2000); }
 }
 
 async function saveEnquiryGearbox(mode){
@@ -17806,8 +17868,23 @@ async function deleteLearningVideo(id){
   }
 }
 
-/* ---- Website photos editor (Supabase Storage + website_photos table) ---- */
+/* ---- Website photos editor -------------------------------------------------
+   Two different things behind one set of buttons (Dale, 26 Sep 2026):
+
+   - "carousel" is still the homepage carousel, still website_photos. Unchanged.
+   - "gallery" IS THE PASS WALL now. It reads and writes pass_cards, the same table the app writes to when an
+     instructor photographs a pass, so uploading here and uploading from a phone feed one wall. Before this,
+     the tab still wrote website_photos and anything uploaded here never reached the wall at all.
+
+   Order is sort_order DESCENDING (highest = top of the website), so a new pass can land at the top without
+   renumbering everything. Dragging sends the whole list to pass_cards_reorder in ONE call instead of the
+   row-at-a-time loop this used to do - that was 73 sequential updates for a single drag.
+
+   A photo uploaded HERE has no pupil attached, so there is nobody for the app to ask: it is recorded as
+   'legacy', meaning the instructor already had it and already had permission. The panel says so. Photos taken
+   through the app go through the pupil's own yes, which is the whole point of that route. */
 let websiteMode = "carousel";
+const websiteIsWall = () => websiteMode === "gallery";
 let websiteItems = []; // current list for active mode {id, url, storage_path, sort_order}
 let websiteSelected = new Set(); // selected photo ids for multi-delete
 
@@ -17828,11 +17905,28 @@ async function websiteReload(){
   status.textContent = "Loading…";
   grid.innerHTML = "";
   try {
-    const { data, error } = await sb
-      .from("website_photos")
-      .select("id,url,storage_path,sort_order,caption,created_at")
-      .eq("type", websiteMode)
-      .order("sort_order", { ascending: true });
+    let data, error;
+    if (websiteIsWall()) {
+      ({ data, error } = await sb
+        .from("pass_cards")
+        .select("id,photo_url,photo_path,sort_order,first_name,passed_on,words,words_approved_at,pupil_agreed_at,photo_consent")
+        .eq("instructor_id", currentUserId)
+        .is("withdrawn_at", null)
+        .order("sort_order", { ascending: false }));
+      // One shape for the grid whichever table it came from.
+      if (!error) data = (data || []).map(c => ({
+        id: c.id, url: c.photo_url, storage_path: c.photo_path, sort_order: c.sort_order,
+        caption: [c.first_name, c.passed_on ? new Date(c.passed_on).toLocaleDateString("en-GB",{month:"long",year:"numeric"}) : null].filter(Boolean).join(" · "),
+        pending: !c.pupil_agreed_at && c.photo_consent !== "legacy",
+        wordsWaiting: !!(c.words && !c.words_approved_at)
+      }));
+    } else {
+      ({ data, error } = await sb
+        .from("website_photos")
+        .select("id,url,storage_path,sort_order,caption,created_at")
+        .eq("type", websiteMode)
+        .order("sort_order", { ascending: true }));
+    }
     if (error) throw error;
     websiteItems = data || [];
     // Drop selections that no longer exist
@@ -17842,7 +17936,7 @@ async function websiteReload(){
     renderWebsiteGrid();
   } catch (e) {
     status.textContent = "Error: " + (e.message || e);
-    grid.innerHTML = '<p class="muted">Could not load photos. Check the website_photos table and RLS policies.</p>';
+    grid.innerHTML = '<p class="muted">Could not load photos. Check the table and RLS policies.</p>';
   }
 }
 
@@ -17898,6 +17992,11 @@ function renderWebsiteGrid(){
         <img src="${esc(src)}" alt="" style="width:100%;height:100%;object-fit:cover;pointer-events:none" loading="lazy"
              onerror="this.style.opacity=.3" draggable="false">
       </div>
+      ${item.caption || item.pending || item.wordsWaiting ? `<div style="padding:5px 7px 0;font-size:.72rem;line-height:1.3">
+        ${item.caption ? `<div style="font-weight:700;color:var(--text)">${esc(item.caption)}</div>` : ""}
+        ${item.pending ? `<div style="color:#92400e">Waiting on the pupil — not on your website</div>` : ""}
+        ${item.wordsWaiting ? `<div style="color:#0a7a3d">Review waiting for you</div>` : ""}
+      </div>` : ""}
       <div style="padding:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap" onmousedown="event.stopPropagation()">
         <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move up"
           onclick="websiteMove('${item.id}',-1)" ${idx===0?"disabled":""}>↑</button>
@@ -17952,17 +18051,26 @@ async function websiteReorderDrag(fromId, toId){
   const [moved] = next.splice(fromIdx, 1);
   next.splice(toIdx, 0, moved);
   // Reassign sort_order 0..n-1
-  websiteItems = next.map((item, i) => ({ ...item, sort_order: i }));
+  websiteItems = next;
   renderWebsiteGrid();
+  await websiteSaveOrder();
+}
+
+/** Writes the order on screen. The wall does it in one call; the carousel keeps its row-at-a-time update. */
+async function websiteSaveOrder(){
   const status = document.getElementById("website-status");
   if (status) status.textContent = "Saving order…";
   try {
-    // Update each row's sort_order
-    for (let i = 0; i < websiteItems.length; i++) {
-      const { error } = await sb.from("website_photos")
-        .update({ sort_order: i })
-        .eq("id", websiteItems[i].id);
+    if (websiteIsWall()) {
+      // Top of the page first — pass_cards_reorder turns that into descending sort_order.
+      const { data, error } = await sb.rpc("pass_cards_reorder", { p_ids: websiteItems.map(i => i.id) });
       if (error) throw error;
+      if (!data || data.ok !== true) throw new Error("the order was not saved");
+    } else {
+      for (let i = 0; i < websiteItems.length; i++) {
+        const { error } = await sb.from("website_photos").update({ sort_order: i }).eq("id", websiteItems[i].id);
+        if (error) throw error;
+      }
     }
     websiteUpdateStatus();
   } catch (e) {
@@ -17986,7 +18094,10 @@ async function websiteUpload(ev){
   for (const file of files) {
     try {
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const path = websiteMode + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+      // Wall photos go in the instructor's own folder, which is all storage RLS now allows anyone but a super
+      // admin to write to. The carousel keeps its own folder.
+      const folder = websiteIsWall() ? currentUserId : websiteMode;
+      const path = folder + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
 
       const { error: upErr } = await sb.storage
         .from("pass-photos")
@@ -17996,12 +18107,24 @@ async function websiteUpload(ev){
       const { data: pub } = sb.storage.from("pass-photos").getPublicUrl(path);
       const publicUrl = pub && pub.publicUrl;
 
-      const { error: insErr } = await sb.from("website_photos").insert({
-        url: publicUrl,
-        storage_path: path,
-        type: websiteMode,
-        sort_order: nextOrder++
-      });
+      let insErr;
+      if (websiteIsWall()) {
+        // sort_order left off on purpose: the before-insert trigger puts it above everything this instructor
+        // has, so an uploaded photo lands at the top exactly like a new pass does.
+        ({ error: insErr } = await sb.from("pass_cards").insert({
+          instructor_id: currentUserId,
+          photo_url: publicUrl,
+          photo_path: path,
+          photo_consent: "legacy"
+        }));
+      } else {
+        ({ error: insErr } = await sb.from("website_photos").insert({
+          url: publicUrl,
+          storage_path: path,
+          type: websiteMode,
+          sort_order: nextOrder++
+        }));
+      }
       if (insErr) throw insErr;
     } catch (e) {
       alert("Upload failed for " + file.name + ": " + (e.message || e));
@@ -18016,19 +18139,15 @@ async function websiteMove(id, direction){
   const swapIdx = idx + direction;
   if (swapIdx < 0 || swapIdx >= websiteItems.length) return;
 
-  const a = websiteItems[idx];
-  const b = websiteItems[swapIdx];
-  const orderA = a.sort_order;
-  const orderB = b.sort_order;
-
-  // Swap sort_order values
-  try {
-    await sb.from("website_photos").update({ sort_order: orderB }).eq("id", a.id);
-    await sb.from("website_photos").update({ sort_order: orderA }).eq("id", b.id);
-    await websiteReload();
-  } catch (e) {
-    alert("Could not reorder: " + (e.message || e));
-  }
+  // Move it in the list and save the whole order, the same as a drag - swapping two sort_order values only
+  // worked while they were a dense 0..n-1 run, which stopped being true when new passes started arriving at
+  // the top with max+1.
+  const next = websiteItems.slice();
+  const [moved] = next.splice(idx, 1);
+  next.splice(swapIdx, 0, moved);
+  websiteItems = next;
+  renderWebsiteGrid();
+  await websiteSaveOrder();
 }
 
 async function websiteDelete(id){
@@ -18039,7 +18158,9 @@ async function websiteDelete(id){
     if (item.storage_path) {
       await sb.storage.from("pass-photos").remove([item.storage_path]);
     }
-    const { error } = await sb.from("website_photos").delete().eq("id", id);
+    const { error } = websiteIsWall()
+      ? await sb.from("pass_cards").delete().eq("id", id)
+      : await sb.from("website_photos").delete().eq("id", id);
     if (error) throw error;
     websiteSelected.delete(id);
     await websiteReload();
@@ -18066,7 +18187,9 @@ async function websiteDeleteSelected(){
     if (paths.length) {
       await sb.storage.from("pass-photos").remove(paths);
     }
-    const { error } = await sb.from("website_photos").delete().in("id", ids);
+    const { error } = websiteIsWall()
+      ? await sb.from("pass_cards").delete().in("id", ids)
+      : await sb.from("website_photos").delete().in("id", ids);
     if (error) throw error;
     websiteSelected = new Set();
     await websiteReload();

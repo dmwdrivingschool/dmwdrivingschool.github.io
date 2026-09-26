@@ -126,20 +126,46 @@
     root.innerHTML = '<div class="gone">This page isn’t available.</div>';
   }
 
-  fetch(SUPABASE_URL + "/rest/v1/rpc/instructor_site_public", {
+  // Preview: the owner looking at their own site before it is live. admin.html is on this same
+  // origin, so its Supabase session is already in localStorage and can be borrowed — no second
+  // sign-in, and no way to see anybody else's site, because the function only ever returns yours.
+  var previewing = q.get("preview") === "1";
+  var token = null;
+  if (previewing) {
+    try {
+      for (var k = 0; k < localStorage.length; k++) {
+        var key = localStorage.key(k);
+        if (key && /^sb-.*-auth-token$/.test(key)) {
+          var parsed = JSON.parse(localStorage.getItem(key) || "{}");
+          if (parsed && parsed.access_token) { token = parsed.access_token; break; }
+        }
+      }
+    } catch (e) { /* private mode, or no session — falls through to the public read */ }
+  }
+
+  var rpc = token ? "instructor_site_preview" : "instructor_site_public";
+  var payload = token ? {} : { p_domain: dom || null, p_subdomain: sub || null, p_instructor: (sub || dom) ? null : id };
+
+  fetch(SUPABASE_URL + "/rest/v1/rpc/" + rpc, {
     method: "POST",
-    headers: { apikey: SUPABASE_ANON, Authorization: "Bearer " + SUPABASE_ANON, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      p_domain: dom || null,
-      p_subdomain: sub || null,
-      p_instructor: (sub || dom) ? null : id
-    })
+    headers: {
+      apikey: SUPABASE_ANON,
+      Authorization: "Bearer " + (token || SUPABASE_ANON),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
   }).then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){ d ? draw(d) : gone(); })
     .catch(gone);
 
   function draw(d){
     var c = d.content || {};
+    if (d.preview && !d.published) {
+      var bar = document.createElement("div");
+      bar.textContent = "Preview — this is not live yet. Press “Put it live” in your Control Centre when you are happy with it.";
+      bar.style.cssText = "background:#111;color:#fff;text-align:center;padding:10px 16px;font:600 14px/1.4 system-ui,sans-serif";
+      document.body.insertBefore(bar, document.body.firstChild);
+    }
     var name = d.name || "Driving lessons";
     document.title = name + (c.town ? " — driving lessons in " + c.town : "");
     document.documentElement.setAttribute("data-template", d.template || "classic");

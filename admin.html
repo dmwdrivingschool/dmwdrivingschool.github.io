@@ -5722,7 +5722,7 @@ function renderWebsiteEditor(){
   const c = siteRow.content || {};
   const stats = c.stats || {};
   const addr = siteRow.domain || (siteRow.subdomain ? siteRow.subdomain + ".drivemyway.co.uk" : "");
-  const preview = "https://web.drivemyway.co.uk/site.html?i=" + encodeURIComponent(currentUserId);
+  const preview = "https://web.drivemyway.co.uk/site.html?preview=1&i=" + encodeURIComponent(currentUserId);
   const areas = Array.isArray(c.areas) ? c.areas.join(", ") : "";
   const prices = Array.isArray(c.prices) ? c.prices : [];
 

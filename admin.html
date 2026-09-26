@@ -18990,7 +18990,12 @@ async function websiteMove(id, direction){
 async function websiteDelete(id){
   const item = websiteItems.find(i => i.id === id);
   if (!item) return;
-  if (!confirm("Delete this photo?")) return;
+  // The review is stored on the photo, and a new photo does not inherit it. Dale ruled out carrying
+  // words across on purpose: "then they could add any photo to any review". So the only honest thing
+  // is to say plainly what goes.
+  if (!confirm(item.words
+    ? "Delete this photo?\n\nTheir review goes with it. It belongs to this photo, and putting a new photo up will not bring the words back — they would have to write it again."
+    : "Delete this photo?")) return;
   try {
     await ccRemovePhoto(item.storage_path, "pass-photos");
     const { error } = websiteIsWall()
@@ -19010,7 +19015,10 @@ async function websiteDeleteSelected(){
     alert("Select one or more photos first (tap photos or use Select all).");
     return;
   }
-  if (!confirm("Delete " + ids.length + " selected photo" + (ids.length === 1 ? "" : "s") + "?\nThis cannot be undone.")) return;
+  const withWords = ids.filter(id => (websiteItems.find(i => i.id === id) || {}).words).length;
+  if (!confirm("Delete " + ids.length + " selected photo" + (ids.length === 1 ? "" : "s") + "?\nThis cannot be undone."
+    + (withWords ? "\n\n" + withWords + (withWords === 1 ? " of them has a review" : " of them have reviews")
+        + " on it, and those words go too. They belong to the photo, and a new photo will not bring them back." : ""))) return;
   const status = document.getElementById("website-status");
   if (status) status.textContent = "Deleting " + ids.length + "…";
   const paths = [];

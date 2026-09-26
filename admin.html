@@ -18844,18 +18844,52 @@ function renderWebsiteOffer(){
 }
 // Payment is not wired to GoCardless yet, so this records the order and tells Dale. The button is
 // honest about what happens rather than pretending to take money it cannot take.
+/**
+ * Buy a website or a pass wall (Dale, 27 Sep 2026).
+ *
+ * This used to insert a row saying somebody was interested and promise that Dale would be in touch.
+ * It had not worked for some time: instructor_purchases has RLS with a SELECT policy and no INSERT
+ * policy, so every instructor who pressed it got a raw database error in an alert box.
+ *
+ * That gap was also the only thing standing between this button and free websites, because
+ * instructor_website_entitlement() counts a 'pending' purchase as owning the product. So the fix is
+ * NOT to add an insert policy - it is to go through the edge function, which holds the GoCardless
+ * key, takes the money against the mandate they already have, and writes the row itself afterwards.
+ *
+ * The price is never sent from here. The function reads it from the entitlement, so nothing typed
+ * into this page can change what is charged.
+ */
 async function startWebsitePurchase(product){
-  const label = product === "website" ? "a website" : "the pass wall";
-  if (!confirm(`Register your interest in ${label}?
+  const wall = product === "pass_wall";
+  const label = wall ? "the pass wall" : "a website";
+  const pence = wall ? 4900 : ((websiteEnt && websiteEnt.website_due_pence) || 14900);
+  const inTrial = !!(websiteEnt && websiteEnt.in_trial);
+  const when = inTrial
+    ? "Nothing is collected until your trial ends — you can still walk away before then."
+    : "This is collected by Direct Debit, with the mandate already on your account.";
 
-Nothing is charged now. Dale will be in touch to set it up and arrange payment.`)) return;
-  const pence = product === "website" ? (websiteEnt && websiteEnt.website_due_pence) || 14900 : 4900;
-  const {error} = await sb.from("instructor_purchases").insert({
-    instructor_id: currentUserId, product, amount_pence: pence, status: "pending", note: "Registered from the Control Centre"
-  });
-  if (error){ alert(error.message); return; }
-  alert("Thanks — that is noted. Dale will be in touch shortly.");
-  await refreshWebsiteEntitlement();
+  if (!confirm("Buy " + label + " for " + gbp(pence) + "?" + String.fromCharCode(10, 10) + when
+      + String.fromCharCode(10, 10) + "It is a one-off payment, not a monthly fee.")) return;
+
+  try{
+    const {data: sess} = await sb.auth.getSession();
+    const res = await fetch("https://cxcqmyxbpjueezapknim.supabase.co/functions/v1/instructor-purchase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + (sess?.session?.access_token || "") },
+      body: JSON.stringify({ product })
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok){ alert(d.error || "That did not go through. Try again in a minute."); return; }
+
+    // Say the date out loud. "Payment set up" with no date is the kind of message people ring about.
+    const on = d.charge_date
+      ? new Date(d.charge_date + "T12:00:00").toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"long"})
+      : null;
+    alert("That is all done — " + gbp(d.amount_pence || pence) + (on ? ", collected on " + on : "")
+      + "." + String.fromCharCode(10, 10) + (wall ? "Your pass wall is ready now." : "Your website is ready now — open the Website tab to set it up."));
+    await refreshWebsiteEntitlement();
+    if (!wall) goTab("website");
+  }catch(e){ alert("That did not go through: " + (e && e.message ? e.message : String(e))); }
 }
 function websiteShow(mode, btn){
   websiteMode = mode || websiteMode;

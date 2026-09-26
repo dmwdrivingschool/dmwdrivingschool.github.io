@@ -253,6 +253,24 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .chk-tick{display:flex;align-items:center;gap:.6rem;width:100%;text-align:left;background:#fff;border:1px solid #E8C377;border-radius:8px;padding:.6rem .7rem;margin-bottom:.4rem;cursor:pointer;font:inherit;color:#1f2937}
 .chk-tick:hover{background:#FFFDF7}
 .chk-box{width:18px;height:18px;border:2px solid #E0AE4E;border-radius:4px;flex:0 0 auto}
+.tpl-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;margin:1rem 0 1.2rem}
+.tpl-pick{display:flex;flex-direction:column;gap:.3rem;border:1px solid var(--line);border-radius:12px;padding:.8rem;text-decoration:none;color:inherit;background:#fff;transition:transform .15s,box-shadow .15s}
+.tpl-pick:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(15,23,42,.10)}
+.tpl-pick .muted{font-size:.82rem}
+.tpl-pick-shot{height:74px;border-radius:8px;margin-bottom:.35rem}
+.tpl-classic{background:linear-gradient(135deg,#F3EDE4,#E0D3BF);border-bottom:4px solid #C4633C}
+.tpl-bold{background:linear-gradient(135deg,#141414,#2b2b2b);border-bottom:4px solid #D7F24A}
+.tpl-calm{background:linear-gradient(135deg,#E6EEE7,#CFE0D2);border-bottom:4px solid #6E9478}
+.tpl-see{font-size:.82rem;font-weight:700;color:var(--navy)}
+.offer-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:1rem}
+.offer-box{border:2px solid var(--navy);border-radius:14px;padding:1.1rem}
+.offer-box.offer-alt{border:1px solid var(--line)}
+.offer-price{font-size:2rem;font-weight:800;line-height:1}
+.offer-list{margin:.8rem 0 1rem;padding:0;list-style:none}
+.offer-list li{padding:.3rem 0 .3rem 1.4rem;position:relative;font-size:.92rem}
+.offer-list li:before{content:"\2713";position:absolute;left:0;color:#2E9E4F;font-weight:800}
+.embed-snip{background:#0f172a;color:#e2e8f0;padding:.8rem;border-radius:8px;overflow-x:auto;font-size:.82rem}
+@media(max-width:820px){.tpl-row{grid-template-columns:1fr}.offer-grid{grid-template-columns:1fr}}
 .modal.choice-modal{align-items:center;padding:1rem}
 .modal.choice-modal .modal-box{border-radius:20px;max-height:calc(100vh - 2rem);box-shadow:0 24px 70px -20px rgba(15,23,42,.35)}
 .modal-box h2{font-weight:700;font-size:1.1rem;letter-spacing:-.01em}
@@ -931,7 +949,8 @@ tbody tr:hover td{background:#334263}
 
 
     <section id="tab-website" class="hidden">
-      <div class="panel">
+      <div id="website-offer"></div>
+      <div class="panel" id="website-photos-panel">
         <h2>Website photos</h2>
         <p class="muted" style="margin-bottom:1rem">
           Upload photos to Supabase Storage. They appear instantly on the home-page carousel and the Pass Photos page — no GitHub upload needed.
@@ -2204,7 +2223,15 @@ async function enterApp(user,prof,pause){
   document.getElementById("manage-videos-panel").classList.toggle("hidden", !isSuperAdminUser);
   document.getElementById("nav-teams-btn").classList.toggle("hidden", !isSuperAdminUser && !isSchoolAdminUser);
   document.getElementById("nav-billing-btn").classList.remove("hidden"); // seat instructors get the tab too, but only a pointer to their admin (see loadBillingPanel)
-  document.getElementById("nav-website-btn").classList.toggle("hidden", !isSuperAdminUser); // public website is your (platform admin's) tool only — never a driving school's
+  // The Website tab now has three audiences, not one (Dale, 26 Sep 2026):
+  //   super admin          — Dale's own tool: the carousel and his pass wall, as before
+  //   subscriber, bought nothing — the OFFER. Nobody sees it until they subscribe, so a trialist
+  //                          gets no tab at all and the website becomes a reason to convert.
+  //   bought something     — their own site, or just the wall and its embed snippet
+  // instructor_website_entitlement() decides which. Nothing is shown until it has answered, so a
+  // slow reply never flashes the offer at somebody who cannot buy.
+  document.getElementById("nav-website-btn").classList.toggle("hidden", !isSuperAdminUser);
+  refreshWebsiteEntitlement();
   // The pass wall is a PAID product and is not being sold yet (Dale, 26 Sep 2026: "this was supposed to be
   // behind a paywall"). Until the £149 flag exists it is super-admin only, like the Website tab — otherwise
   // every instructor sees a finished-looking feature whose link and embed are not deployed and would 404.
@@ -17920,6 +17947,98 @@ const websiteIsWall = () => websiteMode === "gallery";
 let websiteItems = []; // current list for active mode {id, url, storage_path, sort_order}
 let websiteSelected = new Set(); // selected photo ids for multi-delete
 
+// --- The Website tab's three states (Dale, 26 Sep 2026) ------------------------------------------
+// Nobody sees the offer until they subscribe, so a trialist gets no tab at all. Super admin keeps the
+// photo tools it has always had. Someone who has bought sees what they bought, and NOT what they did
+// not: a £49 pass-wall customer gets the wall and its snippet, never the site builder.
+let websiteEnt = null;
+async function refreshWebsiteEntitlement(){
+  try{
+    const {data,error} = await sb.rpc("instructor_website_entitlement");
+    websiteEnt = error ? null : data;
+  }catch(e){ websiteEnt = null; }
+  const btn = document.getElementById("nav-website-btn");
+  const canSee = isSuperAdminUser || !!(websiteEnt && (websiteEnt.can_buy || websiteEnt.website || websiteEnt.pass_wall));
+  if (btn) btn.classList.toggle("hidden", !canSee);
+  // Dale's own photo tools stay super-admin only; everyone else gets the offer or their own site.
+  const photos = document.getElementById("website-photos-panel");
+  if (photos) photos.classList.toggle("hidden", !isSuperAdminUser);
+  renderWebsiteOffer();
+}
+const gbpPence = p => "£" + (Number(p||0)/100).toFixed(2).replace(/\.00$/, "");
+function renderWebsiteOffer(){
+  const host = document.getElementById("website-offer");
+  if (!host) return;
+  const e = websiteEnt;
+  // Already bought the full site: this becomes their editor, which is the next thing to build.
+  if (e && e.website){ host.innerHTML = '<div class="panel"><h2>Your website</h2><p class="muted">Your site is set up. Editing it from here is coming next.</p></div>'; return; }
+  // Bought the wall only: the wall and the snippet, and nothing else.
+  if (e && e.pass_wall){
+    host.innerHTML = `<div class="panel"><h2>Your pass wall</h2>
+      <p class="muted">Add this one line wherever you want the wall to appear on your own website. It works on Wix, Squarespace, WordPress — anywhere you can paste a bit of code.</p>
+      <pre class="embed-snip">&lt;script src="https://web.drivemyway.co.uk/pass-wall.js" async&gt;&lt;/script&gt;</pre>
+      <p class="muted" style="font-size:.85rem">Not sure where it goes? Forward that line to whoever built your site, or send me a message and I will talk you through it.</p></div>`;
+    return;
+  }
+  if (!e || !e.can_buy){ host.innerHTML = ""; return; }
+  const due = gbpPence(e.website_due_pence);
+  const list = gbpPence(e.website_list_pence);
+  const saved = e.paid_pence > 0 ? ` <span class="muted" style="font-weight:400">(${list} less the ${gbpPence(e.paid_pence)} you have already paid)</span>` : "";
+  host.innerHTML = `<div class="panel">
+    <h2>A website of your own</h2>
+    <p class="muted" style="max-width:720px">You fill it in from here, we put it live on your own web address, and every enquiry lands in your diary instead of an inbox. Your pass photos go up from your phone.</p>
+
+    <div class="tpl-row">
+      ${[["classic","Classic","Warm and established. Suits an instructor with years behind them and a lot of local word of mouth."],
+         ["bold","Bold","Loud and confident. Built for seventeen-year-olds scrolling on a phone, and the parents paying."],
+         ["calm","Calm","Gentle and reassuring. For instructors who take on nervous and anxious learners."]]
+        .map(([slug,name,desc])=>`<a class="tpl-pick" href="https://www.drivemyway.co.uk/examples/${slug}" target="_blank" rel="noopener">
+            <span class="tpl-pick-shot tpl-${slug}"></span>
+            <strong>${name}</strong><span class="muted">${desc}</span><span class="tpl-see">Open the example →</span>
+          </a>`).join("")}
+    </div>
+
+    <div class="offer-grid">
+      <div class="offer-box">
+        <div class="offer-price">${due}${saved}</div>
+        <div class="muted">one-off, not every year</div>
+        <ul class="offer-list">
+          <li>The design, built and put live</li>
+          <li>Your enquiry form wired into your diary</li>
+          <li>A pass wall that fills itself from your phone</li>
+          <li>Your own web address set up</li>
+          <li>Hosting, for as long as you subscribe</li>
+          <li>Edit it yourself from here, any time</li>
+        </ul>
+        <button class="btn btn-navy" onclick="startWebsitePurchase('website')">Get a website</button>
+      </div>
+      <div class="offer-box offer-alt">
+        <div class="offer-price">£49</div>
+        <div class="muted">already have a website?</div>
+        <p style="margin:.6rem 0 0">Take just the pass wall and drop it into the site you already have, with one line of code. Every card on it is a pupil who really passed with you.</p>
+        <p class="muted" style="font-size:.85rem;margin-top:.6rem">If you want the full website later, this £49 comes off it — you never pay twice.</p>
+        <button class="btn-outline" onclick="startWebsitePurchase('pass_wall')">Just the pass wall</button>
+      </div>
+    </div>
+
+    <p class="muted" style="font-size:.85rem;margin-top:1rem;max-width:720px">A web address costs about £10 a year and you buy it in your own name, so it stays yours whatever happens. You do not have to have one — your site works straight away on ours — but it is the only part that is genuinely yours.</p>
+  </div>`;
+}
+// Payment is not wired to GoCardless yet, so this records the order and tells Dale. The button is
+// honest about what happens rather than pretending to take money it cannot take.
+async function startWebsitePurchase(product){
+  const label = product === "website" ? "a website" : "the pass wall";
+  if (!confirm(`Register your interest in ${label}?
+
+Nothing is charged now. Dale will be in touch to set it up and arrange payment.`)) return;
+  const pence = product === "website" ? (websiteEnt && websiteEnt.website_due_pence) || 14900 : 4900;
+  const {error} = await sb.from("instructor_purchases").insert({
+    instructor_id: currentUserId, product, amount_pence: pence, status: "pending", note: "Registered from the Control Centre"
+  });
+  if (error){ alert(error.message); return; }
+  alert("Thanks — that is noted. Dale will be in touch shortly.");
+  await refreshWebsiteEntitlement();
+}
 function websiteShow(mode, btn){
   websiteMode = mode || websiteMode;
   websiteSelected = new Set();

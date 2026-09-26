@@ -1081,6 +1081,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" onclick="openSettings('showtell')">Show me / Tell me</button>
           <button type="button" onclick="openSettings('enquiryWidget')">Your Enquiry Form</button>
           <button type="button" id="nav-passwall-btn" class="hidden" onclick="openSettings('passWall')">Your Pass Wall</button>
+          <button type="button" onclick="openSettings('photoChannels')">Where You Post Pass Photos</button>
           <div class="settings-group-head">Business</div>
           <button type="button" onclick="openSettings('importExport')">Import / Export</button>
           <button type="button" id="settings-referral-btn" class="hidden" onclick="openReferralFromDash()">Refer a Friend</button>
@@ -9954,6 +9955,82 @@ async function delGap(id){if(!confirm("Delete gap?"))return; await sb.from("less
 /* Settings */
 // Settings screen names and labels are Title Case (Dale, 15 Sep 2026: the same as the app). A screen's title bar: Back and the
 // screen's name, matching the tile or menu entry that opened it, kept in view while the page scrolls (.set-head).
+/**
+ * Where this instructor posts a pass photo, in their own words (Dale, 25 Sep 2026: "maybe all free
+ * text ones"). The names they type appear in their own terms, so a pupil agrees to somewhere specific
+ * — "Facebook and my website" — rather than to "online". Vague consent is arguably not consent at all,
+ * and the DVSA Code of Practice wants explicit written consent before a client's image is shared.
+ *
+ * Free text on purpose. A fixed list of tick boxes would be wrong within a month: whatever we listed,
+ * somebody posts somewhere we did not think of, and the pupil agreed to a list that did not include it.
+ */
+let photoChannels = [];
+let photoChannelsSaved = [];
+
+async function loadPhotoChannels(){
+  const {data} = await sb.from("app_settings").select("value")
+    .eq("id","media_channels").eq("owner_id",currentUserId).maybeSingle();
+  const list = (data && data.value && Array.isArray(data.value.channels)) ? data.value.channels : [];
+  photoChannels = list.slice();
+  photoChannelsSaved = list.slice();
+  renderPhotoChannels();
+}
+
+function renderPhotoChannels(){
+  const box = document.getElementById("pc-body");
+  if (!box) return;
+  box.innerHTML = `
+    <p class="muted" style="max-width:640px">Name the places you put pass photos. Your pupils are asked to agree to
+      these by name when they accept your terms, so "Facebook" and "my website" mean something to them in a way that
+      "online" does not.</p>
+    <div id="pc-rows">${photoChannels.map((c,i)=>`
+      <div class="sf-row" style="display:flex;gap:.5rem;align-items:center;max-width:560px">
+        <input class="sf-in" value="${esc(c)}" data-i="${i}" placeholder="Facebook">
+        <button class="btn-outline btn-sm" onclick="removePhotoChannel(${i})">Remove</button>
+      </div>`).join("")}</div>
+    <button class="btn-outline btn-sm" onclick="addPhotoChannel()">+ Add a place</button>
+    <p class="muted" style="font-size:.8rem;max-width:640px;margin-top:.8rem">Leave it empty if you never post pass
+      photos. Your pupils are still asked before a photo goes on your Drive My Way pass wall.</p>
+    <div class="set-save" style="margin-top:1rem">
+      <button class="btn btn-navy" onclick="savePhotoChannels()">Save</button>
+      <div class="err" id="pc-err" style="display:block"></div>
+    </div>`;
+}
+
+function collectPhotoChannels(){
+  return [...document.querySelectorAll("#pc-rows input")].map(i=>i.value.trim()).filter(Boolean);
+}
+function addPhotoChannel(){ photoChannels = collectPhotoChannels().concat(""); renderPhotoChannels(); }
+function removePhotoChannel(i){ const l = collectPhotoChannels(); l.splice(i,1); photoChannels = l; renderPhotoChannels(); }
+
+/**
+ * Adding a place is a new purpose and needs asking again; removing one is not. Dropping a channel
+ * leaves consent narrower than what the pupil agreed to, which is still valid — re-asking everybody
+ * would throw away consents for nothing. The warning is here rather than silent because the instructor
+ * needs to know their pupils have not agreed to the new one yet.
+ */
+async function savePhotoChannels(){
+  const err = document.getElementById("pc-err");
+  if (err){ err.style.color=""; err.textContent=""; }
+  const list = collectPhotoChannels();
+  const added = list.filter(c => !photoChannelsSaved.some(p => p.toLowerCase() === c.toLowerCase()));
+  if (added.length && photoChannelsSaved.length){
+    const gap = String.fromCharCode(10) + String.fromCharCode(10);
+    if (!confirm("You have added " + added.join(" and ") + "." + gap
+      + "Your pupils have not agreed to that yet, so they will be asked next time they open the app. "
+      + "What they have already agreed to is not affected.")) return;
+  }
+  const {error} = await sb.from("app_settings").upsert({
+    id:"media_channels", owner_id:currentUserId, value:{channels:list}, updated_at:new Date().toISOString()
+  },{onConflict:"owner_id,id"});
+  if (error){ if (err){ err.style.color="#b91c1c"; err.textContent=error.message; } return; }
+  photoChannels = list.slice();
+  photoChannelsSaved = list.slice();
+  renderPhotoChannels();
+  const after = document.getElementById("pc-err");
+  if (after){ after.style.color="#15803d"; after.textContent="Saved."; }
+}
+
 function settingsHeadHtml(title,back){ return `<div class="set-head"><button class="btn-outline" onclick="${back||"goTab('dash')"}">← Back</button><h3>${title}</h3></div>`; }
 // Save closes the screen (Dale, 16 Sep 2026: the app now goes back after every Save, so it's clear it saved; the Control Centre
 // matches). A Save button runs saveThenBack(save, markerId, back): once save() gives true, the screen's own ← Back runs (back, or
@@ -10016,6 +10093,7 @@ async function openSettings(which){
   const panel=document.getElementById("settings-panel");
   panel.classList.remove("hidden");
   if(which==="howToVideos"){ panel.innerHTML=howToVideosHtml(); wireHowToVideos(panel); return; }
+  if(which==="photoChannels"){ panel.innerHTML=settingsHeadHtml("Where You Post Pass Photos")+'<div id="pc-body"><p class="muted">Loading…</p></div>'; await loadPhotoChannels(); return; }
   if(which==="franchise"){
     if(!(isSchoolAdminUser&&currentSchoolId)){ panel.innerHTML=settingsHeadHtml("Franchise Fees")+'<p class="muted">Franchise fees are set by your school.</p>'; return; }
     if(!schoolInstructorsCache.length) await loadSchoolInstructors();

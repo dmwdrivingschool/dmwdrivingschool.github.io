@@ -18737,8 +18737,12 @@ async function refreshWebsiteEntitlement(){
   // in_trial and trial_expired matter as much as a purchase: somebody trying it has no purchase row,
   // and somebody whose trial has run out still needs the tab to get it back rather than losing what
   // they typed. Caught by a test where a granted trial made the tab disappear.
-  const canSee = isSuperAdminUser || !!(websiteEnt && (websiteEnt.can_buy || websiteEnt.website
-                 || websiteEnt.pass_wall || websiteEnt.in_trial || websiteEnt.trial_expired));
+  // A school's own account is locked out until there is a real school to build the school version
+  // with. Written as its own condition rather than relying on every other flag happening to be
+  // false, because that is the kind of accident that quietly stops being true.
+  const schoolLocked = !isSuperAdminUser && !!(websiteEnt && websiteEnt.school_locked);
+  const canSee = isSuperAdminUser || (!schoolLocked && !!(websiteEnt && (websiteEnt.can_buy || websiteEnt.website
+                 || websiteEnt.pass_wall || websiteEnt.in_trial || websiteEnt.trial_expired)));
   if (btn) btn.classList.toggle("hidden", !canSee);
   // The pass wall belongs under the website, not in a corner of the super admin (Dale, 26 Sep: the
   // Website tab should shrink to Preview and Edit "and then have your whole photo section with

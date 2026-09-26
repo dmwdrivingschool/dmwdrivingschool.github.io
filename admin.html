@@ -278,6 +278,8 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .sf-row label{display:block;font-size:.82rem;font-weight:700;margin-bottom:.25rem}
 .sf-in{width:100%;padding:.55rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;font:inherit}
 .sf-three{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;max-width:560px}
+.sf-feat{display:grid;grid-template-columns:1fr 2fr;gap:.5rem;margin-bottom:.5rem;max-width:700px;align-items:start}
+@media(max-width:700px){.sf-feat{grid-template-columns:1fr}}
 .sf-price{display:grid;grid-template-columns:1.3fr 1fr 1.3fr auto;gap:.5rem;margin-bottom:.5rem;max-width:700px;align-items:center}
 .tpl-pick.on{border:2px solid var(--navy)}
 .tpl-pick{cursor:pointer;font:inherit;text-align:left}
@@ -5759,16 +5761,25 @@ function renderWebsiteEditor(){
       <input id="sf-areas" class="sf-in" value="${esc(areas)}">
       <div class="muted" style="font-size:.78rem">Separate them with commas.</div></div>
 
-    <h3 class="sf-head">Your numbers</h3>
+    <h3 class="sf-head">What makes you different</h3>
+    <p class="muted" style="font-size:.8rem;margin-top:-.3rem">Three short cards. Leave one blank and it will not show.</p>
+    ${siteField("about_heading","Heading for this bit","")}
+    <div id="sf-feats">${[0,1,2].map(i=>featRowHtml((Array.isArray(c.features)?c.features[i]:null)||{},i)).join("")}</div>
+
+    <h3 class="sf-head">How people reach you</h3>
+    ${siteField("email","Email address","")}
     <div class="sf-three">
-      <div class="sf-row"><label for="sf-pass_rate">First-time pass rate</label>
-        <input id="sf-pass_rate" class="sf-in" value="${esc(stats.pass_rate||"")}" placeholder="92%"></div>
-      <div class="sf-row"><label for="sf-reviews">Five-star reviews</label>
-        <input id="sf-reviews" class="sf-in" value="${esc(stats.reviews||"")}" placeholder="48"></div>
-      <div class="sf-row"><label for="sf-years">Years teaching</label>
-        <input id="sf-years" class="sf-in" value="${esc(stats.years||"")}" placeholder="11"></div>
+      ${socialField("facebook","Facebook",(c.social||{}).facebook)}
+      ${socialField("instagram","Instagram",(c.social||{}).instagram)}
+      ${socialField("tiktok","TikTok",(c.social||{}).tiktok)}
     </div>
-    <p class="muted" style="font-size:.8rem">Leave any of these blank and it simply will not show.</p>
+    ${socialField("google","Google reviews link",(c.social||{}).google)}
+    <p class="muted" style="font-size:.8rem">Paste the web address of each one. Leave any blank and it will not show.</p>
+
+    <h3 class="sf-head">Your numbers</h3>
+    <div class="sf-row"><label for="sf-years">Years teaching</label>
+      <input id="sf-years" class="sf-in" value="${esc(stats.years||"")}" placeholder="11"></div>
+    <p class="muted" style="font-size:.8rem">Manual or automatic comes from your enquiry form settings, so it is only set in one place.</p>
 
     <h3 class="sf-head">Prices</h3>
     <div id="sf-prices">${prices.map((p,i)=>priceRowHtml(p,i)).join("")}</div>
@@ -5793,6 +5804,16 @@ function renderWebsiteEditor(){
   if (websiteEditorAppend) host.insertAdjacentHTML("beforeend", html); else host.innerHTML = html;
 }
 
+function featRowHtml(f, i){
+  return `<div class="sf-feat" data-i="${i}">
+    <input class="sf-in" placeholder="Patient, calm lessons" value="${esc(f.title||"")}" data-k="title">
+    <textarea class="sf-in" rows="2" placeholder="What a lesson with you is actually like." data-k="text">${esc(f.text||"")}</textarea>
+  </div>`;
+}
+function socialField(key, label, val){
+  return `<div class="sf-row"><label for="sf-soc-${key}">${esc(label)}</label>
+    <input id="sf-soc-${key}" class="sf-in" value="${esc(val||"")}" placeholder="facebook.com/yourschool"></div>`;
+}
 function priceRowHtml(p, i){
   return `<div class="sf-price" data-i="${i}">
     <input class="sf-in" placeholder="Single lesson" value="${esc(p.label||"")}" data-k="label">
@@ -5817,11 +5838,24 @@ function collectSiteContent(){
     row.querySelectorAll("input").forEach(i => o[i.dataset.k] = i.value.trim());
     return o;
   }).filter(p => p.label || p.amount);
+  const features = [...document.querySelectorAll("#sf-feats .sf-feat")].map(row=>{
+    const o = {};
+    row.querySelectorAll("input,textarea").forEach(i => o[i.dataset.k] = i.value.trim());
+    return o;
+  }).filter(f => f.title || f.text);
+  const social = {};
+  ["facebook","instagram","tiktok","google"].forEach(k=>{
+    const el = document.getElementById("sf-soc-" + k);
+    if (el && el.value.trim()) social[k] = el.value.trim();
+  });
   return Object.assign({}, siteRow.content || {}, {
     tagline: v("sf-tagline"), about: v("sf-about"), town: v("sf-town"), phone: v("sf-phone"),
+    email: v("sf-email"), about_heading: v("sf-about_heading"),
     areas: v("sf-areas").split(",").map(s=>s.trim()).filter(Boolean),
-    prices,
-    stats: { pass_rate: v("sf-pass_rate"), reviews: v("sf-reviews"), years: v("sf-years") }
+    prices, features, social,
+    // Pass rate and five-star count are gone: claims nobody can substantiate, sitting next to real
+    // photos with real dates. Years teaching is a fact they know.
+    stats: { years: v("sf-years") }
   });
 }
 

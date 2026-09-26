@@ -9,76 +9,123 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=Archivo:wght@500;700;800;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-  /* One page renders all three templates. The palette and fonts swap on a data-template attribute
-     rather than there being three pages to keep in step — a fix to the layout then reaches every
-     instructor at once, which is the whole reason the sites are rendered rather than generated. */
+  /* This is drivemyway.co.uk/examples/classic rendered from the database instead of hardcoded.
+     The examples are what a customer is shown BEFORE they buy, so they are the specification.
+     Dale, 26 Sep 2026: "can't advertise it to someone then do something different." If this page
+     and that page drift, we have sold one thing and delivered another.
+
+     One page renders all three designs: only the palette, fonts and corner radius change, on a
+     data-template attribute. A layout fix then reaches every instructor at once, which is the
+     whole reason these are rendered rather than generated. */
   :root{
-    --ink:#15202B; --muted:#5A6570; --paper:#F6F4EF; --card:#FFFFFF; --line:#E3DED4;
-    --accent:#9C4517; --accent-ink:#FFFFFF; --chip:#EDE7DB; --chip-ink:#6B4A2A;
+    --ink:#15202B; --muted:#5A6570; --paper:#F6F4EF; --card:#FFFFFF;
+    --line:#E3DED4; --accent:#9C4517; --accent-dark:#7A360F; --accent-ink:#FFFFFF;
+    --chip:#EDE7DB; --chip-ink:#6B4A2A;
     --head:"Fraunces",Georgia,serif; --body:"Public Sans",Arial,sans-serif; --radius:16px;
   }
   [data-template="bold"]{
-    --ink:#FFFFFF; --muted:#9A9A9A; --paper:#0E0E0E; --card:#1A1A1A; --line:#2C2C2C;
-    --accent:#D7F24A; --accent-ink:#111111; --chip:#1A1A1A; --chip-ink:#D7F24A;
+    --ink:#FFFFFF; --muted:#9A9A9A; --paper:#0E0E0E; --card:#1A1A1A;
+    --line:#2C2C2C; --accent:#D7F24A; --accent-dark:#c5e02f; --accent-ink:#111111;
+    --chip:#1D1D1D; --chip-ink:#D7F24A;
     --head:"Archivo",Arial,sans-serif; --body:"Archivo",Arial,sans-serif; --radius:8px;
   }
   [data-template="calm"]{
-    --ink:#26332B; --muted:#5F7367; --paper:#F4F8F4; --card:#FFFFFF; --line:#DCE7DD;
-    --accent:#6E9478; --accent-ink:#FFFFFF; --chip:#E6EEE7; --chip-ink:#3F5E48;
+    --ink:#26332B; --muted:#5F7367; --paper:#F4F8F4; --card:#FFFFFF;
+    --line:#DCE7DD; --accent:#6E9478; --accent-dark:#3F5E48; --accent-ink:#FFFFFF;
+    --chip:#E6EEE7; --chip-ink:#3F5E48;
     --head:"Nunito",Arial,sans-serif; --body:"Nunito",Arial,sans-serif; --radius:20px;
   }
   *{box-sizing:border-box;max-width:100%}
   html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--body);line-height:1.6;overflow-x:hidden}
-  h1,h2,h3{font-family:var(--head);margin:0}
+  h1,h2,h3{font-family:var(--head);font-weight:600;letter-spacing:-0.01em;margin:0}
   [data-template="bold"] h1,[data-template="bold"] h2{text-transform:uppercase;letter-spacing:-.03em;font-weight:900}
   a{color:var(--accent)}
-  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
-  .btn{display:inline-block;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:700;padding:13px 24px;border-radius:calc(var(--radius) - 6px);border:0;cursor:pointer;font:inherit;font-weight:700}
-  header.s{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
-  .nav{display:flex;align-items:center;gap:18px;padding:14px 0;flex-wrap:wrap}
+  img{display:block}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 20px}
+
+  .btn{display:inline-block;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:600;padding:13px 22px;border-radius:calc(var(--radius) - 6px);border:0;cursor:pointer;font-family:inherit;font-size:1rem}
+  .btn:hover{background:var(--accent-dark);color:var(--accent-ink)}
+  .btn-quiet{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+  .btn-quiet:hover{background:var(--chip);color:var(--ink)}
+
+  header.site{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+  .nav{display:flex;align-items:center;gap:20px;padding:14px 0;flex-wrap:wrap}
   .brand{display:flex;align-items:center;gap:12px;flex-grow:1;min-width:0}
-  .mark{width:42px;height:42px;border-radius:calc(var(--radius) - 6px);background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-family:var(--head);font-weight:800;flex-shrink:0;overflow:hidden}
+  .brand a{text-decoration:none;color:inherit;display:flex;align-items:center;gap:12px}
+  .mark{width:40px;height:40px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-family:var(--head);font-weight:700;font-size:1.15rem;flex-shrink:0;overflow:hidden}
   .mark img{width:100%;height:100%;object-fit:cover}
-  .bname{font-family:var(--head);font-weight:700;font-size:1.15rem;line-height:1.15}
-  .bsub{font-size:.78rem;color:var(--muted)}
-  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;padding:60px 0 52px}
-  .chip{display:inline-flex;align-items:center;gap:8px;background:var(--chip);color:var(--chip-ink);border-radius:999px;padding:7px 14px;font-size:.82rem;font-weight:700}
-  .hero h1{font-size:3rem;line-height:1.06;margin:18px 0}
-  .lead{font-size:1.06rem;color:var(--muted);margin:0 0 24px}
-  .acts{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-  .tel{font-weight:800;color:var(--ink);text-decoration:none}
-  .shot{aspect-ratio:4/3;background:var(--chip);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;color:var(--muted);overflow:hidden}
-  .shot img{width:100%;height:100%;object-fit:cover}
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;padding-bottom:50px}
-  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;text-align:center}
-  .stat .v{font-family:var(--head);font-size:1.8rem;font-weight:700;line-height:1;color:var(--accent)}
-  .stat .l{font-size:.82rem;color:var(--muted);margin-top:6px}
-  section.band{padding:52px 0;border-top:1px solid var(--line)}
-  .band h2{font-size:1.9rem;margin-bottom:8px}
-  .sub{color:var(--muted);margin:0 0 26px;max-width:640px}
+  .brand-name{font-family:var(--head);font-weight:600;font-size:1.18rem;line-height:1.15}
+  .brand-sub{font-size:.76rem;color:var(--muted);letter-spacing:.02em}
+  .nav-links{display:flex;gap:22px;font-size:.95rem;font-weight:500}
+  .nav-links a{color:var(--ink);text-decoration:none}
+  .nav-links a:hover{color:var(--accent)}
+
+  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:center;padding:64px 0 56px}
+  .hero.solo{grid-template-columns:1fr;max-width:760px}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:var(--chip);color:var(--chip-ink);border-radius:999px;padding:7px 14px;font-size:.82rem;font-weight:600}
+  .hero h1{font-size:3.4rem;line-height:1.04;margin:20px 0}
+  .hero p.lead{font-size:1.08rem;color:var(--muted);margin:0 0 26px}
+  .hero-actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .phone-link{font-weight:700;color:var(--ink);text-decoration:none;font-size:1.05rem}
+  .shot{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(21,32,43,.09)}
+  .shot img{width:100%;aspect-ratio:4/3;object-fit:cover}
+
+  .stats{display:flex;flex-wrap:wrap;gap:10px;padding:0 0 52px}
+  .stat{display:inline-flex;align-items:baseline;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:10px 20px}
+  .stat .v{font-family:var(--head);font-size:1.05rem;font-weight:700;line-height:1}
+  .stat .l{font-size:.88rem;color:var(--muted)}
+
+  section.band{padding:60px 0;border-top:1px solid var(--line)}
+  .band h2{font-size:2.1rem;margin:0 0 10px}
+  .band .sub{color:var(--muted);margin:0 0 30px;max-width:640px}
+  .three{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:22px}
+  .feat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px}
+  .feat h3{font-size:1.12rem;margin:0 0 8px}
+  .feat p{margin:0;color:var(--muted);font-size:.97rem}
+
   .areas{display:flex;flex-wrap:wrap;gap:10px}
-  .area{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 18px;font-weight:600}
-  .passes{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-  .pass{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .area{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 18px;font-weight:500}
+
+  .passes{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .pass{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
   .pass .img{aspect-ratio:11/12;background:var(--chip);overflow:hidden}
-  .pass .img img{width:100%;height:100%;object-fit:cover;display:block}
-  .pass .b{padding:13px 15px}
-  .pass .who{font-family:var(--head);font-weight:700}
-  .pass .when{font-size:.78rem;color:var(--muted);margin-bottom:6px}
+  .pass .img img{width:100%;height:100%;object-fit:cover}
+  .pass .b{padding:14px 16px}
+  .pass .who{font-family:var(--head);font-weight:600}
+  .pass .when{font-size:.8rem;color:var(--muted);margin-bottom:8px}
   .pass p{margin:0;font-size:.9rem;color:var(--muted)}
-  .prices{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px}
-  .price{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;text-align:center}
-  .price .l{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
-  .price .a{font-family:var(--head);font-size:2.3rem;font-weight:700;line-height:1;margin:8px 0}
-  .price .n{color:var(--muted);font-size:.88rem}
-  .cta{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:32px;text-align:center}
-  footer.s{border-top:1px solid var(--line);padding:30px 0;color:var(--muted);font-size:.88rem;text-align:center}
+  .more-passes{margin-top:26px}
+
+  .prices{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:22px}
+  .price{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:28px;text-align:center}
+  .price .l{font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+  .price .a{font-family:var(--head);font-size:2.6rem;font-weight:600;line-height:1;margin:10px 0 0}
+  .price .n{color:var(--muted);font-size:.9rem;margin-top:8px}
+
+  .socials{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+  .social{display:inline-flex;align-items:center;gap:8px;background:var(--chip);color:var(--chip-ink);border-radius:999px;padding:9px 18px;font-weight:600;text-decoration:none;font-size:.92rem}
+  .social:hover{background:var(--accent);color:var(--accent-ink)}
+  .contact-lines{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;margin:6px 0 0;font-size:1.02rem}
+  .contact-lines a{color:var(--ink);text-decoration:none;font-weight:700}
+  .foot-socials{display:flex;gap:14px;justify-content:center;margin-top:12px}
+  .foot-socials a{color:var(--muted);text-decoration:none;font-weight:600}
+  .enquire{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:34px;text-align:center}
+  .enquire .sub{margin:10px auto 22px}
+
+  footer.site{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:.9rem;text-align:center}
   .loading,.gone{padding:80px 20px;text-align:center;color:var(--muted)}
-  @media(max-width:900px){
-    .hero{grid-template-columns:1fr;gap:28px;padding:34px 0}
-    .hero h1{font-size:2.1rem}
+  .app-band{padding:60px 0;border-top:1px solid var(--line)}
+  .page-head{padding:54px 0 10px}
+  .page-head h1{font-size:2.6rem}
+
+  @media (max-width:900px){
+    .hero{grid-template-columns:1fr;gap:34px;padding:40px 0}
+    .hero h1{font-size:2.3rem}
     .passes{grid-template-columns:repeat(2,1fr)}
-    .band h2{font-size:1.5rem}
+    .nav-links{display:none}
+    .band h2{font-size:1.65rem}
+    section.band{padding:42px 0}
+    .page-head h1{font-size:1.9rem}
   }
 </style>
 </head>
@@ -96,51 +143,54 @@
   var esc = function(t){ return String(t == null ? "" : t).replace(/[&<>"']/g, function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
 
-  // A site is found by its subdomain, OR by instructor id while it is being previewed from the
-  // Control Centre before any DNS exists.
+  function gone(){ root.innerHTML = '<div class="gone">This page isn’t available.</div>'; }
+
+  // Found by their own domain, by a DMW subdomain, or by id while previewing from the Control
+  // Centre before any DNS exists.
   var sub = (q.get("s") || "").trim();
   var id  = (q.get("i") || "").trim();
+  var page = (q.get("page") || "").trim();
   var dom = "";
   if (!sub && !id) {
     var host = location.hostname.toLowerCase();
     if (/\.drivemyway\.co\.uk$/i.test(host) && host.split(".").length > 3) {
-      // ashtondrivingschool.drivemyway.co.uk -> the first label is the site.
       sub = host.split(".")[0];
     } else if (host !== "localhost" && host.indexOf(".") > 0) {
-      // Their own domain. This was missing: the page only understood DMW subdomains, so a
-      // customer on ashtondrivingschool.co.uk would have got a blank page.
       dom = host;
     }
   }
   if (!sub && !dom && (!id || !uuid.test(id))) return gone();
 
-  // pass_wall returns a date; the wall shows a month, because "Passed in September" reads like a
-  // person and "2026-09-04" reads like a database.
-  // Instructors type "50", not "£50". Putting the sign on here rather than making them do it
-  // means a price already saved without one is fixed too, and typing "£50" does not double it.
+  // Keeps whichever of ?s= / ?i= got us here, so links between pages do not lose the site.
+  function urlFor(p){
+    var base = location.pathname + "?";
+    var parts = [];
+    if (sub) parts.push("s=" + encodeURIComponent(sub));
+    else if (id) parts.push("i=" + encodeURIComponent(id));
+    if (q.get("preview") === "1") parts.push("preview=1");
+    if (p) parts.push("page=" + p);
+    return parts.length ? base + parts.join("&") : location.pathname;
+  }
+
+  // Instructors type "50", not "£50".
   function money(v){
     var t = String(v == null ? "" : v).trim();
     if (!t) return "";
     return /^[0-9]/.test(t) ? "£" + t : t;
   }
-
+  // "Passed in September" reads like a person; "2026-09-04" reads like a database.
   function passedLabel(iso){
     if (!iso) return "";
-    var d = new Date(String(iso).slice(0,10) + "T12:00:00");
-    if (isNaN(d.getTime())) return "";
-    return "Passed in " + d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    var dt = new Date(String(iso).slice(0,10) + "T12:00:00");
+    if (isNaN(dt.getTime())) return "";
+    return "Passed in " + dt.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
   }
 
-  function gone(){
-    root.innerHTML = '<div class="gone">This page isn’t available.</div>';
-  }
-
-  // Preview: the owner looking at their own site before it is live. admin.html is on this same
-  // origin, so its Supabase session is already in localStorage and can be borrowed — no second
-  // sign-in, and no way to see anybody else's site, because the function only ever returns yours.
-  var previewing = q.get("preview") === "1";
+  // Preview: the owner looking at their own work before it is live. admin.html is on this same
+  // origin, so its session is already in localStorage — no second sign-in, and no way to see
+  // anybody else's site, because the function only ever returns yours.
   var token = null;
-  if (previewing) {
+  if (q.get("preview") === "1") {
     try {
       for (var k = 0; k < localStorage.length; k++) {
         var key = localStorage.key(k);
@@ -157,15 +207,41 @@
 
   fetch(SUPABASE_URL + "/rest/v1/rpc/" + rpc, {
     method: "POST",
-    headers: {
-      apikey: SUPABASE_ANON,
-      Authorization: "Bearer " + (token || SUPABASE_ANON),
-      "Content-Type": "application/json"
-    },
+    headers: { apikey: SUPABASE_ANON, Authorization: "Bearer " + (token || SUPABASE_ANON), "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   }).then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){ d ? draw(d) : gone(); })
     .catch(gone);
+
+  // Their own Facebook, Instagram and TikTok. Most instructors already have these and they are
+  // where their existing work lives, so a site that ignores them looks like it replaced something
+  // rather than joined it up.
+  var SOCIALS = [["facebook","Facebook"],["instagram","Instagram"],["tiktok","TikTok"],["google","Google reviews"]];
+  function socialLinks(c, cls){
+    var out = [];
+    SOCIALS.forEach(function(sp){
+      var url = (c.social && c.social[sp[0]]) || "";
+      if (!url) return;
+      if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+      out.push('<a class="' + cls + '" href="' + esc(url) + '" target="_blank" rel="noopener">' + sp[1] + '</a>');
+    });
+    return out.join("");
+  }
+
+  function passCard(p){
+    var when = passedLabel(p.passed_on);
+    // Older photos imported from an instructor's own gallery have no name, date or words. Drawing
+    // the caption anyway left an empty strip under every one of them.
+    var body = (p.first_name || when || p.words)
+      ? '<div class="b">' +
+        (p.first_name ? '<div class="who">' + esc(p.first_name) + '</div>' : '') +
+        (when ? '<div class="when">' + esc(when) + '</div>' : '') +
+        (p.words ? '<p>' + esc(p.words) + '</p>' : '') + '</div>'
+      : '';
+    return '<div class="pass"><div class="img">' +
+      (p.photo_url ? '<img src="' + esc(p.photo_url) + '" alt="" loading="lazy">' : '') +
+      '</div>' + body + '</div>';
+  }
 
   function draw(d){
     var c = d.content || {};
@@ -175,91 +251,129 @@
       bar.style.cssText = "background:#111;color:#fff;text-align:center;padding:10px 16px;font:600 14px/1.4 system-ui,sans-serif";
       document.body.insertBefore(bar, document.body.firstChild);
     }
+
     var name = d.name || "Driving lessons";
-    document.title = name + (c.town ? " — driving lessons in " + c.town : "");
     document.documentElement.setAttribute("data-template", d.template || "classic");
     if (d.accent) document.documentElement.style.setProperty("--accent", d.accent);
 
     var initials = name.split(/\s+/).map(function(w){ return w[0]; }).join("").slice(0,2).toUpperCase();
-    var areas = Array.isArray(c.areas) ? c.areas : [];
+    var areas  = Array.isArray(c.areas) ? c.areas : [];
     var prices = Array.isArray(c.prices) ? c.prices : [];
+    var feats  = Array.isArray(c.features) ? c.features.filter(function(f){ return f && (f.title || f.text); }) : [];
     var passes = Array.isArray(d.passes) ? d.passes : [];
-    var stats = c.stats || {};
+    var stats  = c.stats || {};
     var gearbox = c.gearbox === "automatic" ? "Automatic" : c.gearbox === "both" ? "Manual and automatic" : "Manual";
     var enquiry = "https://web.drivemyway.co.uk/enquiry-form.html?i=" + encodeURIComponent(d.instructor_id);
+
+    var navBits = [];
+    if (feats.length)  navBits.push('<a href="' + urlFor("") + '#about">About</a>');
+    if (areas.length)  navBits.push('<a href="' + urlFor("") + '#areas">Areas</a>');
+    if (prices.length) navBits.push('<a href="' + urlFor("") + '#prices">Prices</a>');
+    if (passes.length) navBits.push('<a href="' + urlFor("passes") + '">Passes</a>');
+
+    var header =
+      '<header class="site"><div class="wrap nav">' +
+        '<div class="brand"><a href="' + urlFor("") + '"><div class="mark">' +
+          (d.logo_url ? '<img src="' + esc(d.logo_url) + '" alt="">' : esc(initials)) +
+        '</div><div><div class="brand-name">' + esc(name) + '</div>' +
+        '<div class="brand-sub">' + esc(gearbox) + ' tuition</div></div></a></div>' +
+        (navBits.length ? '<nav class="nav-links">' + navBits.join("") + '</nav>' : '') +
+        '<a class="btn" href="' + enquiry + '">Enquire now</a>' +
+      '</div></header>';
+
+    var footer =
+      '<footer class="site"><div class="wrap">' + esc(name) +
+        (c.phone ? " · " + esc(c.phone) : "") +
+        (c.email ? " · " + esc(c.email) : "") +
+        (socialLinks(c, "") ? '<div class="foot-socials">' + socialLinks(c, "") + '</div>' : '') +
+        '<br><a href="https://drivemyway.co.uk">Website by Drive My Way</a></div></footer>';
+
+    // A page of every pass. Seventy-odd photos do not belong on a home page, but they are the best
+    // thing an instructor has, so they get a page of their own with the lot on it.
+    if (page === "passes") {
+      document.title = "Recent passes — " + name;
+      root.innerHTML = header +
+        '<div class="wrap"><section class="page-head"><h1>Recent passes</h1>' +
+        '<p class="sub">Every one of them, added the day they passed.</p></section>' +
+        '<section class="band" style="border-top:0;padding-top:0"><div class="passes">' +
+          passes.map(passCard).join("") +
+        '</div><div class="more-passes"><a class="btn btn-quiet" href="' + urlFor("") + '">← Back to the main page</a></div>' +
+        '</section></div>' + footer;
+      return;
+    }
+
+    document.title = name + (c.town ? " — driving lessons in " + c.town : "");
 
     // Only sections with something in them are drawn. A half-filled site should look short, never
     // broken, and never show an empty heading.
     var statCells = [];
-    if (stats.pass_rate) statCells.push(["" + stats.pass_rate, "First-time pass rate"]);
-    if (stats.reviews)   statCells.push(["" + stats.reviews, "Five-star reviews"]);
-    if (stats.years)     statCells.push(["" + stats.years, "Years teaching"]);
-    statCells.push([gearbox, "Dual-controlled car"]);
+    if (stats.years) statCells.push([stats.years, (/^\d+$/.test(String(stats.years)) ? "years teaching" : "teaching")]);
+    statCells.push([gearbox, "dual-controlled car"]);
+    if (c.days) statCells.push([c.days.split(",").length + " days", "a week"]);
 
-    root.innerHTML =
-      '<header class="s"><div class="wrap nav">' +
-        '<div class="brand"><div class="mark">' +
-          (d.logo_url ? '<img src="' + esc(d.logo_url) + '" alt="">' : esc(initials)) +
-        '</div><div><div class="bname">' + esc(name) + '</div>' +
-        '<div class="bsub">' + esc(gearbox) + ' tuition</div></div></div>' +
-        '<a class="btn" href="' + enquiry + '">Enquire now</a>' +
-      '</div></header>' +
-
-      '<div class="wrap"><section class="hero"><div>' +
-        '<span class="chip">DVSA approved instructor</span>' +
+    root.innerHTML = header +
+      '<div class="wrap">' +
+      // No photo means no empty box holding space for one; the hero goes full width instead.
+      '<section class="hero' + (c.photo_url ? '' : ' solo') + '"><div>' +
+        '<span class="chip">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+          'DVSA approved instructor</span>' +
         '<h1>' + esc(c.tagline || ("Learn to drive" + (c.town ? " in " + c.town : ""))) + '</h1>' +
         (c.about ? '<p class="lead">' + esc(c.about) + '</p>' : '') +
-        '<div class="acts"><a class="btn" href="' + enquiry + '">Book your first lesson</a>' +
-        (c.phone ? '<a class="tel" href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a>' : '') +
+        '<div class="hero-actions"><a class="btn" href="' + enquiry + '">Book your first lesson</a>' +
+        (c.phone ? '<a class="phone-link" href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a>' : '') +
         '</div></div>' +
-        '<div class="shot">' + (c.photo_url ? '<img src="' + esc(c.photo_url) + '" alt="">' : "") + '</div>' +
+        (c.photo_url ? '<div class="shot"><img src="' + esc(c.photo_url) + '" alt=""></div>' : '') +
       '</section>' +
 
       '<section class="stats">' + statCells.map(function(s){
         return '<div class="stat"><div class="v">' + esc(s[0]) + '</div><div class="l">' + esc(s[1]) + '</div></div>';
       }).join("") + '</section>' +
 
-      (passes.length ? '<section class="band"><h2>Recent passes</h2>' +
-        '<p class="sub">Added the day they passed, in their own words.</p><div class="passes">' +
-        passes.slice(0, 12).map(function(p){
-          // Older photos imported from the instructor's own gallery have no name, date or words.
-          // Drawing the caption block anyway left an empty white strip under every one of them.
-          var when = passedLabel(p.passed_on);
-          var body = (p.first_name || when || p.words)
-            ? '<div class="b">' +
-              (p.first_name ? '<div class="who">' + esc(p.first_name) + '</div>' : '') +
-              (when ? '<div class="when">' + esc(when) + '</div>' : '') +
-              (p.words ? '<p>' + esc(p.words) + '</p>' : '') + '</div>'
-            : '';
-          return '<div class="pass"><div class="img">' +
-            (p.photo_url ? '<img src="' + esc(p.photo_url) + '" alt="" loading="lazy">' : "") +
-            '</div>' + body + '</div>';
+      (feats.length ? '<section class="band" id="about"><h2>' + esc(c.about_heading || "More than just passing your test") + '</h2>' +
+        (c.about_sub ? '<p class="sub">' + esc(c.about_sub) + '</p>' : '') +
+        '<div class="three">' + feats.map(function(f){
+          return '<div class="feat"><h3>' + esc(f.title || "") + '</h3><p>' + esc(f.text || "") + '</p></div>';
         }).join("") + '</div></section>' : '') +
 
-      (areas.length ? '<section class="band"><h2>Where I teach</h2>' +
+      // Four on the home page, the rest on their own page. Dale, 26 Sep: the wall is the best thing
+      // they have, but not seventy photos before anybody has read the prices.
+      (passes.length ? '<section class="band" id="passes"><h2>Recent passes</h2>' +
+        '<p class="sub">Added the day they passed, in their own words.</p><div class="passes">' +
+        passes.slice(0, 4).map(passCard).join("") + '</div>' +
+        (passes.length > 4 ? '<div class="more-passes"><a class="btn btn-quiet" href="' + urlFor("passes") +
+          '">See all ' + passes.length + ' passes</a></div>' : '') +
+        '</section>' : '') +
+
+      (areas.length ? '<section class="band" id="areas"><h2>Where I teach</h2>' +
         '<p class="sub">Not sure if I cover you? Just ask.</p><div class="areas">' +
         areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") +
         '</div></section>' : '') +
 
-      (prices.length ? '<section class="band"><h2>Prices</h2><div class="prices">' +
+      (prices.length ? '<section class="band" id="prices"><h2>Prices</h2><div class="prices">' +
         prices.map(function(pr){
           return '<div class="price"><div class="l">' + esc(pr.label || "") + '</div>' +
             '<div class="a">' + esc(money(pr.amount)) + '</div>' +
             (pr.note ? '<div class="n">' + esc(pr.note) + '</div>' : '') + '</div>';
         }).join("") + '</div></section>' : '') +
 
-      '<section class="band">' +
+      // Drive My Way's own block, on every site. Shared with the Control Centre's embed builder so
+      // the two cannot drift.
+      '<section class="app-band">' +
         (typeof buildAppShowcaseSnippet === "function" ? buildAppShowcaseSnippet(name, d.premium !== false) : "") +
       '</section>' +
 
-      '<section class="band"><div class="cta"><h2>Ready to get started?</h2>' +
-        '<p class="sub" style="margin:10px auto 20px">Fill this in and it comes straight through to me. ' +
+      '<section class="band" id="enquire"><div class="enquire"><h2>Ready to get started?</h2>' +
+        '<p class="sub">Fill this in and it comes straight through to me. ' +
         'I’ll get back to you with when I can fit you in.</p>' +
-        '<a class="btn" href="' + enquiry + '">Enquire now</a></div></section></div>' +
-
-      '<footer class="s"><div class="wrap">' + esc(name) +
-        (c.phone ? " · " + esc(c.phone) : "") +
-        '<br><a href="https://drivemyway.co.uk">Website by Drive My Way</a></div></footer>';
+        '<a class="btn" href="' + enquiry + '">Enquire now</a>' +
+        ((c.phone || c.email) ? '<div class="contact-lines">' +
+          (c.phone ? '<a href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a>' : '') +
+          (c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '') +
+        '</div>' : '') +
+        (socialLinks(c, "social") ? '<div class="socials">' + socialLinks(c, "social") + '</div>' : '') +
+        '</div></section>' +
+      '</div>' + footer;
   }
 })();
 </script>

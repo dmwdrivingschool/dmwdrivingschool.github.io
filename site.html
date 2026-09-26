@@ -128,6 +128,27 @@
   .app-feat .ic{font-size:1.5rem;line-height:1;margin-bottom:10px}
   .app-feat h3{font-size:1.08rem;margin:0 0 8px}
   .app-feat p{margin:0;color:var(--muted);font-size:.96rem}
+  /* The app's own page, drawn in the instructor's colours and fonts like every other page on
+     their site. It used to render the embed card — the block we give people to paste into a
+     Squarespace site — and that card carries its own heading, its own intro and its own feature
+     list, so the page said everything twice and looked pasted in. Dale, 26 Sep: "this repeats
+     itself - it needs to look more bespoke." The embed stays what it is, for other people's
+     websites. */
+  .app-hero{display:grid;grid-template-columns:1.02fr .98fr;gap:52px;align-items:center;padding:60px 0 52px}
+  .app-hero h1{font-size:3rem;line-height:1.05;margin:18px 0 14px}
+  .app-hero p.lead{font-size:1.06rem;color:var(--muted);margin:0 0 26px}
+  .app-phones{display:flex;gap:14px;justify-content:center}
+  .app-phones img{width:32%;max-width:188px;height:auto;border-radius:20px;border:4px solid var(--ink);background:var(--ink);box-shadow:0 18px 40px rgba(21,32,43,.16)}
+  [data-template="bold"] .app-phones img{border-color:var(--line);box-shadow:none}
+  .store{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .store img{height:46px;width:auto}
+  .store-note{color:var(--muted);font-size:.88rem;margin:14px 0 0}
+  .app-legal{color:var(--muted);font-size:.72rem;line-height:1.5;padding:0 0 40px;max-width:760px}
+  @media(max-width:900px){
+    .app-hero{grid-template-columns:1fr;gap:30px;padding:36px 0}
+    .app-hero h1{font-size:2.2rem}
+    .app-phones img{max-width:132px}
+  }
   @media(max-width:760px){.app-strip{grid-template-columns:1fr;text-align:center}.app-strip .shots{justify-content:center}}
   .page-head{padding:54px 0 10px}
   .page-head h1{font-size:2.6rem}
@@ -146,7 +167,6 @@
 <body>
 <div id="root"><div class="loading">Loading…</div></div>
 
-<script src="app-showcase.js"></script>
 <script>
 (function(){
   var SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
@@ -284,6 +304,9 @@
     if (d.accent) document.documentElement.style.setProperty("--accent", d.accent);
 
     var initials = name.split(/\s+/).map(function(w){ return w[0]; }).join("").slice(0,2).toUpperCase();
+    // A logo uploaded on the Website tab is the site's own. Falling back to the app logo means
+    // anybody who set one up for their pupils' app already has a branded site without doing it twice.
+    var logo = c.logo_url || d.logo_url || "";
     var areas  = Array.isArray(c.areas) ? c.areas : [];
     var prices = Array.isArray(c.prices) ? c.prices : [];
     var feats  = Array.isArray(c.features) ? c.features.filter(function(f){ return f && (f.title || f.text); }) : [];
@@ -302,7 +325,7 @@
     var header =
       '<header class="site"><div class="wrap nav">' +
         '<div class="brand"><a href="' + urlFor("") + '"><div class="mark">' +
-          (d.logo_url ? '<img src="' + esc(d.logo_url) + '" alt="">' : esc(initials)) +
+          (logo ? '<img src="' + esc(logo) + '" alt="">' : esc(initials)) +
         '</div><div><div class="brand-name">' + esc(name) + '</div>' +
         '<div class="brand-sub">' + esc(gearbox) + ' tuition</div></div></a></div>' +
         (navBits.length ? '<nav class="nav-links">' + navBits.join("") + '</nav>' : '') +
@@ -330,28 +353,49 @@
       return;
     }
 
-    // The whole app, on its own page. The home page only teases it — five features and three
-    // phones above somebody's prices is the app selling itself on their website.
+    // The whole app, on its own page — in their colours, with one heading and one list. The
+    // embed card is for somebody else's website; rendering it here repeated everything.
     if (page === "app") {
       document.title = "The Drive My Way app — " + name;
-      var feats = APP_FEATURES.filter(function(f){ return d.premium !== false || !f[3]; });
-      // No page heading here: the block below opens with "Your lessons, in one app" and its own
-      // intro line, and saying it twice reads like a mistake.
+      var prem = d.premium !== false;
+      var feats = APP_FEATURES.filter(function(f){ return prem || !f[3]; });
+      var owner = name + (/s$/i.test(name) ? "’" : "’s");
+      var third = prem ? "pupil-theory-practice.jpg" : "pupil-messages.jpg";
       root.innerHTML = header +
         '<div class="wrap">' +
-        '<section class="band" style="border-top:0;padding-top:48px">' +
-          (typeof buildAppShowcaseSnippet === "function" ? buildAppShowcaseSnippet(name, d.premium !== false) : "") +
-        '</section>' +
-        '<section class="band"><h2>What you can do in it</h2><div class="app-feats">' +
+        '<section class="app-hero"><div>' +
+          '<span class="chip">Free with your lessons</span>' +
+          '<h1>Your lessons, in one app</h1>' +
+          '<p class="lead">' + esc(owner) + ' pupils get the Drive My Way app. Once your lessons start you get ' +
+            'your own login, on iPhone or Android, and it costs you nothing.</p>' +
+          '<div class="store">' +
+            '<a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener">' +
+              '<img src="' + SHOT + 'google-play-badge-trimmed.png" alt="Get it on Google Play" loading="lazy"></a>' +
+            '<a href="https://apps.apple.com/gb/app/dmw-drive-my-way/id6803682508" target="_blank" rel="noopener">' +
+              '<img src="' + SHOT + 'app-store-badge.svg" alt="Download on the App Store" loading="lazy"></a>' +
+          '</div>' +
+          '<p class="store-note">There is nothing to set up — I add you and you are in.</p>' +
+        '</div>' +
+        '<div class="app-phones">' +
+          '<img src="' + SHOT + 'pupil-tracking-map.jpg" alt="A live map showing the instructor on the way" loading="lazy">' +
+          '<img src="' + SHOT + 'pupil-home-lessons.jpg" alt="Upcoming lessons in the app" loading="lazy">' +
+          '<img src="' + SHOT + third + '" alt="" loading="lazy">' +
+        '</div></section>' +
+
+        '<section class="band"><h2>What you can do in it</h2>' +
+        '<p class="sub">Everything below is in the app from your first lesson.</p><div class="app-feats">' +
           feats.map(function(f){
             return '<div class="app-feat"><div class="ic">' + f[0] + '</div>' +
               '<h3>' + esc(f[1]) + '</h3><p>' + esc(f[2]) + '</p></div>';
           }).join("") +
         '</div></section>' +
+
         '<section class="band"><div class="enquire"><h2>Ready to get started?</h2>' +
           '<p class="sub">Get in touch and I will sort your lessons out. The app comes with them.</p>' +
           '<a class="btn" href="' + enquiry + '">Enquire now</a></div></section>' +
-        '<div class="more-passes" style="padding-bottom:40px"><a class="btn btn-quiet" href="' + urlFor("") + '">← Back to the main page</a></div>' +
+        '<div class="more-passes" style="padding-bottom:26px"><a class="btn btn-quiet" href="' + urlFor("") + '">← Back to the main page</a></div>' +
+        '<p class="app-legal">Apple and the Apple logo are trademarks of Apple Inc. Google Play and the ' +
+          'Google Play logo are trademarks of Google LLC.</p>' +
         '</div>' + footer;
       return;
     }

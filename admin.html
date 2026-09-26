@@ -289,6 +289,16 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .tpl-pick{cursor:pointer;font:inherit;text-align:left}
 .dns-tbl{border-collapse:collapse;margin:.4rem 0}
 .dns-tbl th,.dns-tbl td{border:1px solid var(--line);padding:.35rem .6rem;font-size:.85rem;text-align:left}
+.sf-pics{display:grid;grid-template-columns:200px 1fr;gap:1rem;max-width:700px;align-items:start}
+.sf-pic{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.8rem}
+.sf-pic-box{background:var(--bg);border:1px dashed var(--line);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:.6rem;color:var(--muted);font-size:.78rem;text-align:center}
+.sf-pic-box.sq{aspect-ratio:1/1}
+.sf-pic-box.wide{aspect-ratio:4/3}
+.sf-pic-box img{width:100%;height:100%;object-fit:cover;display:block}
+.sf-pic strong{display:block;font-size:.9rem}
+.sf-pic .muted{font-size:.78rem;margin:.15rem 0 .5rem}
+.sf-pic-btns{display:flex;gap:.4rem;flex-wrap:wrap}
+@media(max-width:700px){.sf-pics{grid-template-columns:1fr}}
 @media(max-width:700px){.sf-three,.sf-price{grid-template-columns:1fr}}
 .modal.choice-modal{align-items:center;padding:1rem}
 .modal.choice-modal .modal-box{border-radius:20px;max-height:calc(100vh - 2rem);box-shadow:0 24px 70px -20px rgba(15,23,42,.35)}
@@ -5697,6 +5707,41 @@ async function setVideosOverride(ownerType, ownerId, val){
 //
 // Prices are the one thing deliberately left empty. A wrong price on somebody's website is worse
 // than no price, and it is the field they will certainly fill in themselves.
+// Photos go to Cloudflare R2 through the photo-upload edge function, and to Supabase storage if R2 is
+// not switched on yet (Dale, 26 Sep 2026: "photos on cloudflare"). Same two-step as the app's
+// photoStore.ts, and the same tell: an R2 key starts "passes/" or "sites/", a Supabase path starts with
+// the uploader's uuid, so no row needs a column saying which store it is in and the photos already in
+// Supabase keep working untouched.
+function isR2Path(path){ return !!path && /^(passes|sites)\//.test(path); }
+
+async function ccStorePhoto(file, kind, fallbackBucket, fallbackFolder){
+  try{
+    const form = new FormData();
+    form.append("file", file);
+    form.append("kind", kind);
+    const {data, error} = await sb.functions.invoke("photo-upload", {body: form});
+    if (!error && data && data.url && data.key) return {url: data.url, path: data.key, inR2: true};
+  }catch(e){ /* falls through to Supabase */ }
+
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const path = fallbackFolder + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+  const {error: upErr} = await sb.storage.from(fallbackBucket)
+    .upload(path, file, {cacheControl: "31536000", upsert: false, contentType: file.type || "image/jpeg"});
+  if (upErr) return {error: upErr.message};
+  const {data: pub} = sb.storage.from(fallbackBucket).getPublicUrl(path);
+  if (!pub || !pub.publicUrl) return {error: "Uploaded, but could not work out its address."};
+  return {url: pub.publicUrl, path, inR2: false};
+}
+
+// Never fatal. A stray file costs a fraction of a penny; a photo that will not delete is a support email.
+async function ccRemovePhoto(path, fallbackBucket){
+  if (!path) return;
+  try{
+    if (isR2Path(path)) await sb.functions.invoke("photo-upload", {body: {action: "delete", key: path}});
+    else await sb.storage.from(fallbackBucket).remove([path]);
+  }catch(e){}
+}
+
 let siteRow = null;
 // On a trial the countdown sits above the editor, so the editor adds to the panel rather than
 // replacing it — a trial you cannot edit tells the instructor nothing about the product.
@@ -5755,6 +5800,32 @@ function renderWebsiteEditor(){
           <span class="tpl-see">${siteRow.template===slug?"Chosen":"Use this one"}</span>
         </button>`).join("")}
     </div>
+
+    <h3 class="sf-head">Your photos</h3>
+    <p class="muted" style="font-size:.8rem;margin-top:-.3rem">A logo and one good photo. You standing next to your car is the one that works — people are picking a person, not a company.</p>
+    <div class="sf-pics">
+      <div class="sf-pic">
+        <div class="sf-pic-box sq">${c.logo_url ? `<img src="${esc(c.logo_url)}" alt="">` : "No logo yet"}</div>
+        <strong>Your logo</strong>
+        <div class="muted">Square. Sits in the corner of every page.</div>
+        <div class="sf-pic-btns">
+          <label class="btn-outline btn-sm" style="cursor:pointer">${c.logo_url ? "Change" : "Choose"}
+            <input type="file" accept="image/*" style="display:none" onchange="uploadSitePhoto(event,'logo')"></label>
+          ${c.logo_url ? `<button class="btn-outline btn-sm" onclick="removeSitePhoto('logo')">Remove</button>` : ""}
+        </div>
+      </div>
+      <div class="sf-pic">
+        <div class="sf-pic-box wide">${c.photo_url ? `<img src="${esc(c.photo_url)}" alt="">` : "No photo yet — the top of your page will be full width without one"}</div>
+        <strong>Main photo</strong>
+        <div class="muted">Goes at the top of the page, beside your name.</div>
+        <div class="sf-pic-btns">
+          <label class="btn-outline btn-sm" style="cursor:pointer">${c.photo_url ? "Change" : "Choose"}
+            <input type="file" accept="image/*" style="display:none" onchange="uploadSitePhoto(event,'photo')"></label>
+          ${c.photo_url ? `<button class="btn-outline btn-sm" onclick="removeSitePhoto('photo')">Remove</button>` : ""}
+        </div>
+      </div>
+    </div>
+    <div class="muted" id="sf-pic-out" style="font-size:.8rem;min-height:1.1rem"></div>
 
     <h3 class="sf-head">What it says</h3>
     ${siteField("tagline","The big line at the top","This is the first thing anyone reads.")}
@@ -5844,6 +5915,63 @@ function addPriceRow(){
   const box = document.getElementById("sf-prices");
   box.insertAdjacentHTML("beforeend", priceRowHtml({}, box.children.length));
 }
+/**
+ * Uploading a photo saves the whole page with it, on purpose. Everything typed above is collected first,
+ * so a photo chosen halfway through writing an "about" paragraph does not throw the paragraph away when
+ * the panel redraws — and a photo that looked uploaded but vanished because Save was never pressed is
+ * exactly the kind of thing that turns into a support email.
+ *
+ * The logo is the site's own, kept apart from the logo used for pupils' app branding. Someone may well
+ * want a plain mark in the app and something with their name on the website, and unpicking a shared one
+ * later is worse than having two now. site.html falls back to the app logo when this one is not set, so
+ * anybody who has already uploaded one gets a branded site without doing it twice.
+ */
+async function uploadSitePhoto(ev, which){
+  const out = document.getElementById("sf-pic-out");
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = "";
+  if (!file || !siteRow) return;
+  if (out){ out.style.color = ""; out.textContent = "Uploading…"; }
+  try{
+    const small = await shrinkPhotoForUpload(file);
+    const kind = which === "logo" ? "site-logo" : "site-photo";
+    const stored = await ccStorePhoto(small, kind, "instructor-sites", currentUserId);
+    if (stored.error){ if (out){ out.style.color = "#b91c1c"; out.textContent = stored.error; } return; }
+
+    const old = siteRow.content || {};
+    const oldPath = which === "logo" ? old.logo_path : old.photo_path;
+    const content = Object.assign({}, collectSiteContent(),
+      which === "logo" ? {logo_url: stored.url, logo_path: stored.path}
+                       : {photo_url: stored.url, photo_path: stored.path});
+
+    const {error} = await sb.from("instructor_sites")
+      .update({content, template: siteRow.template}).eq("instructor_id", currentUserId);
+    if (error){ if (out){ out.style.color = "#b91c1c"; out.textContent = error.message; } return; }
+
+    // Only once the new one is safely on the row — a delete first would lose both if the update failed.
+    if (oldPath) await ccRemovePhoto(oldPath, "instructor-sites");
+    siteRow.content = content;
+    renderWebsiteEditor();
+    const after = document.getElementById("sf-pic-out");
+    if (after){ after.style.color = "#15803d"; after.textContent = "Saved."; }
+  }catch(e){ if (out){ out.style.color = "#b91c1c"; out.textContent = e.message || String(e); } }
+}
+
+async function removeSitePhoto(which){
+  const out = document.getElementById("sf-pic-out");
+  if (!siteRow) return;
+  const old = siteRow.content || {};
+  const oldPath = which === "logo" ? old.logo_path : old.photo_path;
+  const content = Object.assign({}, collectSiteContent(),
+    which === "logo" ? {logo_url: "", logo_path: ""} : {photo_url: "", photo_path: ""});
+  const {error} = await sb.from("instructor_sites")
+    .update({content, template: siteRow.template}).eq("instructor_id", currentUserId);
+  if (error){ if (out){ out.style.color = "#b91c1c"; out.textContent = error.message; } return; }
+  if (oldPath) await ccRemovePhoto(oldPath, "instructor-sites");
+  siteRow.content = content;
+  renderWebsiteEditor();
+}
+
 function setSiteTemplate(slug){
   siteRow.template = slug;
   renderWebsiteEditor();
@@ -18529,19 +18657,14 @@ async function websiteUpload(ev){
 
   for (const file of files) {
     try {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
       // Wall photos go in the instructor's own folder, which is all storage RLS now allows anyone but a super
-      // admin to write to. The carousel keeps its own folder.
+      // admin to write to. The carousel keeps its own folder, and stays in Supabase: it is Drive My Way's
+      // own site rather than an instructor's, so it is not what the move to R2 is for.
       const folder = websiteIsWall() ? currentUserId : websiteMode;
-      const path = folder + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
-
-      const { error: upErr } = await sb.storage
-        .from("pass-photos")
-        .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
-      if (upErr) throw upErr;
-
-      const { data: pub } = sb.storage.from("pass-photos").getPublicUrl(path);
-      const publicUrl = pub && pub.publicUrl;
+      const stored = await ccStorePhoto(await shrinkPhotoForUpload(file), "pass", "pass-photos", folder);
+      if (stored.error) throw new Error(stored.error);
+      const path = stored.path;
+      const publicUrl = stored.url;
 
       let insErr;
       if (websiteIsWall()) {
@@ -18591,9 +18714,7 @@ async function websiteDelete(id){
   if (!item) return;
   if (!confirm("Delete this photo?")) return;
   try {
-    if (item.storage_path) {
-      await sb.storage.from("pass-photos").remove([item.storage_path]);
-    }
+    await ccRemovePhoto(item.storage_path, "pass-photos");
     const { error } = websiteIsWall()
       ? await sb.from("pass_cards").delete().eq("id", id)
       : await sb.from("website_photos").delete().eq("id", id);
@@ -18620,9 +18741,9 @@ async function websiteDeleteSelected(){
     if (item && item.storage_path) paths.push(item.storage_path);
   }
   try {
-    if (paths.length) {
-      await sb.storage.from("pass-photos").remove(paths);
-    }
+    // One at a time, because the two stores take different calls and a mixed selection is normal while
+    // the older photos are still in Supabase.
+    for (const path of paths) await ccRemovePhoto(path, "pass-photos");
     const { error } = websiteIsWall()
       ? await sb.from("pass_cards").delete().in("id", ids)
       : await sb.from("website_photos").delete().in("id", ids);

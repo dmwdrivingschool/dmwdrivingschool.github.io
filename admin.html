@@ -247,6 +247,12 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 /* The choice dialog floats clear of the edges at every width (Dale, 25 Sep 2026), matching the app's
    ChoiceDialog. Its Cancel used to sit against the bottom of the screen, next to the phone's own buttons -
    a mis-tap there locks a pupil out of their app. Only this one; every other modal keeps its sheet. */
+.chk-card{border:1px solid #F0C36D;background:#FFF9EC;border-radius:10px;padding:.8rem;margin-bottom:1rem}
+.chk-head{font-weight:700;color:#7A5B12;margin-bottom:.15rem}
+.chk-sub{font-size:.8rem;color:#8A6A1F;margin-bottom:.6rem}
+.chk-tick{display:flex;align-items:center;gap:.6rem;width:100%;text-align:left;background:#fff;border:1px solid #E8C377;border-radius:8px;padding:.6rem .7rem;margin-bottom:.4rem;cursor:pointer;font:inherit;color:#1f2937}
+.chk-tick:hover{background:#FFFDF7}
+.chk-box{width:18px;height:18px;border:2px solid #E0AE4E;border-radius:4px;flex:0 0 auto}
 .modal.choice-modal{align-items:center;padding:1rem}
 .modal.choice-modal .modal-box{border-radius:20px;max-height:calc(100vh - 2rem);box-shadow:0 24px 70px -20px rgba(15,23,42,.35)}
 .modal-box h2{font-weight:700;font-size:1.1rem;letter-spacing:-.01em}
@@ -3746,7 +3752,7 @@ function renderPupilSummary(){
     ? Number(p.delivered_hours_at_pass)
     : deliveredMins/60;
   const credit=Math.round((purchasedHrs-deliveredHrs)*100)/100;
-  return `${renderPassedCardCC()}${renderPurgeWarningCC()}${renderEnquiryActionsCC()}${renderPupilStatusCC()}${renderNextLessonCard()}<div class="summary-lines">
+  return `${renderPassedCardCC()}${renderPurgeWarningCC()}${renderEnquiryActionsCC()}${renderPupilStatusCC()}${renderPupilChecksCC()}${renderNextLessonCard()}<div class="summary-lines">
       ${row("Status",p.status)}${row("Phone",p.phone)}${row("Email",p.email)}
       ${row("Address",[p.address_line1,p.address_line2,p.city,p.postcode].filter(Boolean).join(", ")||p.address)}
       ${row("Licence",p.licence_number)}${row("DOB",p.date_of_birth||p.dob)}
@@ -3833,7 +3839,7 @@ function renderPupilDetailsCC(){
       ${row("Terms Agreed",p.terms_accepted_at?"Yes":"No")}${row("Terms Accepted",when(p.terms_accepted_at))}
       ${row("Last Viewed App",p.last_app_viewed_at?when(p.last_app_viewed_at):"Never")}
       ${row("Last Opened App",lastOpenedLabel(p.last_opened_at,p.app_version,p.app_platform)||(p.profile_id?"Never":"No app login yet"))}
-      ${row("App Access",p.profile_id?"Linked":"Not linked")}
+      ${row("Licence Checked",when(p.licence_checked_at))}${row("Eyesight Checked",when(p.eyesight_checked_at))}
       ${row("Licence Type",p.licence_type)}${row("Theory Test",theory)}${row("Theory Cert",p.theory_cert_number)}
       ${p.enquiry_type?row("Enquiry Type",String(p.enquiry_type).replace(/_/g," ")):""}
       ${p.how_heard?row("How They Heard",p.how_heard):""}
@@ -4046,6 +4052,33 @@ function lessonTypeOptions(current,extras){
   const keys=lessonTypeSettings.order.filter(k=>!lessonTypeSettings.hidden.includes(k));
   if(current&&!keys.includes(current)&&!extras.includes(current)) keys.push(current);
   return [...keys,...extras].map(k=>`<option value="${k}" ${current===k?"selected":""}>${esc(lessonTypeLabel(k))}</option>`).join("");
+}
+// Licence and eyesight (Dale, 26 Sep 2026). A DVSA requirement, so every pupil gets it and there is
+// no filtering by status. Sits above the Next lesson card, in front of the instructor on the first
+// lesson, and disappears for good once ticked — the date then shows on the Details tab. Ticked once,
+// never re-prompted. Mirrors the app's Summary card.
+function renderPupilChecksCC(){
+  const {p}=pupilDetail;
+  if(p.status==="passed") return "";
+  if(p.licence_checked_at&&p.eyesight_checked_at) return "";
+  const tick=(key,label)=>`<button type="button" class="chk-tick" onclick="markPupilCheckCC('${key}')">
+      <span class="chk-box"></span><span>${label}</span></button>`;
+  return `<div class="chk-card">
+    <div class="chk-head">Before you drive</div>
+    <div class="chk-sub">Tick these once you have seen them. They are a DVSA requirement and you only do it the once.</div>
+    ${p.licence_checked_at?"":tick("licence","I have checked their provisional licence")}
+    ${p.eyesight_checked_at?"":tick("eyesight","I have checked their eyesight")}
+  </div>`;
+}
+async function markPupilCheckCC(which){
+  const id=pupilDetail&&pupilDetail.p&&pupilDetail.p.id; if(!id) return;
+  const {error}=await sb.rpc("pupil_mark_checks",{
+    p_pupil:id,
+    p_licence:which==="licence"?true:null,
+    p_eyesight:which==="eyesight"?true:null
+  });
+  if(error){ alert(error.message); return; }
+  await openPupil(id);
 }
 // --- Next lesson card + cancellation (mirrors the app: PupilDetail.tsx
 // "Next lesson + quick actions" and CancelLessonModal.tsx). ---------------

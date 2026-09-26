@@ -69,8 +69,9 @@
   .nav-links a{color:var(--ink);text-decoration:none}
   .nav-links a:hover{color:var(--accent)}
 
-  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:start;padding:64px 0 56px}
+  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:stretch;padding:64px 0 56px}
   .hero.solo{grid-template-columns:1fr;max-width:760px}
+  .hero > div:first-child{display:flex;flex-direction:column}
   .chip{display:inline-flex;align-items:center;gap:8px;background:var(--chip);color:var(--chip-ink);border-radius:999px;padding:7px 14px;font-size:.82rem;font-weight:600}
   .hero h1{font-size:3.4rem;line-height:1.04;margin:20px 0}
   .hero p.lead{font-size:1.08rem;color:var(--muted);margin:0 0 26px}
@@ -78,14 +79,16 @@
   .phone-link{font-weight:700;color:var(--ink);text-decoration:none;font-size:1.05rem}
   .shot{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(21,32,43,.09)}
   .shot img{width:100%;aspect-ratio:4/3;object-fit:cover}
-  .hero-side{display:flex;flex-direction:column;gap:22px;min-width:0}
+  .hero-side{display:flex;flex-direction:column;gap:22px;min-width:0;height:100%}
+  .hero-side .shot{flex:0 0 auto}
+  .hero-areas{margin-top:auto}
   .hero-areas h3{font-size:1.2rem;margin:0 0 4px}
   .hero-areas p{margin:0 0 12px;color:var(--muted);font-size:.9rem}
   /* "Show all of it" inside a fixed 4:3 frame leaves a band of empty card under the picture, which
      reads as a mistake rather than a choice. The frame takes the photo's own shape instead. */
   .shot.fit img{aspect-ratio:auto;height:auto;object-fit:contain}
 
-  .stats{display:flex;flex-wrap:wrap;gap:10px;padding:0 0 52px}
+  .stats{display:flex;flex-wrap:wrap;gap:10px;padding:0;margin-top:auto}
   .stat{display:inline-flex;align-items:baseline;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:10px 20px}
   .stat .v{font-family:var(--head);font-size:1.05rem;font-weight:700;line-height:1}
   .stat .l{font-size:.88rem;color:var(--muted)}
@@ -525,7 +528,15 @@
         (c.about ? '<p class="lead">' + esc(c.about) + '</p>' : '') +
         '<div class="hero-actions"><a class="btn" href="' + enquiry + '">Book your first lesson</a>' +
         (c.phone ? '<a class="phone-link" href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a>' : '') +
-        '</div></div>' +
+        '</div>' +
+        // The stats live in this column rather than in a band of their own, so that they and the areas
+        // finish at the same line. Dale, 26 Sep: "so it stays level with the 10 years amd manual dual
+        // controlled car". Two rows of chips at the same height read as one row; staggered they read as
+        // a mistake.
+        '<div class="stats">' + statCells.map(function(st){
+          return '<div class="stat"><div class="v">' + esc(st[0]) + '</div><div class="l">' + esc(st[1]) + '</div></div>';
+        }).join("") + '</div>' +
+        '</div>' +
         // Dale, 26 Sep, pointing at the gap beside the stats: "where i teach should move to below the
         // photo". Literally below the photo, in that column - not as its own band underneath, which is
         // what it got the first time and left the hole still sitting there.
@@ -538,10 +549,6 @@
             '</div></div>' : '') +
         '</div>' : '') +
       '</section>' +
-
-      '<section class="stats">' + statCells.map(function(s){
-        return '<div class="stat"><div class="v">' + esc(s[0]) + '</div><div class="l">' + esc(s[1]) + '</div></div>';
-      }).join("") + '</section>' +
 
       // Without a photo the hero is one full-width column, so there is nowhere to tuck this and it
       // goes back to being a band of its own.

@@ -2,6 +2,23 @@
   "redirects": [
     {
       "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "web.drivemyway.co.uk"
+        }
+      ],
+      "destination": "/admin.html",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "dmw-control-centre.vercel.app"
+        }
+      ],
       "destination": "/admin.html",
       "permanent": false
     }
@@ -47,6 +64,14 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/",
+      "destination": "/site.html"
+    },
+    {
+      "source": "/(passes|prices|app)",
+      "destination": "/site.html?page=$1"
+    },
     {
       "source": "/auth/confirm",
       "destination": "/auth-confirm.html"

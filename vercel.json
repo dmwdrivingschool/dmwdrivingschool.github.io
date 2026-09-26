@@ -21,6 +21,11 @@
       ],
       "destination": "/admin.html",
       "permanent": false
+    },
+    {
+      "source": "/",
+      "destination": "/site.html",
+      "permanent": false
     }
   ],
   "headers": [

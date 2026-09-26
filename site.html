@@ -78,17 +78,14 @@
   .hero-actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
   .phone-link{font-weight:700;color:var(--ink);text-decoration:none;font-size:1.05rem}
   .shot{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(21,32,43,.09)}
+  .hero > .shot{align-self:start}
   .shot img{width:100%;aspect-ratio:4/3;object-fit:cover}
-  .hero-side{display:flex;flex-direction:column;gap:22px;min-width:0;height:100%}
-  .hero-side .shot{flex:0 0 auto}
-  .hero-areas{margin-top:auto}
-  .hero-areas h3{font-size:1.2rem;margin:0 0 4px}
-  .hero-areas p{margin:0 0 12px;color:var(--muted);font-size:.9rem}
+  .areas-label{align-self:center;color:var(--muted);font-size:.86rem;font-weight:600;margin-left:6px}
   /* "Show all of it" inside a fixed 4:3 frame leaves a band of empty card under the picture, which
      reads as a mistake rather than a choice. The frame takes the photo's own shape instead. */
   .shot.fit img{aspect-ratio:auto;height:auto;object-fit:contain}
 
-  .stats{display:flex;flex-wrap:wrap;gap:10px;padding:0;margin-top:auto}
+  .stats{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:0;margin-top:auto}
   .stat{display:inline-flex;align-items:baseline;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:10px 20px}
   .stat .v{font-family:var(--head);font-size:1.05rem;font-weight:700;line-height:1}
   .stat .l{font-size:.88rem;color:var(--muted)}
@@ -404,6 +401,13 @@
     // A logo uploaded on the Website tab is the site's own. Falling back to the app logo means
     // anybody who set one up for their pupils' app already has a branded site without doing it twice.
     var logo = c.logo_url || d.logo_url || "";
+    // Their logo becomes the tab icon. A browser will take a PNG or a JPEG here, so whatever they
+    // uploaded works as it is -- and a site with somebody else's favicon on it looks like somebody
+    // else's site. Falls back to ours when they have not set one.
+    if (logo) {
+      var ico = document.querySelector('link[rel="icon"]');
+      if (ico) ico.href = logo;
+    }
     // A logo is a thing somebody paid to have drawn. Cropping it is almost always wrong, so unlike
     // the main photo this one shows all of it unless they say otherwise.
     var logoFit = c.logo_fit === "fill" ? "fill" : "fit";
@@ -533,29 +537,19 @@
         // finish at the same line. Dale, 26 Sep: "so it stays level with the 10 years amd manual dual
         // controlled car". Two rows of chips at the same height read as one row; staggered they read as
         // a mistake.
-        '<div class="stats">' + statCells.map(function(st){
+        '<div class="stats" id="areas">' + statCells.map(function(st){
           return '<div class="stat"><div class="v">' + esc(st[0]) + '</div><div class="l">' + esc(st[1]) + '</div></div>';
-        }).join("") + '</div>' +
+        }).join("") +
+        (areas.length ? '<span class="areas-label">Where I teach</span>' +
+          areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") : '') +
+        '</div>' +
         '</div>' +
         // Dale, 26 Sep, pointing at the gap beside the stats: "where i teach should move to below the
         // photo". Literally below the photo, in that column - not as its own band underneath, which is
         // what it got the first time and left the hole still sitting there.
-        (c.photo_url ? '<div class="hero-side">' +
-          '<div class="shot' + (c.photo_fit === "fit" ? " fit" : "") + '"><img src="' +
-            esc(c.photo_url) + '" alt="" style="' + photoFitStyle(c) + '"></div>' +
-          (areas.length ? '<div class="hero-areas" id="areas"><h3>Where I teach</h3>' +
-            '<p>Not sure if I cover you? Just ask.</p><div class="areas">' +
-            areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") +
-            '</div></div>' : '') +
-        '</div>' : '') +
+        (c.photo_url ? '<div class="shot' + (c.photo_fit === "fit" ? " fit" : "") + '"><img src="' +
+          esc(c.photo_url) + '" alt="" style="' + photoFitStyle(c) + '"></div>' : '') +
       '</section>' +
-
-      // Without a photo the hero is one full-width column, so there is nowhere to tuck this and it
-      // goes back to being a band of its own.
-      (areas.length && !c.photo_url ? '<section class="band" id="areas" style="border-top:0;padding-top:0"><h2>Where I teach</h2>' +
-        '<p class="sub">Not sure if I cover you? Just ask.</p><div class="areas">' +
-        areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") +
-        '</div></section>' : '') +
 
       (feats.length ? '<section class="band" id="about"><h2>' + esc(c.about_heading || "More than just passing your test") + '</h2>' +
         (c.about_sub ? '<p class="sub">' + esc(c.about_sub) + '</p>' : '') +

@@ -79,8 +79,22 @@
   .phone-link{font-weight:700;color:var(--ink);text-decoration:none;font-size:1.05rem}
   .shot{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(21,32,43,.09)}
   .hero > .shot{align-self:start}
+  /* The three designs are three shapes, not one shape in three colour schemes (Dale, 26 Sep: "do the
+     layout as advertised"). Classic puts a landscape photo beside the words; Bold runs the words full
+     width with a letterbox photo under them; Calm stands a portrait next to them. Those are what the
+     example pages show, and somebody choosing Bold off that page has to get Bold.
+
+     Done in CSS rather than by branching the markup: one set of elements, three sets of rules, so a fix
+     to the hero cannot land on one design and miss the other two. */
+  [data-template="bold"] .hero{grid-template-columns:1fr;gap:26px}
+  [data-template="bold"] .shot{border-radius:10px;box-shadow:none;margin-top:22px}
+  [data-template="bold"] .shot img{aspect-ratio:21/8}
+  [data-template="calm"] .hero{gap:48px}
+  [data-template="calm"] .shot{border-radius:24px;border:0;box-shadow:none}
+  [data-template="calm"] .shot img{aspect-ratio:4/5}
   .shot img{width:100%;aspect-ratio:4/3;object-fit:cover}
   .areas-label{align-self:center;color:var(--muted);font-size:.86rem;font-weight:600;margin-left:6px}
+  @media(max-width:640px){.areas-label{flex-basis:100%;margin:6px 0 0}}
   /* "Show all of it" inside a fixed 4:3 frame leaves a band of empty card under the picture, which
      reads as a mistake rather than a choice. The frame takes the photo's own shape instead. */
   .shot.fit img{aspect-ratio:auto;height:auto;object-fit:contain}

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Driving lessons</title>
+<link rel="icon" type="image/png" href="drivemyway-favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=Archivo:wght@500;700;800;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* One page renders all three templates. The palette and fonts swap on a data-template attribute
+     rather than there being three pages to keep in step — a fix to the layout then reaches every
+     instructor at once, which is the whole reason the sites are rendered rather than generated. */
+  :root{
+    --ink:#15202B; --muted:#5A6570; --paper:#F6F4EF; --card:#FFFFFF; --line:#E3DED4;
+    --accent:#9C4517; --accent-ink:#FFFFFF; --chip:#EDE7DB; --chip-ink:#6B4A2A;
+    --head:"Fraunces",Georgia,serif; --body:"Public Sans",Arial,sans-serif; --radius:16px;
+  }
+  [data-template="bold"]{
+    --ink:#FFFFFF; --muted:#9A9A9A; --paper:#0E0E0E; --card:#1A1A1A; --line:#2C2C2C;
+    --accent:#D7F24A; --accent-ink:#111111; --chip:#1A1A1A; --chip-ink:#D7F24A;
+    --head:"Archivo",Arial,sans-serif; --body:"Archivo",Arial,sans-serif; --radius:8px;
+  }
+  [data-template="calm"]{
+    --ink:#26332B; --muted:#5F7367; --paper:#F4F8F4; --card:#FFFFFF; --line:#DCE7DD;
+    --accent:#6E9478; --accent-ink:#FFFFFF; --chip:#E6EEE7; --chip-ink:#3F5E48;
+    --head:"Nunito",Arial,sans-serif; --body:"Nunito",Arial,sans-serif; --radius:20px;
+  }
+  *{box-sizing:border-box;max-width:100%}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--body);line-height:1.6;overflow-x:hidden}
+  h1,h2,h3{font-family:var(--head);margin:0}
+  [data-template="bold"] h1,[data-template="bold"] h2{text-transform:uppercase;letter-spacing:-.03em;font-weight:900}
+  a{color:var(--accent)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  .btn{display:inline-block;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:700;padding:13px 24px;border-radius:calc(var(--radius) - 6px);border:0;cursor:pointer;font:inherit;font-weight:700}
+  header.s{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+  .nav{display:flex;align-items:center;gap:18px;padding:14px 0;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px;flex-grow:1;min-width:0}
+  .mark{width:42px;height:42px;border-radius:calc(var(--radius) - 6px);background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-family:var(--head);font-weight:800;flex-shrink:0;overflow:hidden}
+  .mark img{width:100%;height:100%;object-fit:cover}
+  .bname{font-family:var(--head);font-weight:700;font-size:1.15rem;line-height:1.15}
+  .bsub{font-size:.78rem;color:var(--muted)}
+  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;padding:60px 0 52px}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:var(--chip);color:var(--chip-ink);border-radius:999px;padding:7px 14px;font-size:.82rem;font-weight:700}
+  .hero h1{font-size:3rem;line-height:1.06;margin:18px 0}
+  .lead{font-size:1.06rem;color:var(--muted);margin:0 0 24px}
+  .acts{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .tel{font-weight:800;color:var(--ink);text-decoration:none}
+  .shot{aspect-ratio:4/3;background:var(--chip);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;color:var(--muted);overflow:hidden}
+  .shot img{width:100%;height:100%;object-fit:cover}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;padding-bottom:50px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;text-align:center}
+  .stat .v{font-family:var(--head);font-size:1.8rem;font-weight:700;line-height:1;color:var(--accent)}
+  .stat .l{font-size:.82rem;color:var(--muted);margin-top:6px}
+  section.band{padding:52px 0;border-top:1px solid var(--line)}
+  .band h2{font-size:1.9rem;margin-bottom:8px}
+  .sub{color:var(--muted);margin:0 0 26px;max-width:640px}
+  .areas{display:flex;flex-wrap:wrap;gap:10px}
+  .area{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 18px;font-weight:600}
+  .passes{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .pass{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .pass .img{aspect-ratio:11/12;background:var(--chip);overflow:hidden}
+  .pass .img img{width:100%;height:100%;object-fit:cover;display:block}
+  .pass .b{padding:13px 15px}
+  .pass .who{font-family:var(--head);font-weight:700}
+  .pass .when{font-size:.78rem;color:var(--muted);margin-bottom:6px}
+  .pass p{margin:0;font-size:.9rem;color:var(--muted)}
+  .prices{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px}
+  .price{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;text-align:center}
+  .price .l{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+  .price .a{font-family:var(--head);font-size:2.3rem;font-weight:700;line-height:1;margin:8px 0}
+  .price .n{color:var(--muted);font-size:.88rem}
+  .cta{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:32px;text-align:center}
+  footer.s{border-top:1px solid var(--line);padding:30px 0;color:var(--muted);font-size:.88rem;text-align:center}
+  .loading,.gone{padding:80px 20px;text-align:center;color:var(--muted)}
+  @media(max-width:900px){
+    .hero{grid-template-columns:1fr;gap:28px;padding:34px 0}
+    .hero h1{font-size:2.1rem}
+    .passes{grid-template-columns:repeat(2,1fr)}
+    .band h2{font-size:1.5rem}
+  }
+</style>
+</head>
+<body>
+<div id="root"><div class="loading">Loading…</div></div>
+
+<script>
+(function(){
+  var SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
+  var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4Y3FteXhicGp1ZWV6YXBrbmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUxNzAsImV4cCI6MjEwMTY4MTE3MH0.Qk46wzUGpDHlsqGvsImE9HdrrosL3ERKVbxDUsP4A30";
+  var q = new URLSearchParams(location.search);
+  var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  var root = document.getElementById("root");
+  var esc = function(t){ return String(t == null ? "" : t).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
+
+  // A site is found by its subdomain, OR by instructor id while it is being previewed from the
+  // Control Centre before any DNS exists.
+  var sub = (q.get("s") || "").trim();
+  var id  = (q.get("i") || "").trim();
+  // Live on their own address: the subdomain is the first label of the hostname.
+  if (!sub && !id && /\.drivemyway\.co\.uk$/i.test(location.hostname) && location.hostname.split(".").length > 3) {
+    sub = location.hostname.split(".")[0];
+  }
+  if (!sub && (!id || !uuid.test(id))) return gone();
+
+  // pass_wall returns a date; the wall shows a month, because "Passed in September" reads like a
+  // person and "2026-09-04" reads like a database.
+  function passedLabel(iso){
+    if (!iso) return "";
+    var d = new Date(String(iso).slice(0,10) + "T12:00:00");
+    if (isNaN(d.getTime())) return "";
+    return "Passed in " + d.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  }
+
+  function gone(){
+    root.innerHTML = '<div class="gone">This page isn’t available.</div>';
+  }
+
+  fetch(SUPABASE_URL + "/rest/v1/rpc/instructor_site_public", {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON, Authorization: "Bearer " + SUPABASE_ANON, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_subdomain: sub || null, p_instructor: sub ? null : id })
+  }).then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){ d ? draw(d) : gone(); })
+    .catch(gone);
+
+  function draw(d){
+    var c = d.content || {};
+    var name = d.name || "Driving lessons";
+    document.title = name + (c.town ? " — driving lessons in " + c.town : "");
+    document.documentElement.setAttribute("data-template", d.template || "classic");
+    if (d.accent) document.documentElement.style.setProperty("--accent", d.accent);
+
+    var initials = name.split(/\s+/).map(function(w){ return w[0]; }).join("").slice(0,2).toUpperCase();
+    var areas = Array.isArray(c.areas) ? c.areas : [];
+    var prices = Array.isArray(c.prices) ? c.prices : [];
+    var passes = Array.isArray(d.passes) ? d.passes : [];
+    var stats = c.stats || {};
+    var gearbox = c.gearbox === "automatic" ? "Automatic" : c.gearbox === "both" ? "Manual and automatic" : "Manual";
+    var enquiry = "https://web.drivemyway.co.uk/enquiry-form.html?i=" + encodeURIComponent(d.instructor_id);
+
+    // Only sections with something in them are drawn. A half-filled site should look short, never
+    // broken, and never show an empty heading.
+    var statCells = [];
+    if (stats.pass_rate) statCells.push(["" + stats.pass_rate, "First-time pass rate"]);
+    if (stats.reviews)   statCells.push(["" + stats.reviews, "Five-star reviews"]);
+    if (stats.years)     statCells.push(["" + stats.years, "Years teaching"]);
+    statCells.push([gearbox, "Dual-controlled car"]);
+
+    root.innerHTML =
+      '<header class="s"><div class="wrap nav">' +
+        '<div class="brand"><div class="mark">' +
+          (d.logo_url ? '<img src="' + esc(d.logo_url) + '" alt="">' : esc(initials)) +
+        '</div><div><div class="bname">' + esc(name) + '</div>' +
+        '<div class="bsub">' + esc(gearbox) + ' tuition</div></div></div>' +
+        '<a class="btn" href="' + enquiry + '">Enquire now</a>' +
+      '</div></header>' +
+
+      '<div class="wrap"><section class="hero"><div>' +
+        '<span class="chip">DVSA approved instructor</span>' +
+        '<h1>' + esc(c.tagline || ("Learn to drive" + (c.town ? " in " + c.town : ""))) + '</h1>' +
+        (c.about ? '<p class="lead">' + esc(c.about) + '</p>' : '') +
+        '<div class="acts"><a class="btn" href="' + enquiry + '">Book your first lesson</a>' +
+        (c.phone ? '<a class="tel" href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a>' : '') +
+        '</div></div>' +
+        '<div class="shot">' + (c.photo_url ? '<img src="' + esc(c.photo_url) + '" alt="">' : "") + '</div>' +
+      '</section>' +
+
+      '<section class="stats">' + statCells.map(function(s){
+        return '<div class="stat"><div class="v">' + esc(s[0]) + '</div><div class="l">' + esc(s[1]) + '</div></div>';
+      }).join("") + '</section>' +
+
+      (passes.length ? '<section class="band"><h2>Recent passes</h2>' +
+        '<p class="sub">Added the day they passed, in their own words.</p><div class="passes">' +
+        passes.slice(0, 12).map(function(p){
+          // Older photos imported from the instructor's own gallery have no name, date or words.
+          // Drawing the caption block anyway left an empty white strip under every one of them.
+          var when = passedLabel(p.passed_on);
+          var body = (p.first_name || when || p.words)
+            ? '<div class="b">' +
+              (p.first_name ? '<div class="who">' + esc(p.first_name) + '</div>' : '') +
+              (when ? '<div class="when">' + esc(when) + '</div>' : '') +
+              (p.words ? '<p>' + esc(p.words) + '</p>' : '') + '</div>'
+            : '';
+          return '<div class="pass"><div class="img">' +
+            (p.photo_url ? '<img src="' + esc(p.photo_url) + '" alt="" loading="lazy">' : "") +
+            '</div>' + body + '</div>';
+        }).join("") + '</div></section>' : '') +
+
+      (areas.length ? '<section class="band"><h2>Where I teach</h2>' +
+        '<p class="sub">Not sure if I cover you? Just ask.</p><div class="areas">' +
+        areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") +
+        '</div></section>' : '') +
+
+      (prices.length ? '<section class="band"><h2>Prices</h2><div class="prices">' +
+        prices.map(function(pr){
+          return '<div class="price"><div class="l">' + esc(pr.label || "") + '</div>' +
+            '<div class="a">' + esc(pr.amount || "") + '</div>' +
+            (pr.note ? '<div class="n">' + esc(pr.note) + '</div>' : '') + '</div>';
+        }).join("") + '</div></section>' : '') +
+
+      '<section class="band"><div class="cta"><h2>Ready to get started?</h2>' +
+        '<p class="sub" style="margin:10px auto 20px">Fill this in and it comes straight through to me. ' +
+        'I’ll get back to you with when I can fit you in.</p>' +
+        '<a class="btn" href="' + enquiry + '">Enquire now</a></div></section></div>' +
+
+      '<footer class="s"><div class="wrap">' + esc(name) +
+        (c.phone ? " · " + esc(c.phone) : "") +
+        '<br><a href="https://drivemyway.co.uk">Website by Drive My Way</a></div></footer>';
+  }
+})();
+</script>
+</body>
+</html>

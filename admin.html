@@ -275,6 +275,9 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .sf-strip{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem;margin:.8rem 0 1.2rem}
 .sf-head{margin:1.4rem 0 .6rem;font-size:1rem}
 .sf-row{margin-bottom:.8rem;max-width:560px}
+.sf-addr{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;max-width:560px}
+.sf-addr .sf-in{width:auto;flex:1 1 11rem;min-width:9rem;text-align:right}
+.sf-addr-tail{color:var(--muted);white-space:nowrap}
 .sf-row.wide{max-width:none}
 .sf-row label{display:block;font-size:.82rem;font-weight:700;margin-bottom:.25rem}
 .sf-in{width:100%;padding:.55rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;font:inherit}
@@ -5736,6 +5739,7 @@ async function loadWebsiteEditor(append){
     if (def) { siteRow.content = def; }
   }
   renderWebsiteEditor();
+  ensureSiteSubdomain();
 }
 
 function siteField(key, label, hint, type){
@@ -5886,8 +5890,19 @@ function renderWebsiteEditor(){
 
   <div class="panel">
     <h3 style="margin-top:0">Your web address</h3>
-    <p class="muted">Your site already works on <strong>${esc(siteRow.subdomain||"")}.drivemyway.co.uk</strong>.
-      If you have bought your own, put it in here and we will set it up.</p>
+    <p class="muted">Every site comes with a free drivemyway address. Change it to whatever you like —
+      it is yours the moment you save it, and it keeps working even if you buy your own later.</p>
+    <div class="sf-addr">
+      <input id="sf-sub" class="sf-in" value="${esc(siteRow.subdomain||"")}" placeholder="yourschool"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();saveSiteSubdomain()}">
+      <span class="sf-addr-tail">.drivemyway.co.uk</span>
+      <button class="btn btn-navy btn-sm" onclick="saveSiteSubdomain()">Use this</button>
+    </div>
+    <div id="sf-sub-out" style="margin-top:.6rem">${subStatusHtml(siteRow)}</div>
+
+    <h4 class="sf-head" style="margin-top:1.8rem;font-size:.95rem">Bought your own address?</h4>
+    <p class="muted">Put it in here and we will set it up. You buy the address itself wherever you like
+      — about £10 a year — and it stays yours.</p>
     <div class="sf-row" style="max-width:420px">
       <input id="sf-domain" class="sf-in" value="${esc(siteRow.domain||"")}" placeholder="yourschool.co.uk">
     </div>
@@ -6220,6 +6235,76 @@ async function toggleSitePublished(){
   if (error){ alert(error.message); return; }
   siteRow.published = next;
   renderWebsiteEditor();
+}
+
+/**
+ * Everything to do with a web address goes through the one edge function, because the Vercel token
+ * cannot live in this page where anybody could read it out of the source.
+ */
+async function siteAddrCall(body){
+  const {data: sess} = await sb.auth.getSession();
+  const res = await fetch("https://cxcqmyxbpjueezapknim.supabase.co/functions/v1/instructor-site-domain", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + (sess?.session?.access_token || "") },
+    body: JSON.stringify(body)
+  });
+  return { ok: res.ok, data: await res.json().catch(() => ({})) };
+}
+
+/**
+ * What it says under the address box. "Ready" is not cosmetic: a drivemyway address resolves the
+ * moment it is invented, because the wildcard DNS record covers the lot — but until the exact name is
+ * registered, a visitor gets a certificate warning, which looks far worse than a site that is simply
+ * not there yet. So the two states are told apart rather than both called live.
+ */
+function subStatusHtml(row){
+  if (!row || !row.subdomain) return '<span class="muted">Pick an address above and your site is live on it.</span>';
+  const url = "https://" + row.subdomain + ".drivemyway.co.uk";
+  if (!row.subdomain_ready) return '<span class="muted">Setting this address up… it takes a few seconds.</span>';
+  return 'Your site is at <a href="' + url + '" target="_blank" rel="noopener"><strong>' +
+    esc(row.subdomain) + '.drivemyway.co.uk</strong></a>';
+}
+
+/**
+ * Claim or change the free address. The edge function does the checking — taken, reserved, wrong
+ * shape — so the message here is whatever it said, rather than this page guessing the rules and the
+ * two disagreeing later.
+ */
+async function saveSiteSubdomain(){
+  const out = document.getElementById("sf-sub-out");
+  const want = (document.getElementById("sf-sub").value || "").trim();
+  if (!want){ out.innerHTML = '<span class="muted">Type the address you want first.</span>'; return; }
+  const before = siteRow.subdomain;
+  out.innerHTML = '<span class="muted">Setting it up…</span>';
+  try{
+    const {ok, data} = await siteAddrCall({ action: "subdomain", subdomain: want });
+    if (!ok){ out.innerHTML = '<span style="color:#b91c1c">' + esc(data.error || "That did not work.") + '</span>'; return; }
+    siteRow.subdomain = data.subdomain;
+    siteRow.subdomain_ready = !!data.ready;
+    out.innerHTML = subStatusHtml(siteRow) +
+      (before && before !== data.subdomain
+        ? '<div class="muted" style="font-size:.8rem;margin-top:.35rem">Your old address, ' +
+          esc(before) + '.drivemyway.co.uk, has stopped working. Anywhere you have written it down ' +
+          'will need changing.</div>'
+        : "");
+  }catch(e){ out.innerHTML = '<span style="color:#b91c1c">' + esc(String(e)) + '</span>'; }
+}
+
+/**
+ * Self-healing, run every time the Website tab opens. An address set before any of this existed —
+ * or one whose registration failed halfway through — fixes itself quietly instead of sitting there
+ * broken until a customer rings up. Says nothing when there was nothing to do.
+ */
+async function ensureSiteSubdomain(){
+  if (!siteRow || !siteRow.subdomain || siteRow.subdomain_ready) return;
+  try{
+    const {data} = await siteAddrCall({ action: "ensure" });
+    if (data && data.ready){
+      siteRow.subdomain_ready = true;
+      const out = document.getElementById("sf-sub-out");
+      if (out) out.innerHTML = subStatusHtml(siteRow);
+    }
+  }catch(e){ /* it will try again next time the tab is opened */ }
 }
 
 // Attaching is done by an edge function, because the Vercel token cannot live in this page.

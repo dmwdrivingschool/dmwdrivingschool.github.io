@@ -302,6 +302,8 @@ textarea.sf-in{resize:vertical;overflow:hidden;min-height:2.6rem}
 .sf-pic-box{background:var(--bg);border:1px dashed var(--line);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:.6rem;color:var(--muted);font-size:.78rem;text-align:center}
 .sf-pic-box.sq{aspect-ratio:1/1}
 .sf-pic-box.wide{aspect-ratio:4/3}
+.sf-pic-box.wide.fit{aspect-ratio:auto;min-height:90px}
+.sf-pic-box.wide.fit img{height:auto}
 .sf-pic-box img{width:100%;height:100%;object-fit:cover;display:block}
 .sf-pic strong{display:block;font-size:.9rem}
 .sf-pic .muted{font-size:.78rem;margin:.15rem 0 .5rem}
@@ -5851,7 +5853,7 @@ function renderWebsiteEditor(){
         </div>` : ""}
       </div>
       <div class="sf-pic">
-        <div class="sf-pic-box wide">${c.photo_url ? `<img src="${esc(c.photo_url)}" alt="" style="${photoFitStyle(c)}">` : "No photo yet — the top of your page will be full width without one"}</div>
+        <div class="sf-pic-box wide${c.photo_fit === "fit" ? " fit" : ""}">${c.photo_url ? `<img src="${esc(c.photo_url)}" alt="" style="${photoFitStyle(c)}">` : "No photo yet — the top of your page will be full width without one"}</div>
         <strong>Main photo</strong>
         <div class="muted">Goes at the top of the page, beside your name.</div>
         <div class="sf-pic-btns">
@@ -5880,7 +5882,7 @@ function renderWebsiteEditor(){
     ${siteField("about","A few lines about how you teach","Two or three sentences is plenty.","area")}
     ${siteField("town","Your town","")}
     ${siteField("phone","Phone number","")}
-    ${siteField("passes_label","What to call your passes page","Shows in the menu at the top and as the heading. Leave it blank for “Passes”.")}
+    ${siteField("passes_label","What to call your passes page","Your photos and your pupils’ reviews both live on this page, so plenty of people call it Testimonials or Wall of Fame. It sets the menu at the top and the heading. Blank for “Passes”.")}
     <div class="sf-row"><label for="sf-areas">Areas you cover</label>
       <input id="sf-areas" class="sf-in" value="${esc(areas)}">
       <div class="muted" style="font-size:.78rem">Separate them with commas.</div></div>

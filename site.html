@@ -78,6 +78,9 @@
   .phone-link{font-weight:700;color:var(--ink);text-decoration:none;font-size:1.05rem}
   .shot{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(21,32,43,.09)}
   .shot img{width:100%;aspect-ratio:4/3;object-fit:cover}
+  /* "Show all of it" inside a fixed 4:3 frame leaves a band of empty card under the picture, which
+     reads as a mistake rather than a choice. The frame takes the photo's own shape instead. */
+  .shot.fit img{aspect-ratio:auto;height:auto;object-fit:contain}
 
   .stats{display:flex;flex-wrap:wrap;gap:10px;padding:0 0 52px}
   .stat{display:inline-flex;align-items:baseline;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:10px 20px}
@@ -407,11 +410,12 @@
     var passLabel = String(c.passes_label || "").trim() || "Passes";
     var enquiry = "https://web.drivemyway.co.uk/enquiry-form.html?i=" + encodeURIComponent(d.instructor_id);
 
+    // In the order the page itself runs, so the menu is a map of the page rather than a separate list.
     var navBits = [];
-    if (feats.length)  navBits.push('<a href="' + urlFor("") + '#about">About</a>');
     if (areas.length)  navBits.push('<a href="' + urlFor("") + '#areas">Areas</a>');
-    if (prices.length) navBits.push('<a href="' + urlFor("") + '#prices">Prices</a>');
+    if (feats.length)  navBits.push('<a href="' + urlFor("") + '#about">About</a>');
     if (passes.length) navBits.push('<a href="' + urlFor("passes") + '">' + esc(passLabel) + '</a>');
+    if (prices.length) navBits.push('<a href="' + urlFor("") + '#prices">Prices</a>');
     navBits.push('<a href="' + urlFor("app") + '">The app</a>');
 
     var header =
@@ -437,7 +441,7 @@
       document.title = passLabel + " — " + name;
       root.innerHTML = header +
         '<div class="wrap"><section class="page-head"><h1>' + esc(passLabel) + '</h1>' +
-        '<p class="sub">Every one of them, added the day they passed.</p></section>' +
+        '<p class="sub">Every photo and every review, added the day they passed.</p></section>' +
         '<section class="band" style="border-top:0;padding-top:0"><div class="passes">' +
           passes.map(passCard).join("") +
         '</div><div class="more-passes"><a class="btn btn-quiet" href="' + urlFor("") + '">← Back to the main page</a></div>' +
@@ -512,12 +516,18 @@
         '<div class="hero-actions"><a class="btn" href="' + enquiry + '">Book your first lesson</a>' +
         (c.phone ? '<a class="phone-link" href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a>' : '') +
         '</div></div>' +
-        (c.photo_url ? '<div class="shot"><img src="' + esc(c.photo_url) + '" alt="" style="' + photoFitStyle(c) + '"></div>' : '') +
+        (c.photo_url ? '<div class="shot' + (c.photo_fit === "fit" ? " fit" : "") + '"><img src="' +
+          esc(c.photo_url) + '" alt="" style="' + photoFitStyle(c) + '"></div>' : '') +
       '</section>' +
 
       '<section class="stats">' + statCells.map(function(s){
         return '<div class="stat"><div class="v">' + esc(s[0]) + '</div><div class="l">' + esc(s[1]) + '</div></div>';
       }).join("") + '</section>' +
+
+      (areas.length ? '<section class="band" id="areas" style="border-top:0;padding-top:0"><h2>Where I teach</h2>' +
+        '<p class="sub">Not sure if I cover you? Just ask.</p><div class="areas">' +
+        areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") +
+        '</div></section>' : '') +
 
       (feats.length ? '<section class="band" id="about"><h2>' + esc(c.about_heading || "More than just passing your test") + '</h2>' +
         (c.about_sub ? '<p class="sub">' + esc(c.about_sub) + '</p>' : '') +
@@ -528,16 +538,13 @@
       // Four on the home page, the rest on their own page. Dale, 26 Sep: the wall is the best thing
       // they have, but not seventy photos before anybody has read the prices.
       (passes.length ? '<section class="band" id="passes"><h2>' + esc(passLabel) + '</h2>' +
-        '<p class="sub">Added the day they passed, in their own words.</p><div class="passes">' +
+        '<p class="sub">Added the day they passed, in their own words.' +
+          (passes.length > 4 ? ' All of them, and their reviews, are under <strong>' + esc(passLabel) + '</strong>.' : '') +
+        '</p><div class="passes">' +
         passes.slice(0, 4).map(passCard).join("") + '</div>' +
         (passes.length > 4 ? '<div class="more-passes"><a class="btn btn-quiet" href="' + urlFor("passes") +
-          '">See all ' + passes.length + '</a></div>' : '') +
+          '">See all ' + passes.length + ' photos and reviews</a></div>' : '') +
         '</section>' : '') +
-
-      (areas.length ? '<section class="band" id="areas"><h2>Where I teach</h2>' +
-        '<p class="sub">Not sure if I cover you? Just ask.</p><div class="areas">' +
-        areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") +
-        '</div></section>' : '') +
 
       (prices.length ? '<section class="band" id="prices"><h2>Prices</h2><div class="prices">' +
         prices.map(function(pr){

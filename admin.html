@@ -980,11 +980,11 @@ tbody tr:hover td{background:#334263}
     <section id="tab-website" class="hidden">
       <div id="website-offer"></div>
       <div class="panel" id="website-photos-panel">
-        <h2>Website photos</h2>
-        <p class="muted" style="margin-bottom:1rem">
+        <h2 id="website-photos-title">Website photos</h2>
+        <p class="muted" id="website-photos-intro" style="margin-bottom:1rem">
           Upload photos to Supabase Storage. They appear instantly on the home-page carousel and the Pass Photos page — no GitHub upload needed.
         </p>
-        <div class="tabs-sub">
+        <div class="tabs-sub" id="website-photos-tabs">
           <button type="button" class="on" onclick="websiteShow('carousel',this)">Carousel (home)</button>
           <button type="button" onclick="websiteShow('gallery',this)">Pass wall</button>
         </div>
@@ -5743,6 +5743,10 @@ async function ccRemovePhoto(path, fallbackBucket){
 }
 
 let siteRow = null;
+// Open or shrunk to two buttons (Dale, 26 Sep: "once save it should shrink it to buttons preview and
+// edit"). null means work it out from the row: somebody who has saved before wants to look at their
+// site, not re-read a form they have already filled in, so they get the short version.
+let siteEditorOpen = null;
 // On a trial the countdown sits above the editor, so the editor adds to the panel rather than
 // replacing it — a trial you cannot edit tells the instructor nothing about the product.
 let websiteEditorAppend = false;
@@ -5778,20 +5782,31 @@ function renderWebsiteEditor(){
   const areas = Array.isArray(c.areas) ? c.areas.join(", ") : "";
   const prices = Array.isArray(c.prices) ? c.prices : [];
 
+  if (siteEditorOpen === null){
+    // Saved at least once? updated_at only moves when something is written, so it is the one honest
+    // answer available without keeping a flag of our own.
+    const saved = siteRow.updated_at && siteRow.created_at
+      && (new Date(siteRow.updated_at) - new Date(siteRow.created_at)) > 5000;
+    siteEditorOpen = !saved;
+  }
+
   const html = `<div class="panel">
     <h2>Your website</h2>
-    <p class="muted">Everything here is yours to change, and it goes live the moment you save.</p>
+    <p class="muted">${siteEditorOpen
+      ? "Everything here is yours to change, and it goes live the moment you save."
+      : "Have a look at it, or open it up and change anything you like."}</p>
 
     <div class="sf-strip">
       <div><strong>${siteRow.published ? "Live" : "Not live yet"}</strong>
         <div class="muted" style="font-size:.82rem">${addr ? esc(addr) : "No address set up yet"}</div></div>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
         <a class="btn-outline btn-sm" href="${preview}" target="_blank" rel="noopener">Preview</a>
+        ${siteEditorOpen ? "" : `<button class="btn btn-navy btn-sm" onclick="openSiteEditor()">Edit</button>`}
         <button class="btn ${siteRow.published ? "btn-outline" : "btn-navy"} btn-sm" onclick="toggleSitePublished()">
           ${siteRow.published ? "Take it offline" : "Put it live"}</button>
       </div>
     </div>
-
+    ${!siteEditorOpen ? "" : `
     <h3 class="sf-head">Which design</h3>
     <div class="tpl-row">
       ${[["classic","Classic"],["bold","Bold"],["calm","Calm"]].map(([slug,name])=>`
@@ -5815,7 +5830,7 @@ function renderWebsiteEditor(){
         </div>
       </div>
       <div class="sf-pic">
-        <div class="sf-pic-box wide">${c.photo_url ? `<img src="${esc(c.photo_url)}" alt="">` : "No photo yet — the top of your page will be full width without one"}</div>
+        <div class="sf-pic-box wide">${c.photo_url ? `<img src="${esc(c.photo_url)}" alt="" style="${photoFitStyle(c)}">` : "No photo yet — the top of your page will be full width without one"}</div>
         <strong>Main photo</strong>
         <div class="muted">Goes at the top of the page, beside your name.</div>
         <div class="sf-pic-btns">
@@ -5823,6 +5838,18 @@ function renderWebsiteEditor(){
             <input type="file" accept="image/*" style="display:none" onchange="uploadSitePhoto(event,'photo')"></label>
           ${c.photo_url ? `<button class="btn-outline btn-sm" onclick="removeSitePhoto('photo')">Remove</button>` : ""}
         </div>
+        ${c.photo_url ? `<div style="margin-top:.6rem;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
+          <select class="sf-in" style="width:auto;padding:.3rem .4rem;font-size:.8rem" onchange="setPhotoFit('photo_fit',this.value)">
+            <option value="fill"${(c.photo_fit||"fill")==="fill"?" selected":""}>Fill the space</option>
+            <option value="fit"${c.photo_fit==="fit"?" selected":""}>Show all of it</option>
+          </select>
+          ${(c.photo_fit||"fill")==="fill" ? `<select class="sf-in" style="width:auto;padding:.3rem .4rem;font-size:.8rem" onchange="setPhotoFit('photo_pos',this.value)">
+            <option value="top"${c.photo_pos==="top"?" selected":""}>Keep the top</option>
+            <option value="center"${(c.photo_pos||"center")==="center"?" selected":""}>Keep the middle</option>
+            <option value="bottom"${c.photo_pos==="bottom"?" selected":""}>Keep the bottom</option>
+          </select>` : ""}
+          <span class="muted" style="font-size:.75rem">This box shows exactly what your page will show.</span>
+        </div>` : ""}
       </div>
     </div>
     <div class="muted" id="sf-pic-out" style="font-size:.8rem;min-height:1.1rem"></div>
@@ -5864,7 +5891,7 @@ function renderWebsiteEditor(){
     <div class="set-save" style="margin-top:1.2rem">
       <button class="btn btn-navy" onclick="saveWebsiteEditor()">Save</button>
       <div class="err" id="sf-err" style="display:block"></div>
-    </div>
+    </div>`}
   </div>
 
   <div class="panel">
@@ -5915,6 +5942,37 @@ function addPriceRow(){
   const box = document.getElementById("sf-prices");
   box.insertAdjacentHTML("beforeend", priceRowHtml({}, box.children.length));
 }
+/**
+ * How the main photo sits in the space it is given (Dale, 26 Sep: "main photo should fit to size or
+ * give option to crop").
+ *
+ * A wide box and a photo that is not that shape means one of two things has to give: crop it, or letterbox
+ * it. Filling is right for a photo of somebody next to their car, which is what most of these will be, so
+ * it stays the default — but it cut the edges off the first thing Dale tried, and there was no way to say
+ * so. Now there is, plus which part to keep, because the head is usually near the top and the middle is
+ * the wrong guess for a portrait photo.
+ *
+ * The same style is used in the editor's preview and on the page itself, so the little box is not a
+ * flattering lie about what a visitor will see.
+ */
+function photoFitStyle(c){
+  const fit = c && c.photo_fit === "fit" ? "contain" : "cover";
+  const pos = ["top","center","bottom"].includes(c && c.photo_pos) ? c.photo_pos : "center";
+  return "object-fit:" + fit + ";object-position:center " + pos;
+}
+
+// Saved on the spot like the photo itself: a dropdown that needs a separate Save to mean anything is a
+// dropdown people will believe they have already used.
+async function setPhotoFit(key, value){
+  if (!siteRow) return;
+  const content = Object.assign({}, collectSiteContent(), {[key]: value});
+  const {error} = await sb.from("instructor_sites")
+    .update({content, template: siteRow.template}).eq("instructor_id", currentUserId);
+  if (error){ alert(error.message); return; }
+  siteRow.content = content;
+  renderWebsiteEditor();
+}
+
 /**
  * Uploading a photo saves the whole page with it, on purpose. Everything typed above is collected first,
  * so a photo chosen halfway through writing an "about" paragraph does not throw the paragraph away when
@@ -5978,6 +6036,9 @@ function setSiteTemplate(slug){
 }
 
 function collectSiteContent(){
+  // The form is not rendered while the editor is shrunk, and every field would read back as empty --
+  // so a photo uploaded from the collapsed view would save a blank page over the top of their work.
+  if (!document.getElementById("sf-tagline")) return Object.assign({}, siteRow && siteRow.content || {});
   const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
   const prices = [...document.querySelectorAll("#sf-prices .sf-price")].map(row=>{
     const o = {};
@@ -6013,7 +6074,25 @@ async function saveWebsiteEditor(){
     .update({ content, template: siteRow.template }).eq("instructor_id", currentUserId);
   if (error){ if (err) err.textContent = error.message; return; }
   siteRow.content = content;
-  if (err){ err.style.color = "#15803d"; err.textContent = "Saved."; }
+  siteRow.updated_at = new Date().toISOString();
+  // Saving is what finishes editing, so the form gets out of the way. Nothing is lost by it -- Edit
+  // brings it straight back with everything in it.
+  siteEditorOpen = false;
+  renderWebsiteEditor();
+  const after = document.getElementById("website-offer");
+  if (after){
+    const note = document.createElement("div");
+    note.className = "muted";
+    note.style.cssText = "color:#15803d;font-weight:700;margin-top:.4rem";
+    note.textContent = "Saved.";
+    const panel = after.querySelector(".sf-strip");
+    if (panel) panel.insertAdjacentElement("afterend", note);
+  }
+}
+
+function openSiteEditor(){
+  siteEditorOpen = true;
+  renderWebsiteEditor();
 }
 
 async function toggleSitePublished(){
@@ -18356,9 +18435,26 @@ async function refreshWebsiteEntitlement(){
   const canSee = isSuperAdminUser || !!(websiteEnt && (websiteEnt.can_buy || websiteEnt.website
                  || websiteEnt.pass_wall || websiteEnt.in_trial || websiteEnt.trial_expired));
   if (btn) btn.classList.toggle("hidden", !canSee);
-  // Dale's own photo tools stay super-admin only; everyone else gets the offer or their own site.
+  // The pass wall belongs under the website, not in a corner of the super admin (Dale, 26 Sep: the
+  // Website tab should shrink to Preview and Edit "and then have your whole photo section with
+  // testimonial which you can re-order"). So anybody who owns a wall gets the photo tools, scoped to
+  // their own cards. The carousel half stays Dale's: it is Drive My Way's own home page.
   const photos = document.getElementById("website-photos-panel");
-  if (photos) photos.classList.toggle("hidden", !isSuperAdminUser);
+  const ownsWall = !!(websiteEnt && (websiteEnt.website || websiteEnt.pass_wall || websiteEnt.in_trial));
+  if (photos){
+    photos.classList.toggle("hidden", !(isSuperAdminUser || ownsWall));
+    if (!isSuperAdminUser && ownsWall){
+      websiteMode = "gallery";
+      const tabs = document.getElementById("website-photos-tabs");
+      if (tabs) tabs.classList.add("hidden");
+      const title = document.getElementById("website-photos-title");
+      if (title) title.textContent = "Your pass photos";
+      const intro = document.getElementById("website-photos-intro");
+      if (intro) intro.textContent = "Every pass photo, and what your pupils wrote. Drag them into the order "
+        + "you want them in on your website — the first four are the ones on your front page.";
+      websiteReload();
+    }
+  }
   renderWebsiteOffer();
 }
 const gbpPence = p => "£" + (Number(p||0)/100).toFixed(2).replace(/\.00$/, "");
@@ -18473,7 +18569,7 @@ async function websiteReload(){
     if (websiteIsWall()) {
       ({ data, error } = await sb
         .from("pass_cards")
-        .select("id,photo_url,photo_path,sort_order,first_name,passed_on,words,words_approved_at,pupil_agreed_at,photo_consent")
+        .select("id,photo_url,photo_path,sort_order,first_name,passed_on,words,words_approved_at,words_declined_at,pupil_agreed_at,photo_consent")
         .eq("instructor_id", currentUserId)
         .is("withdrawn_at", null)
         .order("sort_order", { ascending: false }));
@@ -18482,7 +18578,9 @@ async function websiteReload(){
         id: c.id, url: c.photo_url, storage_path: c.photo_path, sort_order: c.sort_order,
         caption: [c.first_name, c.passed_on ? new Date(c.passed_on).toLocaleDateString("en-GB",{month:"long",year:"numeric"}) : null].filter(Boolean).join(" · "),
         pending: !c.pupil_agreed_at && c.photo_consent !== "legacy",
-        wordsWaiting: !!(c.words && !c.words_approved_at)
+        words: c.words || null,
+        wordsApproved: !!c.words_approved_at,
+        wordsWaiting: !!(c.words && !c.words_approved_at && !c.words_declined_at)
       }));
     } else {
       ({ data, error } = await sb
@@ -18521,6 +18619,21 @@ function websiteToggleSelect(id, ev){
   renderWebsiteGrid();
 }
 
+/**
+ * The instructor's decision on what a pupil wrote. Declining keeps the words on the row rather than
+ * deleting them: the photo stays on the wall, the words simply never show, and the pupil is never told
+ * their review was turned down — a miserable thing to send somebody who has just said something nice.
+ * Same rule as the app's decideWords, because it is the same decision made on a laptop instead.
+ */
+async function websiteDecideWords(id, accept){
+  const now = new Date().toISOString();
+  const {error} = await sb.from("pass_cards").update(accept
+    ? {words_approved_at: now, words_declined_at: null}
+    : {words_declined_at: now, words_approved_at: null}).eq("id", id);
+  if (error){ alert(error.message); return; }
+  await websiteReload();
+}
+
 function websiteSelectAll(){
   websiteSelected = new Set(websiteItems.map(i => i.id));
   websiteUpdateStatus();
@@ -18556,10 +18669,17 @@ function renderWebsiteGrid(){
         <img src="${esc(src)}" alt="" style="width:100%;height:100%;object-fit:cover;pointer-events:none" loading="lazy"
              onerror="this.style.opacity=.3" draggable="false">
       </div>
-      ${item.caption || item.pending || item.wordsWaiting ? `<div style="padding:5px 7px 0;font-size:.72rem;line-height:1.3">
+      ${item.caption || item.pending || item.words ? `<div style="padding:5px 7px 0;font-size:.72rem;line-height:1.35">
         ${item.caption ? `<div style="font-weight:700;color:var(--text)">${esc(item.caption)}</div>` : ""}
         ${item.pending ? `<div style="color:#92400e">Waiting on the pupil — not on your website</div>` : ""}
-        ${item.wordsWaiting ? `<div style="color:#0a7a3d">Review waiting for you</div>` : ""}
+        ${item.words ? `<div style="color:var(--muted);font-style:italic;margin-top:.2rem">“${esc(item.words)}”</div>` : ""}
+        ${item.wordsWaiting ? `<div style="margin-top:.3rem;display:flex;gap:.25rem;flex-wrap:wrap">
+          <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.7rem;border-color:#0a7a3d;color:#0a7a3d"
+            onclick="websiteDecideWords('${item.id}',true)">Put it on</button>
+          <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.7rem"
+            onclick="websiteDecideWords('${item.id}',false)">Not this one</button>
+        </div>` : ""}
+        ${item.words && item.wordsApproved ? `<div style="color:#0a7a3d;margin-top:.15rem">On your website</div>` : ""}
       </div>` : ""}
       <div style="padding:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap" onmousedown="event.stopPropagation()">
         <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move up"

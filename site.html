@@ -212,6 +212,15 @@
     if (!t) return "";
     return /^[0-9]/.test(t) ? "£" + t : t;
   }
+  // How the main photo sits in the hero. The instructor chooses on the Website tab, and the little
+  // preview box there uses this same style, so what they approve is what a visitor gets. Cropping is
+  // the default because most of these are a photo of somebody next to their car; letterboxing is there
+  // for the ones where cropping takes the top of their head off.
+  function photoFitStyle(c){
+    var fit = c && c.photo_fit === "fit" ? "contain" : "cover";
+    var pos = ["top","center","bottom"].indexOf(c && c.photo_pos) >= 0 ? c.photo_pos : "center";
+    return "object-fit:" + fit + ";object-position:center " + pos;
+  }
   // "Passed in September" reads like a person; "2026-09-04" reads like a database.
   function passedLabel(iso){
     if (!iso) return "";
@@ -420,7 +429,7 @@
         '<div class="hero-actions"><a class="btn" href="' + enquiry + '">Book your first lesson</a>' +
         (c.phone ? '<a class="phone-link" href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a>' : '') +
         '</div></div>' +
-        (c.photo_url ? '<div class="shot"><img src="' + esc(c.photo_url) + '" alt=""></div>' : '') +
+        (c.photo_url ? '<div class="shot"><img src="' + esc(c.photo_url) + '" alt="" style="' + photoFitStyle(c) + '"></div>' : '') +
       '</section>' +
 
       '<section class="stats">' + statCells.map(function(s){

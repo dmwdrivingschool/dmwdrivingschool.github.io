@@ -125,11 +125,18 @@
   .pass p{margin:0;font-size:.9rem;color:var(--muted)}
   .more-passes{margin-top:26px}
 
-  .prices{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:22px}
-  .price{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:28px;text-align:center}
-  .price .l{font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
-  .price .a{font-family:var(--head);font-size:2.6rem;font-weight:600;line-height:1;margin:10px 0 0}
-  .price .n{color:var(--muted);font-size:.9rem;margin-top:8px}
+  .ptable{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .ptable th{background:var(--ink);color:var(--paper);text-align:left;font-family:var(--head);font-weight:700;font-size:.92rem;padding:14px 20px}
+  .ptable th:nth-child(2){text-align:right}
+  .ptable td{padding:16px 20px;border-top:1px solid var(--line);vertical-align:middle}
+  .ptable tr:first-child td{border-top:0}
+  .ptable td.l{font-weight:700}
+  .ptable td.l .n{display:block;font-weight:400;color:var(--muted);font-size:.9rem;margin-top:2px}
+  .ptable td.a{font-family:var(--head);font-size:1.5rem;font-weight:700;text-align:right;white-space:nowrap}
+  @media(max-width:560px){
+    .ptable th,.ptable td{padding:12px 14px}
+    .ptable td.a{font-size:1.25rem}
+  }
 
   .socials{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:18px}
   .social{display:inline-flex;align-items:center;gap:8px;background:var(--chip);color:var(--chip-ink);border-radius:999px;padding:9px 18px;font-weight:600;text-decoration:none;font-size:.92rem}
@@ -442,7 +449,7 @@
     if (areas.length)  navBits.push('<a href="' + urlFor("") + '#areas">Areas</a>');
     if (feats.length)  navBits.push('<a href="' + urlFor("") + '#about">About</a>');
     if (passes.length) navBits.push('<a href="' + urlFor("passes") + '">' + esc(passLabel) + '</a>');
-    if (prices.length) navBits.push('<a href="' + urlFor("") + '#prices">Prices</a>');
+    if (prices.length) navBits.push('<a href="' + urlFor("prices") + '">Prices</a>');
     navBits.push('<a href="' + urlFor("app") + '">The app</a>');
 
     var header =
@@ -473,6 +480,29 @@
           passes.map(passCard).join("") +
         '</div><div class="more-passes"><a class="btn btn-quiet" href="' + urlFor("") + '">← Back to the main page</a></div>' +
         '</section></div>' + footer;
+      return;
+    }
+
+    // Prices on their own page, as a table rather than three cards (Dale, 26 Sep). A card each is fine
+    // for three, and falls apart at six; a row each reads the same however many they have, and it is the
+    // shape people already know from a price list.
+    if (page === "prices") {
+      document.title = "Prices — " + name;
+      root.innerHTML = header +
+        '<div class="wrap"><section class="page-head"><h1>Prices</h1>' +
+        '<p class="sub">Everything I charge, in one place.</p></section>' +
+        '<section class="band" style="border-top:0;padding-top:0">' +
+          '<table class="ptable"><thead><tr><th>Lesson</th><th>Price</th></tr></thead><tbody>' +
+            prices.map(function(pr){
+              return '<tr><td class="l">' + esc(pr.label || "") +
+                (pr.note ? '<span class="n">' + esc(pr.note) + '</span>' : '') + '</td>' +
+                '<td class="a">' + esc(money(pr.amount)) + '</td></tr>';
+            }).join("") +
+          '</tbody></table>' +
+          '<div class="more-passes"><a class="btn" href="' + enquiry + '">Enquire now</a></div>' +
+        '</section>' +
+        '<div class="more-passes" style="padding-bottom:40px"><a class="btn btn-quiet" href="' + urlFor("") + '">← Back to the main page</a></div>' +
+        '</div>' + footer;
       return;
     }
 
@@ -581,13 +611,6 @@
         (passes.length > 4 ? '<div class="more-passes"><a class="btn btn-quiet" href="' + urlFor("passes") +
           '">See all ' + passes.length + ' photos and reviews</a></div>' : '') +
         '</section>' : '') +
-
-      (prices.length ? '<section class="band" id="prices"><h2>Prices</h2><div class="prices">' +
-        prices.map(function(pr){
-          return '<div class="price"><div class="l">' + esc(pr.label || "") + '</div>' +
-            '<div class="a">' + esc(money(pr.amount)) + '</div>' +
-            (pr.note ? '<div class="n">' + esc(pr.note) + '</div>' : '') + '</div>';
-        }).join("") + '</div></section>' : '') +
 
       // Drive My Way's own block, on every site. Shared with the Control Centre's embed builder so
       // the two cannot drift.

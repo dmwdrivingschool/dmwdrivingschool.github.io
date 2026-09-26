@@ -69,7 +69,7 @@
   .nav-links a{color:var(--ink);text-decoration:none}
   .nav-links a:hover{color:var(--accent)}
 
-  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:center;padding:64px 0 56px}
+  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:start;padding:64px 0 56px}
   .hero.solo{grid-template-columns:1fr;max-width:760px}
   .chip{display:inline-flex;align-items:center;gap:8px;background:var(--chip);color:var(--chip-ink);border-radius:999px;padding:7px 14px;font-size:.82rem;font-weight:600}
   .hero h1{font-size:3.4rem;line-height:1.04;margin:20px 0}
@@ -78,6 +78,9 @@
   .phone-link{font-weight:700;color:var(--ink);text-decoration:none;font-size:1.05rem}
   .shot{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(21,32,43,.09)}
   .shot img{width:100%;aspect-ratio:4/3;object-fit:cover}
+  .hero-side{display:flex;flex-direction:column;gap:22px;min-width:0}
+  .hero-areas h3{font-size:1.2rem;margin:0 0 4px}
+  .hero-areas p{margin:0 0 12px;color:var(--muted);font-size:.9rem}
   /* "Show all of it" inside a fixed 4:3 frame leaves a band of empty card under the picture, which
      reads as a mistake rather than a choice. The frame takes the photo's own shape instead. */
   .shot.fit img{aspect-ratio:auto;height:auto;object-fit:contain}
@@ -523,15 +526,26 @@
         '<div class="hero-actions"><a class="btn" href="' + enquiry + '">Book your first lesson</a>' +
         (c.phone ? '<a class="phone-link" href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a>' : '') +
         '</div></div>' +
-        (c.photo_url ? '<div class="shot' + (c.photo_fit === "fit" ? " fit" : "") + '"><img src="' +
-          esc(c.photo_url) + '" alt="" style="' + photoFitStyle(c) + '"></div>' : '') +
+        // Dale, 26 Sep, pointing at the gap beside the stats: "where i teach should move to below the
+        // photo". Literally below the photo, in that column - not as its own band underneath, which is
+        // what it got the first time and left the hole still sitting there.
+        (c.photo_url ? '<div class="hero-side">' +
+          '<div class="shot' + (c.photo_fit === "fit" ? " fit" : "") + '"><img src="' +
+            esc(c.photo_url) + '" alt="" style="' + photoFitStyle(c) + '"></div>' +
+          (areas.length ? '<div class="hero-areas" id="areas"><h3>Where I teach</h3>' +
+            '<p>Not sure if I cover you? Just ask.</p><div class="areas">' +
+            areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") +
+            '</div></div>' : '') +
+        '</div>' : '') +
       '</section>' +
 
       '<section class="stats">' + statCells.map(function(s){
         return '<div class="stat"><div class="v">' + esc(s[0]) + '</div><div class="l">' + esc(s[1]) + '</div></div>';
       }).join("") + '</section>' +
 
-      (areas.length ? '<section class="band" id="areas" style="border-top:0;padding-top:0"><h2>Where I teach</h2>' +
+      // Without a photo the hero is one full-width column, so there is nowhere to tuck this and it
+      // goes back to being a band of its own.
+      (areas.length && !c.photo_url ? '<section class="band" id="areas" style="border-top:0;padding-top:0"><h2>Where I teach</h2>' +
         '<p class="sub">Not sure if I cover you? Just ask.</p><div class="areas">' +
         areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") +
         '</div></section>' : '') +

@@ -3837,7 +3837,6 @@ function renderPupilDetailsCC(){
   loadLicencePhotosCC();
   return `<div class="summary-lines" style="margin-top:1rem">
       ${row("Terms Agreed",p.terms_accepted_at?"Yes":"No")}${row("Terms Accepted",when(p.terms_accepted_at))}
-      ${row("Last Viewed App",p.last_app_viewed_at?when(p.last_app_viewed_at):"Never")}
       ${row("Last Opened App",lastOpenedLabel(p.last_opened_at,p.app_version,p.app_platform)||(p.profile_id?"Never":"No app login yet"))}
       ${row("Licence Checked",when(p.licence_checked_at))}${row("Eyesight Checked",when(p.eyesight_checked_at))}
       ${row("Licence Type",p.licence_type)}${row("Theory Test",theory)}${row("Theory Cert",p.theory_cert_number)}

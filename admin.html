@@ -5824,19 +5824,31 @@ function renderWebsiteEditor(){
         </button>`).join("")}
     </div>
     ${accentRowHtml()}
+    ${headFontRowHtml()}
 
     <h3 class="sf-head">Your photos</h3>
     <p class="muted" style="font-size:.8rem;margin-top:-.3rem">A logo and one good photo. You standing next to your car is the one that works — people are picking a person, not a company.</p>
     <div class="sf-pics">
       <div class="sf-pic">
-        <div class="sf-pic-box sq">${c.logo_url ? `<img src="${esc(c.logo_url)}" alt="">` : "No logo yet"}</div>
+        <div class="sf-pic-box sq">${c.logo_url ? `<img src="${esc(c.logo_url)}" alt="" style="${logoFitStyle(c)}">` : "No logo yet"}</div>
         <strong>Your logo</strong>
-        <div class="muted">Square. Sits in the corner of every page.</div>
+        <div class="muted">Sits in the corner of every page.</div>
         <div class="sf-pic-btns">
           <label class="btn-outline btn-sm" style="cursor:pointer">${c.logo_url ? "Change" : "Choose"}
             <input type="file" accept="image/*" style="display:none" onchange="uploadSitePhoto(event,'logo')"></label>
           ${c.logo_url ? `<button class="btn-outline btn-sm" onclick="removeSitePhoto('logo')">Remove</button>` : ""}
         </div>
+        ${c.logo_url ? `<div style="margin-top:.6rem;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
+          <select class="sf-in" style="width:auto;padding:.3rem .4rem;font-size:.8rem" onchange="setPhotoFit('logo_fit',this.value)">
+            <option value="fit"${(c.logo_fit||"fit")==="fit"?" selected":""}>Show all of it</option>
+            <option value="fill"${c.logo_fit==="fill"?" selected":""}>Fill the space</option>
+          </select>
+          ${c.logo_fit==="fill" ? `<select class="sf-in" style="width:auto;padding:.3rem .4rem;font-size:.8rem" onchange="setPhotoFit('logo_pos',this.value)">
+            <option value="top"${c.logo_pos==="top"?" selected":""}>Keep the top</option>
+            <option value="center"${(c.logo_pos||"center")==="center"?" selected":""}>Keep the middle</option>
+            <option value="bottom"${c.logo_pos==="bottom"?" selected":""}>Keep the bottom</option>
+          </select>` : ""}
+        </div>` : ""}
       </div>
       <div class="sf-pic">
         <div class="sf-pic-box wide">${c.photo_url ? `<img src="${esc(c.photo_url)}" alt="" style="${photoFitStyle(c)}">` : "No photo yet — the top of your page will be full width without one"}</div>
@@ -5982,8 +5994,16 @@ function addPriceRow(){
  */
 function photoFitStyle(c){
   const fit = c && c.photo_fit === "fit" ? "contain" : "cover";
-  const pos = ["top","center","bottom"].includes(c && c.photo_pos) ? c.photo_pos : "center";
-  return "object-fit:" + fit + ";object-position:center " + pos;
+  return "object-fit:" + fit + ";" + fitPos(c && c.photo_pos);
+}
+// A logo is a thing somebody paid to have drawn, so cropping it is almost always wrong and this one
+// defaults the other way round to the main photo.
+function logoFitStyle(c){
+  const fit = c && c.logo_fit === "fill" ? "cover" : "contain";
+  return "object-fit:" + fit + ";" + fitPos(c && c.logo_pos);
+}
+function fitPos(pos){
+  return "object-position:center " + (["top","center","bottom"].includes(pos) ? pos : "center");
 }
 
 // Saved on the spot like the photo itself: a dropdown that needs a separate Save to mean anything is a
@@ -6068,6 +6088,44 @@ const SITE_ACCENTS = {
   bold:    [["#D7F24A","Lime"],["#FF7A2F","Orange"],["#4AD6F2","Ice"],["#FF4FA3","Pink"],["#8CF24A","Green"]],
   calm:    [["#6E9478","Sage"],["#6E8FA4","Sky"],["#B08968","Clay"],["#8C82B0","Lavender"],["#B87A86","Rose"]]
 };
+/**
+ * One alternative heading font per design (Dale, 26 Sep). Two options, not a list: the reason to sell
+ * three designs is that somebody who is good at teaching people to drive should not also have to be
+ * good at typography. Both of these have been checked against that design's body font, so whichever
+ * they pick, it cannot look wrong.
+ */
+const SITE_HEAD_FONTS = {
+  classic: [["","Fraunces"],["lora","Lora"]],
+  bold:    [["","Archivo"],["space","Space Grotesk"]],
+  calm:    [["","Nunito"],["bitter","Bitter"]]
+};
+function siteHeadFontNow(){
+  const list = SITE_HEAD_FONTS[siteRow && siteRow.template] || SITE_HEAD_FONTS.classic;
+  const cur = (siteRow && siteRow.content && siteRow.content.head_font) || "";
+  return list.some(f => f[0] === cur) ? cur : "";
+}
+function headFontRowHtml(){
+  const list = SITE_HEAD_FONTS[siteRow && siteRow.template] || SITE_HEAD_FONTS.classic;
+  const now = siteHeadFontNow();
+  return `<div style="margin:.6rem 0 .2rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+    <label style="font-size:.82rem;font-weight:700">Headings</label>
+    <select class="sf-in" style="width:auto;padding:.3rem .5rem;font-size:.85rem" onchange="setHeadFont(this.value)">
+      ${list.map(([slug,name])=>`<option value="${slug}"${slug===now?" selected":""}>${esc(name)}${slug===""?" (the one it comes with)":""}</option>`).join("")}
+    </select>
+  </div>`;
+}
+// Saved on the spot like the design and the colour, for the same reason: it is a choice you make by
+// looking at it.
+async function setHeadFont(slug){
+  if (!siteRow) return;
+  const content = Object.assign({}, collectSiteContent(), {head_font: slug});
+  const {error} = await sb.from("instructor_sites")
+    .update({content, template: siteRow.template}).eq("instructor_id", currentUserId);
+  if (error){ alert(error.message); return; }
+  siteRow.content = content;
+  renderWebsiteEditor();
+}
+
 function siteAccentList(){ return SITE_ACCENTS[siteRow && siteRow.template] || SITE_ACCENTS.classic; }
 function siteAccentNow(){
   const list = siteAccentList();

@@ -59,6 +59,10 @@
   .brand a{text-decoration:none;color:inherit;display:flex;align-items:center;gap:12px}
   .mark{width:40px;height:40px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-family:var(--head);font-weight:700;font-size:1.15rem;flex-shrink:0;overflow:hidden}
   .mark img{width:100%;height:100%;object-fit:cover}
+  /* Showing all of a logo means the square tile has to go: a wide logo letterboxed inside 40x40 is
+     a postage stamp with a coloured border round it. */
+  .mark.logo-fit{width:auto;max-width:150px;height:42px;background:transparent;border-radius:0}
+  .mark.logo-fit img{width:auto;max-width:150px;height:100%;object-fit:contain}
   .brand-name{font-family:var(--head);font-weight:600;font-size:1.18rem;line-height:1.15}
   .brand-sub{font-size:.76rem;color:var(--muted);letter-spacing:.02em}
   .nav-links{display:flex;gap:22px;font-size:.95rem;font-weight:500}
@@ -223,8 +227,10 @@
   // for the ones where cropping takes the top of their head off.
   function photoFitStyle(c){
     var fit = c && c.photo_fit === "fit" ? "contain" : "cover";
-    var pos = ["top","center","bottom"].indexOf(c && c.photo_pos) >= 0 ? c.photo_pos : "center";
-    return "object-fit:" + fit + ";object-position:center " + pos;
+    return "object-fit:" + fit + ";" + fitStyle(c && c.photo_pos);
+  }
+  function fitStyle(pos){
+    return "object-position:center " + (["top","center","bottom"].indexOf(pos) >= 0 ? pos : "center");
   }
   // "Passed in September" reads like a person; "2026-09-04" reads like a database.
   function passedLabel(iso){
@@ -301,6 +307,32 @@
     return lum > 0.6 ? "#111111" : "#FFFFFF";
   }
 
+  /**
+   * One alternative heading font per design, and only one (Dale, 26 Sep). A free font list is how a
+   * £149 website ends up looking homemade, and the instructor is not the one who gets blamed for it.
+   * Each of these has been picked to sit with that design's body font, so neither choice can be wrong.
+   *
+   * Keyed by design, so a font chosen under Classic simply stops applying if they switch to Bold,
+   * rather than following them somewhere it does not belong.
+   *
+   * The file is fetched only when somebody has actually chosen it. Four families already load on every
+   * site; adding three more to the static tag for the handful of people who switch would be worse.
+   */
+  var HEAD_FONTS = {
+    classic: { lora:   ['"Lora",Georgia,serif',            "Lora:wght@500;600;700"] },
+    bold:    { space:  ['"Space Grotesk",Arial,sans-serif', "Space+Grotesk:wght@500;700"] },
+    calm:    { bitter: ['"Bitter",Georgia,serif',           "Bitter:wght@500;600;700"] }
+  };
+  function applyHeadFont(template, slug){
+    var f = (HEAD_FONTS[template] || {})[slug];
+    if (!f) return;
+    var link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=" + f[1] + "&display=swap";
+    document.head.appendChild(link);
+    document.documentElement.style.setProperty("--head", f[0]);
+  }
+
   var SHOT = "https://web.drivemyway.co.uk/app-screenshots/";
   // From Dale's own app-features page, written for a pupil rather than an instructor. The last
   // three are Premium, so a Basic instructor's page simply does not list them.
@@ -340,21 +372,29 @@
 
     var name = d.name || "Driving lessons";
     document.documentElement.setAttribute("data-template", d.template || "classic");
+    applyHeadFont(d.template || "classic", c.head_font);
     // A chosen colour has to bring its own hover shade and its own text colour with it. Setting
     // --accent on its own left the darker hover from whichever design they started on, so a lime
     // button went brown when you moused over it, and black text on a dark navy button was unreadable.
+    // NOT named `root`: that is the page container this whole function writes into, declared at the
+    // top of the file, and a var of the same name in here hoists over it for the entire function. The
+    // final root.innerHTML then set a property on a CSSStyleDeclaration instead of drawing the page,
+    // silently, with no error anywhere -- every site rendered as "Loading..." forever.
     if (d.accent) {
-      var root = document.documentElement.style;
-      root.setProperty("--accent", d.accent);
-      root.setProperty("--accent-dark", shadeHex(d.accent, -0.18));
-      root.setProperty("--accent-ink", inkOn(d.accent));
-      root.setProperty("--chip-ink", shadeHex(d.accent, -0.25));
+      var css = document.documentElement.style;
+      css.setProperty("--accent", d.accent);
+      css.setProperty("--accent-dark", shadeHex(d.accent, -0.18));
+      css.setProperty("--accent-ink", inkOn(d.accent));
+      css.setProperty("--chip-ink", shadeHex(d.accent, -0.25));
     }
 
     var initials = name.split(/\s+/).map(function(w){ return w[0]; }).join("").slice(0,2).toUpperCase();
     // A logo uploaded on the Website tab is the site's own. Falling back to the app logo means
     // anybody who set one up for their pupils' app already has a branded site without doing it twice.
     var logo = c.logo_url || d.logo_url || "";
+    // A logo is a thing somebody paid to have drawn. Cropping it is almost always wrong, so unlike
+    // the main photo this one shows all of it unless they say otherwise.
+    var logoFit = c.logo_fit === "fill" ? "fill" : "fit";
     var areas  = Array.isArray(c.areas) ? c.areas : [];
     var prices = Array.isArray(c.prices) ? c.prices : [];
     var feats  = Array.isArray(c.features) ? c.features.filter(function(f){ return f && (f.title || f.text); }) : [];
@@ -376,8 +416,8 @@
 
     var header =
       '<header class="site"><div class="wrap nav">' +
-        '<div class="brand"><a href="' + urlFor("") + '"><div class="mark">' +
-          (logo ? '<img src="' + esc(logo) + '" alt="">' : esc(initials)) +
+        '<div class="brand"><a href="' + urlFor("") + '"><div class="mark' + (logo && logoFit === "fit" ? " logo-fit" : "") + '">' +
+          (logo ? '<img src="' + esc(logo) + '" alt=""' + (logoFit === "fit" ? '' : ' style="' + fitStyle(c.logo_pos) + '"') + '>' : esc(initials)) +
         '</div><div><div class="brand-name">' + esc(name) + '</div>' +
         '<div class="brand-sub">' + esc(gearbox) + ' tuition</div></div></a></div>' +
         (navBits.length ? '<nav class="nav-links">' + navBits.join("") + '</nav>' : '') +

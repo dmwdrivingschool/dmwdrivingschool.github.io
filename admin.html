@@ -1052,42 +1052,6 @@ tbody tr:hover td{background:#334263}
 
     <section id="tab-settings" class="hidden">
       <div class="panel">
-        <h2>Settings</h2>
-        <div class="settings-list" id="settings-menu">
-          <button type="button" onclick="openSettings('profile')">Your Profile</button>
-          <div class="settings-group-head">Getting Started</div>
-          <button type="button" onclick="window.open('https://www.drivemyway.co.uk/download','_blank','noopener')">Get the App</button>
-          <button type="button" onclick="openSettings('appWidget')">Show the App on Your Website</button>
-          <button type="button" onclick="openSettings('howToVideos')">How-To Videos</button>
-          <div class="settings-group-head">Messages &amp; Reminders</div>
-          <button type="button" onclick="openSettings('reminders')">Lesson Reminders</button>
-          <button type="button" onclick="openSettings('passedMessage')">Passed Pupil Messages</button>
-          <button type="button" onclick="openBirthdayMessagesCC()">Birthday Messages</button>
-          <button type="button" onclick="openSettings('enquiryDecline')">Declining Enquiries</button>
-          <button type="button" onclick="openSettings('quietHours')">Message Quiet Hours</button>
-          <button type="button" onclick="openSettings('pupilAppMessages')">Pupil App Messages</button>
-          <div class="settings-group-head">Lessons &amp; Progress</div>
-          <button type="button" onclick="openSettings('workinghours')">Working Hours</button>
-          <button type="button" onclick="openSettings('diary')">Diary Options</button>
-          <button type="button" onclick="openSettings('lessontypes')">Lesson Types</button>
-          <button type="button" onclick="openSettings('syllabus')">Progress Syllabus</button>
-          <button type="button" onclick="openSettings('reflect')">Reflective Logs</button>
-          <button type="button" onclick="openSettings('mockreports')">Mock Test Reports</button>
-          <button type="button" onclick="printBlankMockTestSheetCC()">Print Blank Mock Test Sheet</button>
-          <div class="settings-group-head">Your Pupil App &amp; Website</div>
-          <button type="button" onclick="openSettings('terms')">Terms &amp; Conditions</button>
-          <button type="button" onclick="openSettings('branding')">Branding</button>
-          <button type="button" onclick="openSettings('resources')">Resources</button>
-          <button type="button" onclick="openSettings('testbooking')">Booking Your Driving Test</button>
-          <button type="button" onclick="openSettings('showtell')">Show me / Tell me</button>
-          <button type="button" onclick="openSettings('enquiryWidget')">Your Enquiry Form</button>
-          <button type="button" id="nav-passwall-btn" class="hidden" onclick="openSettings('passWall')">Your Pass Wall</button>
-          <button type="button" onclick="openSettings('photoChannels')">Where You Post Pass Photos</button>
-          <div class="settings-group-head">Business</div>
-          <button type="button" onclick="openSettings('importExport')">Import / Export</button>
-          <button type="button" id="settings-referral-btn" class="hidden" onclick="openReferralFromDash()">Refer a Friend</button>
-          <button type="button" id="settings-franchise-btn" class="hidden" onclick="openSettings('franchise')">Franchise Fees</button>
-        </div>
         <div id="settings-panel" class="hidden" style="margin-top:1rem"></div>
       </div>
     </section>
@@ -2171,7 +2135,7 @@ function goTab(tab, pupilFilter){
   if(tab==="diary"){ if(!keepDiaryOwner) diaryOwnerId=currentUserId; keepDiaryOwner=false; renderDiary(); }
   if(tab==="finance"){fillCats(); applyFinance(); if(Date.now()-lastPaymentsLoadAt>60000){ loadPayments().then(()=>{ if(!document.getElementById("tab-finance").classList.contains("hidden")) applyFinance(); loadDash(); }); } }
   if(tab==="tests") showTests("future");
-  if(tab==="settings"){document.getElementById("settings-menu").classList.remove("hidden");document.getElementById("settings-panel").classList.add("hidden")}
+  if(tab==="settings" && document.getElementById("settings-panel").classList.contains("hidden")) return goTab("dash");
   if(tab==="portal"){ loadVideoModules().then(()=>{ loadActivity(); loadLearningVideos(); }); }
   if(tab==="theory"){ loadTheoryProgress(); }
   if(tab==="teams"){ loadTeamsPanel(); loadMockTestUsageCC(); }
@@ -10112,7 +10076,6 @@ function stopHowToVideos(){
 async function openSettings(which){
   settingsStickyOffsets();
   stopHowToVideos();
-  document.getElementById("settings-menu").classList.add("hidden");
   const panel=document.getElementById("settings-panel");
   panel.classList.remove("hidden");
   if(which==="howToVideos"){ panel.innerHTML=howToVideosHtml(); wireHowToVideos(panel); return; }
@@ -11387,7 +11350,7 @@ function guideSteps(aud){
       {t:"Payments and finances",x:"Record what pupils pay, and your costs, in Finances. Lesson hours paid for become the pupil's credit. Click any entry to see who it was from.",tab:"finance",go:"Open Finances",il:"moneySolo"},
       {t:"Business type and your cars",x:"In Finances, set your business type (sole trader or limited company) and only what applies to you shows. Add your car in Your cars with its finance, insurance, car tax and MOT. The payments go into your expenses by themselves on the day they leave the bank, or the next working day after a weekend or bank holiday. MOT, car tax and insurance renewals show on your dashboard from 30 days before, and the app reminds you until you press Done.",tab:"finance",go:"Open Finances",il:"cars"},
       {t:"Messages",x:"Message your pupils from the laptop. It's the same conversation as the app, and a red number on the tab shows anything unread.",tab:"messages",go:"Open Messages",il:"messages"},
-      {t:"Your terms and settings",x:"Set your terms and cancellation notice, working hours, branding (your logo and driving school name for pupils, with Premium) and your website enquiry form under Settings.",tab:"settings",go:"Open Settings",il:"terms"},
+      {t:"Your terms and settings",x:"Set your terms and cancellation notice, working hours, branding (your logo and driving school name for pupils, with Premium) and your website enquiry form under Settings.",tab:"dash",go:"Open Settings & Tools",il:"terms"},
       {t:"Billing and help",x:"Billing shows your plan and payments, and a receipt is emailed to you after each payment. The Help tab has step-by-step answers, and this guide stays there too.",tab:"billing",go:"Open Billing",il:"billing"},
     ],
     member:[

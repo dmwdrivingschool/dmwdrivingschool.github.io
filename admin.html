@@ -5670,6 +5670,58 @@ async function setVideosOverride(ownerType, ownerId, val){
   await loadTeamsPanel();
 }
 
+// Website access (Dale, 26 Sep 2026). Same shape as the Video access control: super admin only, on
+// the instructor's row. Dale needs it to test with the demo account and to hand a website to
+// somebody as a favour, the way he can already give Premium away.
+//
+// Only the WEBSITE gets a trial, never the pass wall on its own. The website trial already contains
+// the wall, so they try it where it costs them nothing; trialling the wall separately would mean
+// pasting code into their real site and taking it out again afterwards, and it would mean leading
+// with the £49, which should only ever answer a no.
+let websiteGrantCache = {};
+function renderWebsiteGrantSelect(instructorId){
+  const g = websiteGrantCache[instructorId] || {};
+  const cur = g.website ? "granted" : g.in_trial ? "trial" : "off";
+  const left = g.in_trial && g.trial_days_left != null ? " (" + g.trial_days_left + "d left)" : "";
+  const price = g.special_price ? " — " + gbpPence(g.website_list_pence) : "";
+  return '<select title="Instructor website" onchange="setWebsiteGrant(\'' + instructorId + '\',this.value)"' +
+    ' style="font-size:.75rem;padding:.3rem .4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:' + (cur !== "off" ? "#15803d" : "inherit") + '">' +
+    '<option value="off"' + (cur === "off" ? " selected" : "") + '>Website: off</option>' +
+    '<option value="trial"' + (cur === "trial" ? " selected" : "") + '>Website: 30-day trial' + left + '</option>' +
+    '<option value="granted"' + (cur === "granted" ? " selected" : "") + '>Website: granted free</option>' +
+    '<option value="price">Set their price…' + price + '</option>' +
+    '</select>';
+}
+async function setWebsiteGrant(instructorId, val){
+  const err = document.getElementById("teams-err");
+  if (err){ err.style.color = ""; err.textContent = ""; }
+  try{
+    if (val === "price"){
+      const now = websiteGrantCache[instructorId] || {};
+      const cur = now.special_price ? (now.website_list_pence / 100).toFixed(2) : "99";
+      const ans = prompt("What do they pay for the website, in pounds?\n\nLeave it blank to clear it and put them back on the normal price (£149, or £139 on Premium).", cur);
+      if (ans === null){ await loadTeamsPanel(); return; }
+      const pence = ans.trim() === "" ? null : Math.round(Number(ans.replace(/[^0-9.]/g, "")) * 100);
+      if (pence !== null && !(pence >= 0)){ if (err) err.textContent = "That is not a price."; return; }
+      const r = await sb.rpc("set_instructor_website_price", { p_instructor: instructorId, p_price_pence: pence });
+      if (r.error) throw r.error;
+    } else if (val === "off"){
+      const r = await sb.rpc("revoke_instructor_website", { p_instructor: instructorId });
+      if (r.error) throw r.error;
+    } else {
+      const r = await sb.rpc("grant_instructor_website", {
+        p_instructor: instructorId,
+        p_product: "website",
+        p_trial_days: val === "trial" ? 30 : null,
+        p_note: val === "trial" ? "30-day trial, given from super admin" : "Granted free from super admin",
+        p_price_pence: null
+      });
+      if (r.error) throw r.error;
+    }
+  } catch (e){ if (err) err.textContent = e.message || String(e); return; }
+  await loadTeamsPanel();
+}
+
 // Same three-way control as Video access, but for Theory & Hazard Perception.
 function renderTheoryOverrideSelect(ownerType, ownerId){
   const pf = theoryFeaturesCache[ownerType+":"+ownerId] || {};
@@ -13929,6 +13981,9 @@ async function loadTeamsPanel(){
     await loadAccountExtras();
 
     const {data:pfRows} = await sb.from("premium_features").select("owner_type,owner_id,videos_enabled,videos_override,theory_enabled,theory_override");
+    // Website grants for the whole list in one call, so the Teams panel is not N round trips.
+    try{ const {data:wg} = await sb.rpc("website_grants_overview"); websiteGrantCache = wg || {}; }
+    catch(e){ websiteGrantCache = {}; }
     videoFeaturesCache = Object.fromEntries((pfRows||[]).map(r=>[r.owner_type+":"+r.owner_id, r]));
     theoryFeaturesCache = videoFeaturesCache;
 
@@ -14436,6 +14491,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
   if(!school){
     billing.push(renderVideosOverrideSelect('instructor', i.id));
     billing.push(renderTheoryOverrideSelect('instructor', i.id));
+    billing.push(renderWebsiteGrantSelect(i.id));
   }
   // Payment history, Extend access, Ask to resume and Cancel, moved here from Billing (Dale, 14 Sep 2026). Cancel stops
   // their Direct Debit payments (they keep access to the end of what they've paid for); once cancelled, Delete

@@ -17958,7 +17958,11 @@ async function refreshWebsiteEntitlement(){
     websiteEnt = error ? null : data;
   }catch(e){ websiteEnt = null; }
   const btn = document.getElementById("nav-website-btn");
-  const canSee = isSuperAdminUser || !!(websiteEnt && (websiteEnt.can_buy || websiteEnt.website || websiteEnt.pass_wall));
+  // in_trial and trial_expired matter as much as a purchase: somebody trying it has no purchase row,
+  // and somebody whose trial has run out still needs the tab to get it back rather than losing what
+  // they typed. Caught by a test where a granted trial made the tab disappear.
+  const canSee = isSuperAdminUser || !!(websiteEnt && (websiteEnt.can_buy || websiteEnt.website
+                 || websiteEnt.pass_wall || websiteEnt.in_trial || websiteEnt.trial_expired));
   if (btn) btn.classList.toggle("hidden", !canSee);
   // Dale's own photo tools stay super-admin only; everyone else gets the offer or their own site.
   const photos = document.getElementById("website-photos-panel");
@@ -17971,7 +17975,23 @@ function renderWebsiteOffer(){
   if (!host) return;
   const e = websiteEnt;
   // Already bought the full site: this becomes their editor, which is the next thing to build.
-  if (e && e.website){ host.innerHTML = '<div class="panel"><h2>Your website</h2><p class="muted">Your site is set up. Editing it from here is coming next.</p></div>'; return; }
+  const addr = e && e.subdomain ? e.subdomain + ".drivemyway.co.uk" : "";
+  const due = e ? gbpPence(e.website_due_pence) : "";
+  if (e && e.trial_expired && !e.website){
+    host.innerHTML = `<div class="panel"><h2>Your trial has finished</h2>
+      <p class="muted">Your site at <strong>${addr}</strong> has come down, but nothing you typed has been lost — it goes straight back up when you are ready.</p>
+      <button class="btn btn-navy" onclick="startWebsitePurchase('website')">Keep it, ${due}</button></div>`;
+    return;
+  }
+  if (e && e.in_trial){
+    const days = e.trial_days_left;
+    host.innerHTML = `<div class="panel"><h2>Your website</h2>
+      <p class="muted">Live now at <strong>${addr}</strong>. Have a look, fill it in, show somebody.</p>
+      <p><strong>${days} day${days === 1 ? "" : "s"} left</strong> on your trial. After that it comes down unless you keep it.</p>
+      <button class="btn btn-navy" onclick="startWebsitePurchase('website')">Keep it, ${due}</button></div>`;
+    return;
+  }
+  if (e && e.website){ host.innerHTML = `<div class="panel"><h2>Your website</h2><p class="muted">Live at <strong>${addr}</strong>. Editing it from here is coming next.</p></div>`; return; }
   // Bought the wall only: the wall and the snippet, and nothing else.
   if (e && e.pass_wall){
     host.innerHTML = `<div class="panel"><h2>Your pass wall</h2>
@@ -17981,7 +18001,6 @@ function renderWebsiteOffer(){
     return;
   }
   if (!e || !e.can_buy){ host.innerHTML = ""; return; }
-  const due = gbpPence(e.website_due_pence);
   const list = gbpPence(e.website_list_pence);
   const saved = e.paid_pence > 0 ? ` <span class="muted" style="font-weight:400">(${list} less the ${gbpPence(e.paid_pence)} you have already paid)</span>` : "";
   host.innerHTML = `<div class="panel">

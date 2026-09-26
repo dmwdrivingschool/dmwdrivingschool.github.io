@@ -294,6 +294,9 @@ textarea.sf-in{resize:vertical;overflow:hidden;min-height:2.6rem}
 .tpl-pick{cursor:pointer;font:inherit;text-align:left}
 .dns-tbl{border-collapse:collapse;margin:.4rem 0}
 .dns-tbl th,.dns-tbl td{border:1px solid var(--line);padding:.35rem .6rem;font-size:.85rem;text-align:left}
+.sf-swatches{display:flex;gap:.5rem;flex-wrap:wrap;margin:.2rem 0 .4rem}
+.sf-sw{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0;position:relative}
+.sf-sw.on{border-color:var(--text);box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--text)}
 .sf-pics{display:grid;grid-template-columns:200px 1fr;gap:1rem;max-width:700px;align-items:start}
 .sf-pic{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.8rem}
 .sf-pic-box{background:var(--bg);border:1px dashed var(--line);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:.6rem;color:var(--muted);font-size:.78rem;text-align:center}
@@ -5820,6 +5823,7 @@ function renderWebsiteEditor(){
           <span class="tpl-see">${siteRow.template===slug?"Chosen":"Use this one"}</span>
         </button>`).join("")}
     </div>
+    ${accentRowHtml()}
 
     <h3 class="sf-head">Your photos</h3>
     <p class="muted" style="font-size:.8rem;margin-top:-.3rem">A logo and one good photo. You standing next to your car is the one that works — people are picking a person, not a company.</p>
@@ -6051,10 +6055,55 @@ async function removeSitePhoto(which){
   renderWebsiteEditor();
 }
 
-function setSiteTemplate(slug){
-  siteRow.template = slug;
+/**
+ * Colours that go with each design (Dale, 26 Sep: "colour theme for each style?").
+ *
+ * A list, not a colour picker. The whole point of selling three designs is that somebody who is good at
+ * teaching people to drive does not have to also be good at choosing colours, and an open picker is how
+ * a £149 website ends up neon pink on cream. Every one of these has been chosen against its own
+ * design's paper and card colours; the first is that design's default.
+ */
+const SITE_ACCENTS = {
+  classic: [["#9C4517","Rust"],["#2F5D3A","Forest"],["#1E3A5F","Navy"],["#6B2E4E","Plum"],["#1F5D63","Teal"]],
+  bold:    [["#D7F24A","Lime"],["#FF7A2F","Orange"],["#4AD6F2","Ice"],["#FF4FA3","Pink"],["#8CF24A","Green"]],
+  calm:    [["#6E9478","Sage"],["#6E8FA4","Sky"],["#B08968","Clay"],["#8C82B0","Lavender"],["#B87A86","Rose"]]
+};
+function siteAccentList(){ return SITE_ACCENTS[siteRow && siteRow.template] || SITE_ACCENTS.classic; }
+function siteAccentNow(){
+  const list = siteAccentList();
+  const cur = (siteRow && siteRow.accent || "").toLowerCase();
+  return list.some(a => a[0].toLowerCase() === cur) ? cur : list[0][0].toLowerCase();
+}
+function accentRowHtml(){
+  const now = siteAccentNow();
+  return `<div class="sf-swatches">` + siteAccentList().map(([hex,name])=>
+    `<button type="button" class="sf-sw${hex.toLowerCase()===now?" on":""}" style="background:${hex}"
+       title="${esc(name)}" aria-label="${esc(name)}" onclick="setSiteLook(null,'${hex}')"></button>`).join("") +
+    `</div><p class="muted" style="font-size:.78rem;margin:0">This colour is every button and link on your site.</p>`;
+}
+
+/**
+ * The design and its colour save as soon as they are picked. Everything else on this panel is typing,
+ * where a Save button is right; these two are a choice you make by looking at it, and leaving them
+ * unsaved means going back to a site that is still the old colour and wondering what went wrong.
+ *
+ * Switching design drops a colour that belongs to the old one - lime was chosen against a black page and
+ * looks like a highlighter on cream.
+ */
+async function setSiteLook(template, accent){
+  if (!siteRow) return;
+  if (template && template !== siteRow.template){
+    siteRow.template = template;
+    const keeps = (SITE_ACCENTS[template] || []).some(a => a[0].toLowerCase() === (siteRow.accent||"").toLowerCase());
+    if (!keeps) siteRow.accent = null;
+  }
+  if (accent) siteRow.accent = accent;
+  const {error} = await sb.from("instructor_sites")
+    .update({template: siteRow.template, accent: siteRow.accent}).eq("instructor_id", currentUserId);
+  if (error){ alert(error.message); return; }
   renderWebsiteEditor();
 }
+function setSiteTemplate(slug){ setSiteLook(slug, null); }
 
 function collectSiteContent(){
   // The form is not rendered while the editor is shrunk, and every field would read back as empty --

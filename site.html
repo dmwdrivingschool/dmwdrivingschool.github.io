@@ -276,6 +276,31 @@
     return out.join("");
   }
 
+  // Colour helpers for the accent an instructor picks. Deliberately plain arithmetic rather than a
+  // library: it runs on every page load of every instructor's site, and it is fifteen lines.
+  function hexRgb(hex){
+    var h = String(hex || "").replace("#", "");
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+  }
+  function shadeHex(hex, amount){
+    var c = hexRgb(hex);
+    if (!c) return hex;
+    return "#" + c.map(function(v){
+      var n = Math.round(amount < 0 ? v * (1 + amount) : v + (255 - v) * amount);
+      return Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
+    }).join("");
+  }
+  // Black on a lime button, white on a navy one. The 0.6 threshold is where black stops being
+  // readable, judged on the five colours actually on offer rather than a general rule.
+  function inkOn(hex){
+    var c = hexRgb(hex);
+    if (!c) return "#FFFFFF";
+    var lum = (0.299*c[0] + 0.587*c[1] + 0.114*c[2]) / 255;
+    return lum > 0.6 ? "#111111" : "#FFFFFF";
+  }
+
   var SHOT = "https://web.drivemyway.co.uk/app-screenshots/";
   // From Dale's own app-features page, written for a pupil rather than an instructor. The last
   // three are Premium, so a Basic instructor's page simply does not list them.
@@ -315,7 +340,16 @@
 
     var name = d.name || "Driving lessons";
     document.documentElement.setAttribute("data-template", d.template || "classic");
-    if (d.accent) document.documentElement.style.setProperty("--accent", d.accent);
+    // A chosen colour has to bring its own hover shade and its own text colour with it. Setting
+    // --accent on its own left the darker hover from whichever design they started on, so a lime
+    // button went brown when you moused over it, and black text on a dark navy button was unreadable.
+    if (d.accent) {
+      var root = document.documentElement.style;
+      root.setProperty("--accent", d.accent);
+      root.setProperty("--accent-dark", shadeHex(d.accent, -0.18));
+      root.setProperty("--accent-ink", inkOn(d.accent));
+      root.setProperty("--chip-ink", shadeHex(d.accent, -0.25));
+    }
 
     var initials = name.split(/\s+/).map(function(w){ return w[0]; }).join("").slice(0,2).toUpperCase();
     // A logo uploaded on the Website tab is the site's own. Falling back to the app logo means

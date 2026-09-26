@@ -18732,8 +18732,10 @@ async function websiteReload(){
         caption: [c.first_name, c.passed_on ? new Date(c.passed_on).toLocaleDateString("en-GB",{month:"long",year:"numeric"}) : null].filter(Boolean).join(" · "),
         pending: !c.pupil_agreed_at && c.photo_consent !== "legacy",
         words: c.words || null,
-        wordsApproved: !!c.words_approved_at,
-        wordsWaiting: !!(c.words && !c.words_approved_at && !c.words_declined_at)
+        wordsOn: !!c.words_approved_at,
+        // Never decided is not the same as turned down, and the card says so: one is waiting on the
+        // instructor, the other is a decision they made and can undo.
+        wordsNew: !!(c.words && !c.words_approved_at && !c.words_declined_at)
       }));
     } else {
       ({ data, error } = await sb
@@ -18773,10 +18775,13 @@ function websiteToggleSelect(id, ev){
 }
 
 /**
- * The instructor's decision on what a pupil wrote. Declining keeps the words on the row rather than
- * deleting them: the photo stays on the wall, the words simply never show, and the pupil is never told
- * their review was turned down — a miserable thing to send somebody who has just said something nice.
- * Same rule as the app's decideWords, because it is the same decision made on a laptop instead.
+ * A switch, not a one-off decision (Dale, 26 Sep: "i want to be able to see it there and turn it on/off").
+ * Words can go on the website and come back off as many times as they like, because an instructor who
+ * has had second thoughts a week later should not have to ring somebody about it.
+ *
+ * Turning one off keeps the words on the row rather than deleting them: the photo stays on the wall, the
+ * words simply stop showing, and the pupil is never told their review was turned down — a miserable
+ * thing to send somebody who has just said something nice. Same rule as the app's decideWords.
  */
 async function websiteDecideWords(id, accept){
   const now = new Date().toISOString();
@@ -18825,14 +18830,14 @@ function renderWebsiteGrid(){
       ${item.caption || item.pending || item.words ? `<div style="padding:5px 7px 0;font-size:.72rem;line-height:1.35">
         ${item.caption ? `<div style="font-weight:700;color:var(--text)">${esc(item.caption)}</div>` : ""}
         ${item.pending ? `<div style="color:#92400e">Waiting on the pupil — not on your website</div>` : ""}
-        ${item.words ? `<div style="color:var(--muted);font-style:italic;margin-top:.2rem">“${esc(item.words)}”</div>` : ""}
-        ${item.wordsWaiting ? `<div style="margin-top:.3rem;display:flex;gap:.25rem;flex-wrap:wrap">
-          <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.7rem;border-color:#0a7a3d;color:#0a7a3d"
-            onclick="websiteDecideWords('${item.id}',true)">Put it on</button>
-          <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.7rem"
-            onclick="websiteDecideWords('${item.id}',false)">Not this one</button>
-        </div>` : ""}
-        ${item.words && item.wordsApproved ? `<div style="color:#0a7a3d;margin-top:.15rem">On your website</div>` : ""}
+        ${item.words ? `<div style="color:var(--muted);font-style:italic;margin-top:.2rem">“${esc(item.words)}”</div>
+          <div style="margin-top:.35rem;display:flex;gap:.35rem;align-items:center;flex-wrap:wrap">
+            <span style="color:${item.wordsOn ? "#0a7a3d" : "var(--muted)"};font-weight:700">
+              ${item.wordsOn ? "On your website" : item.wordsNew ? "Not on yet" : "Turned off"}</span>
+            <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.7rem${item.wordsOn ? "" : ";border-color:#0a7a3d;color:#0a7a3d"}"
+              onclick="websiteDecideWords('${item.id}',${item.wordsOn ? "false" : "true"})">
+              ${item.wordsOn ? "Turn off" : "Turn on"}</button>
+          </div>` : ""}
       </div>` : ""}
       <div style="padding:6px;display:flex;gap:4px;justify-content:center;flex-wrap:wrap" onmousedown="event.stopPropagation()">
         <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move up"

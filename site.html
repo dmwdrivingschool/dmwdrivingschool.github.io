@@ -309,7 +309,6 @@
     var statCells = [];
     if (stats.years) statCells.push([stats.years, (/^\d+$/.test(String(stats.years)) ? "years teaching" : "teaching")]);
     statCells.push([gearbox, "dual-controlled car"]);
-    if (c.days) statCells.push([c.days.split(",").length + " days", "a week"]);
 
     root.innerHTML = header +
       '<div class="wrap">' +

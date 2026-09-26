@@ -5928,8 +5928,21 @@ function renderWebsiteEditor(){
     <button class="btn btn-navy btn-sm" onclick="attachSiteDomain()">Set this address up</button>
     <div id="sf-domain-out" style="margin-top:.8rem"></div>
   </div>`;
-  if (websiteEditorAppend) host.insertAdjacentHTML("beforeend", html); else host.innerHTML = html;
-  autoGrowAll(host);
+  // The editor lives in its own box inside the panel, and that box is what gets rewritten.
+  //
+  // It used to append when the trial strip was above it, which is right the first time and wrong every
+  // time after: picking a colour or a font appended a SECOND copy of the whole editor below, while the
+  // one on screen sat there unchanged. From the chair it looked like the buttons did nothing. Dale, on
+  // the trial account: "when changing the colour and headings, nothing is happening."
+  let box = document.getElementById("site-editor");
+  if (!box){
+    box = document.createElement("div");
+    box.id = "site-editor";
+    if (!websiteEditorAppend) host.innerHTML = "";
+    host.appendChild(box);
+  }
+  box.innerHTML = html;
+  autoGrowAll(box);
 }
 
 /**
@@ -6156,6 +6169,16 @@ async function setSiteLook(template, accent){
     siteRow.template = template;
     const keeps = (SITE_ACCENTS[template] || []).some(a => a[0].toLowerCase() === (siteRow.accent||"").toLowerCase());
     if (!keeps) siteRow.accent = null;
+    // Same for the heading font. Leaving a stale one on the row did no harm -- both the editor and the
+    // renderer check it against the design before using it -- but it meant a font quietly stopped
+    // applying with nothing on screen to say why.
+    const font = (siteRow.content && siteRow.content.head_font) || "";
+    const fontKeeps = (SITE_HEAD_FONTS[template] || []).some(f => f[0] === font);
+    if (font && !fontKeeps){
+      const content = Object.assign({}, siteRow.content || {}, {head_font: ""});
+      await sb.from("instructor_sites").update({content}).eq("instructor_id", currentUserId);
+      siteRow.content = content;
+    }
   }
   if (accent) siteRow.accent = accent;
   const {error} = await sb.from("instructor_sites")

@@ -35,6 +35,7 @@ function buildAppShowcaseSnippet(name, premium){
        ["pupil-home-lessons.jpg","Upcoming lessons in the app"],
        ["pupil-theory-practice.jpg","Theory test practice in the app"]]
     : [["pupil-tracking-map.jpg","Live map showing the instructor on the way"],
+       ["pupil-home-basic.jpg","Upcoming lessons in the app"],
        ["pupil-messages.jpg","Messages with your instructor in the app"]];
   return `<!-- Drive My Way app for pupils: paste into your website's HTML or embed block -->
 <div id="dmw-app-showcase" style="max-width:780px;margin:0 auto;font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#0f172a;text-align:left">

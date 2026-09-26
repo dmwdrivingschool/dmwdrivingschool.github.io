@@ -456,7 +456,14 @@
       var prem = d.premium !== false;
       var feats = APP_FEATURES.filter(function(f){ return prem || !f[3]; });
       var owner = name + (/s$/i.test(name) ? "’" : "’s");
-      var third = prem ? "pupil-theory-practice.jpg" : "pupil-messages.jpg";
+      // The home screenshot is from a Premium account: Learning Videos, Theory Practice and Highway
+      // Code are right there on it. A Basic instructor's pupils do not get those, so putting that
+      // picture on their website advertises something their pupils will not find. Until there is a
+      // Basic home screenshot to use, they get two phones instead of three. Two true things beat
+      // three where one of them is false.
+      var phones = prem
+        ? ["pupil-tracking-map.jpg", "pupil-home-lessons.jpg", "pupil-theory-practice.jpg"]
+        : ["pupil-tracking-map.jpg", "pupil-messages.jpg"];
       root.innerHTML = header +
         '<div class="wrap">' +
         '<section class="app-hero"><div>' +
@@ -473,9 +480,7 @@
           '<p class="store-note">There is nothing to set up — I add you and you are in.</p>' +
         '</div>' +
         '<div class="app-phones">' +
-          '<img src="' + SHOT + 'pupil-tracking-map.jpg" alt="A live map showing the instructor on the way" loading="lazy">' +
-          '<img src="' + SHOT + 'pupil-home-lessons.jpg" alt="Upcoming lessons in the app" loading="lazy">' +
-          '<img src="' + SHOT + third + '" alt="" loading="lazy">' +
+          phones.map(function(f){ return '<img src="' + SHOT + f + '" alt="" loading="lazy">'; }).join("") +
         '</div></section>' +
 
         '<section class="band"><h2>What you can do in it</h2>' +
@@ -558,7 +563,7 @@
       '<section class="app-band"><div class="app-strip">' +
         '<div class="shots">' +
           '<img src="' + SHOT + 'pupil-tracking-map.jpg" alt="" loading="lazy">' +
-          '<img src="' + SHOT + 'pupil-home-lessons.jpg" alt="" loading="lazy">' +
+          '<img src="' + SHOT + (d.premium !== false ? 'pupil-home-lessons.jpg' : 'pupil-messages.jpg') + '" alt="" loading="lazy">' +
         '</div>' +
         '<div><h3>Your own app, free with your lessons</h3>' +
         '<p>Watch me arrive on a map, see your lessons and credit, and message me between them.</p></div>' +

@@ -15,6 +15,7 @@ function escAppShowcase(t){
   });
 }
 function buildAppShowcaseSnippet(name, premium){
+  const NL = String.fromCharCode(10);
   const IMG="https://web.drivemyway.co.uk/app-screenshots/";
   const owner=name ? escAppShowcase(name)+(/s$/i.test(name)?"'":"'s") : "";
   const intro=(owner ? `${owner} pupils use` : "Our pupils use")+" the free Drive My Way app. Once you start lessons, you get your own login.";
@@ -26,7 +27,15 @@ function buildAppShowcaseSnippet(name, premium){
     item("📈","Track your progress","See how each skill is coming on and keep your reflective logs.")
   ];
   if(premium) items.push(item("🧠","Theory and hazard perception practice","Practice questions, hazard perception clips and learning videos."));
-  const third=premium ? ["pupil-theory-practice.jpg","Theory test practice in the app"] : ["pupil-messages.jpg","Messages with your instructor in the app"];
+  // The home screenshot is taken on a Premium account and has Learning Videos, Theory Practice and
+  // Highway Code on it. A Basic instructor's pupils get none of those, so that picture on their site
+  // promises something that is not there. Two phones until there is a Basic home screenshot.
+  const phones = premium
+    ? [["pupil-tracking-map.jpg","Live map showing the instructor on the way"],
+       ["pupil-home-lessons.jpg","Upcoming lessons in the app"],
+       ["pupil-theory-practice.jpg","Theory test practice in the app"]]
+    : [["pupil-tracking-map.jpg","Live map showing the instructor on the way"],
+       ["pupil-messages.jpg","Messages with your instructor in the app"]];
   return `<!-- Drive My Way app for pupils: paste into your website's HTML or embed block -->
 <div id="dmw-app-showcase" style="max-width:780px;margin:0 auto;font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#0f172a;text-align:left">
   <style>
@@ -54,9 +63,7 @@ function buildAppShowcaseSnippet(name, premium){
     <p class="dmw-intro">${intro}</p>
     <div class="dmw-row">
       <div class="dmw-phones">
-        <img src="${IMG}pupil-tracking-map.jpg" alt="Live map showing the instructor on the way" loading="lazy">
-        <img src="${IMG}pupil-home-lessons.jpg" alt="Upcoming lessons in the app" loading="lazy">
-        <img src="${IMG}${third[0]}" alt="${third[1]}" loading="lazy">
+${phones.map(([file,alt])=>`        <img src="${IMG}${file}" alt="${alt}" loading="lazy">`).join(NL)}
       </div>
       <ul>
 ${items.join("\n")}

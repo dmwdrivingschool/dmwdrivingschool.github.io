@@ -278,6 +278,18 @@
        under the other on a narrow phone. */
     .stats{gap:8px;margin-top:0;flex-wrap:nowrap}
     .hero .lead{margin-bottom:18px}
+
+    /* Vertical space, cut back to phone proportions.
+       At 900px the hero keeps 40px top and bottom and a 34px column gap, and every band keeps 42px
+       top and bottom. On a 360px screen that is around 100px of nothing between one section and the
+       next - a quarter of the screen, four times over. Dale, on his own phone: the DVSA chip "too
+       low", the gap to the photo "too big", and the one before "More than just passing your test"
+       and again before the passes "massive".
+       Desktop is untouched; this only bites below 640. */
+    .hero{padding:20px 0 26px;gap:22px}
+    .hero h1{margin:14px 0}
+    section.band{padding:28px 0}
+    .band h2{margin-top:0}
     .stat{padding:8px 12px;gap:4px;min-width:0}
     .stat .v{font-size:.9rem}
     .stat .l{font-size:.76rem;white-space:nowrap}

@@ -50,6 +50,8 @@
   .legal{max-width:680px}
   .legal h2{font-size:1.15rem;margin:26px 0 6px}
   .legal p{color:var(--muted);line-height:1.65;margin:0}
+  /* Their terms are plain text typed into a box, not HTML - keep the line breaks. */
+  .terms-text{white-space:pre-wrap;color:var(--muted);line-height:1.7;font-size:.97rem}
   /* Classic reads better held in a bit; Bold and Calm keep the full width (Dale, 27 Sep). */
   [data-template="classic"] .wrap{max-width:1100px}
 
@@ -698,6 +700,9 @@
     // you get pointed at rather than browse to - but an instructor cannot point anyone at a link
     // they cannot find themselves, and it is the page that turns a phone enquiry into a pupil.
     navBits.push(navLink("download", "Download"));
+    // Only when they have ticked "show my terms and conditions on my website" - instructor_site_public
+    // returns nothing for terms otherwise, so this link cannot appear on a site that has not opted in.
+    if (d.terms) navBits.push(navLink("terms", "Terms"));
     // Contact carries the header now that the Enquire button has gone from it, so it is not just
     // another link in the row. Dale: "Contact should also stand out abit more".
     navBits.push(navLink("contact", "Contact", "nav-strong"));
@@ -814,6 +819,30 @@
           '<p>The app shows where your enquiry is up to, so you will see the moment I have accepted it. ' +
             'Once lessons start that is where they appear, where you can see how you are getting on, ' +
             'and where you can message me. It costs you nothing.</p>' +
+        '</section></div>' + footer;
+      return;
+    }
+
+    /**
+     * Their own terms, as their own page, but only if they ticked the box (Dale, 28 Sep 2026:
+     * "show my terms and conditions on my website").
+     *
+     * Opt-in because terms are a contract with PUPILS, shown in the app when they sign up - a
+     * visitor deciding whether to enquire is not the audience, and nothing requires it. An
+     * instructor who ticks it has chosen to publish their own drafting rather than having it
+     * published for them.
+     *
+     * The text arrives with {{HOURS}} already substituted by instructor_site_public, so this page
+     * can never disagree with the terms a pupil actually accepted. It is plain text typed into a
+     * box, not HTML, so it is escaped and its line breaks kept by .terms-text.
+     */
+    if (page === "terms" && d.terms) {
+      document.title = "Terms and conditions - " + name;
+      root.innerHTML = header +
+        '<div class="wrap"><section class="page-head"><h1>Terms and conditions</h1>' +
+        '<p class="sub">The terms your lessons with ' + esc(name) + ' are booked under.</p></section>' +
+        '<section class="band legal" style="border-top:0;padding-top:0">' +
+          '<div class="terms-text">' + esc(d.terms) + '</div>' +
         '</section></div>' + footer;
       return;
     }

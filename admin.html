@@ -5917,6 +5917,7 @@ function renderWebsiteEditor(){
     ${siteField("town","Your town","")}
     ${siteField("phone","Phone number","")}
     ${siteField("passes_label","What to call your passes page","Your photos and your pupils’ reviews both live on this page, so plenty of people call it Testimonials or Wall of Fame. It sets the menu at the top and the heading. Blank for “Passes”.")}
+    <label class="sf-row" style="display:flex;gap:.55rem;align-items:flex-start;max-width:560px;cursor:pointer;font-weight:normal"><input type="checkbox" id="sf-show_terms" style="margin-top:.2rem"${(siteRow.content && siteRow.content.show_terms) ? " checked" : ""}><span>Show my terms and conditions on my website<span class="muted" style="display:block;font-size:.78rem">Adds a Terms page and a link in your menu, showing the same terms your pupils accept in the app. Your cancellation notice is filled in automatically, so the page can never disagree with what they agreed to.</span></span></label>
     <div class="sf-row"><label for="sf-areas">Areas you cover</label>
       <input id="sf-areas" class="sf-in" value="${esc(areas)}">
       <div class="muted" style="font-size:.78rem">Separate them with commas.</div></div>
@@ -6267,6 +6268,7 @@ function collectSiteContent(){
     email: v("sf-email"), about_heading: v("sf-about_heading"), passes_label: v("sf-passes_label"),
     areas: v("sf-areas").split(",").map(s=>s.trim()).filter(Boolean),
     prices, features, social,
+    show_terms: !!(document.getElementById("sf-show_terms") || {}).checked,
     // Pass rate and five-star count are gone: claims nobody can substantiate, sitting next to real
     // photos with real dates. Years teaching is a fact they know.
     stats: { years: v("sf-years") }

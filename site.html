@@ -380,6 +380,11 @@
      1160 they go back to full size. */
   @media (min-width:901px) and (max-width:1160px){
     .nav-links{gap:15px;font-size:.9rem}
+    /* A cap on any one label. The passes page can be renamed to anything, and this demo's is the
+       whole sentence "Testimonials - you can change this" - 33 characters where a real one is
+       "Passes". One long label was enough to push the last link onto a second row. Capping the
+       label is tidier than a header that changes height depending on what someone typed. */
+    .nav-links a{max-width:21ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   }
 </style>
 </head>

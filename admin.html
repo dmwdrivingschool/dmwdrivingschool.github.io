@@ -1024,6 +1024,14 @@ tbody tr:hover td{background:#334263}
             📤 Upload photos
             <input type="file" id="website-file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden onchange="websiteUpload(event)">
           </label>
+          <!-- Pass wall only. Adding older photos you already had permission for stays allowed;
+               this is the record that you said so. Hidden on the carousel tab, which is Drive My
+               Way's own site photos and has no pupils in it. -->
+          <label id="wall-consent-row" style="display:none;align-items:center;gap:.45rem;font-size:.86rem;
+                 background:rgba(255,255,255,.05);border:1px solid var(--line,#33415a);border-radius:8px;padding:.45rem .7rem;cursor:pointer">
+            <input type="checkbox" id="wall-consent" style="cursor:pointer">
+            I have this pupil&rsquo;s permission to show their photo
+          </label>
           <button type="button" class="btn-outline" onclick="websiteReload()">↻ Refresh</button>
           <button type="button" class="btn-outline" onclick="websiteSelectAll()">Select all</button>
           <button type="button" class="btn-outline" onclick="websiteSelectNone()">Clear selection</button>
@@ -19452,6 +19460,7 @@ async function startWebsitePurchase(product){
 function websiteShow(mode, btn){
   websiteMode = mode || websiteMode;
   websiteSelected = new Set();
+  wallConsentSync();
   if (btn) {
     btn.parentElement.querySelectorAll("button").forEach(b => b.classList.remove("on"));
     btn.classList.add("on");
@@ -19463,6 +19472,9 @@ async function websiteReload(){
   const status = document.getElementById("website-status");
   const grid = document.getElementById("website-grid");
   if (!status || !grid) return;
+  // Also here, not only on a tab click: opening the section straight onto the wall would otherwise
+  // leave the tick hidden while the upload still demanded it - a dead end with nothing to tick.
+  wallConsentSync();
   status.textContent = "Loading…";
   grid.innerHTML = "";
   try {
@@ -19669,10 +19681,30 @@ async function websiteSaveOrder(){
   }
 }
 
+/** The tick belongs to the pass wall, where the photos are of people. Cleared on every tab switch
+    so it is never left on from a previous visit and ticked by accident. */
+function wallConsentSync(){
+  const row = document.getElementById("wall-consent-row");
+  const box = document.getElementById("wall-consent");
+  if (box) box.checked = false;
+  if (row) row.style.display = websiteIsWall() ? "inline-flex" : "none";
+}
+
 async function websiteUpload(ev){
   const files = Array.from(ev.target.files || []);
   ev.target.value = "";
   if (!files.length) return;
+
+  // A photo of a pupil does not go on a public website on nobody's say-so. Older photos are fine -
+  // this asks you to confirm the permission you already have, and records that you did.
+  const consentBox = document.getElementById("wall-consent");
+  if (websiteIsWall() && !(consentBox && consentBox.checked)) {
+    alert("Tick \u201cI have this pupil\u2019s permission to show their photo\u201d before uploading.\n\n" +
+          "Older photos you already had permission for are fine \u2014 this just records that you confirmed it.");
+    return;
+  }
+  const consentAt = new Date().toISOString();
+
   const status = document.getElementById("website-status");
   status.textContent = "Uploading " + files.length + " file(s)…";
 
@@ -19700,7 +19732,11 @@ async function websiteUpload(ev){
           instructor_id: currentUserId,
           photo_url: publicUrl,
           photo_path: path,
-          photo_consent: "legacy"
+          photo_consent: "legacy",
+          // Who said they had permission, and when. photo_consent stays "legacy" so nothing about
+          // how these cards are published changes - pass_card_is_live reads that, not this.
+          legacy_consent_confirmed_at: consentAt,
+          legacy_consent_by: currentUserId
         }));
       } else {
         ({ error: insErr } = await sb.from("website_photos").insert({

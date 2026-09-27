@@ -378,6 +378,17 @@
        off; this only applies from 901px. */
     .areas{font-size:1.08rem}
     .areas-label{font-size:1.3rem;margin-bottom:10px}
+
+    /* Every inside page opened with 54px of nothing between the header and its title. The phone
+       block already cut this to 22; a computer had never had the same treatment. h1's own top
+       margin comes off too - the padding is doing that job. */
+    .page-head{padding:26px 0 8px}
+    .page-head h1{margin-top:0}
+
+    /* The pill is a long way from the eye on a big screen, so it scales up with everything else. */
+    .sticky-cta{right:24px;bottom:24px;padding:15px 26px;font-size:1.05rem;gap:9px}
+    /* ...and the footer's clearance has to grow with it, or the last line sits under it again. */
+    footer.site{padding-bottom:96px}
     .app-hero{padding:30px 0 34px}
   }
 

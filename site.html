@@ -141,6 +141,26 @@
   .areas{display:flex;flex-wrap:wrap;gap:10px}
   .area{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 18px;font-weight:500}
 
+  /* ---- Promoted from the phone block: these apply at every width ---- */
+
+  /* The in-flow hero button goes and the corner pill takes its place, so there is always exactly
+     one call to action on screen and it never scrolls away. */
+  .hero-actions{display:none}
+  .sticky-cta{display:inline-flex;align-items:center;gap:7px;position:fixed;right:18px;bottom:18px;z-index:60;
+              padding:12px 18px;border-radius:9999px;background:var(--accent);color:#fff;font-weight:700;
+              font-size:.95rem;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+  .sticky-cta:hover{filter:brightness(1.07)}
+  /* So the footer's last line is never sitting under the pill. */
+  footer.site{padding-bottom:74px}
+
+  /* Where I teach, as a plain list rather than a grid of big chips, and no longer shoved to the
+     bottom of its column. margin-top:auto bottom-aligned it against the stats opposite, which on a
+     computer left a 158px hole between the photo and the town names whenever the photo was short. */
+  .areas{display:block;gap:0;margin-top:0;padding-top:18px}
+  .area{background:none;border:0;border-radius:0;padding:0;font-weight:500;display:inline}
+  .area:not(:last-of-type)::after{content:"\00b7";margin-left:5px;color:var(--muted);font-weight:400}
+  .areas-label{display:block;margin:0 0 8px;font-size:1.1rem;letter-spacing:.01em}
+
   .passes{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
   .pass{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
   .pass .img{aspect-ratio:11/12;background:var(--chip);overflow:hidden}
@@ -185,6 +205,11 @@
   .app-strip .shots img{width:72px;border-radius:10px;border:2px solid var(--ink);background:var(--ink)}
   .app-strip h3{font-size:1.25rem;margin:0 0 4px}
   .app-strip p{margin:0;color:var(--muted);font-size:.96rem}
+  /* Two buttons in the third column rather than a fourth column, so .app-strip stays a 3-track grid
+     and nothing has to be re-measured. Side by side on a computer, stacked on a phone where the
+     strip is already one column. */
+  .app-strip-acts{display:flex;gap:10px;flex-wrap:wrap}
+  @media(max-width:640px){.app-strip-acts{width:100%}.app-strip-acts .btn{flex:1 1 auto;text-align:center}}
   .app-feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;margin-top:8px}
   /* Icon beside the title, not stacked above it. A plain block put the .ic div on its own line,
      which left every card opening with a floating symbol. Two columns: symbol, then heading; the
@@ -286,12 +311,6 @@
        scrolls away after the first swipe.
        Only one CTA is visible at a time now: the header's went into the menu, and this replaces the
        hero's. */
-    .hero-actions{display:none}
-    .sticky-cta{display:inline-flex;align-items:center;gap:7px;position:fixed;right:14px;bottom:14px;z-index:60;
-                padding:11px 16px;border-radius:9999px;background:var(--accent);color:#fff;font-weight:700;
-                font-size:.92rem;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.22)}
-    /* So the footer's last line is not sitting under the pill. */
-    footer.site{padding-bottom:74px}
     /* Both on one line, and the label tucked up against its number.
        Dale, 27 Sep 2026: "the yrs should be closer to the 10 and instructor closer to Manual - i
        think they should also be on the same line". At the old size "10 yrs experience" and "Manual
@@ -331,15 +350,6 @@
     /* Where I teach, as a plain list rather than a grid of big chips. Four place names were taking
        two rows of pills and most of a screen; Dale: "i think that should be bullet points or
        something like that". Separated by middots, which stay readable when they wrap. */
-    .areas{gap:0;padding-top:16px;display:block}
-    .area{background:none;border:0;border-radius:0;padding:0;font-weight:500;display:inline}
-    /* The gap on the left is the real space in the markup, which is also what lets the line wrap;
-       the margin only does the right-hand side. Spaces inside generated content collapse against
-       the text that follows, which is why the separator lost its trailing gap first time. */
-    .area:not(:last-of-type)::after{content:"·";margin-left:5px;color:var(--muted);font-weight:400}
-    /* It was the same size and weight as the town names under it, so it read as part of the list
-       rather than the thing introducing it. */
-    .areas-label{display:block;margin:0 0 8px;font-size:1.1rem;letter-spacing:.01em}
   }
 
   /* ---- Computers only (901px up). Nothing in here can reach a phone. ---- */
@@ -353,6 +363,13 @@
     header.site .wrap.nav{flex-wrap:nowrap}
     .nav-links{flex-wrap:wrap;justify-content:flex-end;min-width:0}
     header.site .wrap.nav > .btn{flex:0 0 auto;white-space:nowrap}
+
+    /* The gaps. 60px top AND bottom on every band is 120px of nothing between one section and the
+       next, plus the hero's 64/56 on top of that. Dale, on his own screen: "massive gaps throughout
+       the page". Generous for a computer, but a third of what it was. */
+    .hero{padding:34px 0 38px}
+    section.band,.app-band{padding:36px 0}
+    .app-hero{padding:30px 0 34px}
   }
 </style>
 </head>
@@ -1002,7 +1019,10 @@
         '</div>' +
         '<div><h3>Your own app, free with your lessons</h3>' +
         '<p>Watch me arrive on a map, see your lessons and credit, and message me between them.</p></div>' +
-        '<a class="btn btn-quiet" href="' + urlFor("app") + '">See what is in it</a>' +
+        '<div class="app-strip-acts">' +
+          '<a class="btn" href="' + urlFor("download") + '">Get the app</a>' +
+          '<a class="btn btn-quiet" href="' + urlFor("app") + '">See what is in it</a>' +
+        '</div>' +
       '</div></section>' +
 
       '<section class="band" id="enquire"><div class="enquire"><h2>Ready to get started?</h2>' +

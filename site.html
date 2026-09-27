@@ -267,7 +267,8 @@
        instructor" were together wider than the screen, so they wrapped and read as two stray
        buttons. Smaller text and tighter padding fits both across, and nowrap stops one dropping
        under the other on a narrow phone. */
-    .stats{gap:8px;margin-top:18px;flex-wrap:nowrap}
+    .stats{gap:8px;margin-top:0;flex-wrap:nowrap}
+    .hero .lead{margin-bottom:18px}
     .stat{padding:8px 12px;gap:4px;min-width:0}
     .stat .v{font-size:.9rem}
     .stat .l{font-size:.76rem;white-space:nowrap}
@@ -277,7 +278,10 @@
        something like that". Separated by middots, which stay readable when they wrap. */
     .areas{gap:0;padding-top:16px;display:block}
     .area{background:none;border:0;border-radius:0;padding:0;font-weight:500;display:inline}
-    .area + .area::before{content:"·";margin:0 7px;color:var(--muted);font-weight:400}
+    /* The gap on the left is the real space in the markup, which is also what lets the line wrap;
+       the margin only does the right-hand side. Spaces inside generated content collapse against
+       the text that follows, which is why the separator lost its trailing gap first time. */
+    .area + .area::before{content:"·";margin-right:5px;color:var(--muted);font-weight:400}
     .areas-label{display:block;margin:0 0 6px}
   }
 </style>
@@ -779,7 +783,7 @@
           (c.photo_url ? '<div class="shot' + (c.photo_fit === "fit" ? " fit" : "") + '"><img src="' +
             esc(c.photo_url) + '" alt="" style="' + photoFitStyle(c) + '"></div>' : '') +
           (areas.length ? '<div class="areas" id="areas"><span class="areas-label">Where I teach</span>' +
-            areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") + '</div>' : '') +
+            areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join(" ") + '</div>' : '') +
         '</div>' : '') +
       '</section>' +
 

@@ -6371,7 +6371,8 @@ async function checkSiteDomain(){
 let websiteGrantCache = {};
 function renderWebsiteGrantSelect(instructorId){
   const g = websiteGrantCache[instructorId] || {};
-  const cur = g.website ? "granted" : g.in_trial ? "trial" : "off";
+  // pass_wall is true for a website too, so "wall only" is pass_wall AND NOT website.
+  const cur = g.website ? "granted" : (g.pass_wall ? "wall" : g.in_trial ? "trial" : "off");
   const left = g.in_trial && g.trial_days_left != null ? " (" + g.trial_days_left + "d left)" : "";
   const price = g.special_price ? " — " + gbpPence(g.website_list_pence) : "";
   // The price lived ONLY inside the "Set their price…" option, which you can only see while the
@@ -6384,6 +6385,7 @@ function renderWebsiteGrantSelect(instructorId){
     '<option value="off"' + (cur === "off" ? " selected" : "") + '>Website: off</option>' +
     '<option value="trial"' + (cur === "trial" ? " selected" : "") + '>Website: 30-day trial' + left + '</option>' +
     '<option value="granted"' + (cur === "granted" ? " selected" : "") + '>Website: granted free</option>' +
+    '<option value="wall"' + (cur === "wall" ? " selected" : "") + '>Pass wall only: granted free</option>' +
     '<option value="price">Set their price…' + price + '</option>' +
     '</select>';
 }
@@ -6404,11 +6406,16 @@ async function setWebsiteGrant(instructorId, val){
       const r = await sb.rpc("revoke_instructor_website", { p_instructor: instructorId });
       if (r.error) throw r.error;
     } else {
+      // "wall" grants the GBP 49 product on its own - a pass wall to drop into a site they already
+      // have, with no site builder. The RPC has always taken p_product; only the menu was missing it.
+      const wallOnly = val === "wall";
       const r = await sb.rpc("grant_instructor_website", {
         p_instructor: instructorId,
-        p_product: "website",
+        p_product: wallOnly ? "pass_wall" : "website",
         p_trial_days: val === "trial" ? 30 : null,
-        p_note: val === "trial" ? "30-day trial, given from super admin" : "Granted free from super admin",
+        p_note: val === "trial" ? "30-day trial, given from super admin"
+              : wallOnly ? "Pass wall granted free from super admin"
+              : "Granted free from super admin",
         p_price_pence: null
       });
       if (r.error) throw r.error;
@@ -15172,6 +15179,7 @@ function toggleHiddenAccounts(){
 function websiteRowChip(instructorId){
   const g = websiteGrantCache[instructorId] || {};
   if (g.website) return ' <span class="chip chip-ok" title="They have a website">Website</span>';
+  if (g.pass_wall) return ' <span class="chip chip-ok" title="They have the pass wall on its own">Pass wall</span>';
   if (g.in_trial) return ' <span class="chip chip-wait" title="On a website trial">Website trial'
     + (g.trial_days_left != null ? " · " + g.trial_days_left + "d" : "") + '</span>';
   if (g.special_price) return ' <span class="chip chip-info" title="Their price for a website, instead of the usual price">Website '

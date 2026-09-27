@@ -18062,7 +18062,11 @@ function brandingPremiumNoteHtml(){
   if(isSuperAdminUser || canSeeVideosTab) return "";
   const billingBtn=document.getElementById("nav-billing-btn");
   const canBill=!!billingBtn && !billingBtn.classList.contains("hidden");
-  return `<div style="margin:0 0 .9rem;padding:.7rem .85rem;background:#eef4ff;border:1px solid #bfd3f5;border-radius:.5rem;color:#0f172a;font-size:.9rem">Your logo and driving school name show to your pupils with Premium.${canBill?` <a href="#" onclick="goTab('billing');return false" style="color:#0A4CA1;font-weight:700;white-space:nowrap">See plans in Billing</a>`:""}</div>`;
+    // A paid pass wall or website carries their branding now, whatever their plan, so the flat
+  // "Premium only" line is no longer true for them - and telling somebody who has paid that they
+  // need to pay again is the worst kind of wrong.
+  const ownsWall = !!(websiteEnt && (websiteEnt.pass_wall || websiteEnt.website));
+  return `<div style="margin:0 0 .9rem;padding:.7rem .85rem;background:#eef4ff;border:1px solid #bfd3f5;border-radius:.5rem;color:#0f172a;font-size:.9rem">${ownsWall ? "Your logo and name show on your pass wall. To show them to your pupils in the app as well, that comes with Premium." : "Your logo and driving school name show to your pupils with Premium."}${canBill?` <a href="#" onclick="goTab('billing');return false" style="color:#0A4CA1;font-weight:700;white-space:nowrap">See plans in Billing</a>`:""}</div>`;
 }
 // The wording fields for Settings → Pupil App Messages (moved out of Branding, Dale 16 Sep 2026). readOnly: an instructor in a
 // driving school, who sees the driving school's wording (or the default where it's blank) but can't change it.
@@ -18879,6 +18883,7 @@ function renderWebsiteOffer(){
       <pre class="embed-snip" id="wall-snip">${esc(wallSnippet)}</pre>
       <button class="btn-outline btn-sm" onclick="copyWallSnippet(this)">Copy both lines</button>
       <p class="muted" style="font-size:.85rem;margin-top:.8rem">Not sure where they go? Forward them to whoever built your site, or send me a message and I will talk you through it.</p>
+      <p class="muted" style="font-size:.85rem">Your wall carries your own name. To put your logo on it too, add one under Settings &rarr; Branding.</p>
       <h3 class="sf-head">Or just link to it</h3>
       <p class="muted">If you would rather not paste code at all, your wall also lives on a page of its own. Put this address in your menu, or anywhere you would put a link.</p>
       <pre class="embed-snip" id="wall-link">https://web.drivemyway.co.uk/passes.html?i=${currentUserId}</pre>

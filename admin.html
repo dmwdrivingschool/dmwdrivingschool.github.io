@@ -6360,6 +6360,11 @@ function renderWebsiteGrantSelect(instructorId){
   const cur = g.website ? "granted" : g.in_trial ? "trial" : "off";
   const left = g.in_trial && g.trial_days_left != null ? " (" + g.trial_days_left + "d left)" : "";
   const price = g.special_price ? " — " + gbpPence(g.website_list_pence) : "";
+  // The price lived ONLY inside the "Set their price…" option, which you can only see while the
+  // list is open. Closed, the select shows whichever of off/trial/granted is selected, so a price
+  // that had saved perfectly looked as though it had not saved at all (Dale, 27 Sep 2026: "i just
+  // set it to £99 but it doesnt show anywhere? surely the box should say £99"). Once they have the
+  // website the figure is moot, so the chip only shows while there is still something to buy.
   return '<select title="Instructor website" onchange="setWebsiteGrant(\'' + instructorId + '\',this.value)"' +
     ' style="font-size:.75rem;padding:.3rem .4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:' + (cur !== "off" ? "#15803d" : "inherit") + '">' +
     '<option value="off"' + (cur === "off" ? " selected" : "") + '>Website: off</option>' +
@@ -15137,6 +15142,24 @@ function toggleHiddenAccounts(){
   filterTeams();
 }
 
+/**
+ * Where an instructor stands on a website, on their own line (Dale, 27 Sep 2026: "maybe put it
+ * somewhere here"). The figure was only inside the Manage dropdown's "Set their price…" option,
+ * which you can only read while the list is open - so a price that had saved perfectly looked as
+ * though it had not saved at all.
+ *
+ * One chip, the most useful thing first: what they have beats what they would pay.
+ */
+function websiteRowChip(instructorId){
+  const g = websiteGrantCache[instructorId] || {};
+  if (g.website) return ' <span class="chip chip-ok" title="They have a website">Website</span>';
+  if (g.in_trial) return ' <span class="chip chip-wait" title="On a website trial">Website trial'
+    + (g.trial_days_left != null ? " · " + g.trial_days_left + "d" : "") + '</span>';
+  if (g.special_price) return ' <span class="chip chip-info" title="Their price for a website, instead of the usual price">Website '
+    + gbpPence(g.website_list_pence) + '</span>';
+  return "";
+}
+
 function renderInstructorRow(i, schoolRows, fullControls, opts){
   const school = schoolRows.find(s=>s.id===i.school_id);
   const schoolLabel = school ? esc(school.display_name||school.name) : "Solo";
@@ -15155,6 +15178,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
   const emailItem = i.email ? manageItem("Send email", `location.href='mailto:${esc(i.email)}'`) : "";
   const copyItem = i.email ? manageItem("Copy email", `copyEmailAddress('${esc(i.email)}',this)`) : "";
   const info = `<strong>${esc(i.full_name ? nameCase(i.full_name) : i.email)}</strong>${adminBadge}${lockedBadge} ${statusChip}`
+    + (fullControls ? websiteRowChip(i.id) : "")
     + (fullControls && paysByDD ? ' <span class="chip chip-ok">Direct Debit</span>' : "")
     + (fullControls && mfaOn ? ' <span class="chip chip-ok" title="Two-factor authentication is on">2FA</span>' : "")
     + (!fullControls && !isMe ? franchiseFeeChip(i.id) : "")

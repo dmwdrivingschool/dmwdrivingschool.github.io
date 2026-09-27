@@ -186,10 +186,15 @@
   .app-strip h3{font-size:1.25rem;margin:0 0 4px}
   .app-strip p{margin:0;color:var(--muted);font-size:.96rem}
   .app-feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;margin-top:8px}
-  .app-feat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px}
-  .app-feat .ic{font-size:1.5rem;line-height:1;margin-bottom:10px}
-  .app-feat h3{font-size:1.08rem;margin:0 0 8px}
-  .app-feat p{margin:0;color:var(--muted);font-size:.96rem}
+  /* Icon beside the title, not stacked above it. A plain block put the .ic div on its own line,
+     which left every card opening with a floating symbol. Two columns: symbol, then heading; the
+     body text spans both so it keeps the full width of the card on a phone. Baseline alignment
+     sits the symbol on the heading's first line even when the heading runs to two. */
+  .app-feat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px;
+    display:grid;grid-template-columns:auto 1fr;column-gap:11px;align-items:baseline}
+  .app-feat .ic{font-size:1.5rem;line-height:1.2}
+  .app-feat h3{font-size:1.08rem;margin:0}
+  .app-feat p{grid-column:1/-1;margin:9px 0 0;color:var(--muted);font-size:.96rem}
   /* The app's own page, drawn in the instructor's colours and fonts like every other page on
      their site. It used to render the embed card — the block we give people to paste into a
      Squarespace site — and that card carries its own heading, its own intro and its own feature

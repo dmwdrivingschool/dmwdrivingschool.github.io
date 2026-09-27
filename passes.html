@@ -67,7 +67,10 @@
         .then(function (data) {
           if (!data || !data.name) return fail();
           var top = document.getElementById("top");
-          if (data.premium === false) {
+          // Branding follows payment now, not just Premium: a paid wall is theirs, a free trial
+          // still carries ours. Falls back to premium if an older function is still deployed.
+          var branded = data.branded !== undefined ? data.branded : (data.premium !== false);
+          if (!branded) {
             var who = data.kind === "instructor" && data.school ? data.name + " at " + data.school : data.name;
             top.innerHTML = '<img src="drive-my-way-logo.png" alt=""><h1>Drive My Way</h1><p>on behalf of ' + esc(who) + '</p>';
           } else {

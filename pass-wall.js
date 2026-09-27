@@ -132,9 +132,11 @@
     }
 
     var html = "";
-    // Branding is Premium, the same rule as the enquiry form: without it the wall says Drive My Way on behalf
-    // of them. With it, the wall is simply theirs.
-    if (data.premium === false) {
+    // Branding follows PAYMENT as well as Premium. A wall somebody has bought is simply theirs; a free
+    // trial still says Drive My Way on behalf of them, which is where the incentive is useful. The credit
+    // at the foot of the wall stays either way. Falls back to premium if an older function is deployed.
+    var branded = data.branded !== undefined ? data.branded : (data.premium !== false);
+    if (!branded) {
       var who = data.kind === "instructor" && data.school ? data.name + " at " + data.school : data.name;
       html +=
         '<div class="brand"><img src="https://web.drivemyway.co.uk/drive-my-way-logo.png" alt="">' +

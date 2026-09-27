@@ -18951,7 +18951,10 @@ function renderWebsiteOffer(){
 async function startWebsitePurchase(product){
   const wall = product === "pass_wall";
   const label = wall ? "the pass wall" : "a website";
-  const pence = wall ? 4900 : ((websiteEnt && websiteEnt.website_due_pence) || 14900);
+  // Both figures come from the entitlement. The wall is GBP 59, or GBP 49 on Premium, and this
+  // page must never be the thing that decides - the function charges what the database says.
+  const pence = wall ? ((websiteEnt && websiteEnt.pass_wall_pence) || 5900)
+                    : ((websiteEnt && websiteEnt.website_due_pence) || 14900);
   const inTrial = !!(websiteEnt && websiteEnt.in_trial);
   const when = inTrial
     ? "Nothing is collected until your trial ends — you can still walk away before then."

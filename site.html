@@ -47,6 +47,9 @@
   a{color:var(--accent)}
   img{display:block}
   .wrap{max-width:1140px;margin:0 auto;padding:0 20px}
+  .legal{max-width:680px}
+  .legal h2{font-size:1.15rem;margin:26px 0 6px}
+  .legal p{color:var(--muted);line-height:1.65;margin:0}
   /* Classic reads better held in a bit; Bold and Calm keep the full width (Dale, 27 Sep). */
   [data-template="classic"] .wrap{max-width:960px}
 
@@ -479,7 +482,64 @@
         (c.phone ? " · " + esc(c.phone) : "") +
         (c.email ? " · " + esc(c.email) : "") +
         (socialLinks(c, "") ? '<div class="foot-socials">' + socialLinks(c, "") + '</div>' : '') +
-        '<br><a href="https://drivemyway.co.uk">Website by Drive My Way</a></div></footer>';
+        '<br><a href="' + urlFor("privacy") + '">Privacy</a>' +
+        ' · <a href="https://drivemyway.co.uk">Website by Drive My Way</a></div></footer>';
+
+    /**
+     * The privacy notice, built from what we already know rather than left to the instructor.
+     *
+     * It is not optional: the enquiry form collects a name, contact details and an address, and UK
+     * GDPR says you must tell somebody at the point of collection who is taking it, why, and what
+     * their rights are. Before this, an instructor site said nothing at all.
+     *
+     * Generated, not editable, on purpose. An instructor will not write one, and a wrong notice is
+     * worse than no page - and when the law moves, this fixes every site at once instead of asking
+     * fifty people to edit theirs. The only thing that varies is their own name and contact details,
+     * which we hold already.
+     */
+    if (page === "privacy") {
+      document.title = "Privacy - " + name;
+      var reach = c.email
+        ? 'email <a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>'
+        : (c.phone ? 'call ' + esc(c.phone) : 'use the enquiry form on this website');
+      root.innerHTML = header +
+        '<div class="wrap"><section class="page-head"><h1>Privacy</h1>' +
+        '<p class="sub">What happens to your details when you get in touch.</p></section>' +
+        '<section class="band legal" style="border-top:0;padding-top:0">' +
+          '<h2>Who holds your details</h2>' +
+          '<p>' + esc(name) + ' is responsible for the personal details you give through this website. ' +
+            'The site and its enquiry form are run by Drive My Way, which stores the details on behalf of ' +
+            esc(name) + ' and never uses them for anything of its own.</p>' +
+          '<h2>What is collected, and why</h2>' +
+          '<p>If you fill in the enquiry form: your name, your contact details, your address, whether you ' +
+            'want manual or automatic, and a password so you can use the Drive My Way app. It is used to ' +
+            'answer your enquiry and, if you go ahead, to arrange and run your lessons. Nothing else on ' +
+            'this website collects anything about you.</p>' +
+          '<h2>Cookies</h2>' +
+          '<p>There are none. This website sets no cookies, uses no analytics and loads no trackers, so ' +
+            'there is nothing for you to accept or refuse.</p>' +
+          '<h2>Photos of pupils</h2>' +
+          '<p>Any photo of a pupil on this website is there because that pupil was asked in the Drive My ' +
+            'Way app and said yes to it appearing here. They are asked about each place separately, they ' +
+            'can refuse, and it makes no difference to their lessons. They can change their mind at any ' +
+            'time, in the app or from the link they were emailed, and the photo comes down and the file ' +
+            'is deleted.</p>' +
+          '<h2>How long it is kept</h2>' +
+          '<p>An enquiry that does not become lessons is kept while ' + esc(name) + ' still needs it and ' +
+            'then removed. If you become a pupil, your records are kept for as long as you are taught and ' +
+            'afterwards only where the law requires it, such as payment records for tax.</p>' +
+          '<h2>Who else sees it</h2>' +
+          '<p>Your details go to ' + esc(name) + '. They are not sold, and they are not shared for ' +
+            'marketing. Drive My Way holds them as the software provider, and no other instructor or ' +
+            'driving school can see them.</p>' +
+          '<h2>Your rights</h2>' +
+          '<p>You can ask for a copy of what is held about you, ask for it to be corrected or deleted, ' +
+            'and withdraw any permission you have given. To do any of that, ' + reach + '. If you are not ' +
+            'happy with the answer you can complain to the Information Commissioner at ' +
+            '<a href="https://ico.org.uk" target="_blank" rel="noopener">ico.org.uk</a>.</p>' +
+        '</section></div>' + footer;
+      return;
+    }
 
     // A page of every pass. Seventy-odd photos do not belong on a home page, but they are the best
     // thing an instructor has, so they get a page of their own with the lot on it.

@@ -74,7 +74,7 @@
       "destination": "/site.html"
     },
     {
-      "source": "/(passes|prices|app)",
+      "source": "/(passes|prices|app|privacy)",
       "destination": "/site.html?page=$1"
     },
     {

@@ -87,7 +87,7 @@
      same line however tall the photo is. */
   .hero > .shotcol{display:flex;flex-direction:column;align-self:stretch;min-width:0}
   .shotcol .shot{align-self:start;width:100%}
-  .areas{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:auto;padding-top:18px}
+  .areas{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:auto;padding-top:30px}
   @media(max-width:900px){.areas{margin-top:18px;padding-top:0}}
   /* The three designs are three shapes, not one shape in three colour schemes (Dale, 26 Sep: "do the
      layout as advertised"). Classic puts a landscape photo beside the words; Bold runs the words full
@@ -105,7 +105,7 @@
   .shot img{width:100%;aspect-ratio:4/3;object-fit:cover}
   /* nowrap and no shrink: in the chip row this was being squeezed until it broke after every
      word - "Where / I / teach" stacked three high next to the years-teaching chip. */
-  .areas-label{align-self:center;color:var(--muted);font-size:.86rem;font-weight:600;margin-left:6px;white-space:nowrap;flex-shrink:0}
+  .areas-label{align-self:center;color:var(--ink);font-size:1rem;font-weight:700;margin-left:0;white-space:nowrap;flex-shrink:0}
   @media(max-width:640px){.areas-label{flex-basis:100%;margin:6px 0 0}}
   /* "Show all of it" inside a fixed 4:3 frame leaves a band of empty card under the picture, which
      reads as a mistake rather than a choice. The frame takes the photo's own shape instead. */

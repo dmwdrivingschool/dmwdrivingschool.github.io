@@ -81,6 +81,18 @@
   .nav-links a{color:var(--ink);text-decoration:none}
   .nav-links a:hover{color:var(--accent)}
   .nav-links .nav-cta{display:none}
+  /* The header's big Enquire button goes at every width. The corner pill does that job now and is
+     on screen the whole way down the page, where this scrolled away after the first swipe; two of
+     them on one screen was one too many. Dale: "the big enquire button at the top should be
+     removed". It was already hidden on a phone - this is the same decision everywhere. */
+  header.site .wrap.nav > .btn{display:none}
+  /* Contact is what the header leads with now, so it reads as the action rather than the last item
+     in a list of six. */
+  .nav-links a.nav-strong{color:var(--accent);font-weight:700}
+  /* You are here. Underlined as well as coloured, so it does not rely on colour alone - Contact is
+     already accent-coloured, and colour on its own is no help to anyone who cannot separate the
+     two. */
+  .nav-links a.here{color:var(--accent);font-weight:700;border-bottom:2px solid var(--accent);padding-bottom:2px}
   /* Off on a desktop, where the hero button and the header button are both on screen already. */
   .sticky-cta{display:none}
 
@@ -293,7 +305,6 @@
        2026: "you have an enquire now and book your first lesson in the same bit of space". And with
        a longer business name the header could not fit brand and button on one row, so the button
        wrapped to a second line with no side padding and sat flush against the edge of the screen. */
-    header.site .wrap.nav > .btn{display:none}
     .nav-links .nav-cta{display:block;margin-top:12px;padding:13px 16px;border-top:0;border-radius:12px;
                         background:var(--accent);color:#fff;text-align:center;font-weight:700}
     .band h2{font-size:1.65rem}
@@ -670,11 +681,26 @@
     // look like one; About only scrolled the home page a little way down, which is not worth a
     // menu entry of its own. Dale, 27 Sep 2026: "area should be home", "i think we remove that
     // button completely".
-    navBits.push('<a href="' + urlFor("") + '">Home</a>');
-    if (passes.length) navBits.push('<a href="' + urlFor("passes") + '">' + esc(passLabel) + '</a>');
-    if (prices.length) navBits.push('<a href="' + urlFor("prices") + '">Prices</a>');
-    navBits.push('<a href="' + urlFor("app") + '">The DMW App</a>');
-    navBits.push('<a href="' + urlFor("contact") + '">Contact</a>');
+    /* One builder for every link, so the page you are on marks itself instead of each line
+       having to remember to. Dale: "when you on a page the page name at the top should change
+       colour so you know where you are". Home matches the empty page, which is what the home
+       page is. */
+    function navLink(target, label, extra){
+      var cls = (page === target) ? "here" : "";
+      if (extra) cls = cls ? (cls + " " + extra) : extra;
+      return '<a' + (cls ? ' class="' + cls + '"' : '') + ' href="' + urlFor(target) + '">' + label + '</a>';
+    }
+    navBits.push(navLink("", "Home"));
+    if (passes.length) navBits.push(navLink("passes", esc(passLabel)));
+    if (prices.length) navBits.push(navLink("prices", "Prices"));
+    navBits.push(navLink("app", "The DMW App"));
+    // Dale asked for Download in the nav twice. It was left out on the grounds that it is a page
+    // you get pointed at rather than browse to - but an instructor cannot point anyone at a link
+    // they cannot find themselves, and it is the page that turns a phone enquiry into a pupil.
+    navBits.push(navLink("download", "Download"));
+    // Contact carries the header now that the Enquire button has gone from it, so it is not just
+    // another link in the row. Dale: "Contact should also stand out abit more".
+    navBits.push(navLink("contact", "Contact", "nav-strong"));
     // Last in the panel and styled as a button: on a phone the header's own one is hidden, so this
     // is how somebody enquires without scrolling back to the hero.
     navBits.push('<a class="nav-cta" href="' + enquiry + '">Enquire now</a>');

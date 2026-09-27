@@ -211,7 +211,8 @@
   .store img{height:46px;width:auto}
   /* Numbered steps. The number is drawn from the list counter rather than typed into each heading,
      so inserting a step cannot leave them reading 1, 2, 2, 4. */
-  .dl-steps{list-style:none;counter-reset:dl;margin:0;padding:0;display:grid;gap:18px}
+  .dl-steps{list-style:none;counter-reset:dl;margin:0;padding:0;display:grid;gap:18px;
+    grid-template-columns:repeat(auto-fit,minmax(270px,1fr))}
   .dl-steps li{counter-increment:dl;background:var(--card);border:1px solid var(--line);
     border-radius:14px;padding:22px 24px;display:grid;grid-template-columns:auto 1fr;column-gap:14px}
   .dl-steps li::before{content:counter(dl);grid-row:1/span 3;align-self:start;

@@ -513,6 +513,7 @@
     document.documentElement.style.setProperty("--head", f[0]);
   }
 
+  var PRIVACY_UPDATED = "27 September 2026";
   var SHOT = "https://web.drivemyway.co.uk/app-screenshots/";
   // From Dale's own app-features page, written for a pupil rather than an instructor. The last flag
   // is Premium-only, and it has to match PupilHome.tsx rather than be guessed at: only Learning
@@ -733,7 +734,8 @@
         : (c.phone ? 'call ' + esc(c.phone) : 'use the enquiry form on this website');
       root.innerHTML = header +
         '<div class="wrap"><section class="page-head"><h1>Privacy</h1>' +
-        '<p class="sub">What happens to your details when you get in touch.</p></section>' +
+        '<p class="sub">What happens to your details when you get in touch.</p>' +
+        '<p style="color:var(--muted);font-size:.85rem;margin:8px 0 0">Last updated ' + PRIVACY_UPDATED + '</p></section>' +
         '<section class="band legal" style="border-top:0;padding-top:0">' +
           '<h2>Who holds your details</h2>' +
           '<p>' + esc(name) + ' is responsible for the personal details you give through this website. ' +
@@ -749,11 +751,14 @@
           '<p>There are none. This website sets no cookies, uses no analytics and loads no trackers, so ' +
             'there is nothing for you to accept or refuse.</p>' +
           '<h2>Photos of pupils</h2>' +
-          '<p>Any photo of a pupil on this website is there because that pupil was asked in the Drive My ' +
-            'Way app and said yes to it appearing here. They are asked about each place separately, they ' +
-            'can refuse, and it makes no difference to their lessons. They can change their mind at any ' +
-            'time, in the app or from the link they were emailed, and the photo comes down and the file ' +
-            'is deleted.</p>' +
+          '<p>Photos published since the Drive My Way app started asking are there because the pupil ' +
+            'agreed to it in the app. They are asked about each place separately, they can say no and ' +
+            'it makes no difference to their lessons, and they can change their mind at any time, in ' +
+            'the app or from the link they were emailed &mdash; the photo comes down and the file is ' +
+            'deleted.</p>' +
+          '<p>Photos published before then were put up on the basis of permission given to ' + esc(name) + ' ' +
+            'at the time, so there is no record of it in the app and no withdrawal link on them. If one ' +
+            'of them is of you and you would like it taken down, ' + reach + ' and it will be removed.</p>' +
           '<h2>How long it is kept</h2>' +
           '<p>An enquiry that does not become lessons is kept while ' + esc(name) + ' still needs it and ' +
             'then removed. If you become a pupil, your records are kept for as long as you are taught and ' +

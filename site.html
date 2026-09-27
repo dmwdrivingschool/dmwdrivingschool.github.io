@@ -51,7 +51,7 @@
   .legal h2{font-size:1.15rem;margin:26px 0 6px}
   .legal p{color:var(--muted);line-height:1.65;margin:0}
   /* Classic reads better held in a bit; Bold and Calm keep the full width (Dale, 27 Sep). */
-  [data-template="classic"] .wrap{max-width:960px}
+  [data-template="classic"] .wrap{max-width:1100px}
 
   .btn{display:inline-block;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:600;padding:13px 22px;border-radius:calc(var(--radius) - 6px);border:0;cursor:pointer;font-family:inherit;font-size:1rem}
   .btn:hover{background:var(--accent-dark);color:var(--accent-ink)}
@@ -339,6 +339,19 @@
     /* It was the same size and weight as the town names under it, so it read as part of the list
        rather than the thing introducing it. */
     .areas-label{display:block;margin:0 0 8px;font-size:1.1rem;letter-spacing:.01em}
+  }
+
+  /* ---- Computers only (901px up). Nothing in here can reach a phone. ---- */
+  @media (min-width:901px){
+    /* The header row was wrapping. .brand has flex-grow:1 and .nav lets items wrap, so once the
+       links were long - this demo's pass label is the custom "Testimonials - you can change this" -
+       the Enquire button was pushed off the row and landed under the logo, making the header 140px
+       tall instead of 70. It is not only this demo: any instructor with a long business name or a
+       renamed passes page hits it. The row no longer wraps; if the links genuinely do not fit they
+       wrap among themselves and the button keeps its place. */
+    header.site .wrap.nav{flex-wrap:nowrap}
+    .nav-links{flex-wrap:wrap;justify-content:flex-end;min-width:0}
+    header.site .wrap.nav > .btn{flex:0 0 auto;white-space:nowrap}
   }
 </style>
 </head>

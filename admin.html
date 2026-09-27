@@ -267,8 +267,12 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .tpl-calm{background:linear-gradient(135deg,#E6EEE7,#CFE0D2);border-bottom:4px solid #6E9478}
 .tpl-see{font-size:.82rem;font-weight:700;color:var(--navy)}
 .offer-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:1rem}
-.offer-box{border:2px solid var(--navy);border-radius:14px;padding:1.1rem}
-.offer-box.offer-alt{border:1px solid var(--line)}
+/* The two boxes behave as a pair of tabs: whichever is chosen is outlined and shows its own
+   preview above (Dale, 27 Sep 2026). The outline used to be hardcoded onto the website box, so the
+   wall could never look chosen however hard you clicked it. */
+.offer-box{border:1px solid var(--line);border-radius:14px;padding:1.1rem;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.offer-box:hover{border-color:var(--navy)}
+.offer-box.on{border:2px solid var(--navy);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
 .offer-price{font-size:2rem;font-weight:800;line-height:1}
 .offer-list{margin:.8rem 0 1rem;padding:0;list-style:none}
 .offer-list li{padding:.3rem 0 .3rem 1.4rem;position:relative;font-size:.92rem}
@@ -18916,7 +18920,7 @@ function renderWebsiteOffer(){
     </div>
 
     <div class="offer-grid">
-      <div class="offer-box">
+      <div class="offer-box on" id="buy-site-box" onclick="selectOffer('website')">
         <div class="offer-price">${due}${saved}</div>
         <div class="muted">one-off, not every year</div>
         <ul class="offer-list">
@@ -18927,14 +18931,14 @@ function renderWebsiteOffer(){
           <li>Hosting, for as long as you subscribe</li>
           <li>Edit it yourself from here, any time</li>
         </ul>
-        <button class="btn btn-navy" onclick="startWebsitePurchase('website')">Get a website</button>
+        <button class="btn btn-navy" onclick="event.stopPropagation();startWebsitePurchase('website')">Get a website</button>
       </div>
-      <div class="offer-box offer-alt" id="buy-wall-box" onclick="showWallPreview(true)" style="cursor:pointer">
+      <div class="offer-box offer-alt" id="buy-wall-box" onclick="selectOffer('wall')">
         <div class="offer-price">${wallPrice}</div>
         <div class="muted">already have a website?</div>
         <p style="margin:.6rem 0 0">Take just the pass wall and drop it into the site you already have. Every card on it is a pupil who really passed with you.</p>
         <p class="muted" style="font-size:.85rem;margin-top:.6rem">If you want the full website later, this ${wallPrice} comes off it — you never pay twice.</p>
-        <p style="margin:.6rem 0 0"><a href="#" onclick="showWallPreview(true);return false" style="font-weight:700">See what it looks like →</a></p>
+        <p style="margin:.6rem 0 0"><a href="#" onclick="event.stopPropagation();selectOffer('wall');return false" style="font-weight:700">See what it looks like →</a></p>
         <button class="btn-outline" onclick="event.stopPropagation();startWebsitePurchase('pass_wall')">Just the pass wall</button>
       </div>
     </div>
@@ -18967,6 +18971,20 @@ function renderWebsiteOffer(){
  * deliberately shown inside a plain pretend website rather than one of ours, because the product is
  * a block that lands in a site they already have - not a site we build.
  */
+/**
+ * The two offer boxes act as a pair of tabs: the chosen one is outlined and the preview above it
+ * changes to match. Choosing does NOT buy anything - the buttons inside each box still do that,
+ * and they stop the click so choosing and buying never happen in the same press.
+ */
+function selectOffer(which){
+  const site = document.getElementById("buy-site-box");
+  const wall = document.getElementById("buy-wall-box");
+  const onWall = which === "wall";
+  if (site) site.classList.toggle("on", !onWall);
+  if (wall) wall.classList.toggle("on", onWall);
+  showWallPreview(onWall);
+}
+
 function showWallPreview(on){
   const box = document.getElementById("buy-examples");
   if (!box) return;

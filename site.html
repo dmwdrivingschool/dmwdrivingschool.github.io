@@ -47,6 +47,8 @@
   a{color:var(--accent)}
   img{display:block}
   .wrap{max-width:1140px;margin:0 auto;padding:0 20px}
+  /* Classic reads better held in a bit; Bold and Calm keep the full width (Dale, 27 Sep). */
+  [data-template="classic"] .wrap{max-width:1040px}
 
   .btn{display:inline-block;background:var(--accent);color:var(--accent-ink);text-decoration:none;font-weight:600;padding:13px 22px;border-radius:calc(var(--radius) - 6px);border:0;cursor:pointer;font-family:inherit;font-size:1rem}
   .btn:hover{background:var(--accent-dark);color:var(--accent-ink)}
@@ -78,7 +80,15 @@
   .hero-actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
   .phone-link{font-weight:700;color:var(--ink);text-decoration:none;font-size:1.05rem}
   .shot{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 14px 34px rgba(21,32,43,.09)}
-  .hero > .shot{align-self:start}
+  /* The photo column. Dale, 26-27 Sep: "where i teach should move to below the photo" -
+     literally in that column - and "so it stays level with the 10 years amd manual dual
+     controlled car". Both at once: margin-top:auto drops the areas to the foot of this
+     column, and .stats does the same in the other, so the two rows of chips finish on the
+     same line however tall the photo is. */
+  .hero > .shotcol{display:flex;flex-direction:column;align-self:stretch;min-width:0}
+  .shotcol .shot{align-self:start;width:100%}
+  .areas{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:auto;padding-top:18px}
+  @media(max-width:900px){.areas{margin-top:18px;padding-top:0}}
   /* The three designs are three shapes, not one shape in three colour schemes (Dale, 26 Sep: "do the
      layout as advertised"). Classic puts a landscape photo beside the words; Bold runs the words full
      width with a letterbox photo under them; Calm stands a portrait next to them. Those are what the
@@ -583,18 +593,19 @@
         // finish at the same line. Dale, 26 Sep: "so it stays level with the 10 years amd manual dual
         // controlled car". Two rows of chips at the same height read as one row; staggered they read as
         // a mistake.
-        '<div class="stats" id="areas">' + statCells.map(function(st){
+        '<div class="stats">' + statCells.map(function(st){
           return '<div class="stat"><div class="v">' + esc(st[0]) + '</div><div class="l">' + esc(st[1]) + '</div></div>';
-        }).join("") +
-        (areas.length ? '<span class="areas-label">Where I teach</span>' +
-          areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") : '') +
-        '</div>' +
+        }).join("") + '</div>' +
         '</div>' +
         // Dale, 26 Sep, pointing at the gap beside the stats: "where i teach should move to below the
         // photo". Literally below the photo, in that column - not as its own band underneath, which is
         // what it got the first time and left the hole still sitting there.
-        (c.photo_url ? '<div class="shot' + (c.photo_fit === "fit" ? " fit" : "") + '"><img src="' +
-          esc(c.photo_url) + '" alt="" style="' + photoFitStyle(c) + '"></div>' : '') +
+        ((c.photo_url || areas.length) ? '<div class="shotcol">' +
+          (c.photo_url ? '<div class="shot' + (c.photo_fit === "fit" ? " fit" : "") + '"><img src="' +
+            esc(c.photo_url) + '" alt="" style="' + photoFitStyle(c) + '"></div>' : '') +
+          (areas.length ? '<div class="areas" id="areas"><span class="areas-label">Where I teach</span>' +
+            areas.map(function(a){ return '<span class="area">' + esc(a) + '</span>'; }).join("") + '</div>' : '') +
+        '</div>' : '') +
       '</section>' +
 
       (feats.length ? '<section class="band" id="about"><h2>' + esc(c.about_heading || "More than just passing your test") + '</h2>' +

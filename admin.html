@@ -251,14 +251,15 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 /* The choice dialog floats clear of the edges at every width (Dale, 25 Sep 2026), matching the app's
    ChoiceDialog. Its Cancel used to sit against the bottom of the screen, next to the phone's own buttons -
    a mis-tap there locks a pupil out of their app. Only this one; every other modal keeps its sheet. */
-.wc-lead{font-size:.88rem;color:#475569;margin:.2rem 0 .8rem}
+.wc-lead{font-size:.88rem;color:var(--muted);margin:.2rem 0 .8rem}
 .wc-top{display:flex;gap:.5rem;margin-bottom:.6rem}
-.wc-list{max-height:46vh;overflow:auto;border:1px solid #e2e8f0;border-radius:10px}
-.wc-row{display:flex;align-items:center;gap:.7rem;padding:.55rem .7rem;cursor:pointer;border-bottom:1px solid #eef2f7}
+.wc-list{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.wc-row{display:flex;align-items:center;gap:.7rem;padding:.55rem .7rem;cursor:pointer;border-bottom:1px solid var(--line)}
 .wc-row:last-child{border-bottom:0}
-.wc-row:hover{background:#f8fafc}
-.wc-row img{width:52px;height:52px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:#e2e8f0}
-.wc-name{font-size:.85rem;color:#334155;word-break:break-all}
+.wc-row:hover{background:rgba(127,127,127,.12)}
+.wc-row input{flex:0 0 auto;width:18px;height:18px;cursor:pointer}
+.wc-row img{width:52px;height:52px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:var(--line)}
+.wc-name{font-size:.85rem;color:var(--text);word-break:break-all}
 .wc-foot{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
 .chk-card{border:1px solid #F0C36D;background:#FFF9EC;border-radius:10px;padding:.8rem;margin-bottom:1rem}
 .chk-head{font-weight:700;color:#7A5B12;margin-bottom:.15rem}

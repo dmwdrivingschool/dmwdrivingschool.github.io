@@ -6389,6 +6389,17 @@ function renderWebsiteGrantSelect(instructorId){
     '<option value="price">Set their price…' + price + '</option>' +
     '</select>';
 }
+/** The no-code route: a hosted page they link to instead of pasting anything. */
+function copyWallLink(btn){
+  const el = document.getElementById("wall-link");
+  if (!el) return;
+  navigator.clipboard.writeText((el.textContent || "").trim()).then(function(){
+    const was = btn.textContent;
+    btn.textContent = "Copied";
+    setTimeout(function(){ btn.textContent = was; }, 1500);
+  }, function(){ alert("Could not copy. Select the address and copy it by hand."); });
+}
+
 /** Both lines at once. Typing a uuid by hand is a wall that silently never appears. */
 function copyWallSnippet(btn){
   const el = document.getElementById("wall-snip");
@@ -18867,7 +18878,14 @@ function renderWebsiteOffer(){
       <p class="muted">Paste both lines wherever you want the wall to appear on your own website. The first says where it goes and which photos are yours; the second draws it. It works on Wix, Squarespace, WordPress — anywhere you can paste a bit of code.</p>
       <pre class="embed-snip" id="wall-snip">${esc(wallSnippet)}</pre>
       <button class="btn-outline btn-sm" onclick="copyWallSnippet(this)">Copy both lines</button>
-      <p class="muted" style="font-size:.85rem;margin-top:.8rem">Not sure where they go? Forward them to whoever built your site, or send me a message and I will talk you through it.</p></div>`;
+      <p class="muted" style="font-size:.85rem;margin-top:.8rem">Not sure where they go? Forward them to whoever built your site, or send me a message and I will talk you through it.</p>
+      <h3 class="sf-head">Or just link to it</h3>
+      <p class="muted">If you would rather not paste code at all, your wall also lives on a page of its own. Put this address in your menu, or anywhere you would put a link.</p>
+      <pre class="embed-snip" id="wall-link">https://web.drivemyway.co.uk/passes.html?i=${currentUserId}</pre>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn-outline btn-sm" onclick="copyWallLink(this)">Copy the address</button>
+        <a class="btn-outline btn-sm" href="https://web.drivemyway.co.uk/passes.html?i=${currentUserId}" target="_blank" rel="noopener">See it</a>
+      </div></div>`;
     return;
   }
   if (!e || !e.can_buy){ host.innerHTML = ""; return; }

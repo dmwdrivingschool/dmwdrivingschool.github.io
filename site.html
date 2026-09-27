@@ -212,6 +212,10 @@
     .app-phones img{max-width:132px}
   }
   @media(max-width:760px){.app-strip{grid-template-columns:1fr;text-align:center}.app-strip .shots{justify-content:center}}
+  /* label on the left, value on the right - the same row for Phone/Email and for the days, so
+     the two blocks line up instead of looking like two different ideas. */
+  .reach{display:flex;justify-content:space-between;gap:16px;margin:0;padding:11px 0;border-bottom:1px solid var(--line);max-width:420px}
+  .reach span{color:var(--muted)}
   .page-head{padding:54px 0 10px}
   .page-head h1{font-size:2.6rem}
 
@@ -241,6 +245,11 @@
     .band h2{font-size:1.65rem}
     section.band{padding:42px 0}
     .page-head h1{font-size:1.9rem}
+    /* 54px of top padding makes sense under a roomy desktop header. On a phone it left most of a
+       screen empty between the header and the word Passes - and the same on Prices and The DMW
+       App, since they all use .page-head. Dale: "there is a massive space from the top of page to
+       the word Passes - waste of space" / "same on the prices page". */
+    .page-head{padding:22px 0 6px}
   }
   /* On a phone the hero collapses to one column and these two were left looking like stray buttons:
      the number bare and left-aligned under the CTA, the pills stacked one per line at odd widths.
@@ -282,7 +291,9 @@
        the margin only does the right-hand side. Spaces inside generated content collapse against
        the text that follows, which is why the separator lost its trailing gap first time. */
     .area:not(:last-of-type)::after{content:"·";margin-left:5px;color:var(--muted);font-weight:400}
-    .areas-label{display:block;margin:0 0 6px}
+    /* It was the same size and weight as the town names under it, so it read as part of the list
+       rather than the thing introducing it. */
+    .areas-label{display:block;margin:0 0 8px;font-size:1.1rem;letter-spacing:.01em}
   }
 </style>
 </head>
@@ -523,6 +534,7 @@
     var feats  = Array.isArray(c.features) ? c.features.filter(function(f){ return f && (f.title || f.text); }) : [];
     var passes = Array.isArray(d.passes) ? d.passes : [];
     var stats  = c.stats || {};
+    var hours  = d.hours || null;
     var gearbox = c.gearbox === "automatic" ? "Automatic" : c.gearbox === "both" ? "Manual and automatic" : "Manual";
     // What they call their passes page. "Passes" is fine, but plenty of instructors already have a
     // Wall of Fame or Success Stories with their own following, and a website that renames it is a
@@ -532,11 +544,14 @@
 
     // In the order the page itself runs, so the menu is a map of the page rather than a separate list.
     var navBits = [];
-    if (areas.length)  navBits.push('<a href="' + urlFor("") + '#areas">Areas</a>');
-    if (feats.length)  navBits.push('<a href="' + urlFor("") + '#about">About</a>');
+    // Home, not Areas. On a sub-page "Areas" was the only way back to the home page and did not
+    // look like one; About only scrolled the home page a little way down, which is not worth a
+    // menu entry of its own. Dale, 27 Sep 2026: "area should be home", "i think we remove that
+    // button completely".
+    navBits.push('<a href="' + urlFor("") + '">Home</a>');
     if (passes.length) navBits.push('<a href="' + urlFor("passes") + '">' + esc(passLabel) + '</a>');
     if (prices.length) navBits.push('<a href="' + urlFor("prices") + '">Prices</a>');
-    navBits.push('<a href="' + urlFor("app") + '">The app</a>');
+    navBits.push('<a href="' + urlFor("app") + '">The DMW App</a>');
     navBits.push('<a href="' + urlFor("contact") + '">Contact</a>');
     // Last in the panel and styled as a button: on a phone the header's own one is hidden, so this
     // is how somebody enquires without scrolling back to the hero.
@@ -581,31 +596,71 @@
      * fifty people to edit theirs. The only thing that varies is their own name and contact details,
      * which we hold already.
      */
-    /* Contact: the phone number, the email address and the enquiry form in one place.
+    /* Contact: how to reach them, when they teach, and what actually happens if you fill the form in.
      *
-     * Dale, 27 Sep 2026: "the phone number should be on a seperate contact us page - phone - email -
-     * and enquiry form". It used to sit in the hero beside the button, which read as clutter on a
-     * desktop and as a stray line on a phone.
+     * The first version said "However suits you best - lessons in Gloucester", which is not a
+     * sentence, and then "Tell me a bit about yourself and what you are after", which tells a
+     * nervous seventeen year old nothing at all. Dale, 27 Sep 2026: "it needs to explain what
+     * happens at the end of the enquiry form - about the app etc - also put lesson working hours on
+     * the contact us page".
      *
-     * The form is a LINK, not an iframe. web.drivemyway.co.uk sends frame-ancestors 'none' and
-     * X-Frame-Options: DENY, so it cannot be embedded - checked rather than assumed, because a CSP
-     * refusing to frame something has caught this project three times now. Weakening that header on
-     * the Control Centre to suit a layout would be the wrong trade.
+     * What genuinely happens, from submit_website_enquiry and the pupils triggers: the form creates
+     * a pupil at status 'enquiry' tagged to this instructor, it lands in their Enquiries, and when
+     * they take the pupil on the pupil is told and gets their own app login. That is what is
+     * described below - not a guess at it.
+     *
+     * The form is a LINK, not an iframe: web.drivemyway.co.uk sends frame-ancestors 'none' and
+     * X-Frame-Options: DENY. Weakening that to suit a layout would be the wrong trade.
      */
     if (page === "contact") {
       document.title = "Contact - " + name;
+
       var ways = "";
-      if (c.phone) ways += '<p style="margin:0 0 14px"><strong>Phone</strong><br>' +
+      if (c.phone) ways += '<p class="reach"><span>Phone</span>' +
         '<a class="phone-link" href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a></p>';
-      if (c.email) ways += '<p style="margin:0 0 14px"><strong>Email</strong><br>' +
+      if (c.email) ways += '<p class="reach"><span>Email</span>' +
         '<a class="phone-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a></p>';
+
+      /* Hours as they are actually stored: perDay when it is set and start < end, otherwise the
+         top-level start/end, which is how older rows work and how the app reads them. Days that are
+         switched off are left out rather than shown as closed - a list of "Closed" lines is longer
+         and says less than simply not being there. */
+      var WHD = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+      var hoursHtml = "";
+      if (hours && typeof hours === "object") {
+        var mins = function(t){ var m = /^(\d{1,2}):(\d{2})/.exec(String(t||"")); return m ? +m[1]*60 + +m[2] : NaN; };
+        var nice = function(t){
+          var v = mins(t); if (isNaN(v)) return "";
+          var h = Math.floor(v/60), mm = v%60, ap = h < 12 ? "am" : "pm", h12 = h%12 === 0 ? 12 : h%12;
+          return h12 + (mm ? ":" + String(mm).padStart(2,"0") : "") + ap;
+        };
+        var rows = [];
+        WHD.forEach(function(d){
+          if ((hours.days||{})[d] === false) return;
+          var per = hours.perDay && hours.perDay[d];
+          var st = per && mins(per.start) < mins(per.end) ? per.start : hours.start;
+          var en = per && mins(per.start) < mins(per.end) ? per.end   : hours.end;
+          if (isNaN(mins(st)) || isNaN(mins(en))) return;
+          rows.push('<p class="reach"><span>' + d + '</span>' + esc(nice(st)) + " to " + esc(nice(en)) + '</p>');
+        });
+        if (rows.length) hoursHtml = '<h2>When I teach</h2>' + rows.join("");
+      }
+
       root.innerHTML = header +
         '<div class="wrap"><section class="page-head"><h1>Contact</h1>' +
-        '<p class="sub">However suits you best' + (c.town ? ' — lessons in ' + esc(c.town) : '') + '.</p></section>' +
+        '<p class="sub">Get in touch and I will come back to you' +
+          (c.town ? ' about lessons in ' + esc(c.town) : '') + '.</p></section>' +
         '<section class="band" style="border-top:0;padding-top:0">' +
-          (ways || '') +
-          '<h2 style="margin-top:' + (ways ? '28px' : '0') + '">Send me your details</h2>' +
-          '<p>Tell me a bit about yourself and what you are after, and I will come back to you.</p>' +
+          (ways ? '<h2 style="margin-top:0">How to reach me</h2>' + ways : '') +
+          hoursHtml +
+          '<h2>Or send me your details</h2>' +
+          '<p>The form asks for your name, how to get hold of you, and roughly where you are. It comes ' +
+            'straight to me &mdash; not a shared inbox &mdash; and I will get back to you to sort out a ' +
+            'first lesson.</p>' +
+          '<p>Once you start lessons you get your own login for the Drive My Way app. That is where your ' +
+            'lessons appear, where you can see how you are getting on, and where you can message me ' +
+            'without needing my number to hand. Nothing to pay for it and nothing to set up &mdash; I send ' +
+            'the invite.</p>' +
           '<p style="margin-top:18px"><a class="btn" href="' + enquiry + '">Open the enquiry form</a></p>' +
         '</section></div>' + footer;
       return;

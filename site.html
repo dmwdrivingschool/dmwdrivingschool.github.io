@@ -150,9 +150,6 @@
               padding:12px 18px;border-radius:9999px;background:var(--accent);color:#fff;font-weight:700;
               font-size:.95rem;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.22)}
   .sticky-cta:hover{filter:brightness(1.07)}
-  /* So the footer's last line is never sitting under the pill. */
-  footer.site{padding-bottom:74px}
-
   /* Where I teach, as a plain list rather than a grid of big chips, and no longer shoved to the
      bottom of its column. margin-top:auto bottom-aligned it against the stats opposite, which on a
      computer left a 158px hole between the photo and the town names whenever the photo was short. */
@@ -195,6 +192,10 @@
   .enquire .sub{margin:10px auto 22px}
 
   footer.site{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:.9rem;text-align:center}
+  /* Clearance for the corner Enquire pill, so the footer's last line is never sitting under it.
+     This has to come AFTER the rule above: same specificity, and the shorthand padding there resets
+     the bottom. Putting it with the other promoted phone rules left it silently overridden. */
+  footer.site{padding-bottom:74px}
   .loading,.gone{padding:80px 20px;text-align:center;color:var(--muted)}
   .app-band{padding:60px 0;border-top:1px solid var(--line)}
   /* Home page gets a light mention, not the full block. Dale, 26 Sep: "more simple and then the
@@ -370,6 +371,15 @@
     .hero{padding:34px 0 38px}
     section.band,.app-band{padding:36px 0}
     .app-hero{padding:30px 0 34px}
+  }
+
+  /* Between the phone menu and a roomy screen there is a band where the links are on one row but
+     only just. This demo's pass label is the whole sentence "Testimonials - you can change this",
+     which at 980px pushed Contact onto a second row - untidy rather than broken, since the button
+     now holds its place either way. A tighter gap and a touch smaller buys the room back; above
+     1160 they go back to full size. */
+  @media (min-width:901px) and (max-width:1160px){
+    .nav-links{gap:15px;font-size:.9rem}
   }
 </style>
 </head>

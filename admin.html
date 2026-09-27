@@ -6389,6 +6389,17 @@ function renderWebsiteGrantSelect(instructorId){
     '<option value="price">Set their price…' + price + '</option>' +
     '</select>';
 }
+/** Both lines at once. Typing a uuid by hand is a wall that silently never appears. */
+function copyWallSnippet(btn){
+  const el = document.getElementById("wall-snip");
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent || "").then(function(){
+    const was = btn.textContent;
+    btn.textContent = "Copied";
+    setTimeout(function(){ btn.textContent = was; }, 1500);
+  }, function(){ alert("Could not copy. Select the two lines and copy them by hand."); });
+}
+
 async function setWebsiteGrant(instructorId, val){
   const err = document.getElementById("teams-err");
   if (err){ err.style.color = ""; err.textContent = ""; }
@@ -18844,10 +18855,19 @@ function renderWebsiteOffer(){
   if (e && e.website){ loadWebsiteEditor(); return; }
   // Bought the wall only: the wall and the snippet, and nothing else.
   if (e && e.pass_wall){
+    // BOTH lines, with their own id in the first one. The script has no way of knowing whose wall to
+    // draw except from data-instructor, so the script tag on its own renders nothing at all - which
+    // is exactly what a paying customer would have got (Dale, 27 Sep 2026: "how does that code link
+    // it to only that 1 persons photos?").
+    const wallSnippet =
+      '<div id="dmw-pass-wall" data-instructor="' + currentUserId + '"></div>' +
+      String.fromCharCode(10) +
+      '<script src="https://web.drivemyway.co.uk/pass-wall.js" async><' + '/script>';
     host.innerHTML = `<div class="panel"><h2>Your pass wall</h2>
-      <p class="muted">Add this one line wherever you want the wall to appear on your own website. It works on Wix, Squarespace, WordPress — anywhere you can paste a bit of code.</p>
-      <pre class="embed-snip">&lt;script src="https://web.drivemyway.co.uk/pass-wall.js" async&gt;&lt;/script&gt;</pre>
-      <p class="muted" style="font-size:.85rem">Not sure where it goes? Forward that line to whoever built your site, or send me a message and I will talk you through it.</p></div>`;
+      <p class="muted">Paste both lines wherever you want the wall to appear on your own website. The first says where it goes and which photos are yours; the second draws it. It works on Wix, Squarespace, WordPress — anywhere you can paste a bit of code.</p>
+      <pre class="embed-snip" id="wall-snip">${esc(wallSnippet)}</pre>
+      <button class="btn-outline btn-sm" onclick="copyWallSnippet(this)">Copy both lines</button>
+      <p class="muted" style="font-size:.85rem;margin-top:.8rem">Not sure where they go? Forward them to whoever built your site, or send me a message and I will talk you through it.</p></div>`;
     return;
   }
   if (!e || !e.can_buy){ host.innerHTML = ""; return; }

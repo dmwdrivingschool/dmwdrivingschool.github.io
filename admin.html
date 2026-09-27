@@ -3116,6 +3116,7 @@ function renderPausedPanel(){
     <div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:.5rem">
       <button class="btn-outline" onclick="pausedDownloadFinances()">Download my finances</button>
       ${p.can_manage ? `<button class="btn-outline" onclick="exportPupilsCsv()">Download my pupils</button>` : ""}
+      ${p.can_manage ? `<button class="btn-outline" data-dl-site onclick="downloadMySite()">Download my website</button>` : ""}
       <button class="btn-outline" onclick="lock()">Log out</button>
     </div>`;
 }
@@ -5790,7 +5791,9 @@ function renderWebsiteEditor(){
     siteEditorOpen = !saved;
   }
 
-  const html = `<div class="panel">
+  /* The trial strip sits above everything, because "free for another 24 days, cancel here" is the
+     most important thing on this screen while it is true, and nothing at all once it is not. */
+  const html = websiteTrialStrip(websiteEnt) + `<div class="panel">
     <h2>Your website</h2>
     <p class="muted">${siteEditorOpen
       ? "Everything here is yours to change, and it goes live the moment you save."
@@ -5935,6 +5938,15 @@ function renderWebsiteEditor(){
   // time after: picking a colour or a font appended a SECOND copy of the whole editor below, while the
   // one on screen sat there unchanged. From the chair it looked like the buttons did nothing. Dale, on
   // the trial account: "when changing the colour and headings, nothing is happening."
+  const html2 = html + wallRefundStrip(websiteEnt) + `<div class="panel">
+    <h3 style="margin-top:0">Your content</h3>
+    <p class="muted">Everything you have written and every photo, as one file you can keep. Your pass photos come with
+      the consent record beside each one &mdash; who agreed, when, and where they agreed it could go.</p>
+    <button class="btn-outline btn-sm" data-dl-site onclick="downloadMySite()">Download my content</button>
+    <p class="muted" style="font-size:.8rem;margin:1rem 0 .4rem">Finished with it altogether?</p>
+    <button class="btn-outline btn-sm" onclick="deleteMySite()">Delete everything on my website</button>
+  </div>`;
+
   let box = document.getElementById("site-editor");
   if (!box){
     box = document.createElement("div");
@@ -5942,7 +5954,7 @@ function renderWebsiteEditor(){
     if (!websiteEditorAppend) host.innerHTML = "";
     host.appendChild(box);
   }
-  box.innerHTML = html;
+  box.innerHTML = html2;
   autoGrowAll(box);
 }
 
@@ -6251,10 +6263,155 @@ function openSiteEditor(){
 
 async function toggleSitePublished(){
   const next = !siteRow.published;
+  /* Taking a website offline is not the same as cancelling it, and somebody clicking this while
+     annoyed will assume it is. Three things they will not otherwise know: nothing is refunded, the
+     pass wall on their own site carries on because that comes with the purchase, and nothing is
+     deleted. Only asked on the way DOWN - putting it live needs no warning. */
+  if (!next){
+    const paid = websiteEnt && websiteEnt.website && !(websiteEnt.pending_charge_date);
+    if (!confirm("Take your website offline?" + String.fromCharCode(10, 10) +
+        "Nobody will be able to see it, but nothing is deleted — your design, your words and your photos all stay, and you can put it back with one click." +
+        String.fromCharCode(10, 10) +
+        "Your pass wall keeps working on any other site you have put it on." +
+        (paid ? String.fromCharCode(10, 10) + "This does not cancel the purchase and nothing is refunded." : ""))) return;
+  }
   const {error} = await sb.from("instructor_sites").update({published: next}).eq("instructor_id", currentUserId);
   if (error){ alert(error.message); return; }
   siteRow.published = next;
   renderWebsiteEditor();
+}
+
+/**
+ * Clear the site out for somebody who genuinely wants rid of it.
+ *
+ * Distinct from taking it offline, which keeps everything. This empties what they wrote and releases
+ * the address so somebody else can have it, and it cannot be undone - so it asks twice and points at
+ * the download first. The purchase row stays: they paid, and it is what keeps their pass wall
+ * working on a site of their own.
+ *
+ * Pass photos are deliberately untouched. They are pupils' consent records as much as pictures, and
+ * they have their own withdrawal route that belongs to the pupil, not to this button.
+ */
+/**
+ * Hand them back everything they wrote, as one file they can keep.
+ *
+ * Dale, 27 Sep 2026: somebody who pays GBP 149 and leaves three months later has technically had
+ * exactly what was advertised, and will still feel robbed - and his sign-ups come from ADI Facebook
+ * groups, where that gets posted. "Here is everything you wrote, you can rebuild it anywhere" is a
+ * very different conversation to "it is gone", and it costs nothing.
+ *
+ * ONE self-contained HTML file, with the images inside it rather than linked. A file of links looks
+ * fine the day it is made and quietly breaks the day their storage is cleared, which is the day it
+ * mattered. Anything that will not embed - a bucket that refuses a cross-origin read - falls back to
+ * a link, and the file says so rather than pretending.
+ *
+ * Pass photos come too, each with its consent record beside it: who, when, and which places they
+ * agreed to. Under the new Code of Practice that is the evidence they are expected to hold, so the
+ * export is worth having even if they never leave.
+ */
+async function downloadMySite(){
+  const btns = Array.from(document.querySelectorAll("[data-dl-site]"));
+  btns.forEach(b => { b.disabled = true; b.dataset.was = b.textContent; b.textContent = "Gathering it up…"; });
+  try{
+    const { data: row } = await sb.from("instructor_sites")
+      .select("content,template,accent,subdomain,domain").eq("instructor_id", currentUserId).maybeSingle();
+    const { data: cards } = await sb.from("pass_cards")
+      .select("first_name,passed_on,photo_url,words,words_approved_at,pupil_agreed_at,consent_channels")
+      .eq("instructor_id", currentUserId).is("withdrawn_at", null)
+      .order("sort_order", { ascending: false });
+
+    const c = (row && row.content) || {};
+    // Fetch each picture and inline it. A failure here is not fatal - link it and say so.
+    let missed = 0;
+    const embed = async (url) => {
+      if (!url) return null;
+      try{
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(String(r.status));
+        const blob = await r.blob();
+        return await new Promise((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob);
+        });
+      }catch(err){ missed++; return null; }
+    };
+
+    const photo = await embed(c.photo_url || c.photo || null);
+    const shots = [];
+    for (const card of (cards || [])){
+      shots.push({ card: card, data: await embed(card.photo_url) });
+    }
+
+    const esc2 = (v) => String(v == null ? "" : v)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    const para = (v) => esc2(v).split(String.fromCharCode(10)).join("<br>");
+    const when = (d) => d ? new Date(d).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : "";
+
+    const passHtml = shots.map(function(s){
+      const card = s.card, data = s.data;
+      const places = Array.isArray(card.consent_channels) ? card.consent_channels : [];
+      return '<div class="card">' +
+        (data ? '<img src="' + data + '" alt="">'
+              : card.photo_url ? '<p class="gone">Photo not included &mdash; <a href="' + esc2(card.photo_url) + '">' + esc2(card.photo_url) + '</a></p>' : '') +
+        '<h3>' + esc2(card.first_name || "A pupil") + '</h3>' +
+        '<p class="meta">Passed ' + esc2(when(card.passed_on)) + '</p>' +
+        (card.words && card.words_approved_at ? '<blockquote>' + para(card.words) + '</blockquote>' : '') +
+        '<p class="consent"><strong>Consent:</strong> agreed ' + esc2(when(card.pupil_agreed_at) || "date not recorded") +
+          (places.length ? ' for ' + places.map(esc2).join(", ") : ' (places not recorded)') + '</p>' +
+      '</div>';
+    }).join("");
+
+    const doc = '<!doctype html><html lang="en-GB"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<title>' + esc2(c.name || "My website") + ' &mdash; my content</title><style>' +
+      'body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:760px;margin:0 auto;padding:28px 18px;color:#1e1e24;line-height:1.55}' +
+      'h1{margin:0 0 4px}h2{margin-top:2.2rem;border-top:1px solid #e5e7eb;padding-top:1.2rem}' +
+      '.meta{color:#667;font-size:.9rem}.card{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin:12px 0}' +
+      '.card img{max-width:100%;border-radius:8px}blockquote{margin:.6rem 0;padding-left:.8rem;border-left:3px solid #e5e7eb;font-style:italic}' +
+      '.consent{font-size:.85rem;color:#475569}.gone{font-size:.85rem;color:#b45309;word-break:break-all}' +
+      '.note{background:#F8FAFC;border-left:4px solid #0A4CA1;padding:12px 14px;border-radius:0 8px 8px 0;font-size:.9rem}' +
+      '</style></head><body>' +
+      '<h1>' + esc2(c.name || "My website") + '</h1>' +
+      '<p class="meta">Everything you wrote on your Drive My Way website. Saved ' + esc2(when(new Date())) + '.</p>' +
+      '<div class="note">This is your copy to keep. The words and the pictures are yours. The website design itself stays with Drive My Way.' +
+        (missed ? ' <strong>' + missed + ' image' + (missed === 1 ? "" : "s") + ' could not be saved into this file and are linked instead &mdash; save those separately.</strong>' : '') +
+      '</div>' +
+      (photo ? '<p><img src="' + photo + '" alt="" style="max-width:260px;border-radius:10px"></p>' : '') +
+      (c.tagline ? '<h2>Tagline</h2><p>' + para(c.tagline) + '</p>' : '') +
+      (c.about ? '<h2>About</h2><p>' + para(c.about) + '</p>' : '') +
+      (Array.isArray(c.areas) && c.areas.length ? '<h2>Where I teach</h2><p>' + esc2(c.areas.join(", ")) + '</p>' : '') +
+      (Array.isArray(c.prices) && c.prices.length ? '<h2>Prices</h2><ul>' +
+        c.prices.map(function(pr){ return '<li>' + esc2(pr && pr.label ? pr.label : "") + ' &mdash; ' + esc2(pr && pr.price ? pr.price : "") + '</li>'; }).join("") + '</ul>' : '') +
+      (c.phone || c.email ? '<h2>Contact</h2><p>' + esc2(c.phone || "") + (c.phone && c.email ? "<br>" : "") + esc2(c.email || "") + '</p>' : '') +
+      (row && (row.domain || row.subdomain) ? '<h2>Web address</h2><p>' + esc2(row.domain || (row.subdomain + ".drivemyway.co.uk")) + '</p>' : '') +
+      (passHtml ? '<h2>Pass photos and consent</h2>' + passHtml : '') +
+      '</body></html>';
+
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([doc], {type:"text/html"}));
+    a.download = "my-drive-my-way-website.html";
+    a.click();
+  }catch(err){
+    alert("That could not be put together: " + (err && err.message ? err.message : String(err)));
+  }finally{
+    btns.forEach(b => { b.disabled = false; if (b.dataset.was) b.textContent = b.dataset.was; });
+  }
+}
+
+async function deleteMySite(){
+  if (!confirm("Delete everything on your website?" + String.fromCharCode(10, 10) +
+      "This clears what you have written and gives up your web address. It cannot be undone." +
+      String.fromCharCode(10, 10) +
+      "If you might want any of it later, download a copy first — the button is just below.")) return;
+  if (!confirm("Last check — really delete it?" + String.fromCharCode(10, 10) +
+      "Your pass photos are not affected, and nothing is refunded.")) return;
+  const {error} = await sb.from("instructor_sites")
+    .update({ content: {}, subdomain: null, domain: null, domain_status: "none", published: false })
+    .eq("instructor_id", currentUserId);
+  if (error){ alert(error.message); return; }
+  alert("That is cleared." + String.fromCharCode(10, 10) +
+    "Your pass wall still works if you are using it on a site of your own.");
+  await refreshWebsiteEntitlement();
 }
 
 /**
@@ -19128,6 +19285,94 @@ const longChargeDate = (d) => d
   : null;
 
 let websitePurchaseBusy = false;
+/* While a purchase is still to be collected, say so on the Website tab.
+ *
+ * A free trial nobody is reminded of is just a delayed bill. This is the one place they will be
+ * standing when they wonder, and it carries the only thing that makes it a real trial - a way out.
+ * Dates come from the entitlement so the screen and the bank agree.
+ */
+function websiteTrialStrip(e){
+  if (!e || !e.pending_charge_date) return "";
+  const on = longChargeDate(e.pending_charge_date);
+  const left = e.pending_trial_days_left;
+  const thing = e.pending_product === "pass_wall" ? "pass wall" : "website";
+  if (left != null && left > 0){
+    /* The DATE, not a countdown. The trial is dated 33 days and sold as 30, because Bacs takes a
+       payment out of our hands about two working days before it collects. A counter would therefore
+       say "33 days" beside a sales page promising 30, and capping it at 30 would leave it apparently
+       stuck for three days. The date has neither problem and is what their bank will show. */
+    return '<div class="panel" style="border-left:4px solid #15803d;background:#F0FDF4">' +
+      '<strong>Your ' + thing + ' is free until ' + esc(on) + '.</strong>' +
+      '<p style="margin:.4rem 0 0">Nothing has been taken yet. ' + gbpPence(e.website_due_pence || 0) +
+        ' is collected that day unless you cancel before then.</p>' +
+      '<p style="margin:.6rem 0 0"><button class="btn-outline btn-sm" onclick="cancelWebsitePurchase()">' +
+        'Cancel it &mdash; do not charge me</button></p>' +
+    '</div>';
+  }
+  return '<div class="panel" style="border-left:4px solid var(--navy)">' +
+    '<strong>Your ' + thing + ' is collected on ' + esc(on) + '.</strong>' +
+    '<p style="margin:.4rem 0 0">Nothing to do &mdash; it goes out on the Direct Debit you already have.</p>' +
+  '</div>';
+}
+
+/* The pass wall's 14 days, offered rather than buried.
+ *
+ * It has no free trial - it collects within a few working days - so this is the only window in which
+ * somebody can change their mind, and a refund nobody can find how to ask for is not really on offer.
+ * Only shown while it is genuinely available; the date comes from the entitlement so the screen and
+ * the function agree about when it closes. */
+function wallRefundStrip(e){
+  if (!e || !e.wall_refund_until) return "";
+  const until = longChargeDate(e.wall_refund_until);
+  return '<div class="panel" style="border-left:4px solid var(--line)">' +
+    '<strong>Changed your mind about the pass wall?</strong>' +
+    '<p style="margin:.4rem 0 0">You can have your money back in full up to <strong>' + esc(until) + '</strong>. ' +
+      'After that it is yours to keep and there is no refund.</p>' +
+    '<p style="margin:.6rem 0 0"><button class="btn-outline btn-sm" onclick="refundPassWall()">Refund my pass wall</button></p>' +
+  '</div>';
+}
+
+async function refundPassWall(){
+  if (!confirm("Refund your pass wall?" + String.fromCharCode(10, 10) +
+      "You get the full amount back, and the wall stops showing on any site you have put it on." + String.fromCharCode(10, 10) +
+      "Your pass photos and everything your pupils agreed to are kept.")) return;
+  try{
+    const {data: sess} = await sb.auth.getSession();
+    const res = await fetch("https://cxcqmyxbpjueezapknim.supabase.co/functions/v1/instructor-purchase-cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + (sess?.session?.access_token || "") },
+      body: JSON.stringify({ product: "pass_wall" })
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok){ alert(d.error || "That could not be refunded. Get in touch and we will sort it."); return; }
+    alert("Refunded — it will be back with you in a few working days." + String.fromCharCode(10, 10) +
+      "Remember to take the code off your website.");
+    await refreshWebsiteEntitlement();
+  }catch(e){ alert("That could not be refunded: " + (e && e.message ? e.message : String(e))); }
+}
+
+/* Cancelling inside the trial. The function refuses once Bacs has the payment and says so, which is
+ * why the trial is dated 33 days and sold as 30 - that gap is what stops anybody meeting this. */
+async function cancelWebsitePurchase(){
+  const product = (websiteEnt && websiteEnt.pending_product) || "website";
+  const thing = product === "pass_wall" ? "pass wall" : "website";
+  if (!confirm("Cancel your " + thing + "?" + String.fromCharCode(10, 10) +
+      "Nothing will be taken. Your design and everything you have written are kept, so you can pick it up again whenever you like.")) return;
+  try{
+    const {data: sess} = await sb.auth.getSession();
+    const res = await fetch("https://cxcqmyxbpjueezapknim.supabase.co/functions/v1/instructor-purchase-cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + (sess?.session?.access_token || "") },
+      body: JSON.stringify({ product })
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok){ alert(d.error || "That could not be cancelled. Get in touch and we will sort it."); return; }
+    alert("That is cancelled — nothing will be taken." + String.fromCharCode(10, 10) +
+      "Nothing has been deleted. It is all still here if you change your mind.");
+    await refreshWebsiteEntitlement();
+  }catch(e){ alert("That could not be cancelled: " + (e && e.message ? e.message : String(e))); }
+}
+
 async function startWebsitePurchase(product){
   if(websitePurchaseBusy) return;
   websitePurchaseBusy = true;
@@ -19147,9 +19392,14 @@ async function startWebsitePurchase(product){
   if (!q.ok){ alert(q.d.error || "That did not go through. Try again in a minute."); return; }
   const quotedPence = q.d.amount_pence || pence;
   const on = longChargeDate(q.d.charge_date);
-  const when = on
-    ? "It is collected by Direct Debit on " + on + "."
-    : "This is collected by Direct Debit, with the mandate already on your account.";
+  /* Say the free 30 days out loud, or it is 30 days given away that nobody noticed. The date is the
+     real one from GoCardless, so "cancel any time before then" is a promise we can keep. */
+  const when = q.d.trial && on
+    ? "Free for the first 30 days." + String.fromCharCode(10)
+      + gbp(quotedPence) + " is collected by Direct Debit on " + on + ", and you can cancel any time before then."
+    : on
+      ? "It is collected by Direct Debit on " + on + "."
+      : "This is collected by Direct Debit, with the mandate already on your account.";
 
   if (!confirm("Buy " + label + " for " + gbp(quotedPence) + "?" + String.fromCharCode(10, 10) + when
       + String.fromCharCode(10, 10) + "It is a one-off payment, not a monthly fee."

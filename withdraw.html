@@ -19,8 +19,10 @@
     .go { background: var(--red); color: #fff; }
     .go:disabled { opacity: 0.6; cursor: default; }
     .note { font-size: 0.9rem; color: var(--muted); margin-top: 18px; }
-    .done { border-left: 4px solid var(--green); background: #F0FDF4; padding: 16px 18px; border-radius: 10px; }
-    .problem { border-left: 4px solid var(--red); background: #FEF2F2; padding: 16px 18px; border-radius: 10px; }
+    /* pre-line so a message can be two paragraphs: the body is set with textContent, which is right
+       for safety but turns a blank line into a space unless the CSS says otherwise. */
+    .done { border-left: 4px solid var(--green); background: #F0FDF4; padding: 16px 18px; border-radius: 10px; white-space: pre-line; }
+    .problem { border-left: 4px solid var(--red); background: #FEF2F2; padding: 16px 18px; border-radius: 10px; white-space: pre-line; }
     a { color: #1d4ed8; }
     footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 0 20px 30px 20px; }
   </style>
@@ -79,8 +81,17 @@
           if (d && d.found) {
             show("done", "That's done", "Your photo has been taken off your instructor's website. Nothing else of yours is affected.");
           } else {
-            show("problem", "We couldn't find that one",
-              "It may already have been taken down, or the link may be incomplete. Email admin@drivemyway.co.uk and we will sort it out for you.");
+            /* No card for a token we have already checked is a well-formed UUID. A random UUID does
+               not collide with a real one, so this is not a broken link - the card is genuinely gone,
+               because it was taken down already or the instructor's website has closed.
+               It used to say "we couldn't find that one" and send them to admin@. That reads as a
+               failure to somebody whose only question is whether their photo is still out there, and
+               it put us in the middle of something needing no action at all. Say what is true. */
+            show("done", "That photo isn't on any Drive My Way website",
+              "It has either been taken down already, or your instructor's website has closed. "
+              + "There is nothing left for you to do here." + String.fromCharCode(10, 10)
+              + "If you have seen it somewhere else, like Facebook, your instructor is the only one "
+              + "who can remove that, so it is worth asking them directly.");
           }
         }).catch(function () {
           show("problem", "Something went wrong",

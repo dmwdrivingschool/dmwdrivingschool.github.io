@@ -150,10 +150,12 @@
               padding:12px 18px;border-radius:9999px;background:var(--accent);color:#fff;font-weight:700;
               font-size:.95rem;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.22)}
   .sticky-cta:hover{filter:brightness(1.07)}
-  /* Where I teach, as a plain list rather than a grid of big chips, and no longer shoved to the
-     bottom of its column. margin-top:auto bottom-aligned it against the stats opposite, which on a
-     computer left a 158px hole between the photo and the town names whenever the photo was short. */
-  .areas{display:block;gap:0;margin-top:0;padding-top:18px}
+  /* Where I teach, as a plain list rather than a grid of big chips.
+     margin-top:auto stays: it drops the block to the foot of its column so the right side finishes
+     level with the stats on the left. Taking it out moved the empty space from above the block to
+     below it, which is not an improvement - Dale drew an arrow from the block down into that space.
+     Inert on a phone, where the column is only as tall as its contents so there is no slack. */
+  .areas{display:block;gap:0;margin-top:auto;padding-top:18px}
   .area{background:none;border:0;border-radius:0;padding:0;font-weight:500;display:inline}
   .area:not(:last-of-type)::after{content:"\00b7";margin-left:5px;color:var(--muted);font-weight:400}
   .areas-label{display:block;margin:0 0 8px;font-size:1.1rem;letter-spacing:.01em}

@@ -17458,16 +17458,34 @@ function exportPlatformTxCsv(){
   a.download=`drive-my-way-income-expenses_${from||"all"}_${to||"all"}.csv`; a.click();
 }
 
+// One at a time. GoCardless creates a customer per billing request, so a second
+// click makes a second customer - and if they finish the FIRST flow while our row
+// has been overwritten with the second request's id, the fulfilled webhook has
+// nothing to match and the mandate never lands. Damian Ashton, 27 Sep 2026: two
+// billing requests seconds apart from our own access token, he completed the one
+// we were no longer looking at, and his Website tab never appeared.
+// Nothing here said anything had happened, so clicking again was the reasonable
+// thing to do - hence the wording change as well as the guard.
+let billingRequestBusy = false;
 async function startBillingRequest(){
+  if(billingRequestBusy) return;
+  billingRequestBusy = true;
+  const btns = Array.from(document.querySelectorAll('button[onclick="startBillingRequest()"]'));
+  const labels = btns.map(b=>b.textContent);
+  btns.forEach(b=>{ b.disabled = true; b.textContent = "Opening GoCardless…"; });
   const err=document.getElementById("billing-err");
-  err.textContent="";
+  if(err) err.textContent="";
   try{
     const tier = chosenTier("billing-tier");
     const res = await callFn("create-billing-request", tier ? { tier } : {});
-    if(res.authorisation_url) window.location.href = res.authorisation_url;
+    // Leave the button disabled on the way out: we are navigating away.
+    if(res.authorisation_url){ window.location.href = res.authorisation_url; return; }
+    if(err) err.textContent = "Could not start payment setup";
   }catch(e){
-    err.textContent = e.message||"Could not start payment setup";
+    if(err) err.textContent = e.message||"Could not start payment setup";
   }
+  billingRequestBusy = false;
+  btns.forEach((b,i)=>{ b.disabled = false; b.textContent = labels[i]; });
 }
 
 // One-click version of the − button for the unused-seat banner.

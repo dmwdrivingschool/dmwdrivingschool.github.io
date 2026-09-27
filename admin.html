@@ -251,6 +251,15 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 /* The choice dialog floats clear of the edges at every width (Dale, 25 Sep 2026), matching the app's
    ChoiceDialog. Its Cancel used to sit against the bottom of the screen, next to the phone's own buttons -
    a mis-tap there locks a pupil out of their app. Only this one; every other modal keeps its sheet. */
+.wc-lead{font-size:.88rem;color:#475569;margin:.2rem 0 .8rem}
+.wc-top{display:flex;gap:.5rem;margin-bottom:.6rem}
+.wc-list{max-height:46vh;overflow:auto;border:1px solid #e2e8f0;border-radius:10px}
+.wc-row{display:flex;align-items:center;gap:.7rem;padding:.55rem .7rem;cursor:pointer;border-bottom:1px solid #eef2f7}
+.wc-row:last-child{border-bottom:0}
+.wc-row:hover{background:#f8fafc}
+.wc-row img{width:52px;height:52px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:#e2e8f0}
+.wc-name{font-size:.85rem;color:#334155;word-break:break-all}
+.wc-foot{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
 .chk-card{border:1px solid #F0C36D;background:#FFF9EC;border-radius:10px;padding:.8rem;margin-bottom:1rem}
 .chk-head{font-weight:700;color:#7A5B12;margin-bottom:.15rem}
 .chk-sub{font-size:.8rem;color:#8A6A1F;margin-bottom:.6rem}
@@ -1023,14 +1032,6 @@ tbody tr:hover td{background:#334263}
           <label class="btn btn-navy btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
             📤 Upload photos
             <input type="file" id="website-file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden onchange="websiteUpload(event)">
-          </label>
-          <!-- Pass wall only. Adding older photos you already had permission for stays allowed;
-               this is the record that you said so. Hidden on the carousel tab, which is Drive My
-               Way's own site photos and has no pupils in it. -->
-          <label id="wall-consent-row" style="display:none;align-items:center;gap:.45rem;font-size:.86rem;
-                 background:rgba(255,255,255,.05);border:1px solid var(--line,#33415a);border-radius:8px;padding:.45rem .7rem;cursor:pointer">
-            <input type="checkbox" id="wall-consent" style="cursor:pointer">
-            I have this pupil&rsquo;s permission to show their photo
           </label>
           <button type="button" class="btn-outline" onclick="websiteReload()">↻ Refresh</button>
           <button type="button" class="btn-outline" onclick="websiteSelectAll()">Select all</button>
@@ -19460,7 +19461,6 @@ async function startWebsitePurchase(product){
 function websiteShow(mode, btn){
   websiteMode = mode || websiteMode;
   websiteSelected = new Set();
-  wallConsentSync();
   if (btn) {
     btn.parentElement.querySelectorAll("button").forEach(b => b.classList.remove("on"));
     btn.classList.add("on");
@@ -19472,9 +19472,6 @@ async function websiteReload(){
   const status = document.getElementById("website-status");
   const grid = document.getElementById("website-grid");
   if (!status || !grid) return;
-  // Also here, not only on a tab click: opening the section straight onto the wall would otherwise
-  // leave the tick hidden while the upload still demanded it - a dead end with nothing to tick.
-  wallConsentSync();
   status.textContent = "Loading…";
   grid.innerHTML = "";
   try {
@@ -19681,31 +19678,97 @@ async function websiteSaveOrder(){
   }
 }
 
-/** The tick belongs to the pass wall, where the photos are of people. Cleared on every tab switch
-    so it is never left on from a previous visit and ticked by accident. */
-function wallConsentSync(){
-  const row = document.getElementById("wall-consent-row");
-  const box = document.getElementById("wall-consent");
-  if (box) box.checked = false;
-  if (row) row.style.display = websiteIsWall() ? "inline-flex" : "none";
+/* Permission, one photo at a time.
+   Built on openModal so it looks like every other dialog here. The promise resolves to the photos
+   that were ticked, so an unticked one is simply not uploaded rather than the whole batch being
+   refused. Object URLs are revoked on the way out; a few dozen un-revoked ones is a real leak when
+   somebody uploads their whole camera roll. */
+var wallConsent = null;
+
+function askWallConsent(files){
+  return new Promise(resolve => {
+    wallConsent = {
+      files,
+      urls: files.map(f => URL.createObjectURL(f)),
+      ticked: files.map(() => false),
+      resolve
+    };
+    const rows = files.map((f, i) =>
+      '<label class="wc-row">' +
+        '<input type="checkbox" onchange="wallConsentTick(' + i + ',this.checked)">' +
+        '<img src="' + wallConsent.urls[i] + '" alt="">' +
+        '<span class="wc-name">' + esc(f.name) + '</span>' +
+      '</label>').join("");
+    openModal(
+      '<h2>Do you have permission?</h2>' +
+      '<p class="wc-lead">Tick each photo you have the pupil&rsquo;s permission to show on your website. ' +
+        'Older photos you already had permission for are fine &mdash; this just records that you confirmed it. ' +
+        'Anything left unticked will not be uploaded.</p>' +
+      '<div class="wc-top">' +
+        '<button type="button" class="btn-outline btn-sm" onclick="wallConsentAll(true)">Tick all</button>' +
+        '<button type="button" class="btn-outline btn-sm" onclick="wallConsentAll(false)">Untick all</button>' +
+      '</div>' +
+      '<div class="wc-list">' + rows + '</div>' +
+      '<div class="wc-foot">' +
+        '<button type="button" class="btn btn-navy" id="wc-go" disabled onclick="wallConsentDone()">Upload</button>' +
+        '<button type="button" class="btn-outline" onclick="wallConsentCancel()">Cancel</button>' +
+      '</div>');
+    // Tapping the dim background means cancel, not a dialog that never answers and an upload that
+    // hangs for ever waiting on a promise nobody resolves.
+    modalGuard = wallConsentCancel;
+    wallConsentFoot();
+  });
 }
 
+function wallConsentTick(i, on){ if (wallConsent) { wallConsent.ticked[i] = !!on; wallConsentFoot(); } }
+
+function wallConsentAll(on){
+  if (!wallConsent) return;
+  wallConsent.ticked = wallConsent.ticked.map(() => !!on);
+  document.querySelectorAll(".wc-list input[type=checkbox]").forEach(b => { b.checked = !!on; });
+  wallConsentFoot();
+}
+
+function wallConsentFoot(){
+  const go = document.getElementById("wc-go");
+  if (!go || !wallConsent) return;
+  const n = wallConsent.ticked.filter(Boolean).length;
+  go.disabled = n === 0;
+  go.textContent = n ? ("Upload " + n + " photo" + (n === 1 ? "" : "s")) : "Upload";
+}
+
+function wallConsentFinish(list){
+  const w = wallConsent;
+  wallConsent = null;
+  modalGuard = null;
+  if (w) w.urls.forEach(u => URL.revokeObjectURL(u));
+  closeModal();
+  if (w) w.resolve(list);
+}
+
+function wallConsentDone(){
+  if (!wallConsent) return;
+  wallConsentFinish(wallConsent.files.filter((_, i) => wallConsent.ticked[i]));
+}
+
+function wallConsentCancel(){ if (wallConsent) wallConsentFinish([]); else closeModal(); }
+
 async function websiteUpload(ev){
-  const files = Array.from(ev.target.files || []);
+  let files = Array.from(ev.target.files || []);
   ev.target.value = "";
   if (!files.length) return;
+  const status = document.getElementById("website-status");
 
-  // A photo of a pupil does not go on a public website on nobody's say-so. Older photos are fine -
-  // this asks you to confirm the permission you already have, and records that you did.
-  const consentBox = document.getElementById("wall-consent");
-  if (websiteIsWall() && !(consentBox && consentBox.checked)) {
-    alert("Tick \u201cI have this pupil\u2019s permission to show their photo\u201d before uploading.\n\n" +
-          "Older photos you already had permission for are fine \u2014 this just records that you confirmed it.");
-    return;
+  // A photo of a pupil does not go on a public website on nobody's say-so. Asked AFTER the files
+  // are chosen and once per photo, not as a box you set beforehand - Dale, 27 Sep 2026: "it should
+  // come up with the popup and the tick should be there for each photo- and a tick all button".
+  // Older photos are fine; this records the permission you already have.
+  if (websiteIsWall()) {
+    files = await askWallConsent(files);
+    if (!files.length) { status.textContent = ""; return; }
   }
   const consentAt = new Date().toISOString();
 
-  const status = document.getElementById("website-status");
   status.textContent = "Uploading " + files.length + " file(s)…";
 
   // Next sort_order

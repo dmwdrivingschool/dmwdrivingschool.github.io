@@ -6328,6 +6328,68 @@ async function ensureSiteSubdomain(){
 }
 
 // Attaching is done by an edge function, because the Vercel token cannot live in this page.
+/* The walkthrough, not a table of DNS records.
+ *
+ * A Type/Name/Value table is what every host shows and is the reason people
+ * ring up rather than get on with it. Dale, 27 Sep 2026: "put your url here,
+ * now do this, go onto squarespace or whoever and look for this - it is
+ * usually here - if you cannot find it type this into google". So: named
+ * destination, told where to look, a way out if they cannot find it, values
+ * they copy rather than retype, and an honest wait with a promise attached.
+ *
+ * registrar comes from the domain's nameservers and may be null - the wording
+ * falls back to generic rather than dead-ending.
+ */
+function domainSteps(d){
+  const who = d.registrar;
+  const step2 = who
+    ? `<p style="margin:.2rem 0 0">Your address is with <strong>${esc(who.name)}</strong>. Sign in there and look for:</p>
+       <p style="margin:.3rem 0 0"><code>${esc(who.where)}</code></p>
+       <p class="muted" style="font-size:.82rem;margin:.4rem 0 0">Can't find it?
+         <a href="https://www.google.com/search?q=${encodeURIComponent(who.search)}" target="_blank" rel="noopener">Search for &ldquo;${esc(who.search)}&rdquo; &rarr;</a></p>`
+    : `<p style="margin:.2rem 0 0">Sign in wherever you bought <strong>${esc(d.domain)}</strong> and find its DNS settings —
+         usually under &ldquo;DNS&rdquo;, &ldquo;Manage DNS&rdquo; or &ldquo;Advanced DNS&rdquo;.</p>
+       <p class="muted" style="font-size:.82rem;margin:.4rem 0 0">Can't find it?
+         <a href="https://www.google.com/search?q=${encodeURIComponent("add DNS record " + d.domain)}" target="_blank" rel="noopener">Search for how to add a DNS record &rarr;</a></p>`;
+
+  const rows = (d.records||[]).map((r,i)=>`
+    <tr>
+      <td>${esc(r.type)}</td>
+      <td><code>${esc(r.name)}</code></td>
+      <td><code id="dnsval${i}">${esc(r.value)}</code></td>
+      <td><button class="btn-outline btn-sm" onclick="copyDnsValue(${i},this)">Copy</button></td>
+    </tr>`).join("");
+
+  return `
+    <ol class="dns-steps" style="padding-left:1.1rem;margin:.2rem 0 0">
+      <li style="margin-bottom:.9rem"><strong>${esc(d.domain)}</strong> is set up on our side. Nothing more to do here.</li>
+      <li style="margin-bottom:.9rem">${step2}</li>
+      <li style="margin-bottom:.9rem">
+        Add these two records. Everything else can stay as it is, but if there is already
+        an <code>A</code> or <code>CNAME</code> on <code>@</code> or <code>www</code>, delete it first —
+        that is usually a holding page they set up when you bought the address.
+        <table class="dns-tbl" style="margin-top:.5rem"><tr><th>Type</th><th>Name</th><th>Value</th><th></th></tr>${rows}</table>
+      </li>
+      <li>
+        <strong>That's it — you're done.</strong>
+        <p style="margin:.3rem 0 0">It is usually live within the hour, though it can take up to 24 if your
+          provider is slow. You don't need to keep checking — we'll email you the moment it is working.</p>
+        <p style="margin:.5rem 0 0"><button class="btn-outline btn-sm" onclick="checkSiteDomain()">Check it now</button></p>
+      </li>
+    </ol>`;
+}
+
+// Copy beats retyping: a mistyped 216.198.79.1 looks exactly like a DNS problem.
+function copyDnsValue(i, btn){
+  const el = document.getElementById("dnsval" + i);
+  if (!el) return;
+  const was = btn.textContent;
+  navigator.clipboard.writeText(el.textContent).then(()=>{
+    btn.textContent = "Copied";
+    setTimeout(()=>{ btn.textContent = was; }, 1500);
+  }).catch(()=>{ btn.textContent = "Copy failed"; setTimeout(()=>{ btn.textContent = was; }, 1500); });
+}
+
 async function attachSiteDomain(){
   const out = document.getElementById("sf-domain-out");
   const domain = (document.getElementById("sf-domain").value || "").trim();
@@ -6343,12 +6405,7 @@ async function attachSiteDomain(){
     const d = await res.json();
     if (!res.ok){ out.innerHTML = '<span style="color:#b91c1c">' + esc(d.error || "That did not work.") + '</span>'; return; }
     siteRow.domain = d.domain;
-    out.innerHTML = `<p>Now add these two records wherever you bought <strong>${esc(d.domain)}</strong>:</p>
-      <table class="dns-tbl"><tr><th>Type</th><th>Name</th><th>Value</th></tr>
-      ${(d.records||[]).map(r=>`<tr><td>${esc(r.type)}</td><td>${esc(r.name)}</td><td><code>${esc(r.value)}</code></td></tr>`).join("")}
-      </table>
-      <p class="muted" style="font-size:.82rem">It can take an hour or two to start working after you add them.</p>
-      <button class="btn-outline btn-sm" onclick="checkSiteDomain()">Check if it is working</button>`;
+    out.innerHTML = domainSteps(d);
   }catch(e){ out.innerHTML = '<span style="color:#b91c1c">' + esc(String(e)) + '</span>'; }
 }
 
@@ -6361,9 +6418,22 @@ async function checkSiteDomain(){
     body: JSON.stringify({ action: "check" })
   });
   const d = await res.json();
-  out.insertAdjacentHTML("beforeend", d.live
-    ? '<p style="color:#15803d;font-weight:700">That is working — your site is live on your own address.</p>'
-    : '<p class="muted">Not showing yet. Give it another hour and check again.</p>');
+  if (d.live){
+    out.insertAdjacentHTML("beforeend",
+      '<p style="color:#15803d;font-weight:700">That is working — your site is live on your own address.</p>');
+    return;
+  }
+  /* "Not showing yet" tells them nothing and is why the next step is a phone
+     call. The function looks up where the address actually goes, so say it:
+     a domain bought for a pound almost always arrives pointing at the
+     registrar's own holding page, and that record has to go first. */
+  const ours = (d.records||[]).map(r=>r.value);
+  const stillTheirs = d.points_at && !ours.some(v => String(d.points_at).includes(v));
+  out.insertAdjacentHTML("beforeend", stillTheirs
+    ? '<p class="muted">Not yet. <strong>' + esc(d.domain) + '</strong> still points at <code>' + esc(d.points_at) +
+      '</code>, which is not us — that is the record to change or delete. Once it is gone, ours takes over.</p>'
+    : '<p class="muted">Not showing yet. The records look right, so it is just working its way round — ' +
+      'nothing more to do, and we will email you when it is live.</p>');
 }
 
 // Website access (Dale, 26 Sep 2026). Same shape as the Video access control: super admin only, on

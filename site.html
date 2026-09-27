@@ -296,7 +296,11 @@
     /* .app-band is NOT .band - it is its own class at 60px, so the first pass at this left it on
        desktop spacing. Its 60px on top of the previous band's 28px is the void Dale photographed
        between "See all 6 photos and reviews" and the app card. */
-    section.band,.app-band{padding:28px 0}
+    section.band,.app-band{padding:20px 0}
+    /* The app page's own hero. Like .app-band it is not .hero, so it sat on the 900px value of
+       36px top and bottom - the gap under the header above "Free with your lessons", and the one
+       under the phone screenshots before the next rule. */
+    .app-hero{padding:16px 0 20px;gap:20px}
     /* Only the heading that OPENS a band - the band's own padding already spaces it. Written as
        plain `.band h2` first, which flattened the gap before every later heading too and left
        "When I teach" welded to the email row above it on the contact page. */

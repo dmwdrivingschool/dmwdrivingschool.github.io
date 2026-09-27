@@ -281,7 +281,7 @@
     /* The gap on the left is the real space in the markup, which is also what lets the line wrap;
        the margin only does the right-hand side. Spaces inside generated content collapse against
        the text that follows, which is why the separator lost its trailing gap first time. */
-    .area + .area::before{content:"·";margin-right:5px;color:var(--muted);font-weight:400}
+    .area:not(:last-of-type)::after{content:"·";margin-left:5px;color:var(--muted);font-weight:400}
     .areas-label{display:block;margin:0 0 6px}
   }
 </style>

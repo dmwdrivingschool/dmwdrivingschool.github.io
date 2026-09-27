@@ -120,44 +120,7 @@
      word - "Where / I / teach" stacked three high next to the years-teaching chip. */
   .areas-label{align-self:center;color:var(--ink);font-size:1rem;font-weight:700;margin-left:0;white-space:nowrap;flex-shrink:0}
   @media(max-width:640px){.areas-label{flex-basis:100%;margin:6px 0 0}}
-  /* On a phone the hero collapses to one column and these two were left looking like stray buttons:
-     the number bare and left-aligned under the CTA, the pills stacked one per line at odd widths.
-     Dale, 27 Sep 2026, on his own phone: "the phone number there is a bit weird in that placement"
-     and the pills "a bit off". Phone only - the desktop layout is the one he set on Thursday and is
-     deliberately untouched, stats and areas still finishing on the same line. */
-  @media(max-width:640px){
-    /* The big in-flow button goes and this takes its place: smaller, in the corner, and there the
-       whole way down. Dale, 27 Sep 2026: "could we have that book your first lesson - smaller and so
-       it stays in the corner as you scroll". It is the pattern from his own site's Check
-       Availability pill, and it means there is always a way to book on screen rather than one that
-       scrolls away after the first swipe.
-       Only one CTA is visible at a time now: the header's went into the menu, and this replaces the
-       hero's. */
-    .hero-actions{display:none}
-    .sticky-cta{display:inline-flex;align-items:center;gap:7px;position:fixed;right:14px;bottom:14px;z-index:60;
-                padding:11px 16px;border-radius:9999px;background:var(--accent);color:#fff;font-weight:700;
-                font-size:.92rem;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.22)}
-    /* So the footer's last line is not sitting under the pill. */
-    footer.site{padding-bottom:74px}
-    /* Both on one line, and the label tucked up against its number.
-       Dale, 27 Sep 2026: "the yrs should be closer to the 10 and instructor closer to Manual - i
-       think they should also be on the same line". At the old size "10 yrs experience" and "Manual
-       instructor" were together wider than the screen, so they wrapped and read as two stray
-       buttons. Smaller text and tighter padding fits both across, and nowrap stops one dropping
-       under the other on a narrow phone. */
-    .stats{gap:8px;margin-top:18px;flex-wrap:nowrap}
-    .stat{padding:8px 12px;gap:4px;min-width:0}
-    .stat .v{font-size:.9rem}
-    .stat .l{font-size:.76rem;white-space:nowrap}
 
-    /* Where I teach, as a plain list rather than a grid of big chips. Four place names were taking
-       two rows of pills and most of a screen; Dale: "i think that should be bullet points or
-       something like that". Separated by middots, which stay readable when they wrap. */
-    .areas{gap:0;padding-top:16px;display:block}
-    .area{background:none;border:0;border-radius:0;padding:0;font-weight:500;display:inline}
-    .area + .area::before{content:" · ";color:var(--muted);font-weight:400}
-    .areas-label{display:block;margin:0 0 6px}
-  }
   /* "Show all of it" inside a fixed 4:3 frame leaves a band of empty card under the picture, which
      reads as a mistake rather than a choice. The frame takes the photo's own shape instead. */
   .shot.fit img{aspect-ratio:auto;height:auto;object-fit:contain}
@@ -278,6 +241,44 @@
     .band h2{font-size:1.65rem}
     section.band{padding:42px 0}
     .page-head h1{font-size:1.9rem}
+  }
+  /* On a phone the hero collapses to one column and these two were left looking like stray buttons:
+     the number bare and left-aligned under the CTA, the pills stacked one per line at odd widths.
+     Dale, 27 Sep 2026, on his own phone: "the phone number there is a bit weird in that placement"
+     and the pills "a bit off". Phone only - the desktop layout is the one he set on Thursday and is
+     deliberately untouched, stats and areas still finishing on the same line. */
+  @media(max-width:640px){
+    /* The big in-flow button goes and this takes its place: smaller, in the corner, and there the
+       whole way down. Dale, 27 Sep 2026: "could we have that book your first lesson - smaller and so
+       it stays in the corner as you scroll". It is the pattern from his own site's Check
+       Availability pill, and it means there is always a way to book on screen rather than one that
+       scrolls away after the first swipe.
+       Only one CTA is visible at a time now: the header's went into the menu, and this replaces the
+       hero's. */
+    .hero-actions{display:none}
+    .sticky-cta{display:inline-flex;align-items:center;gap:7px;position:fixed;right:14px;bottom:14px;z-index:60;
+                padding:11px 16px;border-radius:9999px;background:var(--accent);color:#fff;font-weight:700;
+                font-size:.92rem;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+    /* So the footer's last line is not sitting under the pill. */
+    footer.site{padding-bottom:74px}
+    /* Both on one line, and the label tucked up against its number.
+       Dale, 27 Sep 2026: "the yrs should be closer to the 10 and instructor closer to Manual - i
+       think they should also be on the same line". At the old size "10 yrs experience" and "Manual
+       instructor" were together wider than the screen, so they wrapped and read as two stray
+       buttons. Smaller text and tighter padding fits both across, and nowrap stops one dropping
+       under the other on a narrow phone. */
+    .stats{gap:8px;margin-top:18px;flex-wrap:nowrap}
+    .stat{padding:8px 12px;gap:4px;min-width:0}
+    .stat .v{font-size:.9rem}
+    .stat .l{font-size:.76rem;white-space:nowrap}
+
+    /* Where I teach, as a plain list rather than a grid of big chips. Four place names were taking
+       two rows of pills and most of a screen; Dale: "i think that should be bullet points or
+       something like that". Separated by middots, which stay readable when they wrap. */
+    .areas{gap:0;padding-top:16px;display:block}
+    .area{background:none;border:0;border-radius:0;padding:0;font-weight:500;display:inline}
+    .area + .area::before{content:" · ";color:var(--muted);font-weight:400}
+    .areas-label{display:block;margin:0 0 6px}
   }
 </style>
 </head>

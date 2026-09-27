@@ -18805,6 +18805,8 @@ let websiteSelected = new Set(); // selected photo ids for multi-delete
 // photo tools it has always had. Someone who has bought sees what they bought, and NOT what they did
 // not: a £49 pass-wall customer gets the wall and its snippet, never the site builder.
 let websiteEnt = null;
+// The designs markup, kept so the pass wall preview can be swapped in and back out again.
+let buyExamplesHtml = null;
 async function refreshWebsiteEntitlement(){
   try{
     const {data,error} = await sb.rpc("instructor_website_entitlement");
@@ -18895,11 +18897,13 @@ function renderWebsiteOffer(){
   }
   if (!e || !e.can_buy){ host.innerHTML = ""; return; }
   const list = gbpPence(e.website_list_pence);
+  const wallPrice = gbpPence(e.pass_wall_pence || 5900);
   const saved = e.paid_pence > 0 ? ` <span class="muted" style="font-weight:400">(${list} less the ${gbpPence(e.paid_pence)} you have already paid)</span>` : "";
   host.innerHTML = `<div class="panel">
     <h2>A website of your own</h2>
     <p class="muted" style="max-width:720px">You fill it in from here, we put it live on your own web address, and every enquiry lands in your diary instead of an inbox. Your pass photos go up from your phone.</p>
 
+    <div id="buy-examples">
     <div class="tpl-row">
       ${[["classic","Classic","Warm and established. Suits an instructor with years behind them and a lot of local word of mouth."],
          ["bold","Bold","Loud and confident. Built for seventeen-year-olds scrolling on a phone, and the parents paying."],
@@ -18908,6 +18912,7 @@ function renderWebsiteOffer(){
             <span class="tpl-pick-shot tpl-${slug}"></span>
             <strong>${name}</strong><span class="muted">${desc}</span><span class="tpl-see">Open the example →</span>
           </a>`).join("")}
+    </div>
     </div>
 
     <div class="offer-grid">
@@ -18924,12 +18929,13 @@ function renderWebsiteOffer(){
         </ul>
         <button class="btn btn-navy" onclick="startWebsitePurchase('website')">Get a website</button>
       </div>
-      <div class="offer-box offer-alt">
-        <div class="offer-price">£49</div>
+      <div class="offer-box offer-alt" id="buy-wall-box" onclick="showWallPreview(true)" style="cursor:pointer">
+        <div class="offer-price">${wallPrice}</div>
         <div class="muted">already have a website?</div>
-        <p style="margin:.6rem 0 0">Take just the pass wall and drop it into the site you already have, with one line of code. Every card on it is a pupil who really passed with you.</p>
-        <p class="muted" style="font-size:.85rem;margin-top:.6rem">If you want the full website later, this £49 comes off it — you never pay twice.</p>
-        <button class="btn-outline" onclick="startWebsitePurchase('pass_wall')">Just the pass wall</button>
+        <p style="margin:.6rem 0 0">Take just the pass wall and drop it into the site you already have. Every card on it is a pupil who really passed with you.</p>
+        <p class="muted" style="font-size:.85rem;margin-top:.6rem">If you want the full website later, this ${wallPrice} comes off it — you never pay twice.</p>
+        <p style="margin:.6rem 0 0"><a href="#" onclick="showWallPreview(true);return false" style="font-weight:700">See what it looks like →</a></p>
+        <button class="btn-outline" onclick="event.stopPropagation();startWebsitePurchase('pass_wall')">Just the pass wall</button>
       </div>
     </div>
 
@@ -18953,6 +18959,49 @@ function renderWebsiteOffer(){
  * The price is never sent from here. The function reads it from the entitlement, so nothing typed
  * into this page can change what is charged.
  */
+/**
+ * Swap the three website designs for a preview of the wall on its own, and back.
+ *
+ * The designs show what a WEBSITE looks like. Somebody weighing up the pass wall was being asked to
+ * buy the one thing on the page with no picture of it (Dale, 27 Sep 2026). The wall example is
+ * deliberately shown inside a plain pretend website rather than one of ours, because the product is
+ * a block that lands in a site they already have - not a site we build.
+ */
+function showWallPreview(on){
+  const box = document.getElementById("buy-examples");
+  if (!box) return;
+  if (!on){ if (buyExamplesHtml) box.innerHTML = buyExamplesHtml; return; }
+  if (!buyExamplesHtml) buyExamplesHtml = box.innerHTML;
+  // Drawn inline, not in an iframe: drivemyway.co.uk sends frame-ancestors 'none' and X-Frame-Options
+  // DENY, so framing the real example renders an empty box. Checked against the live headers.
+  box.innerHTML =
+    '<div class="panel" style="margin:0 0 1rem;border:1px solid var(--line)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap">' +
+        '<h3 style="margin:0">The pass wall, on a website you already have</h3>' +
+        '<button class="btn-outline btn-sm" onclick="showWallPreview(false)">Back to the designs</button>' +
+      '</div>' +
+      '<p class="muted" style="margin:.5rem 0 .9rem">This is somebody else&rsquo;s website, not one of ours. The boxed part is the wall &mdash; everything around it stays exactly as it is, and the wall keeps its own look wherever it lands.</p>' +
+      '<div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;font-family:Verdana,Geneva,sans-serif;color:#222">' +
+        '<div style="border-bottom:3px solid #2b6cb0;padding-bottom:10px;margin-bottom:10px">' +
+          '<div style="font-size:1rem;font-weight:700">Hilltop School of Motoring</div>' +
+          '<div style="font-size:.75rem;color:#667">Patient, friendly driving lessons &mdash; established 2009</div></div>' +
+        '<div style="font-size:.8rem;color:#2b6cb0;margin-bottom:12px">Home &nbsp; About me &nbsp; Lesson prices &nbsp; Pass photos &nbsp; Contact</div>' +
+        '<div style="font-size:.95rem;font-weight:700;margin-bottom:4px">Pass photos</div>' +
+        '<p style="font-size:.82rem;margin:0 0 12px">I am always proud of my pupils. Here are some of the people who have passed with me recently.</p>' +
+        '<div style="font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#667;font-family:system-ui,sans-serif;margin-bottom:6px">&darr; the pass wall &darr;</div>' +
+        '<div style="border:2px dashed #cbd5e1;border-radius:12px;padding:14px;font-family:system-ui,-apple-system,sans-serif">' +
+          '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">' +
+            '<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden"><div style="aspect-ratio:11/12;background:linear-gradient(135deg,#e8e1d5,#cfc3ae);display:flex;align-items:center;justify-content:center;color:#8a7a63;font-size:.72rem">Pass photo</div><div style="padding:9px 10px 11px"><div style="font-weight:700;font-size:.85rem;color:#1e293b">Ellie</div><div style="font-size:.72rem;color:#64748b;margin-bottom:5px">Passed in September</div><p style="font-size:.78rem;color:#3a4750;margin:0">&ldquo;I was terrified of roundabouts and now I do not even think about them.&rdquo;</p></div></div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden"><div style="aspect-ratio:11/12;background:linear-gradient(135deg,#e8e1d5,#cfc3ae);display:flex;align-items:center;justify-content:center;color:#8a7a63;font-size:.72rem">Pass photo</div><div style="padding:9px 10px 11px"><div style="font-weight:700;font-size:.85rem;color:#1e293b">Jacob</div><div style="font-size:.72rem;color:#64748b;margin-bottom:5px">Passed in September</div><p style="font-size:.78rem;color:#3a4750;margin:0">&ldquo;First time with two minors. Never made me feel stupid.&rdquo;</p></div></div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden"><div style="aspect-ratio:11/12;background:linear-gradient(135deg,#e8e1d5,#cfc3ae);display:flex;align-items:center;justify-content:center;color:#8a7a63;font-size:.72rem">Pass photo</div><div style="padding:9px 10px 11px"><div style="font-weight:700;font-size:.85rem;color:#1e293b">Priya</div><div style="font-size:.72rem;color:#64748b;margin-bottom:5px">Passed in August</div><p style="font-size:.78rem;color:#3a4750;margin:0">&ldquo;I had failed twice with someone else. Completely different here.&rdquo;</p></div></div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden"><div style="aspect-ratio:11/12;background:linear-gradient(135deg,#e8e1d5,#cfc3ae);display:flex;align-items:center;justify-content:center;color:#8a7a63;font-size:.72rem">Pass photo</div><div style="padding:9px 10px 11px"><div style="font-weight:700;font-size:.85rem;color:#1e293b">Tom</div><div style="font-size:.72rem;color:#64748b;margin-bottom:5px">Passed in August</div><p style="font-size:.78rem;color:#3a4750;margin:0">&ldquo;Booked my test sooner than I would have dared.&rdquo;</p></div></div>' +
+          '</div>' +
+          '<p style="margin:12px 0 0;font-size:.72rem;color:#64748b;text-align:center">Pass wall by Drive My Way</p>' +
+        '</div>' +
+        '<div style="font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#667;font-family:system-ui,sans-serif;margin-top:6px">&uarr; and that is all of it &uarr;</div>' +
+      '</div>' +
+      '<p class="muted" style="font-size:.85rem;margin:.7rem 0 0">' +
+        '<a href="https://www.drivemyway.co.uk/examples/pass-wall.html" target="_blank" rel="noopener">Open the full example in a new tab &rarr;</a></p>' +
+    '</div>';
+}
+
 async function startWebsitePurchase(product){
   const wall = product === "pass_wall";
   const label = wall ? "the pass wall" : "a website";

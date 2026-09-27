@@ -71,8 +71,18 @@
   .brand-name{font-family:var(--head);font-weight:600;font-size:1.18rem;line-height:1.15}
   .brand-sub{font-size:.76rem;color:var(--muted);letter-spacing:.02em}
   .nav-links{display:flex;gap:22px;font-size:.95rem;font-weight:500}
+  /* Hidden on a desktop, where the links are already on show. */
+  .burger{display:none;align-items:center;justify-content:center;width:44px;height:44px;margin-left:auto;
+          background:none;border:1px solid var(--line);border-radius:10px;cursor:pointer;color:var(--ink)}
+  .burger span{display:block;width:18px;height:2px;background:currentColor;position:relative}
+  .burger span::before,.burger span::after{content:"";position:absolute;left:0;width:18px;height:2px;background:currentColor}
+  .burger span::before{top:-6px}
+  .burger span::after{top:6px}
   .nav-links a{color:var(--ink);text-decoration:none}
   .nav-links a:hover{color:var(--accent)}
+  .nav-links .nav-cta{display:none}
+  /* Off on a desktop, where the hero button and the header button are both on screen already. */
+  .sticky-cta{display:none}
 
   .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:stretch;padding:64px 0 56px}
   .hero.solo{grid-template-columns:1fr;max-width:760px}
@@ -110,6 +120,30 @@
      word - "Where / I / teach" stacked three high next to the years-teaching chip. */
   .areas-label{align-self:center;color:var(--ink);font-size:1rem;font-weight:700;margin-left:0;white-space:nowrap;flex-shrink:0}
   @media(max-width:640px){.areas-label{flex-basis:100%;margin:6px 0 0}}
+  /* On a phone the hero collapses to one column and these two were left looking like stray buttons:
+     the number bare and left-aligned under the CTA, the pills stacked one per line at odd widths.
+     Dale, 27 Sep 2026, on his own phone: "the phone number there is a bit weird in that placement"
+     and the pills "a bit off". Phone only - the desktop layout is the one he set on Thursday and is
+     deliberately untouched, stats and areas still finishing on the same line. */
+  @media(max-width:640px){
+    /* The big in-flow button goes and this takes its place: smaller, in the corner, and there the
+       whole way down. Dale, 27 Sep 2026: "could we have that book your first lesson - smaller and so
+       it stays in the corner as you scroll". It is the pattern from his own site's Check
+       Availability pill, and it means there is always a way to book on screen rather than one that
+       scrolls away after the first swipe.
+       Only one CTA is visible at a time now: the header's went into the menu, and this replaces the
+       hero's. */
+    .hero-actions{display:none}
+    .sticky-cta{display:inline-flex;align-items:center;gap:7px;position:fixed;right:14px;bottom:14px;z-index:60;
+                padding:11px 16px;border-radius:9999px;background:var(--accent);color:#fff;font-weight:700;
+                font-size:.92rem;text-decoration:none;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+    /* So the footer's last line is not sitting under the pill. */
+    footer.site{padding-bottom:74px}
+    .stats{gap:8px;margin-top:18px}
+    .stat{padding:8px 13px}
+    .stat .v{font-size:.95rem}
+    .stat .l{font-size:.8rem}
+  }
   /* "Show all of it" inside a fixed 4:3 frame leaves a band of empty card under the picture, which
      reads as a mistake rather than a choice. The frame takes the photo's own shape instead. */
   .shot.fit img{aspect-ratio:auto;height:auto;object-fit:contain}
@@ -208,7 +242,25 @@
     .hero{grid-template-columns:1fr;gap:34px;padding:40px 0}
     .hero h1{font-size:2.3rem}
     .passes{grid-template-columns:repeat(2,1fr)}
-    .nav-links{display:none}
+    /* The links used to be hidden here with nothing put in their place, so on a phone there was no
+       way at all to reach Passes, Prices or The app - three real pages, unreachable, on a site sold
+       as working properly on a phone. Dale, 27 Sep 2026: "there is no menu button? we have
+       advertised it to work perfect on mobile and it doesnt". */
+    .nav-links{display:none;position:absolute;left:0;right:0;top:100%;flex-direction:column;gap:0;
+               background:var(--bg);border-bottom:1px solid var(--line);padding:6px 20px 14px;z-index:40}
+    .nav-links.open{display:flex}
+    .nav-links a{padding:13px 0;border-top:1px solid var(--line);font-size:1rem}
+    .burger{display:flex}
+    header.site .wrap.nav{position:relative;flex-wrap:nowrap}
+    /* The header's "Enquire now" goes, and moves into the menu.
+       Two reasons, and the second is the one that matters. On a phone the header button and the
+       hero's "Book your first lesson" land in the same screenful doing the same job - Dale, 27 Sep
+       2026: "you have an enquire now and book your first lesson in the same bit of space". And with
+       a longer business name the header could not fit brand and button on one row, so the button
+       wrapped to a second line with no side padding and sat flush against the edge of the screen. */
+    header.site .wrap.nav > .btn{display:none}
+    .nav-links .nav-cta{display:block;margin-top:12px;padding:13px 16px;border-top:0;border-radius:12px;
+                        background:var(--accent);color:#fff;text-align:center;font-weight:700}
     .band h2{font-size:1.65rem}
     section.band{padding:42px 0}
     .page-head h1{font-size:1.9rem}
@@ -466,6 +518,10 @@
     if (passes.length) navBits.push('<a href="' + urlFor("passes") + '">' + esc(passLabel) + '</a>');
     if (prices.length) navBits.push('<a href="' + urlFor("prices") + '">Prices</a>');
     navBits.push('<a href="' + urlFor("app") + '">The app</a>');
+    navBits.push('<a href="' + urlFor("contact") + '">Contact</a>');
+    // Last in the panel and styled as a button: on a phone the header's own one is hidden, so this
+    // is how somebody enquires without scrolling back to the hero.
+    navBits.push('<a class="nav-cta" href="' + enquiry + '">Enquire now</a>');
 
     var header =
       '<header class="site"><div class="wrap nav">' +
@@ -473,7 +529,9 @@
           (logo ? '<img src="' + esc(logo) + '" alt=""' + (logoFit === "fit" ? '' : ' style="' + fitStyle(c.logo_pos) + '"') + '>' : esc(initials)) +
         '</div><div><div class="brand-name">' + esc(name) + '</div>' +
         '<div class="brand-sub">' + esc(gearbox) + ' tuition</div></div></a></div>' +
-        (navBits.length ? '<nav class="nav-links">' + navBits.join("") + '</nav>' : '') +
+        (navBits.length ? '<nav class="nav-links" id="navlinks">' + navBits.join("") + '</nav>' : '') +
+        // No links, no burger: a button that opens an empty panel is worse than no button.
+        (navBits.length ? '<button class="burger" type="button" id="burger" aria-label="Menu" aria-expanded="false" aria-controls="navlinks"><span></span></button>' : '') +
         '<a class="btn" href="' + enquiry + '">Enquire now</a>' +
       '</div></header>';
 
@@ -483,7 +541,14 @@
         (c.email ? " · " + esc(c.email) : "") +
         (socialLinks(c, "") ? '<div class="foot-socials">' + socialLinks(c, "") + '</div>' : '') +
         '<br><a href="' + urlFor("privacy") + '">Privacy</a>' +
-        ' · <a href="https://drivemyway.co.uk">Website by Drive My Way</a></div></footer>';
+        ' · <a href="https://drivemyway.co.uk">Website by Drive My Way</a></div></footer>' +
+        // Lives with the footer so it is appended by every page, not just the home one: somebody
+        // reading Prices should be able to book without going back.
+        '<a class="sticky-cta" href="' + enquiry + '">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+          '<rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line>' +
+          '<line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' +
+          'Book your first lesson</a>';
 
     /**
      * The privacy notice, built from what we already know rather than left to the instructor.
@@ -497,6 +562,36 @@
      * fifty people to edit theirs. The only thing that varies is their own name and contact details,
      * which we hold already.
      */
+    /* Contact: the phone number, the email address and the enquiry form in one place.
+     *
+     * Dale, 27 Sep 2026: "the phone number should be on a seperate contact us page - phone - email -
+     * and enquiry form". It used to sit in the hero beside the button, which read as clutter on a
+     * desktop and as a stray line on a phone.
+     *
+     * The form is a LINK, not an iframe. web.drivemyway.co.uk sends frame-ancestors 'none' and
+     * X-Frame-Options: DENY, so it cannot be embedded - checked rather than assumed, because a CSP
+     * refusing to frame something has caught this project three times now. Weakening that header on
+     * the Control Centre to suit a layout would be the wrong trade.
+     */
+    if (page === "contact") {
+      document.title = "Contact - " + name;
+      var ways = "";
+      if (c.phone) ways += '<p style="margin:0 0 14px"><strong>Phone</strong><br>' +
+        '<a class="phone-link" href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a></p>';
+      if (c.email) ways += '<p style="margin:0 0 14px"><strong>Email</strong><br>' +
+        '<a class="phone-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a></p>';
+      root.innerHTML = header +
+        '<div class="wrap"><section class="page-head"><h1>Contact</h1>' +
+        '<p class="sub">However suits you best' + (c.town ? ' — lessons in ' + esc(c.town) : '') + '.</p></section>' +
+        '<section class="band" style="border-top:0;padding-top:0">' +
+          (ways || '') +
+          '<h2 style="margin-top:' + (ways ? '28px' : '0') + '">Send me your details</h2>' +
+          '<p>Tell me a bit about yourself and what you are after, and I will come back to you.</p>' +
+          '<p style="margin-top:18px"><a class="btn" href="' + enquiry + '">Open the enquiry form</a></p>' +
+        '</section></div>' + footer;
+      return;
+    }
+
     if (page === "privacy") {
       document.title = "Privacy - " + name;
       var reach = c.email
@@ -634,8 +729,12 @@
     // Only sections with something in them are drawn. A half-filled site should look short, never
     // broken, and never show an empty heading.
     var statCells = [];
-    if (stats.years) statCells.push([stats.years, (/^\d+$/.test(String(stats.years)) ? "years teaching" : "teaching")]);
-    statCells.push([gearbox, "dual-controlled car"]);
+    // "10 yrs experience" and "Manual instructor" rather than "years teaching" and
+    // "dual-controlled car" - shorter, and they then sit side by side on a phone instead of
+    // stacking into two stray-looking buttons. The conditional stays: somebody who types "10 yrs"
+    // gets "experience" on its own rather than "10 yrs yrs experience".
+    if (stats.years) statCells.push([stats.years, (/^\d+$/.test(String(stats.years)) ? "yrs experience" : "experience")]);
+    statCells.push([gearbox, "instructor"]);
 
     root.innerHTML = header +
       '<div class="wrap">' +
@@ -646,9 +745,10 @@
           'DVSA approved instructor</span>' +
         '<h1>' + esc(c.tagline || ("Learn to drive" + (c.town ? " in " + c.town : ""))) + '</h1>' +
         (c.about ? '<p class="lead">' + esc(c.about) + '</p>' : '') +
-        '<div class="hero-actions"><a class="btn" href="' + enquiry + '">Book your first lesson</a>' +
-        (c.phone ? '<a class="phone-link" href="tel:' + esc(String(c.phone).replace(/\s/g,"")) + '">' + esc(c.phone) + '</a>' : '') +
-        '</div>' +
+        // The number used to sit beside the button and, once the hero collapsed on a phone, ended up
+        // a bare bold line floating between the button and the pills. It belongs with the other ways
+        // of getting hold of them, on Contact.
+        '<div class="hero-actions"><a class="btn" href="' + enquiry + '">Book your first lesson</a></div>' +
         // The stats live in this column rather than in a band of their own, so that they and the areas
         // finish at the same line. Dale, 26 Sep: "so it stays level with the 10 years amd manual dual
         // controlled car". Two rows of chips at the same height read as one row; staggered they read as
@@ -709,6 +809,27 @@
         '</div></section>' +
       '</div>' + footer;
   }
+
+  /* One delegated listener rather than wiring the button after each render. draw() rebuilds the
+     whole page and writes the header in three different places, so anything bound to the element
+     itself would work on the first paint and quietly stop on the next. */
+  document.addEventListener("click", function(e){
+    var nav = document.getElementById("navlinks");
+    if (!nav) return;
+    var burger = e.target.closest ? e.target.closest("#burger") : null;
+    if (burger){
+      var open = nav.classList.toggle("open");
+      burger.setAttribute("aria-expanded", open ? "true" : "false");
+      return;
+    }
+    // Tapping a link, or anywhere off the panel, closes it. Without the first of those the menu
+    // stays open behind the page you just asked for, which looks like the tap did nothing.
+    if (nav.classList.contains("open")){
+      nav.classList.remove("open");
+      var b = document.getElementById("burger");
+      if (b) b.setAttribute("aria-expanded", "false");
+    }
+  });
 })();
 </script>
 </body>

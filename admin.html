@@ -3569,6 +3569,19 @@ function copyEmail(email){
   navigator.clipboard.writeText(email).then(()=>alert("Copied: "+email)).catch(()=>prompt("Copy email:",email));
 }
 
+/* Rebuilt from siteRow at click time rather than baked into the button, so changing the domain
+   cannot leave an instructor copying the old address. Same clipboard-with-prompt fallback as
+   copyEmail: writeText throws on an insecure origin and in some in-app browsers, and a Copy button
+   that silently does nothing is worse than one that shows you the text to copy by hand. */
+function copyDownloadLink(){
+  const addr = siteRow && (siteRow.domain || (siteRow.subdomain ? siteRow.subdomain + ".drivemyway.co.uk" : ""));
+  if (!addr) return;
+  const url = "https://" + addr + "/download";
+  navigator.clipboard.writeText(url)
+    .then(()=>alert("Copied: " + url))
+    .catch(()=>prompt("Copy this link:", url));
+}
+
 // Clicking a pupil (from the Pupils tab OR a diary lesson) opens a tabbed
 // detail view matching the phone app's own pupil-detail tabs — Summary,
 // Lessons, Payments, Progress, Reflective Log, Tests, Logins — so anything
@@ -5779,6 +5792,11 @@ function renderWebsiteEditor(){
   const c = siteRow.content || {};
   const stats = c.stats || {};
   const addr = siteRow.domain || (siteRow.subdomain ? siteRow.subdomain + ".drivemyway.co.uk" : "");
+  // The page an instructor sends to someone who asked about lessons any way other than through the
+  // site - a phone call, a text, a Facebook message. It is part of the website, so it only exists
+  // once there is an address and the site is live, and the strip below says so rather than handing
+  // out a link that goes nowhere.
+  const dlUrl = addr ? "https://" + addr + "/download" : "";
   const preview = "https://web.drivemyway.co.uk/site.html?preview=1&i=" + encodeURIComponent(currentUserId);
   const areas = Array.isArray(c.areas) ? c.areas.join(", ") : "";
   const prices = Array.isArray(c.prices) ? c.prices : [];
@@ -5809,6 +5827,19 @@ function renderWebsiteEditor(){
           ${siteRow.published ? "Take it offline" : "Put it live"}</button>
       </div>
     </div>
+    ${!dlUrl ? "" : `
+    <div class="sf-strip">
+      <div><strong>Link for new enquiries</strong>
+        <div class="muted" style="font-size:.82rem">${esc(dlUrl)}</div>
+        <div class="muted" style="font-size:.78rem;margin-top:.15rem">Send this to anyone who asks about
+          lessons by phone, text or Facebook. It takes them through enquiring, getting the app and
+          signing in.${siteRow.published ? "" : " It starts working when your site goes live."}</div></div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <a class="btn-outline btn-sm" href="${esc(dlUrl)}" target="_blank" rel="noopener">Open</a>
+        <button class="btn btn-navy btn-sm" onclick="copyDownloadLink()">Copy</button>
+      </div>
+    </div>`}
+
     ${!siteEditorOpen ? "" : `
     <h3 class="sf-head">Which design</h3>
     <div class="tpl-row">

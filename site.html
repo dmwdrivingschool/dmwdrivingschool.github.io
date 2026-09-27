@@ -219,7 +219,11 @@
     display:grid;place-items:center;font-weight:700;font-size:.95rem}
   .dl-steps h2{grid-column:2;margin:2px 0 0;font-size:1.12rem}
   .dl-steps p{grid-column:2;margin:7px 0 0;color:var(--muted);font-size:.96rem}
-  .dl-steps .store{grid-column:2;margin-top:12px}
+  /* Full width of the card, not the indented text column: indented, the pair does not fit a phone
+     and the App Store badge dropped onto its own line where the sticky Enquire pill sat over it.
+     On the one page whose job is getting someone to that badge, that will not do. */
+  .dl-steps .store{grid-column:1/-1;margin-top:13px}
+  .dl-steps .store img{height:42px}
   .dl-steps .dl-act{margin-top:14px}
   .store-note{color:var(--muted);font-size:.88rem;margin:14px 0 0}
   .app-legal{color:var(--muted);font-size:.72rem;line-height:1.5;padding:0 0 40px;max-width:760px}

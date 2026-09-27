@@ -270,7 +270,9 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 /* The two boxes behave as a pair of tabs: whichever is chosen is outlined and shows its own
    preview above (Dale, 27 Sep 2026). The outline used to be hardcoded onto the website box, so the
    wall could never look chosen however hard you clicked it. */
-.offer-box{border:1px solid var(--line);border-radius:14px;padding:1.1rem;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.offer-box{border:1px solid var(--line);border-radius:14px;padding:1.1rem;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:flex;flex-direction:column}
+/* Pushed to the floor of its box so the two buttons line up whatever height the copy is. */
+.offer-cta{margin-top:auto;align-self:flex-start}
 .offer-box:hover{border-color:var(--navy)}
 .offer-box.on{border:2px solid var(--navy);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
 .offer-price{font-size:2rem;font-weight:800;line-height:1}
@@ -18931,7 +18933,7 @@ function renderWebsiteOffer(){
           <li>Hosting, for as long as you subscribe</li>
           <li>Edit it yourself from here, any time</li>
         </ul>
-        <button class="btn btn-navy" onclick="event.stopPropagation();startWebsitePurchase('website')">Get a website</button>
+        <button class="btn btn-navy offer-cta" onclick="event.stopPropagation();startWebsitePurchase('website')">Get a website</button>
       </div>
       <div class="offer-box offer-alt" id="buy-wall-box" onclick="selectOffer('wall')">
         <div class="offer-price">${wallPrice}</div>
@@ -18939,7 +18941,7 @@ function renderWebsiteOffer(){
         <p style="margin:.6rem 0 0">Take just the pass wall and drop it into the site you already have. Every card on it is a pupil who really passed with you.</p>
         <p class="muted" style="font-size:.85rem;margin-top:.6rem">If you want the full website later, this ${wallPrice} comes off it — you never pay twice.</p>
         <p style="margin:.6rem 0 0"><a href="#" onclick="event.stopPropagation();selectOffer('wall');return false" style="font-weight:700">See what it looks like →</a></p>
-        <button class="btn-outline" onclick="event.stopPropagation();startWebsitePurchase('pass_wall')">Just the pass wall</button>
+        <button class="btn btn-navy offer-cta" onclick="event.stopPropagation();startWebsitePurchase('pass_wall')">Just the pass wall</button>
       </div>
     </div>
 

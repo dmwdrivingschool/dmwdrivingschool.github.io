@@ -19040,40 +19040,63 @@ function showWallPreview(on){
     '</div>';
 }
 
+// One call to instructor-purchase. With quote:true it checks everything and works
+// out the collection date without arranging any money.
+async function callPurchase(product, quote){
+  const {data: sess} = await sb.auth.getSession();
+  const res = await fetch("https://cxcqmyxbpjueezapknim.supabase.co/functions/v1/instructor-purchase", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + (sess?.session?.access_token || "") },
+    body: JSON.stringify(quote ? { product, quote: true } : { product })
+  });
+  const d = await res.json().catch(() => ({}));
+  return { ok: res.ok, d };
+}
+
+const longChargeDate = (d) => d
+  ? new Date(d + "T12:00:00").toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"long"})
+  : null;
+
+let websitePurchaseBusy = false;
 async function startWebsitePurchase(product){
+  if(websitePurchaseBusy) return;
+  websitePurchaseBusy = true;
+  try{
   const wall = product === "pass_wall";
   const label = wall ? "the pass wall" : "a website";
   // Both figures come from the entitlement. The wall is GBP 59, or GBP 49 on Premium, and this
   // page must never be the thing that decides - the function charges what the database says.
   const pence = wall ? ((websiteEnt && websiteEnt.pass_wall_pence) || 5900)
                     : ((websiteEnt && websiteEnt.website_due_pence) || 14900);
-  const inTrial = !!(websiteEnt && websiteEnt.in_trial);
-  const when = inTrial
-    ? "Nothing is collected until your trial ends — you can still walk away before then."
+
+  /* Ask first, so the confirm box can name the day the money leaves rather than
+     "collected by Direct Debit" and nothing more. Somebody part way through their
+     app trial has just been told nothing is taken until it ends; a website is not
+     covered by that, and the date is the only thing that says so plainly. */
+  const q = await callPurchase(product, true);
+  if (!q.ok){ alert(q.d.error || "That did not go through. Try again in a minute."); return; }
+  const quotedPence = q.d.amount_pence || pence;
+  const on = longChargeDate(q.d.charge_date);
+  const when = on
+    ? "It is collected by Direct Debit on " + on + "."
     : "This is collected by Direct Debit, with the mandate already on your account.";
 
-  if (!confirm("Buy " + label + " for " + gbp(pence) + "?" + String.fromCharCode(10, 10) + when
-      + String.fromCharCode(10, 10) + "It is a one-off payment, not a monthly fee.")) return;
+  if (!confirm("Buy " + label + " for " + gbp(quotedPence) + "?" + String.fromCharCode(10, 10) + when
+      + String.fromCharCode(10, 10) + "It is a one-off payment, not a monthly fee."
+      + String.fromCharCode(10, 10) + (wall ? "Your pass wall goes live straight away." : "Your website goes live straight away, not when the payment clears."))) return;
 
   try{
-    const {data: sess} = await sb.auth.getSession();
-    const res = await fetch("https://cxcqmyxbpjueezapknim.supabase.co/functions/v1/instructor-purchase", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + (sess?.session?.access_token || "") },
-      body: JSON.stringify({ product })
-    });
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok){ alert(d.error || "That did not go through. Try again in a minute."); return; }
+    const { ok, d } = await callPurchase(product, false);
+    if (!ok){ alert(d.error || "That did not go through. Try again in a minute."); return; }
 
     // Say the date out loud. "Payment set up" with no date is the kind of message people ring about.
-    const on = d.charge_date
-      ? new Date(d.charge_date + "T12:00:00").toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"long"})
-      : null;
-    alert("That is all done — " + gbp(d.amount_pence || pence) + (on ? ", collected on " + on : "")
+    const onDone = longChargeDate(d.charge_date);
+    alert("That is all done — " + gbp(d.amount_pence || quotedPence) + (onDone ? ", collected on " + onDone : "")
       + "." + String.fromCharCode(10, 10) + (wall ? "Your pass wall is ready now." : "Your website is ready now — open the Website tab to set it up."));
     await refreshWebsiteEntitlement();
     if (!wall) goTab("website");
   }catch(e){ alert("That did not go through: " + (e && e.message ? e.message : String(e))); }
+  } finally { websitePurchaseBusy = false; }
 }
 function websiteShow(mode, btn){
   websiteMode = mode || websiteMode;

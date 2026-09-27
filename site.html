@@ -357,7 +357,18 @@
   // Centre before any DNS exists.
   var sub = (q.get("s") || "").trim();
   var id  = (q.get("i") || "").trim();
+  // vercel.json rewrites /passes to /site.html?page=passes SERVER SIDE, which means the browser URL
+  // keeps the clean path and location.search stays empty - the query the rewrite adds never reaches
+  // this script. Reading only ?page= therefore sent every clean path to the home page instead:
+  // /passes, /prices, /app and /privacy have all quietly rendered the wrong page. The path is what
+  // the visitor actually typed, so fall back to it.
+  var PAGES = /^(passes|prices|app|privacy|download|contact)$/i;
   var page = (q.get("page") || "").trim();
+  var seg = (location.pathname.split("/").filter(Boolean).pop() || "").toLowerCase();
+  if (!page && PAGES.test(seg)) page = seg;
+  // Links are built from the path, so on /download every nav link would keep the /download base and
+  // the fallback above would send them all straight back here. Clean paths collapse to the root.
+  var basePath = PAGES.test(seg) ? location.pathname.replace(/[^\/]+$/, "") || "/" : location.pathname;
   var dom = "";
   if (!sub && !id) {
     var host = location.hostname.toLowerCase();
@@ -371,13 +382,13 @@
 
   // Keeps whichever of ?s= / ?i= got us here, so links between pages do not lose the site.
   function urlFor(p){
-    var base = location.pathname + "?";
+    var base = basePath + "?";
     var parts = [];
     if (sub) parts.push("s=" + encodeURIComponent(sub));
     else if (id) parts.push("i=" + encodeURIComponent(id));
     if (q.get("preview") === "1") parts.push("preview=1");
     if (p) parts.push("page=" + p);
-    return parts.length ? base + parts.join("&") : location.pathname;
+    return parts.length ? base + parts.join("&") : basePath;
   }
 
   // Instructors type "50", not "£50".

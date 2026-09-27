@@ -301,6 +301,8 @@
        36px top and bottom - the gap under the header above "Free with your lessons", and the one
        under the phone screenshots before the next rule. */
     .app-hero{padding:16px 0 20px;gap:20px}
+    /* Break the headline at the comma rather than wherever the width happens to run out. */
+    .app-hero h1 span{display:block}
     /* Only the heading that OPENS a band - the band's own padding already spaces it. Written as
        plain `.band h2` first, which flattened the gap before every later heading too and left
        "When I teach" welded to the email row above it on the contact page. */
@@ -796,7 +798,7 @@
         '<div class="wrap">' +
         '<section class="app-hero"><div>' +
           '<span class="chip">Free with your lessons</span>' +
-          '<h1>Your lessons, in one app</h1>' +
+          '<h1><span>Your lessons,</span> <span>in one app</span></h1>' +
           '<p class="lead">' + esc(owner) + ' pupils get the Drive My Way app, on iPhone or Android, and ' +
             'it costs you nothing. Sending the enquiry form creates your login at the same time &mdash; you ' +
             'pick your own password on it &mdash; so you can sign in straight away and watch your enquiry ' +

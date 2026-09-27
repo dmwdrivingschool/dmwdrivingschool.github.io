@@ -289,7 +289,10 @@
     .hero{padding:20px 0 26px;gap:22px}
     .hero h1{margin:14px 0}
     section.band{padding:28px 0}
-    .band h2{margin-top:0}
+    /* Only the heading that OPENS a band - the band's own padding already spaces it. Written as
+       plain `.band h2` first, which flattened the gap before every later heading too and left
+       "When I teach" welded to the email row above it on the contact page. */
+    .band > h2:first-child{margin-top:0}
     .stat{padding:8px 12px;gap:4px;min-width:0}
     .stat .v{font-size:.9rem}
     .stat .l{font-size:.76rem;white-space:nowrap}

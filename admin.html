@@ -7037,9 +7037,49 @@ async function setStatus(id,status){
     if(await makePupilInactiveCC(id,prev)) refresh();
     return;
   }
+  if(status==="active" && !(await confirmTakingOnCC(id,prev))) return;
   const {error}=await sb.from("pupils").update({status}).eq("id",id);
   if(error) return alert(error.message);
   refresh();
+}
+
+// Taking a pupil on is the moment to check the paperwork actually happened (Dale, 28 Sep 2026: "it should
+// also check when they are moved to active - had terms/notice/health been done?").
+//
+// It is a notice, not a gate. Every one of these can only be answered by the pupil or on the first lesson,
+// so refusing to make somebody active would just leave them in limbo. Nothing outstanding and it does not
+// interrupt at all.
+//
+// Health is worded as "recorded" rather than "asked", because asking is the instructor's job on the first
+// lesson - Dale: "i do and so do many instructors confirm it on a first lesson" - and they can write the
+// answer straight onto the pupil's page here. See [[medical-question-timing]] for why the app does not ask
+// an enquiry.
+async function confirmTakingOnCC(id,prev){
+  let row=null;
+  try{
+    const {data}=await sb.from("pupils")
+      .select("first_name,terms_accepted_at,media_consent_at,medical_asked_at,medical_conditions,medical_medication")
+      .eq("id",id).maybeSingle();
+    row=data;
+  }catch(e){ return true; }          // never block a status change on a failed lookup
+  if(!row) return true;
+
+  const first=(row.first_name||(prev&&prev.first_name)||"They").trim()||"They";
+  const outstanding=[];
+  if(!row.terms_accepted_at)  outstanding.push("They have not accepted your terms and conditions yet.");
+  if(!row.media_consent_at)   outstanding.push("They have not said yet where a photo of them may be used.");
+  if(!row.medical_asked_at && !row.medical_conditions && !row.medical_medication)
+    outstanding.push("Nothing medical is recorded for them, and no answer either way.");
+  if(!outstanding.length) return true;
+
+  // askChoiceCC escapes the title and body itself, so the name goes in raw.
+  const go=await askChoiceCC(`Before you take ${first} on`,
+    outstanding.join(" ")+
+    " The first two are asked in their app and you will be told when they answer. The medical question is one to"+
+    " put to them on the first lesson — you can write the answer on their page here, and it asks you to confirm"+
+    " they were happy for it to be kept.",
+    [{label:"Make them active",value:"yes"}]);
+  return go==="yes";
 }
 // Making a pupil inactive is a question, not a switch (Dale, 25 Sep 2026). Only ever asked about a pupil whose
 // last test was a fail - passing moves them to Passed, so a passed pupil never reaches Inactive. Moving them

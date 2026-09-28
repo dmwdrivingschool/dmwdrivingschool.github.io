@@ -604,7 +604,6 @@ tbody tr:hover td{background:#334263}
 /* Website promo (Dale, 28 Sep 2026: "down the left side of the dashboard", "if no space then put it at the bottom").
    Wide screen: absolute in the empty gutter left of the centred column, level with the stat tiles. Anything
    narrower: an ordinary panel at the foot of the dashboard, video beside the words, stacked on a phone. */
-#tab-dash{position:relative}
 .web-promo .wp-inner{display:grid;grid-template-columns:minmax(0,220px) 1fr;gap:1.2rem;align-items:start}
 .web-promo video{display:block;width:100%;aspect-ratio:9/16;border-radius:12px;background:#000;object-fit:cover}
 .web-promo h2{margin:0 0 .55rem}
@@ -613,10 +612,10 @@ tbody tr:hover td{background:#334263}
 .web-promo .wp-note{font-size:.86rem}
 .web-promo .wp-act{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.3rem}
 @media(max-width:600px){.web-promo .wp-inner{grid-template-columns:1fr}.web-promo video{max-width:240px;margin:0 auto}}
-@media(min-width:1780px){
-  .web-promo{position:absolute;top:0;right:calc(100% + 28px);width:280px;margin:0}
-  .web-promo .wp-inner{grid-template-columns:1fr}
-}
+/* When the banner sends them down here, say so: a short glow, then back to normal. */
+.web-promo.wp-flash{animation:wpFlash 1.6s ease-out 1}
+@keyframes wpFlash{0%{box-shadow:0 0 0 0 rgba(10,76,161,.55)}70%{box-shadow:0 0 0 10px rgba(10,76,161,0)}100%{box-shadow:0 0 0 0 rgba(10,76,161,0)}}
+@media(prefers-reduced-motion:reduce){.web-promo.wp-flash{animation:none}}
 </style>
 </head>
 <body>
@@ -729,6 +728,7 @@ tbody tr:hover td{background:#334263}
     <section id="tab-dash">
       <div id="feedback-card" style="display:none;margin:0 0 1rem;padding:.75rem 1rem;border:1px solid var(--line);border-left:4px solid var(--navy,#0A4CA1);border-radius:12px"></div>
       <div id="twofa-banner" style="display:none;margin:0 0 1rem;padding:.75rem 1rem;border:1px solid var(--line);border-left:4px solid #16a34a;border-radius:12px"></div>
+      <div id="website-promo-banner" style="display:none;margin:0 0 1rem;padding:.75rem 1rem;border:1px solid var(--line);border-left:4px solid var(--navy,#0A4CA1);border-radius:12px"></div>
       <div id="dash-terms" class="hidden"></div>
       <div id="dash-join" class="hidden"></div>
       <div id="dash-pdi" class="hidden"></div>
@@ -19373,6 +19373,7 @@ function renderWebsitePromoCC(canSeeTab){
   const ent=websiteEnt||null;
   const hide=!isSuperAdminUser && (!ent || ent.school_locked || ent.website);
   el.classList.toggle("hidden", hide);
+  renderWebsitePromoBannerCC(!hide);
   if(hide) return;
   const list=ent && Number(ent.website_list_pence);
   let price;
@@ -19394,6 +19395,43 @@ function renderWebsitePromoCC(canSeeTab){
         ${act}
       </div>
     </div>`;
+}
+
+/* The shout at the top of the dashboard (Dale, 28 Sep 2026: "a banner at the top ... something that can be
+   dismissed"). It only says there is something to read and sends them down to the panel; the panel itself is
+   the advert. Same visibility rule as the panel, so it can never point at something that is not there.
+   Dismissing is kept in app_settings, not this browser, so it stays dismissed on their phone as well, and it
+   stays dismissed for good - the panel is still at the foot of the dashboard whenever they want it. */
+let websitePromoBannerClosed = null;   // null until we have looked it up
+async function websitePromoBannerIsClosed(){
+  if(websitePromoBannerClosed!==null) return websitePromoBannerClosed;
+  try{
+    const {data}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","website_promo_banner").maybeSingle();
+    websitePromoBannerClosed=!!(data && data.value && data.value.closed_at);
+  }catch(e){ websitePromoBannerClosed=false; }
+  return websitePromoBannerClosed;
+}
+async function renderWebsitePromoBannerCC(show){
+  const el=document.getElementById("website-promo-banner"); if(!el) return;
+  el.style.display="none";
+  if(!show || pausedMode || !currentUserId) return;
+  if(await websitePromoBannerIsClosed()) return;
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px"><strong>🌐 New: a website of your own</strong><div class="muted" style="font-size:.85rem;margin-top:.15rem">Your own web address, your prices, and a pass wall that fills itself from your phone. There's more about it at the bottom of this page.</div></div>
+      <span style="display:flex;gap:.4rem;flex-wrap:wrap"><button type="button" class="btn btn-navy btn-sm" onclick="showWebsitePromoCC()">Show me</button><button type="button" class="btn-outline btn-sm" onclick="closeWebsitePromoBanner()">No thanks</button></span>
+    </div>`;
+  el.style.display="block";
+}
+async function closeWebsitePromoBanner(){
+  websitePromoBannerClosed=true;
+  const el=document.getElementById("website-promo-banner"); if(el) el.style.display="none";
+  try{ await sb.from("app_settings").upsert({id:"website_promo_banner",owner_id:currentUserId,value:{closed_at:new Date().toISOString()},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"}); }catch(e){}
+}
+function showWebsitePromoCC(){
+  const el=document.getElementById("dash-website-promo");
+  if(!el || el.classList.contains("hidden")) return;
+  try{ el.scrollIntoView({behavior:"smooth",block:"center"}); }catch(e){ el.scrollIntoView(); }
+  el.classList.remove("wp-flash"); void el.offsetWidth; el.classList.add("wp-flash");
 }
 
 async function refreshWebsiteEntitlement(){

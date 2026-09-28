@@ -188,6 +188,9 @@
   .pass p{margin:0;font-size:.9rem;color:var(--muted)}
   /* Only on a showcase site: what a pupil's review will look like once there is one. */
   .pass p.hint{font-style:italic;opacity:.65}
+  /* Where a quoted review came from. Small and plain - it is a provenance note, not a badge. */
+  .pass p.src{margin-top:6px;font-size:.78rem;opacity:.75}
+  .pass p.src a{color:inherit}
   .more-passes{margin-top:26px}
 
   .ptable{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
@@ -617,6 +620,21 @@
   // look unfinished to their own customers.
   var showcase = false;
 
+  /* A review the pupil left somewhere else, quoted with a note saying so - and a link to it where
+   * there is one, because a Google review anybody can go and read is stronger evidence than words on
+   * the instructor's own website. Words written IN the app carry no note: those are the verified ones
+   * and 'app' arrives here as null. Never dress a quoted review up as an app one (Dale, 28 Sep 2026). */
+  function reviewSource(p){
+    if (!p.words || !p.words_source) return '';
+    var what = p.words_source === 'google' ? 'their Google review'
+             : p.words_source === 'facebook' ? 'their Facebook review'
+             : 'a review they left elsewhere';
+    var txt = 'From ' + what;
+    return p.words_url
+      ? '<p class="src"><a href="' + esc(p.words_url) + '" target="_blank" rel="noopener nofollow">' + esc(txt) + '</a></p>'
+      : '<p class="src">' + esc(txt) + '</p>';
+  }
+
   function passCard(p){
     var when = passedLabel(p.passed_on);
     var hint = showcase && !p.words;
@@ -626,7 +644,7 @@
       ? '<div class="b">' +
         (p.first_name ? '<div class="who">' + esc(p.first_name) + '</div>' : '') +
         (when ? '<div class="when">' + esc(when) + '</div>' : '') +
-        (p.words ? '<p>' + esc(p.words) + '</p>'
+        (p.words ? '<p>' + esc(p.words) + '</p>' + reviewSource(p)
                  : hint ? '<p class="hint">Your pupil’s review appears here.</p>' : '') + '</div>'
       : '';
     return '<div class="pass"><div class="img">' +

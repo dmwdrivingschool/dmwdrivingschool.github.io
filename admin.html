@@ -20039,7 +20039,7 @@ async function websiteReload(){
     if (websiteIsWall()) {
       ({ data, error } = await sb
         .from("pass_cards")
-        .select("id,photo_url,photo_path,sort_order,first_name,passed_on,words,words_approved_at,words_declined_at,pupil_agreed_at,photo_consent")
+        .select("id,photo_url,photo_path,sort_order,first_name,passed_on,words,words_approved_at,words_declined_at,pupil_agreed_at,photo_consent,words_source,words_source_url")
         .eq("instructor_id", currentUserId)
         .is("withdrawn_at", null)
         .order("sort_order", { ascending: false }));
@@ -20052,7 +20052,10 @@ async function websiteReload(){
         wordsOn: !!c.words_approved_at,
         // Never decided is not the same as turned down, and the card says so: one is waiting on the
         // instructor, the other is a decision they made and can undo.
-        wordsNew: !!(c.words && !c.words_approved_at && !c.words_declined_at)
+        wordsNew: !!(c.words && !c.words_approved_at && !c.words_declined_at),
+        wordsSource: c.words_source || "app",
+        wordsUrl: c.words_source_url || "",
+        firstName: c.first_name || ""
       }));
     } else {
       ({ data, error } = await sb
@@ -20121,6 +20124,75 @@ function websiteSelectNone(){
   renderWebsiteGrid();
 }
 
+/* Quote a review a pupil left on Google or Facebook, onto their pass card.
+ *
+ * SUPER ADMIN ONLY, deliberately (Dale, 28 Sep 2026: "the more i think of it - the more i think it
+ * might be a headache from other instructors doing it"). A box any instructor can type a review into
+ * is a way to put made-up reviews on a website Drive My Way builds and hosts, and it would make Dale
+ * the referee the first time one is challenged. It would also spend the only claim the pass wall has
+ * that nobody else can make - that every review on it came from a verified pupil who really passed.
+ *
+ * The source is REQUIRED and shows on the public card ("From their Google review", linked where there
+ * is a link). That is the whole point: quoting a real review is fine, dressing it up as one left
+ * through the app is not - and a labelled Google review anybody can go and check is better evidence
+ * than an unlabelled quote on your own site anyway.
+ *
+ * Saving sets words_approved_at itself. There is nobody to approve it: the instructor typing it IS
+ * the decision, unlike a pupil's own words which they write and the instructor then accepts.
+ */
+async function openQuoteReview(id){
+  const item = websiteItems.find(i => i.id === id);
+  if (!item) return;
+  const src = item.wordsSource && item.wordsSource !== "app" ? item.wordsSource : "google";
+  const opt = (v,l) => `<option value="${v}" ${src===v?"selected":""}>${l}</option>`;
+  openModal(`<h2 style="margin-bottom:.3rem">Quote a review</h2>
+    <p class="muted" style="margin-bottom:.9rem;font-size:.85rem">Paste what they actually wrote somewhere else. The card will say where it came from, and link to it if you give a link.</p>
+    ${item.wordsSource === "app" && item.words ? '<div class="err" style="display:block;text-align:left">These words were written by the pupil in the app. Changing them here replaces what they wrote.</div>' : ""}
+    <div class="field"><label>First name</label><input id="qr-name" value="${esc(item.firstName||"")}" placeholder="As it should show on the card"></div>
+    <div class="field"><label>What they wrote</label><textarea id="qr-words" rows="4" placeholder="Their review, word for word">${esc(item.words||"")}</textarea></div>
+    <div class="field"><label>Where from</label><select id="qr-src">${opt("google","Google")}${opt("facebook","Facebook")}${opt("other","Somewhere else")}</select></div>
+    <div class="field"><label>Link to the review <span class="muted">(optional)</span></label><input id="qr-url" value="${esc(item.wordsUrl||"")}" placeholder="https://"></div>
+    <div class="err" id="qr-err" style="display:block;text-align:left"></div>
+    <div class="actions">
+      <button class="btn btn-navy btn-sm" onclick="saveQuoteReview('${id}')">Save</button>
+      ${item.words ? `<button class="btn-outline btn-sm" onclick="clearQuoteReview('${id}')">Remove the words</button>` : ""}
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+async function saveQuoteReview(id){
+  const err = document.getElementById("qr-err");
+  const name = (document.getElementById("qr-name").value || "").trim();
+  const words = (document.getElementById("qr-words").value || "").trim();
+  const source = document.getElementById("qr-src").value;
+  const url = (document.getElementById("qr-url").value || "").trim();
+  if (!words){ err.textContent = "Put in what they wrote, or use Remove the words."; return; }
+  if (url && !/^https?:\/\//i.test(url)){ err.textContent = "A link has to start with http:// or https://"; return; }
+  err.textContent = "Saving…";
+  const patch = {
+    words, words_source: source, words_source_url: url || null,
+    words_approved_at: new Date().toISOString(), words_declined_at: null
+  };
+  if (name) patch.first_name = name;
+  const { error } = await sb.from("pass_cards").update(patch).eq("id", id);
+  if (error){ err.textContent = error.message; return; }
+  closeModal();
+  loadWebsitePhotos();
+}
+
+/* Takes the words off and puts the source back to app, so a card that never had a quote is
+   indistinguishable from one whose quote was removed. The photo is untouched. */
+async function clearQuoteReview(id){
+  if (!confirm("Take the words off this card? The photo stays.")) return;
+  const { error } = await sb.from("pass_cards").update({
+    words: null, words_source: "app", words_source_url: null,
+    words_approved_at: null, words_declined_at: null
+  }).eq("id", id);
+  if (error) return alert(error.message);
+  closeModal();
+  loadWebsitePhotos();
+}
+
 function renderWebsiteGrid(){
   const grid = document.getElementById("website-grid");
   if (!grid) return;
@@ -20148,6 +20220,7 @@ function renderWebsiteGrid(){
         ${item.caption ? `<div style="font-weight:700;color:var(--text)">${esc(item.caption)}</div>` : ""}
         ${item.pending ? `<div style="color:#92400e">Waiting on the pupil — not on your website</div>` : ""}
         ${item.words ? `<div style="color:var(--muted);font-style:italic;margin-top:.2rem">“${esc(item.words)}”</div>
+          ${item.wordsSource && item.wordsSource !== "app" ? `<div style="color:var(--muted);font-size:.68rem">From their ${esc(item.wordsSource)} review</div>` : ""}
           <div style="margin-top:.35rem;display:flex;gap:.35rem;align-items:center;flex-wrap:wrap">
             <span style="color:${item.wordsOn ? "#0a7a3d" : "var(--muted)"};font-weight:700">
               ${item.wordsOn ? "On your website" : item.wordsNew ? "Not on yet" : "Turned off"}</span>
@@ -20161,6 +20234,9 @@ function renderWebsiteGrid(){
           onclick="websiteMove('${item.id}',-1)" ${idx===0?"disabled":""}>↑</button>
         <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move down"
           onclick="websiteMove('${item.id}',1)" ${idx===websiteItems.length-1?"disabled":""}>↓</button>
+        ${isSuperAdmin ? `<button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem"
+          title="Quote a review they left on Google or Facebook"
+          onclick="openQuoteReview('${item.id}')">${item.words ? "Review" : "+ Review"}</button>` : ""}
         <button type="button" class="btn-danger" style="padding:2px 8px;font-size:.75rem"
           onclick="websiteDelete('${item.id}')">Del</button>
       </div>

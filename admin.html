@@ -3999,19 +3999,39 @@ function medicalAlertCC(p){
   const cond=(p.medical_conditions||"").trim(), med=(p.medical_medication||"").trim();
   const who=p.medical_consent_by?"You recorded this":"Given by the pupil";
   const when=p.medical_updated_at?" on "+new Date(p.medical_updated_at).toLocaleDateString("en-GB"):"";
-  return `<div id="cc-medical-box" style="background:#fffbeb;border:2px solid #fbbf24;border-radius:12px;padding:.9rem;margin-top:1rem">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem;margin-bottom:.5rem">
-      <strong style="color:#92400e;text-transform:uppercase;letter-spacing:.05em;font-size:.8rem">\u26a0 Medical</strong>
-      <button class="btn-sm" onclick="editMedicalCC()" style="background:#fff;border:1.5px solid #b45309;color:#92400e;font-weight:700;border-radius:8px;padding:.25rem .7rem;cursor:pointer">Edit</button>
+  // One line closed, everything open (Dale, 28 Sep 2026, on his phone: "more of a small box that you
+  // press to expand"). Closed it still says what it is and shows the start of the note, so it summarises
+  // rather than hides. Every colour is stated: this box is light and the Control Centre is dark.
+  const summary=cond||med;
+  return `<div id="cc-medical-box" style="background:#fffbeb;border:2px solid #fbbf24;border-radius:12px;margin-top:1rem;overflow:hidden">
+    <button type="button" onclick="toggleMedicalCC()" style="width:100%;display:flex;align-items:center;gap:.45rem;padding:.5rem .65rem;background:none;border:0;cursor:pointer;text-align:left">
+      <span style="color:#92400e;font-size:.9rem">⚠</span>
+      <span style="color:#92400e;font-weight:800;text-transform:uppercase;letter-spacing:.05em;font-size:.72rem;flex-shrink:0">Medical</span>
+      <span id="cc-med-summary" style="color:#451a03;font-size:.85rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(summary)}</span>
+      <span id="cc-med-chev" style="color:#92400e;margin-left:auto;font-size:.8rem">▾</span>
+    </button>
+    <div id="cc-medical-body" style="display:none;padding:0 .65rem .65rem">
+      ${cond?`<div style="margin-bottom:.4rem"><div style="font-size:.7rem;font-weight:700;color:#b45309">Conditions or special needs</div><div style="font-size:.88rem;color:#451a03;white-space:pre-wrap;line-height:1.35">${esc(cond)}</div></div>`:""}
+      ${med?`<div style="margin-bottom:.4rem"><div style="font-size:.7rem;font-weight:700;color:#b45309">Medication</div><div style="font-size:.88rem;color:#451a03;white-space:pre-wrap;line-height:1.35">${esc(med)}</div></div>`:""}
+      <div style="border-top:1px solid #fcd34d;padding-top:.45rem">
+        <div style="font-size:.7rem;font-weight:700;color:#b45309;margin-bottom:.25rem">Emergency contact</div>
+        ${kinLineCC(p,true)}
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.5rem">
+        <span style="font-size:.7rem;color:#b45309">${who}${when}.</span>
+        <button class="btn-sm" onclick="editMedicalCC()" style="background:#fff;border:1.5px solid #b45309;color:#92400e;font-weight:700;border-radius:8px;padding:.2rem .6rem;cursor:pointer;flex-shrink:0">Edit</button>
+      </div>
     </div>
-    ${cond?`<div style="margin-bottom:.5rem"><div style="font-size:.75rem;font-weight:700;color:#b45309">Conditions or special needs</div><div style="font-size:.92rem;color:#451a03;white-space:pre-wrap">${esc(cond)}</div></div>`:""}
-    ${med?`<div style="margin-bottom:.5rem"><div style="font-size:.75rem;font-weight:700;color:#b45309">Medication</div><div style="font-size:.92rem;color:#451a03;white-space:pre-wrap">${esc(med)}</div></div>`:""}
-    <div style="border-top:1px solid #fcd34d;padding-top:.5rem">
-      <div style="font-size:.75rem;font-weight:700;color:#b45309;margin-bottom:.3rem">Emergency contact</div>
-      ${kinLineCC(p,true)}
-    </div>
-    <div style="font-size:.72rem;color:#b45309;margin-top:.5rem">${who}${when}.</div>
   </div>`;
+}
+
+function toggleMedicalCC(){
+  const body=document.getElementById("cc-medical-body"); if(!body) return;
+  const open=body.style.display!=="none";
+  body.style.display=open?"none":"block";
+  const sum=document.getElementById("cc-med-summary"), chev=document.getElementById("cc-med-chev");
+  if(sum) sum.style.visibility=open?"visible":"hidden";
+  if(chev) chev.textContent=open?"▾":"▴";
 }
 
 function medicalFooterCC(p){

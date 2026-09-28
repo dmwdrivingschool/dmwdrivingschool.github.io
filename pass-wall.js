@@ -22,8 +22,6 @@
   var SUPABASE_URL = "https://cxcqmyxbpjueezapknim.supabase.co";
   var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4Y3FteXhicGp1ZWV6YXBrbmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDUxNzAsImV4cCI6MjEwMTY4MTE3MH0.Qk46wzUGpDHlsqGvsImE9HdrrosL3ERKVbxDUsP4A30";
   var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  // How many show before "Show more". A wall of 73 should not push a website's footer into next week.
-  var FIRST_BATCH = 12;
 
   var CSS = [
     ":host{all:initial;display:block;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1e293b}",
@@ -51,9 +49,6 @@
     // Where a quoted review came from. Small and plain - a provenance note, not a badge.
     ".src{font-size:11.5px;color:#64748b;margin:2px 0 0}",
     ".src a{color:inherit;text-decoration:underline}",
-    ".more{display:block;width:100%;margin:18px auto 0;padding:12px 18px;background:#fff;border:1px solid #cbd5e1;",
-    "border-radius:10px;font:inherit;font-size:15px;font-weight:600;color:#334155;cursor:pointer;min-height:44px}",
-    "@media(min-width:640px){.more{width:auto;min-width:260px}}",
     ".brand{text-align:center;margin:0 0 14px}",
     ".brand img{display:block;height:44px;width:auto;max-width:200px;margin:0 auto 6px}",
     ".brand strong{display:block;color:#062F63;font-size:1.05rem}",
@@ -155,7 +150,6 @@
     box.innerHTML = html;
 
     var grid = box.querySelector("#dmw-grid");
-    var shown = 0;
 
     function cardHtml(c) {
       var name = (c.first_name || "").trim();
@@ -187,24 +181,13 @@
       return bits + "</li>";
     }
 
-    function showMore() {
-      var batch = Math.max(FIRST_BATCH, cols * 4);
-      var next = cards.slice(shown, shown + batch);
-      grid.insertAdjacentHTML("beforeend", next.map(cardHtml).join(""));
-      shown += next.length;
-      var btn = box.querySelector(".more");
-      if (shown >= cards.length) {
-        if (btn) btn.remove();
-      } else if (!btn) {
-        var b = document.createElement("button");
-        b.type = "button";
-        b.className = "more";
-        b.textContent = "Show more pass photos";
-        b.addEventListener("click", showMore);
-        grid.insertAdjacentElement("afterend", b);
-      }
-    }
-    showMore();
+    /* Every card, in one go. It used to draw twelve and offer "Show more pass photos", to keep a wall
+       of 73 from pushing a website's footer into next week - but a pupil looking for their own face
+       had to keep pressing it, and a visitor judging an instructor sees a dozen passes instead of
+       seventy-three (Dale, 28 Sep 2026: "i want it to show all without needing to keep pressing").
+       Safe to draw the lot because every img is loading="lazy": the markup is cheap, and the browser
+       only fetches the pictures as they come into view, so the page still opens as fast. */
+    grid.insertAdjacentHTML("beforeend", cards.map(cardHtml).join(""));
   }
 
   function start() {

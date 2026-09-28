@@ -261,6 +261,8 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .wc-row img{width:52px;height:52px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:var(--line)}
 .wc-name{font-size:.85rem;color:var(--text);word-break:break-all}
 .wc-foot{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
+.wc-who{margin-top:.35rem;max-width:100%;padding:.3rem .4rem;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--text);font-size:.82rem}
+.wc-asked{display:block;margin-top:.25rem;font-size:.78rem;color:var(--muted)}
 .chk-card{border:1px solid #F0C36D;background:#FFF9EC;border-radius:10px;padding:.8rem;margin-bottom:1rem}
 .chk-head{font-weight:700;color:#7A5B12;margin-bottom:.15rem}
 .chk-sub{font-size:.8rem;color:#8A6A1F;margin-bottom:.6rem}
@@ -6918,7 +6920,22 @@ async function markPupilPassed(pupil, extra){
   if(!pupil||!pupil.id) return false;
   const name=(pupil.first_name||"").trim(), day=n=>passedDayCC(Date.now()+n*86400000);
   if(!confirm(`Mark ${name||"this pupil"} as passed?\n\n${name||"They"} will be sent:\n• A congratulations message now\n• A follow-up about motorway lessons on ${day(7)}\n• A reminder on ${day(27)} that their account closes on ${day(30)}\n\nThey can still message you until then. After that, their lessons (apart from driving tests), messages, contact details and app login are deleted. Payments and driving test results are always kept.\n\nChange these messages in Settings → Pupil Messages.`)) return false;
-  const {error}=await sb.from("pupils").update({...(extra||{}), status:"passed", updated_at:new Date().toISOString()}).eq("id",pupil.id);
+  // Now, or wait for the pass photo? (Dale, 28 Sep 2026). Only asked when it changes something: the congratulations
+  // is on, you have a pass wall, and this pupil has never been asked about it (pass_congrats_can_wait). Waiting holds
+  // the message until they answer the photo question - yes sends it without the review links, because their review
+  // goes with the photo; no sends the usual one - and 9am tomorrow sends it if nothing has happened by then.
+  // Same question, same wording, as the app's changePupilStatus.
+  let hold=null;
+  try{ const {data:canWait}=await sb.rpc("pass_congrats_can_wait",{p_pupil:pupil.id}); if(canWait===true){
+    const who=name||"They";
+    const pick=await askChoiceCC(`Send ${name?name+"'s":"the"} congratulations now?`,
+      `${who} hasn't been asked about your pass wall yet. Wait until you've added their pass photo and the congratulations goes when they answer it: without your review links if they say yes, because their review goes with the photo, and with them if they say no. If nothing has happened by 9am tomorrow, it goes then.`,
+      [{label:"Send it now",value:"now",primary:true},
+       {label:"Wait for the pass photo",value:"wait",hint:"Add the photo from their page, or upload it on the Website tab and choose who it is."}]);
+    if(pick===null||pick===undefined) return false;
+    hold = pick==="wait" ? new Date().toISOString() : null;
+  }}catch(e){ /* can't tell: send now, the way it always has */ }
+  const {error}=await sb.from("pupils").update({...(extra||{}), status:"passed", passed_congrats_held_at:hold, updated_at:new Date().toISOString()}).eq("id",pupil.id);
   if(error){ alert(error.message); return false; }
   return true;
 }
@@ -19966,25 +19983,59 @@ async function websiteSaveOrder(){
    somebody uploads their whole camera roll. */
 var wallConsent = null;
 
-function askWallConsent(files){
+/* Who is this? (Dale, 28 Sep 2026: "when a photo is uploaded and a pupil has passed recently it should be asked if it
+   is that pupil"). Pupils marked passed in the last 30 days, without a pass photo already, can be picked per photo.
+   A picked photo becomes that pupil's card exactly as the app makes one - linked to them, their first name and pass
+   date on it, and their own consent decides whether it goes live (pass_cards_seek_consent), so it needs no tick from
+   you. Without this, a real pupil's photo uploaded here was an orphan: nobody asked them, no withdraw link, no words. */
+async function recentPassedForWallCC(){
+  try{
+    const since=new Date(Date.now()-30*86400000).toISOString();
+    const {data:ps}=await sb.from("pupils").select("id,first_name,last_name,passed_at,school_id")
+      .eq("instructor_id",currentUserId).eq("status","passed").gte("passed_at",since).order("passed_at",{ascending:false});
+    if(!ps||!ps.length) return [];
+    const {data:cards}=await sb.from("pass_cards").select("pupil_id").in("pupil_id",ps.map(x=>x.id)).is("withdrawn_at",null);
+    const taken=new Set((cards||[]).map(c=>c.pupil_id));
+    return ps.filter(x=>!taken.has(x.id));
+  }catch(e){ return []; }
+}
+
+async function askWallConsent(files){
+  const recent = await recentPassedForWallCC();
   return new Promise(resolve => {
     wallConsent = {
       files,
       urls: files.map(f => URL.createObjectURL(f)),
       ticked: files.map(() => false),
+      who: files.map(() => ""),
+      recent,
       resolve
     };
+    const monthOf = d => d ? new Date(d).toLocaleDateString("en-GB",{month:"short",year:"numeric"}) : "";
+    const picker = i => recent.length
+      ? '<select class="wc-who" id="wc-who-' + i + '" onclick="event.stopPropagation()" onchange="wallConsentWho(' + i + ',this.value)">' +
+          '<option value="">Not a recent pupil / older photo</option>' +
+          recent.map(r => '<option value="' + r.id + '">' + esc([r.first_name, r.last_name].filter(Boolean).join(" ")) +
+            ' &middot; passed ' + esc(monthOf(r.passed_at)) + '</option>').join("") +
+        '</select>'
+      : '';
     const rows = files.map((f, i) =>
       '<label class="wc-row">' +
-        '<input type="checkbox" onchange="wallConsentTick(' + i + ',this.checked)">' +
+        '<input type="checkbox" id="wc-tick-' + i + '" onchange="wallConsentTick(' + i + ',this.checked)">' +
         '<img src="' + wallConsent.urls[i] + '" alt="">' +
-        '<span class="wc-name">' + esc(f.name) + '</span>' +
+        '<span class="wc-name">' + esc(f.name) +
+          (recent.length ? '<br>' + picker(i) + '<span class="wc-asked" id="wc-asked-' + i + '" hidden>They&rsquo;ll be asked in their app</span>' : '') +
+        '</span>' +
       '</label>').join("");
     openModal(
       '<h2>Do you have permission?</h2>' +
-      '<p class="wc-lead">Tick each photo you have the pupil&rsquo;s permission to show on your website. ' +
-        'Older photos you already had permission for are fine &mdash; this just records that you confirmed it. ' +
-        'Anything left unticked will not be uploaded.</p>' +
+      (recent.length
+        ? '<p class="wc-lead">If a photo is of a pupil who passed in the last 30 days, choose them &mdash; they are asked in ' +
+          'their app, exactly as if you had taken it on your phone. For anyone else, tick that you have their permission. ' +
+          'Older photos are fine &mdash; this just records that you confirmed it. Anything left unticked will not be uploaded.</p>'
+        : '<p class="wc-lead">Tick each photo you have the pupil&rsquo;s permission to show on your website. ' +
+          'Older photos you already had permission for are fine &mdash; this just records that you confirmed it. ' +
+          'Anything left unticked will not be uploaded.</p>') +
       '<div class="wc-top">' +
         '<button type="button" class="btn-outline btn-sm" onclick="wallConsentAll(true)">Tick all</button>' +
         '<button type="button" class="btn-outline btn-sm" onclick="wallConsentAll(false)">Untick all</button>' +
@@ -20003,6 +20054,22 @@ function askWallConsent(files){
 
 function wallConsentTick(i, on){ if (wallConsent) { wallConsent.ticked[i] = !!on; wallConsentFoot(); } }
 
+// Picking a pupil replaces the tick for that photo, and takes that pupil out of the other photos' lists so nobody
+// is asked about two photos at once.
+function wallConsentWho(i, id){
+  if (!wallConsent) return;
+  wallConsent.who[i] = id || "";
+  wallConsent.files.forEach((_, j) => {
+    const tick = document.getElementById("wc-tick-" + j), note = document.getElementById("wc-asked-" + j);
+    const picked = !!wallConsent.who[j];
+    if (tick) { tick.disabled = picked; tick.style.visibility = picked ? "hidden" : ""; }
+    if (note) note.hidden = !picked;
+    const sel = document.getElementById("wc-who-" + j);
+    if (sel) Array.from(sel.options).forEach(o => { o.disabled = !!o.value && o.value !== wallConsent.who[j] && wallConsent.who.includes(o.value); });
+  });
+  wallConsentFoot();
+}
+
 function wallConsentAll(on){
   if (!wallConsent) return;
   wallConsent.ticked = wallConsent.ticked.map(() => !!on);
@@ -20013,7 +20080,7 @@ function wallConsentAll(on){
 function wallConsentFoot(){
   const go = document.getElementById("wc-go");
   if (!go || !wallConsent) return;
-  const n = wallConsent.ticked.filter(Boolean).length;
+  const n = wallConsent.files.filter((_, i) => wallConsent.ticked[i] || wallConsent.who[i]).length;
   go.disabled = n === 0;
   go.textContent = n ? ("Upload " + n + " photo" + (n === 1 ? "" : "s")) : "Upload";
 }
@@ -20027,9 +20094,12 @@ function wallConsentFinish(list){
   if (w) w.resolve(list);
 }
 
+// Resolves to [{file, pupil}] - pupil is the recent pass it was matched to, or null for a ticked older photo.
 function wallConsentDone(){
   if (!wallConsent) return;
-  wallConsentFinish(wallConsent.files.filter((_, i) => wallConsent.ticked[i]));
+  const w = wallConsent;
+  wallConsentFinish(w.files.map((file, i) => ({ file, pupil: w.who[i] ? (w.recent.find(r => r.id === w.who[i]) || null) : null, ok: w.ticked[i] || !!w.who[i] }))
+                           .filter(x => x.ok).map(({ file, pupil }) => ({ file, pupil })));
 }
 
 function wallConsentCancel(){ if (wallConsent) wallConsentFinish([]); else closeModal(); }
@@ -20044,9 +20114,12 @@ async function websiteUpload(ev){
   // are chosen and once per photo, not as a box you set beforehand - Dale, 27 Sep 2026: "it should
   // come up with the popup and the tick should be there for each photo- and a tick all button".
   // Older photos are fine; this records the permission you already have.
+  let matched = new Map();   // file -> the recent pass it was matched to
   if (websiteIsWall()) {
-    files = await askWallConsent(files);
-    if (!files.length) { status.textContent = ""; return; }
+    const chosen = await askWallConsent(files);
+    if (!chosen.length) { status.textContent = ""; return; }
+    files = chosen.map(c => c.file);
+    chosen.forEach(c => { if (c.pupil) matched.set(c.file, c.pupil); });
   }
   const consentAt = new Date().toISOString();
 
@@ -20072,7 +20145,19 @@ async function websiteUpload(ev){
       if (websiteIsWall()) {
         // sort_order left off on purpose: the before-insert trigger puts it above everything this instructor
         // has, so an uploaded photo lands at the top exactly like a new pass does.
-        ({ error: insErr } = await sb.from("pass_cards").insert({
+        const pupil = matched.get(file);
+        ({ error: insErr } = await sb.from("pass_cards").insert(pupil ? {
+          // A recent pass: that pupil's card, the same as the app's savePassCard. photo_consent 'instructor' is what
+          // the app writes; pass_cards_seek_consent then applies the pupil's own answer and asks them if needed.
+          instructor_id: currentUserId,
+          pupil_id: pupil.id,
+          school_id: pupil.school_id || null,
+          first_name: pupil.first_name || null,
+          passed_on: pupil.passed_at ? String(pupil.passed_at).slice(0, 10) : null,
+          photo_url: publicUrl,
+          photo_path: path,
+          photo_consent: "instructor"
+        } : {
           instructor_id: currentUserId,
           photo_url: publicUrl,
           photo_path: path,

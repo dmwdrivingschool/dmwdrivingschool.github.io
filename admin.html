@@ -10670,9 +10670,14 @@ function removePhotoChannel(i){ const l = collectPhotoChannels(); l.splice(i,1);
 
 /**
  * Adding a place is a new purpose and needs asking again; removing one is not. Dropping a channel
- * leaves consent narrower than what the pupil agreed to, which is still valid — re-asking everybody
- * would throw away consents for nothing. The warning is here rather than silent because the instructor
- * needs to know their pupils have not agreed to the new one yet.
+ * leaves consent narrower than what the pupil agreed to, which is still valid, so there is nothing to
+ * ask about. The warning is here rather than silent because the instructor needs to know their pupils
+ * have not agreed to the new one yet.
+ *
+ * Being re-asked shows the pupil the WHOLE list with their previous answers already ticked, and they
+ * can change any of them at the same time — including ones they said yes to before (Dale, 28 Sep 2026).
+ * That is the point of it: a re-ask is a real chance to change their mind, not a bolt-on question about
+ * the new place. So this message must not promise that what they already agreed to is untouched.
  */
 async function savePhotoChannels(){
   const err = document.getElementById("pc-err");
@@ -10683,7 +10688,7 @@ async function savePhotoChannels(){
     const gap = String.fromCharCode(10) + String.fromCharCode(10);
     if (!confirm("You have added " + added.join(" and ") + "." + gap
       + "Your pupils have not agreed to that yet, so they will be asked next time they open the app. "
-      + "What they have already agreed to is not affected.")) return;
+      + "Their earlier answers stay ticked, and they can change any of them at the same time.")) return;
   }
   const optOutEl = document.getElementById("pc-optout");
   const optOut = optOutEl ? optOutEl.value.trim() : "";

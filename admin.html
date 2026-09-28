@@ -4000,14 +4000,14 @@ function medicalAlertCC(p){
   const who=p.medical_consent_by?"You recorded this":"Given by the pupil";
   const when=p.medical_updated_at?" on "+new Date(p.medical_updated_at).toLocaleDateString("en-GB"):"";
   // One line closed, everything open (Dale, 28 Sep 2026, on his phone: "more of a small box that you
-  // press to expand"). Closed it still says what it is and shows the start of the note, so it summarises
-  // rather than hides. Every colour is stated: this box is light and the Control Centre is dark.
-  const summary=cond||med;
+  // press to expand"), and closed it is the word alone - "i dont think it should say on the medial tab
+  // what it is unless you expand it". That there IS a note shows on Summary as a Medical chip, so only
+  // the detail is behind the tap. Every colour is stated: this box is light, the Control Centre is dark.
   return `<div id="cc-medical-box" style="background:#fffbeb;border:2px solid #fbbf24;border-radius:12px;margin-top:1rem;overflow:hidden">
     <button type="button" onclick="toggleMedicalCC()" style="width:100%;display:flex;align-items:center;gap:.45rem;padding:.5rem .65rem;background:none;border:0;cursor:pointer;text-align:left">
       <span style="color:#92400e;font-size:.9rem">⚠</span>
       <span style="color:#92400e;font-weight:800;text-transform:uppercase;letter-spacing:.05em;font-size:.72rem;flex-shrink:0">Medical</span>
-      <span id="cc-med-summary" style="color:#451a03;font-size:.85rem;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(summary)}</span>
+      <span style="flex:1"></span>
       <span id="cc-med-chev" style="color:#92400e;margin-left:auto;font-size:.8rem">▾</span>
     </button>
     <div id="cc-medical-body" style="display:none;padding:0 .65rem .65rem">
@@ -4029,8 +4029,7 @@ function toggleMedicalCC(){
   const body=document.getElementById("cc-medical-body"); if(!body) return;
   const open=body.style.display!=="none";
   body.style.display=open?"none":"block";
-  const sum=document.getElementById("cc-med-summary"), chev=document.getElementById("cc-med-chev");
-  if(sum) sum.style.visibility=open?"visible":"hidden";
+  const chev=document.getElementById("cc-med-chev");
   if(chev) chev.textContent=open?"▾":"▴";
 }
 
@@ -4379,7 +4378,7 @@ function renderNextLessonCard(){
     <div style="font-weight:700;font-size:1.05rem">${esc(dateStr)}</div>
     <div style="font-weight:600">${hm(st)} – ${hm(en)}</div>
     <div class="muted" style="font-size:.85rem;margin:.2rem 0 .45rem">${esc(p.preferred_gearbox||"Manual")} · ${mins} mins</div>
-    <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.55rem">${chip(statusLabel==="Booked"?"#f97316":"#16a34a",statusLabel)}${chip("#1e3a8a",(next.lesson_type||"lesson").replace(/_/g," "))}${chip(paid?"#16a34a":"#b91c1c",paid?"Paid":"Unpaid")}</div>
+    <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.55rem">${chip(statusLabel==="Booked"?"#f97316":"#16a34a",statusLabel)}${chip("#1e3a8a",(next.lesson_type||"lesson").replace(/_/g," "))}${chip(paid?"#16a34a":"#b91c1c",paid?"Paid":"Unpaid")}${hasMedicalCC(p)?`<span onclick="pupilTab('details')" style="display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:.75rem;font-weight:700;color:#451a03;background:#fbbf24;cursor:pointer">⚠ Medical</span>`:""}</div>
     ${next.lesson_type==="mock_test"?renderMockTestBox(next):""}
     ${next.lesson_type!=="mock_test"&&plan&&plan.session_goal?`<div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;padding:.45rem .6rem;margin-bottom:.55rem;color:#0f172a"><div style="font-size:.65rem;text-transform:uppercase;color:#1d4ed8;font-weight:700">Lesson plan</div><div style="white-space:pre-wrap;font-size:.85rem">${esc(plan.session_goal)}</div></div>`:""}
     <div style="display:flex;gap:.5rem;flex-wrap:wrap">

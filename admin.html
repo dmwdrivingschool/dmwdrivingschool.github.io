@@ -20656,19 +20656,49 @@ async function loadMockTestUsageCC(){
   el.innerHTML=`<p style="margin-bottom:.5rem"><strong>Photo auto-fill:</strong> ${yes} yes, ${no} no</p>
     <div style="overflow-x:auto"><table><thead><tr><th>Instructor</th><th>Blank Prints</th><th>Filled-In Prints</th><th>Results (App)</th><th>Results (Control Centre)</th><th>Total Results</th><th>Last Used</th><th>Photo Auto-Fill</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+/* One mock test in one table cell. Both halves are shown whichever way the pupil sat it, so a blank
+ * side is itself the information: "Clips not sat" is the pupil who stopped half way, which reads very
+ * differently from a low score.
+ *
+ * A complete mock is a pass only if BOTH halves passed, as in the real test, so the verdict names the
+ * half that let them down rather than just saying no. */
+function mockCellCC(m){
+  if(!m) return '<span class="muted">Not attempted</span>';
+  const half = (v, label) => v
+    ? `<span title="${label}">${v.score}/${v.total!==undefined?v.total:v.max}</span>`
+    : `<span class="muted" title="${label}">&mdash;</span>`;
+  const line = half(m.theory,"Questions") + ' <span class="muted">questions</span> &middot; '
+             + half(m.haz,"Hazard clips") + ' <span class="muted">clips</span>';
+  let pill;
+  if(m.full){
+    if(m.both) pill = '<span class="status-pill st-100">Pass</span>';
+    else if(!m.theory.passed && !m.haz.passed) pill = '<span class="status-pill st-50">Both below the pass mark</span>';
+    else if(!m.theory.passed) pill = '<span class="status-pill st-50">Questions below the pass mark</span>';
+    else pill = '<span class="status-pill st-50">Clips below the pass mark</span>';
+  } else if(m.haz){
+    pill = `<span class="status-pill ${m.haz.passed?"st-100":"st-50"}">${m.haz.passed?"Clips passed":"Clips below the pass mark"}</span>`
+         + ' <span class="muted" style="font-size:.75rem">questions not sat</span>';
+  } else {
+    pill = `<span class="status-pill ${m.theory.passed?"st-100":"st-50"}">${m.theory.passed?"Questions passed":"Questions below the pass mark"}</span>`
+         + ' <span class="muted" style="font-size:.75rem">stopped before the clips</span>';
+  }
+  return line + '<div style="margin-top:.2rem">' + pill + '</div>';
+}
+
 async function loadTheoryProgress(){
   const el = document.getElementById("theory-progress-table");
   if(!el) return;
   el.innerHTML = "Loading…";
   try {
     // Hazard perception (13 Sep 2026) is read alongside; if those tables can't be read, the theory columns still show.
-    const [{data:pupils, error:pErr}, {data:attempts, error:aErr}, {data:hazAttempts}, {data:hazClips}] = await Promise.all([
+    const [{data:pupils, error:pErr}, {data:attempts, error:aErr}, {data:hazAttempts}, {data:hazClips}, {data:hazMocks}] = await Promise.all([
       // Active pupils only (Dale, 20 Sep 2026). Passed pupils kept appearing here long after they'd finished,
       // and a waiting-list pupil hasn't started lessons — neither is someone whose theory progress you'd act on.
       sb.from("pupils").select("id,first_name,last_name,email,portal_username,status").eq("status","active"),
-      sb.from("theory_attempts").select("pupil_id,mode,category,score,total,passed,created_at").order("created_at",{ascending:false}),
+      sb.from("theory_attempts").select("id,pupil_id,mode,category,score,total,passed,created_at").order("created_at",{ascending:false}),
       sb.from("hazard_attempts").select("pupil_id,clip_id,score,max_score,created_at").order("created_at",{ascending:false}),
       sb.from("hazard_clips").select("id").eq("active", true),
+      sb.from("hazard_mock_attempts").select("pupil_id,taken_at,score,max_score,passed,theory_attempt_id").order("taken_at",{ascending:false}),
     ]);
     if(pErr) throw pErr;
     if(aErr) throw aErr;
@@ -20677,8 +20707,43 @@ async function loadTheoryProgress(){
       const label = ((p.first_name||"")+" "+(p.last_name||"")).trim() || p.email || p.portal_username || "Pupil";
       const mine = (attempts||[]).filter(a=>a.pupil_id===p.id);
       const mocks = mine.filter(a=>a.mode==="mock");
-      const bestMock = mocks.length ? mocks.reduce((best,a)=> a.score>best.score?a:best, mocks[0]) : null;
       const categoriesDone = new Set(mine.filter(a=>a.mode==="practice").map(a=>a.category)).size;
+
+      /* A mock test is both halves now (28 Sep 2026), joined by hazard_mock_attempts.theory_attempt_id.
+       * Three shapes reach this screen and each says something different about the pupil:
+       *   both halves  - a hazard mock WITH theory_attempt_id: the real thing, and they have to pass
+       *                  both to have passed, as in the actual test
+       *   clips only   - theory_attempt_id null: they sat the clips on their own
+       *   questions    - a theory 'mock' row nothing points at: they did the questions and stopped
+       *                  before the clips, which is worth seeing rather than counting as a mock
+       * The stored passed flags decide it, not a pass mark written in here, so the two products can
+       * never disagree about whether somebody passed. */
+      const myHazMocks = (hazMocks||[]).filter(a=>a.pupil_id===p.id);
+      const usedTheory = new Set(myHazMocks.map(a=>a.theory_attempt_id).filter(Boolean));
+      const runs = myHazMocks.map(h=>{
+        const t = h.theory_attempt_id ? mine.find(a=>a.id===h.theory_attempt_id) : null;
+        return {
+          at: h.taken_at,
+          theory: t ? {score:t.score, total:t.total, passed:t.passed} : null,
+          haz: {score:h.score, max:h.max_score, passed:h.passed},
+          full: !!t,
+        };
+      }).concat(
+        // Questions sat with no clips after them.
+        mocks.filter(m=>!usedTheory.has(m.id)).map(m=>({
+          at: m.created_at,
+          theory: {score:m.score, total:m.total, passed:m.passed},
+          haz: null,
+          full: false,
+        }))
+      );
+      runs.forEach(r=>{ r.both = r.full && r.theory.passed && r.haz.passed; });
+      // Best means: a complete one beats a half, passing both beats not, then the higher total.
+      const rank = r => (r.full?4:0) + (r.both?2:0);
+      const pts = r => (r.theory?r.theory.score:0) + (r.haz?r.haz.score:0);
+      const bestMock = runs.length
+        ? runs.reduce((b,r)=> rank(r)>rank(b) || (rank(r)===rank(b) && pts(r)>pts(b)) ? r : b, runs[0])
+        : null;
       // Best score on each hazard clip, added up.
       const hazMine = (hazAttempts||[]).filter(a=>a.pupil_id===p.id);
       const bestPerClip = {};
@@ -20689,7 +20754,7 @@ async function loadTheoryProgress(){
         score: hazBest.reduce((s,a)=>s+a.score,0),
         max: hazBest.reduce((s,a)=>s+a.max_score,0),
       } : null;
-      const lastTimes = [mine[0]?.created_at, hazMine[0]?.created_at].filter(Boolean).sort(); // each list is sorted desc
+      const lastTimes = [mine[0]?.created_at, hazMine[0]?.created_at, myHazMocks[0]?.taken_at].filter(Boolean).sort(); // each list is sorted desc
       const lastAt = lastTimes.length ? lastTimes[lastTimes.length-1] : null;
       return {label, bestMock, categoriesDone, hazard, lastAt};
     });
@@ -20700,7 +20765,7 @@ async function loadTheoryProgress(){
       <thead><tr><th>Pupil</th><th>Best mock test</th><th>Categories practised</th><th>Hazard clips</th><th>Last activity</th></tr></thead>
       <tbody>${rows.map(r=>`<tr>
         <td>${esc(r.label)}</td>
-        <td>${r.bestMock ? `${r.bestMock.score}/${r.bestMock.total} <span class="status-pill ${r.bestMock.passed?"st-100":"st-50"}">${r.bestMock.passed?"Pass":"Below pass mark"}</span>` : '<span class="muted">Not attempted</span>'}</td>
+        <td>${mockCellCC(r.bestMock)}</td>
         <td>${r.categoriesDone} / 14</td>
         <td>${r.hazard ? `${r.hazard.clips} / ${clipTotal} clips · best ${r.hazard.score}/${r.hazard.max}` : '<span class="muted">Not attempted</span>'}</td>
         <td>${r.lastAt ? new Date(r.lastAt).toLocaleDateString() : ""}</td>

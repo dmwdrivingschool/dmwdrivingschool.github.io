@@ -186,6 +186,8 @@
   .pass .who{font-family:var(--head);font-weight:600}
   .pass .when{font-size:.8rem;color:var(--muted);margin-bottom:8px}
   .pass p{margin:0;font-size:.9rem;color:var(--muted)}
+  /* Only on a showcase site: what a pupil's review will look like once there is one. */
+  .pass p.hint{font-style:italic;opacity:.65}
   .more-passes{margin-top:26px}
 
   .ptable{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
@@ -608,15 +610,24 @@
     ["📖","The Full Highway Code in\u00a0your\u00a0pocket","The official Highway Code, split into sections you can open any time. No separate app, no searching for it online.",false]
   ];
 
+  // Set from the payload in draw(). A showcase site is one shown to prospective instructors as an
+  // example (Dale, 28 Sep 2026, looking at the mock photos on Sam's passes page: "we need to add some
+  // text by the mock passphotos - saying this is where a review will be"). It is off for every real
+  // working site, because printing that under a genuine pass photo would make somebody's own page
+  // look unfinished to their own customers.
+  var showcase = false;
+
   function passCard(p){
     var when = passedLabel(p.passed_on);
+    var hint = showcase && !p.words;
     // Older photos imported from an instructor's own gallery have no name, date or words. Drawing
     // the caption anyway left an empty strip under every one of them.
-    var body = (p.first_name || when || p.words)
+    var body = (p.first_name || when || p.words || hint)
       ? '<div class="b">' +
         (p.first_name ? '<div class="who">' + esc(p.first_name) + '</div>' : '') +
         (when ? '<div class="when">' + esc(when) + '</div>' : '') +
-        (p.words ? '<p>' + esc(p.words) + '</p>' : '') + '</div>'
+        (p.words ? '<p>' + esc(p.words) + '</p>'
+                 : hint ? '<p class="hint">Your pupil’s review appears here.</p>' : '') + '</div>'
       : '';
     return '<div class="pass"><div class="img">' +
       (p.photo_url ? '<img src="' + esc(p.photo_url) + '" alt="" loading="lazy">' : '') +
@@ -632,6 +643,7 @@
       document.body.insertBefore(bar, document.body.firstChild);
     }
 
+    showcase = d.showcase === true;
     var name = d.name || "Driving lessons";
     document.documentElement.setAttribute("data-template", d.template || "classic");
     applyHeadFont(d.template || "classic", c.head_font);

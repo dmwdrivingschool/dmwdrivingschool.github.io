@@ -3939,8 +3939,8 @@ function renderPupilDetailsCC(){
   const when=v=>v?new Date(v).toLocaleString("en-GB"):"";
   const theory=p.has_passed_theory?"Passed":p.theory_test_date?new Date(String(p.theory_test_date).slice(0,10)+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"";
   loadLicencePhotosCC();
-  return `<div class="summary-lines" style="margin-top:1rem">
-      ${row("Terms Agreed",p.terms_accepted_at?"Yes":"No")}${row("Terms Accepted",when(p.terms_accepted_at))}
+  return `${medicalAlertCC(p)}<div class="summary-lines" style="margin-top:1rem">
+      ${row("App Account",appAccountStateCC(p))}${row("Terms Accepted",when(p.terms_accepted_at))}
       ${row("Last Opened App",lastOpenedLabel(p.last_opened_at,p.app_version,p.app_platform)||(p.profile_id?"Never":"No app login yet"))}
       ${row("Licence Checked",when(p.licence_checked_at))}${row("Eyesight Checked",when(p.eyesight_checked_at))}
       ${row("Licence Type",p.licence_type)}${row("Theory Test",theory)}${row("Theory Cert",p.theory_cert_number)}
@@ -3948,7 +3948,139 @@ function renderPupilDetailsCC(){
       ${p.how_heard?row("How They Heard",p.how_heard):""}
       ${Number(p.previous_experience_hours||0)>0?row("Previous Experience",p.previous_experience_hours+" hrs"):""}
       <div style="padding:.4rem 0;font-size:.9rem"><strong style="color:#64748b;display:block;margin-bottom:.35rem">Licence Photos</strong><div id="pupil-licence-photos">${licencePhotosHtmlCC()}</div></div>
+    </div>${medicalFooterCC(p)}`;
+}
+
+/* ============================================================================================
+   Emergency contact and medical (Dale, 28 Sep 2026), the same shape as the app's pupil page:
+
+     something recorded -> an ORANGE box at the top, above the details, editable in place, with the
+                           emergency contact in it because that is the moment you want the number;
+     nothing recorded   -> no orange box, and the two boxes plus next of kin sit at the BOTTOM.
+
+   Never two boxes for the same thing. Shown, not hidden behind a tap: Dale, "show it dont hide - no
+   other pupil will be getting in - dont car share".
+
+   Health information is special category data, so an instructor writing it has to tick to say the
+   pupil told them and is happy for it to be kept. pupil_set_medical refuses without the tick and
+   records who gave it. The pupil sees all of it in their own Profile and can clear it themselves.
+   ============================================================================================ */
+function hasMedicalCC(p){ return !!((p.medical_conditions||"").trim() || (p.medical_medication||"").trim()); }
+function dialCC(n){ return String(n||"").replace(/[^\d+]/g,""); }
+
+// Have I invited them, and did anything come of it? profile_id cannot answer it on its own: an email
+// invite links the login the moment it is pressed, whether or not the pupil ever opens the email.
+function appAccountStateCC(p){
+  const day=v=>new Date(v).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+  if(p.last_opened_at) return "Set up";
+  if(p.invited_at) return "Not signed in yet \u00b7 invited "+day(p.invited_at)+(p.invited_how==="link"?" by link":"");
+  if(p.profile_id) return "Not signed in yet \u00b7 account created";
+  return "No account set up yet";
+}
+
+function kinLineCC(p, alert){
+  const name=(p.next_of_kin_name||"").trim(), rel=(p.next_of_kin_relationship||"").trim(), phone=(p.next_of_kin_phone||"").trim();
+  const muted=alert?"#92400e":"#64748b";
+  // The orange box is light and the Control Centre is dark, so anything in it that inherits the page's
+  // text colour comes out near-white on cream. Every colour inside it is stated.
+  const strong=alert?"#451a03":"var(--text)";
+  if(!name && !phone) return `<div style="font-size:.85rem;color:${muted}">No emergency contact given.</div>`;
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap">
+    <div style="min-width:0">
+      <div style="font-weight:700;font-size:.92rem;color:${strong}">${esc(name||"Emergency contact")}</div>
+      ${rel?`<div style="font-size:.78rem;color:${muted}">${esc(rel)}</div>`:""}
+    </div>
+    ${phone?`<a href="tel:${esc(dialCC(phone))}" class="btn ${alert?"":"btn-navy"} btn-sm" ${alert?'style="background:#78350f;color:#fff"':""}>\u260e ${esc(phone)}</a>`:""}
+  </div>`;
+}
+
+function medicalAlertCC(p){
+  if(!hasMedicalCC(p)) return "";
+  const cond=(p.medical_conditions||"").trim(), med=(p.medical_medication||"").trim();
+  const who=p.medical_consent_by?"You recorded this":"Given by the pupil";
+  const when=p.medical_updated_at?" on "+new Date(p.medical_updated_at).toLocaleDateString("en-GB"):"";
+  return `<div id="cc-medical-box" style="background:#fffbeb;border:2px solid #fbbf24;border-radius:12px;padding:.9rem;margin-top:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem;margin-bottom:.5rem">
+      <strong style="color:#92400e;text-transform:uppercase;letter-spacing:.05em;font-size:.8rem">\u26a0 Medical</strong>
+      <button class="btn-sm" onclick="editMedicalCC()" style="background:#fff;border:1.5px solid #b45309;color:#92400e;font-weight:700;border-radius:8px;padding:.25rem .7rem;cursor:pointer">Edit</button>
+    </div>
+    ${cond?`<div style="margin-bottom:.5rem"><div style="font-size:.75rem;font-weight:700;color:#b45309">Conditions or special needs</div><div style="font-size:.92rem;color:#451a03;white-space:pre-wrap">${esc(cond)}</div></div>`:""}
+    ${med?`<div style="margin-bottom:.5rem"><div style="font-size:.75rem;font-weight:700;color:#b45309">Medication</div><div style="font-size:.92rem;color:#451a03;white-space:pre-wrap">${esc(med)}</div></div>`:""}
+    <div style="border-top:1px solid #fcd34d;padding-top:.5rem">
+      <div style="font-size:.75rem;font-weight:700;color:#b45309;margin-bottom:.3rem">Emergency contact</div>
+      ${kinLineCC(p,true)}
+    </div>
+    <div style="font-size:.72rem;color:#b45309;margin-top:.5rem">${who}${when}.</div>
+  </div>`;
+}
+
+function medicalFooterCC(p){
+  if(hasMedicalCC(p)) return "";
+  return `<div id="cc-medical-box" style="border:1px solid var(--line);border-radius:10px;padding:.8rem;margin-top:1rem">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem;margin-bottom:.5rem">
+      <strong style="font-size:.92rem">Emergency contact and medical</strong>
+      <button class="btn-outline btn-sm" onclick="editMedicalCC()">Edit</button>
+    </div>
+    ${kinLineCC(p,false)}
+    <div class="muted" style="font-size:.8rem;margin-top:.5rem">Nothing medical recorded. Anything added here shows at the top of this page, and ${esc(p.first_name||"they")} can see and change it in their own app.</div>
+  </div>`;
+}
+
+// One editor for both places, so the two can never drift apart.
+function editMedicalCC(){
+  const p=pupilDetail&&pupilDetail.p; if(!p) return;
+  const box=document.getElementById("cc-medical-box"); if(!box) return;
+  const ta=(id,val,rows,ph)=>`<textarea id="${id}" rows="${rows}" placeholder="${esc(ph)}" style="width:100%;padding:.45rem .6rem;border:1px solid var(--line);border-radius:8px;font-size:.9rem;resize:vertical;font-family:inherit">${esc(val||"")}</textarea>`;
+  const inp=(id,val,ph)=>`<input id="${id}" value="${esc(val||"")}" placeholder="${esc(ph)}" style="width:100%;padding:.45rem .6rem;border:1px solid var(--line);border-radius:8px;font-size:.9rem">`;
+  box.innerHTML=`<strong style="font-size:.92rem;display:block;margin-bottom:.6rem">Emergency contact and medical</strong>
+    <label class="muted" style="font-size:.78rem;font-weight:700">Conditions or special needs</label>
+    ${ta("cc-med-cond",p.medical_conditions,3,"Anything that affects their driving or how you teach them")}
+    <label class="muted" style="font-size:.78rem;font-weight:700;display:block;margin-top:.5rem">Medication</label>
+    ${ta("cc-med-med",p.medical_medication,2,"Anything they take that could affect driving")}
+    <label class="muted" style="font-size:.78rem;font-weight:700;display:block;margin-top:.7rem">Emergency contact</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem">${inp("cc-kin-name",p.next_of_kin_name,"Name")}${inp("cc-kin-rel",p.next_of_kin_relationship,"Relationship")}</div>
+    <div style="margin-top:.4rem">${inp("cc-kin-phone",p.next_of_kin_phone,"Phone")}</div>
+    <label id="cc-med-tickwrap" style="display:none;align-items:flex-start;gap:.5rem;font-size:.8rem;margin-top:.6rem">
+      <input type="checkbox" id="cc-med-tick" style="margin-top:.2rem">
+      <span>${esc(p.first_name||"They")} told me this and is happy for me to keep it. They can see it in their own app and change or remove it whenever they like.</span>
+    </label>
+    <div style="display:flex;gap:.5rem;margin-top:.7rem">
+      <button class="btn btn-navy btn-sm" onclick="saveMedicalCC()">Save</button>
+      <button class="btn-outline btn-sm" onclick="refreshPupilDetail()">Cancel</button>
     </div>`;
+  // The tick only appears once there is health information to agree to.
+  const toggle=()=>{
+    const has=(document.getElementById("cc-med-cond").value.trim()||document.getElementById("cc-med-med").value.trim());
+    const before=((p.medical_conditions||"").trim()||(p.medical_medication||"").trim());
+    const changed=document.getElementById("cc-med-cond").value.trim()!==(p.medical_conditions||"").trim()
+               || document.getElementById("cc-med-med").value.trim()!==(p.medical_medication||"").trim();
+    document.getElementById("cc-med-tickwrap").style.display=(has&&changed)?"flex":"none";
+    void before;
+  };
+  ["cc-med-cond","cc-med-med"].forEach(id=>document.getElementById(id).addEventListener("input",toggle));
+  toggle();
+}
+
+async function saveMedicalCC(){
+  const p=pupilDetail&&pupilDetail.p; if(!p) return;
+  const cond=document.getElementById("cc-med-cond").value.trim();
+  const med=document.getElementById("cc-med-med").value.trim();
+  const changed=cond!==(p.medical_conditions||"").trim()||med!==(p.medical_medication||"").trim();
+  const adding=changed&&(cond||med);
+  const tick=document.getElementById("cc-med-tick");
+  if(adding&&!(tick&&tick.checked)) return alert("Tick to confirm the pupil is happy for this to be kept.");
+  const {error:kinErr}=await sb.from("pupils").update({
+    next_of_kin_name:document.getElementById("cc-kin-name").value.trim()||null,
+    next_of_kin_relationship:document.getElementById("cc-kin-rel").value.trim()||null,
+    next_of_kin_phone:document.getElementById("cc-kin-phone").value.trim()||null,
+    updated_at:new Date().toISOString()
+  }).eq("id",p.id);
+  if(kinErr) return alert(kinErr.message);
+  if(changed){
+    const {error}=await sb.rpc("pupil_set_medical",{p_pupil:p.id,p_conditions:cond||null,p_medication:med||null,p_confirmed:true});
+    if(error) return alert(error.message);
+  }
+  await refreshPupilDetail();
 }
 // Rows hold a bare object path or an old full public URL; both become the path in the licences bucket (the app's licenceObjectPath).
 function licenceObjectPathCC(v){
@@ -4059,6 +4191,7 @@ function askChoiceCC(title, body, choices){
 }
 async function pupilLoginLinkCC(){
   const p=pupilDetail&&pupilDetail.p; if(!p) return;
+  if(!confirmReinviteCC(p)) return;
   const hasLogin=!!p.profile_id, hasEmail=!!(p.email&&p.email.trim());
   if(!hasEmail&&hasLogin) return alert(p.first_name+" already has an app login. If they can't get in, add their email on the Edit screen and you can send a reset link.");
   const choices=[];
@@ -4081,10 +4214,28 @@ async function pupilCopyLoginLinkCC(){
     const text=`Hi ${p.first_name}, here's your link to set up the Drive My Way app: ${url}`;
     try{ await navigator.clipboard.writeText(text); alert("Copied. Paste it into a text or WhatsApp to "+p.first_name+".\n\nThe link works once and lasts 7 days."); }
     catch(e){ prompt("Copy this and send it to "+p.first_name+":", text); }
+    // create_pupil_app_invite stamps invited_at itself, so this only has to show what it wrote.
+    await refreshPupilDetail();
   }catch(e){ alert("Could not make a link: "+((e&&e.message)||"Unknown error")); }
 }
 // The email route, unchanged: a pupil with a login (profile_id) gets a password reset link, one without gets a login made and the
 // set-password email (manage-auth reset_pupil_password / create_pupil_login). Needs an email (Dale, 16 Sep 2026).
+/* Record that an invite went out, for the marker at the top of the pupil's details (Dale, 28 Sep 2026,
+   from a customer's email). Stamped here rather than server-side because every route an invite can take
+   goes through the client. Never allowed to throw: the invite has already gone by this point. */
+async function stampInvitedCC(pupilId, how){
+  try{ await sb.from("pupils").update({invited_at:new Date().toISOString(),invited_how:how,updated_at:new Date().toISOString()}).eq("id",pupilId); }
+  catch(e){ /* the invite went out; the marker is not worth failing it for */ }
+}
+
+/* "You've already invited this person - send again?" Asked once, before the routes fan out, so it cannot
+   be missed on one of them. Somebody already using the app is not being invited, so they never see it. */
+function confirmReinviteCC(p){
+  if(!p || !p.invited_at || p.last_opened_at) return true;
+  const when=new Date(p.invited_at).toLocaleDateString("en-GB",{day:"numeric",month:"long"});
+  return confirm(`You've already invited ${p.first_name} on ${when} and they haven't signed in yet.\n\nSend it again?`);
+}
+
 function pupilAppInviteCC(){
   const p=pupilDetail&&pupilDetail.p; if(!p) return;
   return runOnce("pupil-invite-"+p.id, async()=>{
@@ -4093,7 +4244,7 @@ function pupilAppInviteCC(){
 
     try{
       if(hasLogin){ await manageAuthAdmin("reset_pupil_password",{pupil_id:p.id}); alert(`Password reset link sent to ${p.email}.`); }
-      else{ await manageAuthAdmin("create_pupil_login",{pupil_id:p.id}); alert(`Invite sent to ${p.email}. They'll get an email with a link to set their password and download the app.`); }
+      else{ await manageAuthAdmin("create_pupil_login",{pupil_id:p.id}); await stampInvitedCC(p.id,"email"); alert(`Invite sent to ${p.email}. They'll get an email with a link to set their password and download the app.`); }
       await refreshPupilDetail();
     }catch(e){ alert("Invite failed: "+((e&&e.message)||"Unknown error")); }
   });

@@ -48,6 +48,9 @@
     ".words{font-size:13.5px;line-height:1.5;color:#334155;margin:4px 0 0;border-top:1px solid #f1f5f9;padding-top:8px}",
     ".words:before{content:'\\201C'}",
     ".words:after{content:'\\201D'}",
+    // Where a quoted review came from. Small and plain - a provenance note, not a badge.
+    ".src{font-size:11.5px;color:#64748b;margin:2px 0 0}",
+    ".src a{color:inherit;text-decoration:underline}",
     ".more{display:block;width:100%;margin:18px auto 0;padding:12px 18px;background:#fff;border:1px solid #cbd5e1;",
     "border-radius:10px;font:inherit;font-size:15px;font-weight:600;color:#334155;cursor:pointer;min-height:44px}",
     "@media(min-width:640px){.more{width:auto;min-width:260px}}",
@@ -167,6 +170,18 @@
         if (name) bits += '<p class="who">' + esc(name) + "</p>";
         if (when) bits += '<p class="when">Passed in ' + esc(when) + "</p>";
         if (c.words) bits += '<p class="words">' + esc(c.words) + "</p>";
+        // A review the pupil left somewhere else is quoted with a note saying so, and linked where there
+        // is a link - a Google review anybody can go and read is stronger evidence than words on the
+        // instructor's own site. Words written IN the app carry no note: those are the verified ones and
+        // 'app' arrives here as null (Dale, 28 Sep 2026).
+        if (c.words && c.words_source) {
+          var whatFrom = c.words_source === "google" ? "their Google review"
+                       : c.words_source === "facebook" ? "their Facebook review"
+                       : "a review they left elsewhere";
+          bits += '<p class="src">' + (c.words_url
+            ? '<a href="' + esc(c.words_url) + '" target="_blank" rel="noopener nofollow">From ' + esc(whatFrom) + "</a>"
+            : "From " + esc(whatFrom)) + "</p>";
+        }
         bits += "</div>";
       }
       return bits + "</li>";

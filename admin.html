@@ -6885,6 +6885,23 @@ async function makePupilInactiveCC(id,prev){
   return true;
 }
 
+// Restored 28 Sep 2026: a88bdf3 (25 Sep, "Cancel means cancel") dropped these two while reworking the
+// inactive dialog next to them, and the three callers were left pointing at nothing - marking a pupil passed
+// from the Control Centre threw a ReferenceError for three days. Body unchanged from before that commit.
+// Marking a pupil as passed, from anywhere (Dale, 16 Sep 2026): always asks, then only sets the status. Nothing is deleted
+// then: the database sends the congratulations message, a follow-up 7 days later and a reminder 3 days before closing, and
+// the nightly job closes the account 30 days on (lessons apart from driving tests, messages, logs, progress, mock tests,
+// personal details, notes and the login go; payments and driving test results are always kept). Moving them back to active
+// before then keeps everything. extra = other columns saved in the same update (Edit Pupil). True when it was marked passed.
+function passedDayCC(d){ return new Date(d).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}).replace(/,/g,"").replace(/Sept/,"Sep"); }
+async function markPupilPassed(pupil, extra){
+  if(!pupil||!pupil.id) return false;
+  const name=(pupil.first_name||"").trim(), day=n=>passedDayCC(Date.now()+n*86400000);
+  if(!confirm(`Mark ${name||"this pupil"} as passed?\n\n${name||"They"} will be sent:\n• A congratulations message now\n• A follow-up about motorway lessons on ${day(7)}\n• A reminder on ${day(27)} that their account closes on ${day(30)}\n\nThey can still message you until then. After that, their lessons (apart from driving tests), messages, contact details and app login are deleted. Payments and driving test results are always kept.\n\nChange these messages in Settings → Pupil Messages.`)) return false;
+  const {error}=await sb.from("pupils").update({...(extra||{}), status:"passed", updated_at:new Date().toISOString()}).eq("id",pupil.id);
+  if(error){ alert(error.message); return false; }
+  return true;
+}
 // Declining an enquiry (Dale, 16 Sep 2026), from the Enquiries tab or an enquiry's pupil page. Settings → Declining Enquiries
 // (app_settings 'enquiry_decline', {mode}) decides what happens and so the wording: 'message' (the default) sends "Enquiry
 // declined" and their details go once they've read it; 'delete' deletes them now. manage-auth decline_enquiry does either.

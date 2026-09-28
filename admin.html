@@ -598,6 +598,23 @@ tbody tr:hover td{background:#334263}
   footer{display:none}
   #gate{margin:4vh .8rem;padding:1.8rem 1.2rem}
 }
+
+/* Website promo (Dale, 28 Sep 2026: "down the left side of the dashboard", "if no space then put it at the bottom").
+   Wide screen: absolute in the empty gutter left of the centred column, level with the stat tiles. Anything
+   narrower: an ordinary panel at the foot of the dashboard, video beside the words, stacked on a phone. */
+#tab-dash{position:relative}
+.web-promo .wp-inner{display:grid;grid-template-columns:minmax(0,220px) 1fr;gap:1.2rem;align-items:start}
+.web-promo video{display:block;width:100%;aspect-ratio:9/16;border-radius:12px;background:#000;object-fit:cover}
+.web-promo h2{margin:0 0 .55rem}
+.web-promo p{margin:0 0 .65rem;line-height:1.5}
+.web-promo .wp-price{font-weight:600}
+.web-promo .wp-note{font-size:.86rem}
+.web-promo .wp-act{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.3rem}
+@media(max-width:600px){.web-promo .wp-inner{grid-template-columns:1fr}.web-promo video{max-width:240px;margin:0 auto}}
+@media(min-width:1780px){
+  .web-promo{position:absolute;top:0;right:calc(100% + 28px);width:280px;margin:0}
+  .web-promo .wp-inner{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -810,6 +827,9 @@ tbody tr:hover td{background:#334263}
           </div>
         </div>
       </div>
+          <!-- Website promo: in the empty left gutter on a wide screen, otherwise at the foot of the dashboard.
+           Filled in by renderWebsitePromoCC once the entitlement has answered, so it never flashes. -->
+      <div id="dash-website-promo" class="panel web-promo hidden"></div>
     </section>
 
     <section id="tab-pupils" class="hidden">
@@ -10503,7 +10523,7 @@ function wireHowToVideos(root){
   }));
 }
 function stopHowToVideos(){
-  try{ document.querySelectorAll(".howto-card video").forEach(v=>{ if(!v.paused) v.pause(); }); }catch(e){}
+  try{ document.querySelectorAll(".howto-card video, #dash-website-promo video").forEach(v=>{ if(!v.paused) v.pause(); }); }catch(e){}
 }
 async function openSettings(which){
   settingsStickyOffsets();
@@ -19323,6 +19343,41 @@ let websiteSelected = new Set(); // selected photo ids for multi-delete
 let websiteEnt = null;
 // The designs markup, kept so the pass wall preview can be swapped in and back out again.
 let buyExamplesHtml = null;
+/* The website, advertised on the dashboard (Dale, 28 Sep 2026: "we should be advertising the website option on
+   the control centre ... explaining the website tab only comes available if you have an active subscription").
+   Everybody sees it except somebody who already has a website, and a school's own account, which cannot buy
+   one here. The super admin always sees it, so there is one account that can check how it reads.
+   The Website tab only appears once a Direct Debit is set up (refreshWebsiteEntitlement), so until then the
+   panel says exactly that and points at Billing rather than at a tab that is not there. */
+function wpPoundsCC(pence){ const n=Number(pence)/100; return "£"+(Number.isInteger(n)?n:n.toFixed(2)); }
+function renderWebsitePromoCC(canSeeTab){
+  const el=document.getElementById("dash-website-promo"); if(!el) return;
+  const ent=websiteEnt||null;
+  const hide=!isSuperAdminUser && (!ent || ent.school_locked || ent.website);
+  el.classList.toggle("hidden", hide);
+  if(hide) return;
+  const list=ent && Number(ent.website_list_pence);
+  let price;
+  if(ent && ent.special_price && list) price=`${wpPoundsCC(list)} once — the price we agreed with you.`;
+  else if(ent && list) price=`${wpPoundsCC(list)} once${ent.premium?" on your Premium plan":", or £139 on Premium"}. Free for the first 30 days.`;
+  else price="£149 once, or £139 on Premium. Free for the first 30 days.";
+  const act = canSeeTab
+    ? `<div class="wp-act"><button type="button" class="btn btn-navy btn-sm" onclick="goTab('website')">Open the Website tab</button></div>`
+    : `<p class="muted wp-note">The Website tab appears here once your Direct Debit is set up.</p>
+       <div class="wp-act"><button type="button" class="btn btn-navy btn-sm" onclick="goTab('billing')">Set up Direct Debit</button></div>`;
+  el.innerHTML=`<div class="wp-inner">
+      <video controls playsinline preload="none" poster="/how-to/posters/website-pass-wall.jpg" aria-label="How the pass wall works"><source src="/how-to/videos/website-pass-wall.mp4" type="video/mp4"></video>
+      <div>
+        <h2>Your own website</h2>
+        <p>A website on your own web address, or a free drivemyway.co.uk one, with your prices, the areas you cover and your enquiry form built in, so enquiries land straight in the app.</p>
+        <p>And a pass wall that fills itself: take the pass photo at the test centre and it goes on your site as soon as your pupil says yes, with a few words from them if they add some.</p>
+        <p class="wp-price">${price}</p>
+        <p class="muted wp-note">No monthly fee on top. Hosting is part of your subscription.</p>
+        ${act}
+      </div>
+    </div>`;
+}
+
 async function refreshWebsiteEntitlement(){
   try{
     const {data,error} = await sb.rpc("instructor_website_entitlement");
@@ -19339,6 +19394,7 @@ async function refreshWebsiteEntitlement(){
   const canSee = isSuperAdminUser || (!schoolLocked && !!(websiteEnt && (websiteEnt.can_buy || websiteEnt.website
                  || websiteEnt.pass_wall || websiteEnt.in_trial || websiteEnt.trial_expired)));
   if (btn) btn.classList.toggle("hidden", !canSee);
+  renderWebsitePromoCC(canSee);
   // The pass wall belongs under the website, not in a corner of the super admin (Dale, 26 Sep: the
   // Website tab should shrink to Preview and Edit "and then have your whole photo section with
   // testimonial which you can re-order"). So anybody who owns a wall gets the photo tools, scoped to

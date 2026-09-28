@@ -6024,7 +6024,7 @@ function renderWebsiteEditor(){
 
   /* The trial strip sits above everything, because "free for another 24 days, cancel here" is the
      most important thing on this screen while it is true, and nothing at all once it is not. */
-  const html = websiteTrialStrip(websiteEnt) + `<div class="panel">
+  let html = websiteTrialStrip(websiteEnt) + `<div class="panel">
     <h2>Your website</h2>
     <p class="muted">${siteEditorOpen
       ? "Everything here is yours to change, and it goes live the moment you save."
@@ -6183,6 +6183,14 @@ function renderWebsiteEditor(){
   // time after: picking a colour or a font appended a SECOND copy of the whole editor below, while the
   // one on screen sat there unchanged. From the chair it looked like the buttons did nothing. Dale, on
   // the trial account: "when changing the colour and headings, nothing is happening."
+  /* Dale does not have a Drive My Way website - his pass photos go on dmwdrivingschool.co.uk, his own
+     site, which draws the wall through the pass-wall.js embed instead (Dale, 28 Sep 2026: "remove this
+     from may page (superadmin)"). So "Your website" and "Your web address" are two panels about a site
+     he will never put live, sitting above the photos he actually came here for.
+     Your content stays: the download is his pass photos and their consent records, which are real
+     whichever site they end up on. Take this out if he ever does want a Drive My Way site. */
+  if (isSuperAdminUser) html = "";
+
   const html2 = html + wallRefundStrip(websiteEnt) + `<div class="panel">
     <h3 style="margin-top:0">Your content</h3>
     <p class="muted">Everything you have written and every photo, as one file you can keep. Your pass photos come with

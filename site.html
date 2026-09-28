@@ -593,7 +593,7 @@
     document.documentElement.style.setProperty("--head", f[0]);
   }
 
-  var PRIVACY_UPDATED = "27 September 2026";
+  var PRIVACY_UPDATED = "28 September 2026";
   var SHOT = "https://web.drivemyway.co.uk/app-screenshots/";
   // From Dale's own app-features page, written for a pupil rather than an instructor. The last flag
   // is Premium-only, and it has to match PupilHome.tsx rather than be guessed at: only Learning
@@ -879,6 +879,23 @@
             'or automatic, anything you choose to add in the notes, and a password so you can use the ' +
             'Drive My Way app. It is used to answer your enquiry and, if you go ahead, to arrange and run ' +
             'your lessons. Nothing else on this website collects anything about you.</p>' +
+          /* Health data is special category under UK GDPR, so it gets its own heading rather than a line
+             in the list above: it is held on explicit consent alone, and the notice has to say so. The
+             enquiry form does not ask it yet - only the app does, once somebody is a pupil - and this
+             wording says exactly that. Widen it when the form starts asking. */
+          '<h2>Medical information and an emergency contact</h2>' +
+          '<p>If you become a pupil, the Drive My Way app asks once whether you have any medical ' +
+            'conditions or take any medication that could affect your driving or your lessons, and ' +
+            'whether you want to give an emergency contact. Both are entirely up to you. You can say no ' +
+            'to either and it makes no difference to your lessons, and neither is a condition of ' +
+            'accepting ' + esc(name) + '&rsquo;s terms.</p>' +
+          '<p>Anything medical is health information, so it is kept on your explicit consent and on ' +
+            'nothing else. If you tell ' + esc(name) + ' in the car and they write it down for you, they ' +
+            'have to confirm you were happy for it to be kept, and the app records who confirmed it and ' +
+            'when. Only ' + esc(name) + ' can see it, along with Drive My Way&rsquo;s administrators to ' +
+            'support the account. You can read it, change it or delete it yourself at any time in the ' +
+            'app, without giving a reason &mdash; deleting it removes the record of your consent with it. ' +
+            'It is never published on this website.</p>' +
           '<h2>Cookies</h2>' +
           '<p>There are none. This website sets no cookies, uses no analytics and loads no trackers, so ' +
             'there is nothing for you to accept or refuse.</p>' +

@@ -20141,6 +20141,9 @@ function websiteSelectNone(){
  * the decision, unlike a pupil's own words which they write and the instructor then accepts.
  */
 async function openQuoteReview(id){
+  // Pass wall only. The carousel is website_photos, a different table with no words on it - saving
+  // there would update pass_cards by an id that is not in it, match nothing, and look like it worked.
+  if (!websiteIsWall()) return;
   const item = websiteItems.find(i => i.id === id);
   if (!item) return;
   const src = item.wordsSource && item.wordsSource !== "app" ? item.wordsSource : "google";
@@ -20234,7 +20237,7 @@ function renderWebsiteGrid(){
           onclick="websiteMove('${item.id}',-1)" ${idx===0?"disabled":""}>↑</button>
         <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move down"
           onclick="websiteMove('${item.id}',1)" ${idx===websiteItems.length-1?"disabled":""}>↓</button>
-        ${isSuperAdminUser ? `<button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem"
+        ${isSuperAdminUser && websiteIsWall() ? `<button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem"
           title="Quote a review they left on Google or Facebook"
           onclick="openQuoteReview('${item.id}')">${item.words ? "Review" : "+ Review"}</button>` : ""}
         <button type="button" class="btn-danger" style="padding:2px 8px;font-size:.75rem"

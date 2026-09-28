@@ -3725,7 +3725,7 @@ function renderPupilModal(){
   else if(tab==="tests") body=renderPupilTests();
   else body=renderPupilLogins();
 
-  openModal(`<h2 style="margin-bottom:.6rem">${esc(p.first_name)} ${esc(p.last_name)}</h2>
+  openModal(`<h2 style="margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span>${esc(p.first_name)} ${esc(p.last_name)}</span>${medicalChipCC(p)}</h2>
     <div class="tabs-sub">${tabBtns}</div>
     <div>${body}</div>
     <div class="actions" style="margin-top:1rem">
@@ -3965,6 +3965,14 @@ function renderPupilDetailsCC(){
    pupil told them and is happy for it to be kept. pupil_set_medical refuses without the tick and
    records who gave it. The pupil sees all of it in their own Profile and can clear it themselves.
    ============================================================================================ */
+/* Beside the pupil's name, so it shows whichever tab you are on (Dale, 28 Sep 2026). It started in the
+   Summary chip row, but that row scrolls sideways and a booked test pushed Medical off the end - and this
+   is the one chip that must never be the one you cannot see. Dark on amber so it reads as a warning. */
+function medicalChipCC(p){
+  if(!hasMedicalCC(p)) return "";
+  return `<span onclick="pupilTab('summary')" title="See the medical note in Details" style="display:inline-block;padding:.1rem .55rem;border-radius:999px;font-size:.7rem;font-weight:800;color:#451a03;background:#fbbf24;cursor:default;vertical-align:middle">⚠ Medical</span>`;
+}
+
 function hasMedicalCC(p){ return !!((p.medical_conditions||"").trim() || (p.medical_medication||"").trim()); }
 function dialCC(n){ return String(n||"").replace(/[^\d+]/g,""); }
 
@@ -4378,7 +4386,7 @@ function renderNextLessonCard(){
     <div style="font-weight:700;font-size:1.05rem">${esc(dateStr)}</div>
     <div style="font-weight:600">${hm(st)} – ${hm(en)}</div>
     <div class="muted" style="font-size:.85rem;margin:.2rem 0 .45rem">${esc(p.preferred_gearbox||"Manual")} · ${mins} mins</div>
-    <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.55rem">${chip(statusLabel==="Booked"?"#f97316":"#16a34a",statusLabel)}${chip("#1e3a8a",(next.lesson_type||"lesson").replace(/_/g," "))}${chip(paid?"#16a34a":"#b91c1c",paid?"Paid":"Unpaid")}${hasMedicalCC(p)?`<span onclick="pupilTab('details')" style="display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:.75rem;font-weight:700;color:#451a03;background:#fbbf24;cursor:pointer">⚠ Medical</span>`:""}</div>
+    <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.55rem">${chip(statusLabel==="Booked"?"#f97316":"#16a34a",statusLabel)}${chip("#1e3a8a",(next.lesson_type||"lesson").replace(/_/g," "))}${chip(paid?"#16a34a":"#b91c1c",paid?"Paid":"Unpaid")}</div>
     ${next.lesson_type==="mock_test"?renderMockTestBox(next):""}
     ${next.lesson_type!=="mock_test"&&plan&&plan.session_goal?`<div style="background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;padding:.45rem .6rem;margin-bottom:.55rem;color:#0f172a"><div style="font-size:.65rem;text-transform:uppercase;color:#1d4ed8;font-weight:700">Lesson plan</div><div style="white-space:pre-wrap;font-size:.85rem">${esc(plan.session_goal)}</div></div>`:""}
     <div style="display:flex;gap:.5rem;flex-wrap:wrap">

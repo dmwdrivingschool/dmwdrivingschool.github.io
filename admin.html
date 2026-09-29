@@ -11454,6 +11454,22 @@ function normalisePupilDate(v){
   return null;
 }
 
+/**
+ * One cell of a pupil CSV, trimmed, with placeholder text read as an empty box.
+ *
+ * Clair Taberner, 29 Sep 2026: her old system writes "--" into address lines it has nothing for, so 54 of
+ * the pupils she transferred across arrived with an address line that was literally two dashes. Those are
+ * truthy, so they were joined into the address ("12 Example Road, --, Stroud, GL5 1AA") and Maps could not
+ * match it until she back-spaced them off by hand, one pupil at a time.
+ */
+function pupilCsvValue(v){
+  const s = String(v == null ? "" : v).trim();
+  // Dashes (including en/em), dots, question marks, or the usual words for "nothing here".
+  if(/^[\s\-–—.?]+$/.test(s)) return "";
+  if(/^(n\/?a|none|null|nil|unknown|tbc|tba)$/i.test(s)) return "";
+  return s;
+}
+
 async function importPupilsCsv(ev){
   const file = ev.target.files && ev.target.files[0];
   ev.target.value = "";
@@ -11488,10 +11504,10 @@ async function importPupilsCsv(ev){
   let dataRows = 0, needStatus = 0;
   for(let r=1;r<rows.length;r++){
     const rec={};
-    rows[r].forEach((cellVal,i)=>{ const k=headerKeys[i]; if(k) rec[k]=String(cellVal).trim(); });
+    rows[r].forEach((cellVal,i)=>{ const k=headerKeys[i]; if(k) rec[k]=pupilCsvValue(cellVal); });
     if(!rec.first_name) continue;
     dataRows++;
-    const v = statusCol < 0 ? "" : String(rows[r][statusCol]||"").trim().toLowerCase();
+    const v = statusCol < 0 ? "" : pupilCsvValue(rows[r][statusCol]).toLowerCase();
     if(VALID_STATUS.indexOf(v) < 0) needStatus++;
   }
   if(dataRows === 0){ status.textContent = "That file has no pupils in it - check the First name column."; return; }
@@ -11518,7 +11534,7 @@ async function importPupilsCsv(ev){
 
   for(let r=1;r<rows.length;r++){
     const rec={};
-    rows[r].forEach((cellVal,i)=>{ const k=headerKeys[i]; if(k) rec[k]=String(cellVal).trim(); });
+    rows[r].forEach((cellVal,i)=>{ const k=headerKeys[i]; if(k) rec[k]=pupilCsvValue(cellVal); });
     if(!rec.first_name){ continue; }
     const email = (rec.email||"").toLowerCase() || null;
     if(email && existingEmails.has(email)){ skipped++; continue; }

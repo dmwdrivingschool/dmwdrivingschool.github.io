@@ -794,7 +794,7 @@ tbody tr:hover td{background:#334263}
         <div class="dash-settings-group">
           <h3 class="dash-settings-group-head">Lessons &amp; Progress</h3>
           <div class="dash-settings-grid">
-            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('workinghours')"><span class="ico">🕘</span><div><strong>Working Hours</strong><span>Days and times you teach, for the enquiry form</span></div></button>
+            <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('workinghours')"><span class="ico">🕘</span><div><strong>Gearbox &amp; Working Hours</strong><span>The car you teach in, and the days and times, for the enquiry form</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('diary')"><span class="ico">📅</span><div><strong>Diary Options</strong><span>How your diary looks, and its colours</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('gapAutoDelete')"><span class="ico">⏱️</span><div><strong>Gap Auto-Deletion</strong><span>Untaken gaps go before it is too late to book</span></div></button>
             <button type="button" class="dash-setting" onclick="goTab('settings');openSettings('mapChoice')"><span class="ico">🗺️</span><div><strong>Map Choice</strong><span>Which maps app opens from a pupil's address</span></div></button>
@@ -10885,24 +10885,42 @@ ${esc(myFirst||"you")}</blockquote>
       <div class="err" id="avail-rem-err" style="margin-top:.5rem"></div>`;
     previewLessonNote();
   } else if(which==="workinghours"){
-    // One start and finish per day (Dale, 16 Sep 2026), e.g. Monday 09:00–15:00, Saturday 10:00–14:00. A day that isn't ticked
-    // hides its times but keeps them, so ticking it again brings them back.
-    const d=workingHours.days;
-    const dayRow=day=>{ const h=whDayHours(day), on=!!d[day];
-      return `<div class="wh-row" data-whrow="${day}" style="display:flex;align-items:center;flex-wrap:wrap;gap:.5rem .75rem;padding:.6rem 0;border-top:1px solid var(--line)">
-        <label style="display:flex;align-items:center;gap:.45rem;font-weight:600;min-width:8.5rem;margin:0"><input type="checkbox" data-wd="${day}" ${on?"checked":""} onchange="whRowUi('${day}')"> ${day}</label>
-        <div class="field wh-times" style="margin:0;display:${on?"flex":"none"};align-items:center;flex-wrap:wrap;gap:.5rem">
-          <label style="display:flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:600;color:#475569;margin:0">Start <input type="time" data-wh-start="${day}" value="${esc(h.start)}" ${on?"":"disabled"} oninput="whClearErr()" style="width:auto"></label>
-          <label style="display:flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:600;color:#475569;margin:0">Finish <input type="time" data-wh-end="${day}" value="${esc(h.end)}" ${on?"":"disabled"} oninput="whClearErr()" style="width:auto"></label>
-          <button type="button" class="btn-outline btn-sm" onclick="whCopyToAll('${day}')">Copy to All Days</button>
-        </div>
-        <span class="muted wh-off" style="font-size:.85rem;display:${on?"none":"inline"}">Not working</span>
-      </div>`; };
-    panel.innerHTML=`${settingsHeadHtml("Working Hours")}
+    // One start and finish per day is still the normal case (Dale, 16 Sep 2026). From 29 Sep 2026 a day can
+    // also carry a car, and can be swapped for a grid of exact half-hour times -- the only way to say
+    // "manual 09:00-15:00 and automatic 18:00-21:00", or to have a gap in a day at all.
+    // Only read it from the server the first time in: whSetGearMode redraws this panel, and re-reading would
+    // throw away the choice they just made.
+    if(whDraft===null) await whLoadGearMode();
+    const keepGear=whDraft?JSON.parse(JSON.stringify({g:whDraft.gearbox,e:whDraft.exact,w:whDraft.window,d:whDraft.days,p:whDraft.perDay})):null;
+    whBuildDraft();
+    if(keepGear){ whDraft.gearbox=keepGear.g; whDraft.exact=keepGear.e; whDraft.window=keepGear.w; whDraft.days=keepGear.d; whDraft.perDay=keepGear.p; }
+    const win=whDraft.window;
+    panel.innerHTML=`${settingsHeadHtml("Gearbox &amp; Working Hours","whForgetDraft();goTab('dash')")}
       <p class="muted" style="margin-bottom:1rem">Tick the days you teach and set each day's start and finish. These control what pupils can select on "My availability" in the app, the times on your enquiry form, and how your diary here is focused by default.</p>
-      <div id="wh-days" style="border-bottom:1px solid var(--line)">${WH_DAYS.map(dayRow).join("")}</div>
+      <div style="border:1px solid var(--line);border-radius:10px;padding:.75rem;margin-bottom:1rem">
+        <strong style="display:block;margin-bottom:.2rem">Which car do you teach in?</strong>
+        <p class="muted" style="font-size:.82rem;margin:0 0 .6rem">This is what your enquiry form asks new pupils. Pick Both and each day below gets its own car. It is the same setting as in the app.</p>
+        <div id="wh-gearmode" style="display:flex;gap:.5rem;flex-wrap:wrap">
+          ${[["manual","Manual"],["auto","Automatic"],["both","Both"]].map(([v,label])=>`<button type="button" class="${whGearMode===v?"btn btn-navy btn-sm":"btn-outline btn-sm"}" onclick="whSetGearMode('${v}')">${label}</button>`).join("")}
+        </div>
+      </div>
+      <div style="border:1px solid var(--line);border-radius:10px;padding:.75rem;margin-bottom:1rem">
+        <strong style="display:block;margin-bottom:.2rem">Your earliest start and latest finish</strong>
+        <p class="muted" style="font-size:.82rem;margin:0 0 .6rem">This only sets how far the time grids below reach. <strong>Pupils are never offered these hours.</strong> They only ever see the times you tick on each day.</p>
+        <div class="field" style="margin:0;display:flex;align-items:center;flex-wrap:wrap;gap:.5rem">
+          <label style="display:flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:600;color:#475569;margin:0">Earliest <input type="time" id="wh-win-start" value="${esc(win.start)}" onchange="whApplyWindow()" style="width:auto"></label>
+          <label style="display:flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:600;color:#475569;margin:0">Latest <input type="time" id="wh-win-end" value="${esc(win.end)}" onchange="whApplyWindow()" style="width:auto"></label>
+        </div>
+      </div>
+      ${whGearMode==="both"?`<p class="muted" style="margin-bottom:.5rem;font-size:.85rem">Your enquiry form asks manual or automatic, so each day says which car you teach in. <strong>Either</strong> means that day suits both.</p>`:""}
+      <div id="wh-days" style="border-bottom:1px solid var(--line)"></div>
       <p class="muted" id="wh-copied" style="font-size:.85rem;margin:.5rem 0 0;min-height:1.2em"></p>
-      <div class="set-save"><button class="btn btn-navy btn-sm" onclick="saveThenBack(saveWorkingHours,'wh-days')">Save</button><div class="err" id="wh-err" style="display:block"></div></div>`;
+      <div style="margin-top:.9rem;padding:.6rem .75rem;background:var(--card,#f8fafc);border:1px solid var(--line);border-radius:10px">
+        <strong style="font-size:.85rem">What a pupil is offered</strong>
+        <div id="wh-summary"></div>
+      </div>
+      <div class="set-save"><button class="btn btn-navy btn-sm" onclick="saveThenBack(saveWorkingHours,'wh-days',function(){whForgetDraft();goTab('dash')})">Save</button><div class="err" id="wh-err" style="display:block"></div></div>`;
+    whRenderDays();
   } else if(which==="business"){
     // Moved to the Finances tab (openBusinessTypeModal).
     goTab('finance'); openBusinessTypeModal(); return;
@@ -18234,66 +18252,415 @@ async function renderTermsBanner(){
     <span>Set your terms and conditions — your pupils aren't asked to accept any until you do.</span>
     <button class="btn btn-navy btn-sm" onclick="goTab('settings');openSettings('terms')">Set Terms</button></div>`;
 }
-// Working Hours screen helpers: tick/untick a day, copy a day's times to every working day, clear the message.
-function whRowUi(day){
-  const row=document.querySelector(`#wh-days [data-whrow="${day}"]`); if(!row) return;
-  const on=row.querySelector("[data-wd]").checked;
-  row.querySelector(".wh-times").style.display=on?"flex":"none";
-  row.querySelector(".wh-off").style.display=on?"none":"inline";
-  row.querySelectorAll("input[type=time]").forEach(i=>{ i.disabled=!on; });
-  whClearErr();
-}
+// Working Hours screen: the message/error line. The tick, copy and time handlers now live with whDraft below.
 function whClearErr(){
   const err=document.getElementById("wh-err"); if(err) err.textContent="";
   const note=document.getElementById("wh-copied"); if(note) note.textContent="";
-  document.querySelectorAll("#wh-days input[type=time]").forEach(i=>{ i.style.borderColor=""; });
 }
-function whCopyToAll(day){
-  const s=document.querySelector(`#wh-days [data-wh-start="${day}"]`), e=document.querySelector(`#wh-days [data-wh-end="${day}"]`);
-  if(!s||!e) return;
+/** Called when the Working Hours screen is left, so reopening reads the server rather than a stale draft. */
+function whForgetDraft(){ whDraft=null; }
+
+/* Working hours by gearbox (Dale, 29 Sep 2026).
+ *
+ * Lee Rhodes teaches manual Monday to Thursday and automatic Friday and Saturday. Before this a day had one
+ * start, one finish and no car attached, so his enquiry form offered every working hour for both.
+ *
+ * Start/Finish stays the normal case: a single-gearbox instructor sees exactly what they saw before and is
+ * done in six clicks. On top of that:
+ *   - a gearbox dropdown per day, ONLY when their enquiry form asks (enquiry_gearbox = "both");
+ *   - "Set exact times", which swaps that day for a grid of half-hour tiles. That is the rare case (manual
+ *     9-3 and automatic 6-9 on one day) and also the ONLY way to express a split shift at all: a start and a
+ *     finish cannot describe a gap, so 9-3 and 6-9 had to be saved as 9-9 and the enquiry form then offered
+ *     the afternoon they were not working;
+ *   - an outer window (earliest start / latest finish) every grid is drawn inside, so a 7am instructor is not
+ *     boxed out and nobody scrolls past tiles they will never use.
+ *
+ * Everything lives in a draft object and the rows re-render from it. The old screen scraped the DOM at save
+ * time, which cannot work once a day can be a grid.
+ *
+ * Written to app_settings.working_hours, additive so older app builds are unaffected:
+ *   window: {start,end}             the grid bounds, NOT hours offered to anyone
+ *   gearbox: {Monday:"m"|"a"|"b"}   "b" = either car suits, which is what every pre-existing row means
+ *   exact: {Monday:{"18:00":"a"}}   only for days switched to a grid; that day's perDay is then ignored
+ * perDay is still written for all 7 days (a grid day gets first tick to last tick + 30) so anything that
+ * predates `exact` still reads a sane envelope.
+ */
+let whDraft=null, whGearMode="manual", whGearModeSaved="manual", whCopyFrom=null;
+
+/** Which cars they teach. Changing it here changes the enquiry form, because it is the same row. */
+function whSetGearMode(mode){
+  if(whGearMode===mode) return;
+  // Dropping to one car clears the other one out. Left behind, a day set to Automatic, or a tile marked A,
+  // is something nothing can ever offer - the enquiry form would show the day and then have no times on it
+  // (Dale, 29 Sep 2026).
+  if(mode!=="both"){
+    const keep=mode==="auto"?"a":"m", drop=mode==="auto"?"m":"a";
+    const dropName=mode==="auto"?"manual":"automatic";
+    let tiles=0; const dayNames=[];
+    WH_DAYS.forEach(function(d){
+      const ex=whDraft.exact[d];
+      if(ex){
+        const n=Object.keys(ex).filter(function(t){ return ex[t]===drop; }).length;
+        if(n){ tiles+=n; dayNames.push(d); }
+      } else if(whDraft.days[d] && whDraft.gearbox[d]===drop){
+        dayNames.push(d);
+      }
+    });
+    if(dayNames.length){
+      const what=tiles?tiles+" "+dropName+" time"+(tiles===1?"":"s"):"your "+dropName+" days";
+      if(!confirm("Switching to "+(mode==="auto"?"automatic":"manual")+" only clears "+what+" on "+dayNames.join(", ")+".\n\nCarry on?")) return;
+    }
+    WH_DAYS.forEach(function(d){
+      const ex=whDraft.exact[d];
+      if(ex){
+        Object.keys(ex).forEach(function(t){ if(ex[t]===drop) delete ex[t]; else ex[t]=keep; });
+        // Nothing left means that day has no exact times any more, so it goes back to a start and a finish.
+        if(!Object.keys(ex).length) delete whDraft.exact[d];
+      }
+      whDraft.gearbox[d]=keep;
+    });
+  }
+  whGearMode=mode;
+  // A day that never had a car falls back to this choice.
+  WH_DAYS.forEach(function(d){
+    if(!whDraft.gearbox[d]) whDraft.gearbox[d]=(mode==="auto"?"a":mode==="manual"?"m":"b");
+  });
   whClearErr();
-  if(!(whMin(s.value)<whMin(e.value))){
-    [s,e].forEach(i=>{ i.style.borderColor="var(--bad)"; });
-    document.getElementById("wh-err").textContent=`${day}: the finish time must be after the start time before it can be copied.`;
+  // The whole panel is redrawn: the selector's own highlight and the per-day Car dropdowns both depend on it.
+  openSettings("workinghours");
+}
+
+function whSlotList(from,to){ const out=[]; for(let m=from;m<to;m+=30) out.push(whHm(m)); return out; }
+function whWindowFromDraft(){
+  const w=whDraft&&whDraft.window;
+  if(w&&whMin(w.start)<whMin(w.end)) return {start:w.start,end:w.end};
+  const saved=workingHours&&workingHours.window;
+  if(saved&&whMin(saved.start)<whMin(saved.end)) return {start:saved.start,end:saved.end};
+  // Never set one: derive it from what they already do, widened an hour each way, so it always already
+  // contains everything they have.
+  const span=whSpanMin(workingHours);
+  return {start:whHm(Math.max(0,span.start-60)), end:whHm(Math.min(23*60+30,span.end+60))};
+}
+/** Ticks in the draft that a proposed window would drop, named per day. */
+function whTicksOutside(start,end){
+  const out=[], s=whMin(start), e=whMin(end);
+  WH_DAYS.forEach(function(day){
+    const ex=whDraft.exact[day]; if(!ex) return;
+    const lost=Object.keys(ex).filter(function(t){ return whMin(t)<s||whMin(t)+30>e; });
+    if(lost.length) out.push(day+": "+lost.length+" time"+(lost.length===1?"":"s"));
+  });
+  return out;
+}
+const WH_GEAR_LABEL={m:"Manual",a:"Automatic",b:"Both"};
+const WH_GEAR_SHORT={m:"M",a:"A",b:"M+A"};
+const WH_GEAR_BG={m:"#0A4CA1",a:"#0f766e",b:"#7c3aed"};
+
+async function whLoadGearMode(){
+  try{
+    const r=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","enquiry_gearbox").maybeSingle();
+    const m=r.data&&r.data.value&&r.data.value.mode;
+    whGearMode=(m==="both"||m==="auto"||m==="automatic")?(m==="automatic"?"auto":m):"manual";
+    whGearModeSaved=whGearMode;
+  }catch(e){ whGearMode="manual"; whGearModeSaved="manual"; }
+}
+function whBuildDraft(){
+  const wh=workingHours||{};
+  const gear={}, exact={}, perDay={}, days={};
+  WH_DAYS.forEach(function(d){
+    const g=wh.gearbox&&wh.gearbox[d];
+    gear[d]=(g==="m"||g==="a"||g==="b")?g:(whGearMode==="automatic"?"a":whGearMode==="manual"?"m":"b");
+    const ex=wh.exact&&wh.exact[d];
+    if(ex&&typeof ex==="object"){
+      const kept={};
+      Object.keys(ex).forEach(function(t){ if(/^\d{2}:\d{2}$/.test(t)&&["m","a","b"].indexOf(ex[t])>=0) kept[t]=ex[t]; });
+      if(Object.keys(kept).length) exact[d]=kept;
+    }
+    perDay[d]=whDayHours(d);
+    days[d]=(wh.days||{})[d]!==false;
+  });
+  whDraft={days:days,perDay:perDay,gearbox:gear,exact:exact,window:null};
+  whDraft.window=whWindowFromDraft();
+}
+
+function whTileHtml(day,t){
+  const g=whDraft.exact[day]?whDraft.exact[day][t]:null;
+  const on=!!g;
+  // An OFF tile was white with its text left to inherit, which on this dark page came out near-white
+  // on white and could barely be read (Dale, 29 Sep 2026). Every colour is stated now, and an off tile
+  // is dark like the rest of the Control Centre rather than a white chip pasted onto it.
+  const bg=on?WH_GEAR_BG[g]:"#1e2a47";
+  const fg=on?"#fff":"#cbd5e1";
+  const border=on?bg:"#64748b";
+  const label=(whGearMode==="both"&&on)?(t+" "+WH_GEAR_SHORT[g]):t;
+  return '<button type="button" onclick="whTileClick(\'' + day + '\',\'' + t + '\')" style="padding:.3rem .5rem;border:1px solid ' + border + ';border-radius:999px;background:' + bg + ';color:' + fg + ';font:inherit;font-size:.72rem;font-weight:600;cursor:pointer">' + label + '</button>';
+}
+function whDayRowHtml(day){
+  const on=!!whDraft.days[day];
+  const isGrid=!!whDraft.exact[day];
+  const h=whDraft.perDay[day];
+  const win=whDraft.window;
+  const gearSel=whGearMode==="both"
+    ? '<label style="display:flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:600;color:#475569;margin:0">Car <select onchange="whSetGear(\'' + day + '\',this.value)" style="width:auto">' +
+      ["m","a","b"].map(function(g){ return '<option value="'+g+'"'+(whDraft.gearbox[day]===g?" selected":"")+'>'+WH_GEAR_LABEL[g]+'</option>'; }).join("") +
+      '</select></label>'
+    : "";
+  let body;
+  if(isGrid){
+    const hint=whGearMode==="both"
+      ? "Tap a time to turn it on. Tap again to change the car: Manual, then Automatic, then Both, then off."
+      : "Tap the times you teach on "+day+".";
+    body='<div style="flex:1 1 100%;min-width:0">'+
+      '<p class="muted" style="font-size:.78rem;margin:0 0 .35rem">'+hint+'</p>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:.35rem">'+whSlotList(whMin(win.start),whMin(win.end)).map(function(t){ return whTileHtml(day,t); }).join("")+'</div>'+
+      '<div style="margin-top:.5rem;display:flex;gap:.5rem;flex-wrap:wrap">'+
+        (Object.keys(whDraft.exact[day]).length
+          ? '<button type="button" class="btn-outline btn-sm" onclick="whClearDay(\''+day+'\')">Clear '+day+'</button>'
+          : '<button type="button" class="btn-outline btn-sm" onclick="whFillDay(\''+day+'\')">Select all</button>')+
+        '<button type="button" class="btn-outline btn-sm" onclick="whToSimple(\''+day+'\')">Back to start and finish</button>'+
+        '<button type="button" class="btn-outline btn-sm" onclick="whOpenCopy(\''+day+'\')">Copy '+day+' to&hellip;</button>'+
+      '</div></div>';
+  } else {
+    body='<div class="field wh-times" style="margin:0;display:flex;align-items:center;flex-wrap:wrap;gap:.5rem">'+
+      '<label style="display:flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:600;color:#475569;margin:0">Start <input type="time" value="'+esc(h.start)+'" onchange="whSetTime(\''+day+'\',\'start\',this.value)" style="width:auto"></label>'+
+      '<label style="display:flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:600;color:#475569;margin:0">Finish <input type="time" value="'+esc(h.end)+'" onchange="whSetTime(\''+day+'\',\'end\',this.value)" style="width:auto"></label>'+
+      gearSel+
+      '<button type="button" class="btn-outline btn-sm" onclick="whToExact(\''+day+'\')">Set exact times</button>'+
+      '<button type="button" class="btn-outline btn-sm" onclick="whOpenCopy(\''+day+'\')">Copy to&hellip;</button>'+
+      '</div>';
+  }
+  return '<div class="wh-row" style="display:flex;align-items:center;flex-wrap:wrap;gap:.5rem .75rem;padding:.6rem 0;border-top:1px solid var(--line)">'+
+    '<label style="display:flex;align-items:center;gap:.45rem;font-weight:600;min-width:8.5rem;margin:0"><input type="checkbox"'+(on?" checked":"")+' onchange="whToggleDay(\''+day+'\')"> '+day+'</label>'+
+    (on?body:'<span class="muted" style="font-size:.85rem">Not working</span>')+
+  '</div>';
+}
+function whRenderDays(){
+  const box=document.getElementById("wh-days");
+  if(box) box.innerHTML=WH_DAYS.map(whDayRowHtml).join("");
+  const sum=document.getElementById("wh-summary");
+  if(sum) sum.innerHTML=whSummaryHtml();
+}
+/** One day's ticked times as unbroken blocks, e.g. "09:00-15:00, 18:00-21:00". */
+function whBlocksText(day){
+  const ex=whDraft.exact[day];
+  if(!ex) return whDraft.perDay[day].start+"-"+whDraft.perDay[day].end;
+  const mins=Object.keys(ex).map(whMin).sort(function(a,b){ return a-b; });
+  if(!mins.length) return "nothing ticked";
+  const blocks=[]; let from=mins[0], prev=mins[0];
+  mins.slice(1).forEach(function(m){ if(m===prev+30){ prev=m; return; } blocks.push(whHm(from)+"-"+whHm(prev+30)); from=m; prev=m; });
+  blocks.push(whHm(from)+"-"+whHm(prev+30));
+  return blocks.join(", ");
+}
+/** What a pupil would actually be offered, so it can be checked without opening the enquiry form. */
+function whSummaryHtml(){
+  const rows=WH_DAYS.filter(function(d){ return whDraft.days[d]; }).map(function(d){
+    const gear=whGearMode==="both"?(" &middot; "+(whDraft.exact[d]?"per time":WH_GEAR_LABEL[whDraft.gearbox[d]])):"";
+    return "<li>"+d+": "+esc(whBlocksText(d))+gear+"</li>";
+  });
+  return rows.length
+    ? '<ul style="margin:.4rem 0 0 1.1rem;padding:0;font-size:.82rem;color:#475569">'+rows.join("")+'</ul>'
+    : '<p class="muted" style="font-size:.82rem;margin:.4rem 0 0">No working days ticked.</p>';
+}
+
+function whToggleDay(day){ whDraft.days[day]=!whDraft.days[day]; whClearErr(); whRenderDays(); }
+function whSetTime(day,which,val){
+  if(!/^\d{2}:\d{2}$/.test(val||"")) return;
+  whDraft.perDay[day][which]=val; whClearErr(); whRenderDays();
+}
+function whSetGear(day,g){
+  whDraft.gearbox[day]=g;
+  // Both on one day means different times for each car, and a start and a finish cannot say that -- so it
+  // opens the grid rather than leaving them to find it (Dale, 29 Sep 2026).
+  if(g==="b"&&!whDraft.exact[day]){ whToExact(day); return; }
+  whClearErr(); whRenderDays();
+}
+function whToExact(day){
+  const h=whDraft.perDay[day], win=whDraft.window;
+  const g=whGearMode==="both"?whDraft.gearbox[day]:(whGearMode==="automatic"?"a":"m");
+  const from=Math.max(whMin(h.start),whMin(win.start)), to=Math.min(whMin(h.end),whMin(win.end));
+  const ticks={};
+  whSlotList(from,to).forEach(function(t){ ticks[t]=g; });
+  // A day whose hours fall entirely outside the window would open as a blank grid: fill it from the window.
+  if(!Object.keys(ticks).length) whSlotList(whMin(win.start),whMin(win.end)).forEach(function(t){ ticks[t]=g; });
+  whDraft.exact[day]=ticks;
+  whClearErr(); whRenderDays();
+}
+function whToSimple(day){
+  const ex=whDraft.exact[day]||{};
+  const mins=Object.keys(ex).map(whMin).sort(function(a,b){ return a-b; });
+  const gaps=mins.some(function(m,i){ return i>0&&m!==mins[i-1]+30; });
+  const cars={}; Object.keys(ex).forEach(function(t){ cars[ex[t]]=true; });
+  const carCount=Object.keys(cars).length;
+  if(gaps||carCount>1){
+    const first=mins.length?whHm(mins[0]):"09:00", last=mins.length?whHm(mins[mins.length-1]+30):"20:00";
+    const why=[gaps?"the gap in the middle":"",carCount>1?"the different cars":""].filter(Boolean).join(" and ");
+    if(!confirm("Going back to a start and a finish loses "+why+".\n\n"+day+" would become "+first+" to "+last+", and pupils would be offered all of it.\n\nCarry on?")) return;
+  }
+  if(mins.length) whDraft.perDay[day]={start:whHm(mins[0]),end:whHm(mins[mins.length-1]+30)};
+  if(carCount===1) whDraft.gearbox[day]=Object.keys(cars)[0];
+  delete whDraft.exact[day];
+  whClearErr(); whRenderDays();
+}
+/** Every time on this day off in one go, rather than tapping each tile (Dale, 29 Sep 2026). */
+function whClearDay(day){ whDraft.exact[day]={}; whClearErr(); whRenderDays(); }
+/** Every half-hour in the window on, in this day's car -- the other half of Clear. */
+function whFillDay(day){
+  const g=whGearMode==="both"?(whDraft.gearbox[day]||"b"):(whGearMode==="automatic"?"a":"m");
+  const win=whDraft.window, ticks={};
+  whSlotList(whMin(win.start),whMin(win.end)).forEach(function(t){ ticks[t]=g; });
+  whDraft.exact[day]=ticks; whClearErr(); whRenderDays();
+}
+function whTileClick(day,t){
+  const ex=whDraft.exact[day]; if(!ex) return;
+  if(whGearMode!=="both"){
+    const g=whGearMode==="automatic"?"a":"m";
+    if(ex[t]) delete ex[t]; else ex[t]=g;
+  } else {
+    const order=[null,"m","a","b"];
+    const next=order[(order.indexOf(ex[t]||null)+1)%order.length];
+    if(next) ex[t]=next; else delete ex[t];
+  }
+  whClearErr(); whRenderDays();
+}
+function whApplyWindow(){
+  const s=document.getElementById("wh-win-start").value, e=document.getElementById("wh-win-end").value;
+  const errEl=document.getElementById("wh-err");
+  if(!/^\d{2}:\d{2}$/.test(s)||!/^\d{2}:\d{2}$/.test(e)||whMin(s)>=whMin(e)){
+    errEl.textContent="Set a latest finish after the earliest start.";
     return;
   }
-  let n=0;
-  document.querySelectorAll("#wh-days [data-wd]").forEach(cb=>{
-    const d=cb.dataset.wd; if(!cb.checked||d===day) return;
-    document.querySelector(`#wh-days [data-wh-start="${d}"]`).value=s.value;
-    document.querySelector(`#wh-days [data-wh-end="${d}"]`).value=e.value;
-    n++;
-  });
-  document.getElementById("wh-copied").textContent=n?`${day}'s hours (${s.value}–${e.value}) copied to your other working days. Save to keep them.`:"Tick your other working days first, then copy.";
+  const lost=whTicksOutside(s,e);
+  // Naming what would go, and putting the box back on Cancel, so a mistyped time cannot quietly wipe an evening.
+  if(lost.length&&!confirm("That would drop ticked times outside "+s+" to "+e+":\n\n"+lost.join("\n")+"\n\nCarry on?")){
+    document.getElementById("wh-win-start").value=whDraft.window.start;
+    document.getElementById("wh-win-end").value=whDraft.window.end;
+    return;
+  }
+  if(lost.length){
+    WH_DAYS.forEach(function(day){
+      const ex=whDraft.exact[day]; if(!ex) return;
+      Object.keys(ex).forEach(function(t){ if(whMin(t)<whMin(s)||whMin(t)+30>whMin(e)) delete ex[t]; });
+      if(!Object.keys(ex).length) delete whDraft.exact[day];
+    });
+  }
+  whDraft.window={start:s,end:e};
+  whClearErr(); whRenderDays();
 }
+/** Copy one day to days you pick. NOT "all days": for the very instructor this was built for, copying Monday
+ *  everywhere would overwrite an automatic Friday with a manual Monday (Dale, 29 Sep 2026). */
+function whOpenCopy(day){
+  whCopyFrom=day;
+  const others=WH_DAYS.filter(function(d){ return d!==day; });
+  openModal('<h2 style="margin-bottom:.3rem">Copy '+day+' to&hellip;</h2>'+
+    '<p class="muted" style="margin-bottom:.8rem">Its times'+(whGearMode==="both"?" and car":"")+' are copied to every day you tick. Nothing else changes.</p>'+
+    '<div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.9rem">'+
+      others.map(function(d){ return '<label style="display:flex;align-items:center;gap:.5rem;font-weight:600;margin:0"><input type="checkbox" data-whcopy="'+d+'"> '+d+'</label>'; }).join("")+
+    '</div>'+
+    '<button type="button" class="btn-outline btn-sm" onclick="document.querySelectorAll(\'[data-whcopy]\').forEach(function(c){c.checked=true})">Tick every day</button>'+
+    '<div class="actions" style="margin-top:.9rem"><button class="btn btn-navy btn-sm" onclick="whDoCopy()">Copy</button><button class="btn-outline" onclick="closeModal()">Cancel</button></div>');
+}
+function whDoCopy(){
+  const targets=Array.prototype.slice.call(document.querySelectorAll("[data-whcopy]")).filter(function(c){ return c.checked; }).map(function(c){ return c.dataset.whcopy; });
+  const from=whCopyFrom;
+  targets.forEach(function(d){
+    whDraft.days[d]=true;
+    whDraft.gearbox[d]=whDraft.gearbox[from];
+    whDraft.perDay[d]={start:whDraft.perDay[from].start,end:whDraft.perDay[from].end};
+    // A grid day copies its ticks, not just a start and a finish.
+    if(whDraft.exact[from]) whDraft.exact[d]=Object.assign({},whDraft.exact[from]);
+    else delete whDraft.exact[d];
+  });
+  closeModal();
+  whRenderDays();
+  const note=document.getElementById("wh-copied");
+  if(note) note.textContent=targets.length?("Copied "+from+" to "+targets.join(", ")+"."):"Nothing was ticked, so nothing was copied.";
+}
+/** Days where manual and automatic overlap. Not a clash -- it means either car suits then -- but usually a slip. */
+function whOverlapDays(){
+  return WH_DAYS.filter(function(d){
+    if(!whDraft.days[d]) return false;
+    const ex=whDraft.exact[d];
+    if(ex) return Object.keys(ex).some(function(t){ return ex[t]==="b"; });
+    return whDraft.gearbox[d]==="b";
+  });
+}
+
 async function saveWorkingHours(){
   whClearErr();
   const errEl=document.getElementById("wh-err");
-  const days={}, perDay={}, bad=[];
-  WH_DAYS.forEach(day=>{
-    const cb=document.querySelector(`#wh-days [data-wd="${day}"]`), s=document.querySelector(`#wh-days [data-wh-start="${day}"]`), e=document.querySelector(`#wh-days [data-wh-end="${day}"]`);
-    days[day]=!!(cb&&cb.checked);
-    const sm=whMin(s&&s.value), em=whMin(e&&e.value);
-    if(sm<em) perDay[day]={start:whHm(sm),end:whHm(em)};
-    else if(days[day]){ bad.push(day); [s,e].forEach(i=>{ if(i) i.style.borderColor="var(--bad)"; }); }
-  });
-  const working=WH_DAYS.filter(d=>days[d]);
+  if(!whDraft){ errEl.textContent="Reopen Working Hours and try again."; return false; }
+  const working=WH_DAYS.filter(function(d){ return whDraft.days[d]; });
   if(!working.length){ errEl.textContent="Tick at least one working day."; return false; }
-  if(bad.length){ errEl.textContent=`Set a finish time after the start time for ${bad.join(", ")}.`; return false; }
-  // Older app builds and enquiry forms only read start/end: earliest start and latest finish over the working days.
-  const start=whHm(Math.min(...working.map(d=>whMin(perDay[d].start)))), end=whHm(Math.max(...working.map(d=>whMin(perDay[d].end))));
-  // A day off with no usable times still gets an entry (perDay is written for all 7 days): the overall start/finish.
-  const perDayAll={}; WH_DAYS.forEach(d=>{ perDayAll[d]=perDay[d]||{start,end}; });
+
+  const bad=[], empty=[];
+  working.forEach(function(d){
+    if(whDraft.exact[d]){ if(!Object.keys(whDraft.exact[d]).length) empty.push(d); return; }
+    const h=whDraft.perDay[d];
+    if(!(whMin(h.start)<whMin(h.end))) bad.push(d);
+  });
+  if(bad.length){ errEl.textContent="Set a finish time after the start time for "+bad.join(", ")+"."; return false; }
+  if(empty.length){ errEl.textContent="Tick at least one time for "+empty.join(", ")+", or untick the day."; return false; }
+
+  // perDay for every day. A grid day gets first tick to last tick + 30, so anything that predates `exact`
+  // still reads a sane envelope for it.
+  const perDayAll={};
+  WH_DAYS.forEach(function(d){
+    const ex=whDraft.exact[d];
+    if(ex&&Object.keys(ex).length){
+      const mins=Object.keys(ex).map(whMin).sort(function(a,b){ return a-b; });
+      perDayAll[d]={start:whHm(mins[0]),end:whHm(mins[mins.length-1]+30)};
+    } else {
+      const h=whDraft.perDay[d];
+      perDayAll[d]=(whMin(h.start)<whMin(h.end))?{start:h.start,end:h.end}:{start:"09:00",end:"20:00"};
+    }
+  });
+  // Older app builds and cached enquiry forms only read start/end: earliest start, latest finish.
+  const start=whHm(Math.min.apply(null,working.map(function(d){ return whMin(perDayAll[d].start); })));
+  const end=whHm(Math.max.apply(null,working.map(function(d){ return whMin(perDayAll[d].end); })));
+
+  // Overlap means "either car suits me then", not a clash, so it is named on Save rather than blocked -- and
+  // only when it is new since the last save, so a deliberate overlap does not nag every time (Dale, 29 Sep 2026).
+  if(whGearMode==="both"){
+    const now=whOverlapDays();
+    const before=(workingHours&&workingHours.gearboxOverlapSeen)||[];
+    const fresh=now.filter(function(d){ return before.indexOf(d)<0; });
+    if(fresh.length&&!confirm(`On ${fresh.join(", ")} you have both cars available at the same times.
+
+That is fine - a pupil asking for either will be offered them - but if you meant one car only, set it now.
+
+Save anyway?`)) return false;
+  }
+
+  const days={}; WH_DAYS.forEach(function(d){ days[d]=!!whDraft.days[d]; });
+  const gearbox={}; WH_DAYS.forEach(function(d){ gearbox[d]=whDraft.gearbox[d]||"b"; });
+  const exact={};
+  WH_DAYS.forEach(function(d){ if(whDraft.exact[d]&&Object.keys(whDraft.exact[d]).length) exact[d]=Object.assign({},whDraft.exact[d]); });
+
   // Keep anything else the app has stored in this row: read it fresh, falling back to what was loaded.
   let base=workingHours;
   try{
-    const {data,error}=await sb.from("app_settings").select("value").eq("id","working_hours").eq("owner_id",currentUserId).maybeSingle();
-    if(!error) base=data&&data.value&&typeof data.value==="object"?data.value:{};
+    const r=await sb.from("app_settings").select("value").eq("id","working_hours").eq("owner_id",currentUserId).maybeSingle();
+    if(!r.error) base=r.data&&r.data.value&&typeof r.data.value==="object"?r.data.value:{};
   }catch(e){}
-  const payload=Object.assign({},base,{start,end,days,perDay:perDayAll});
-  const {error}=await sb.from("app_settings").upsert({id:"working_hours",owner_id:currentUserId,value:payload,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
-  if(error){ errEl.textContent="Could not save: "+error.message; return false; }
+  const payload=Object.assign({},base,{start:start,end:end,days:days,perDay:perDayAll,window:whDraft.window});
+  if(whGearMode==="both"){
+    payload.gearbox=gearbox;
+    payload.gearboxOverlapSeen=whOverlapDays();
+  } else {
+    // A single-gearbox instructor has no screen for these, so they are never written for them.
+    delete payload.gearbox;
+    delete payload.gearboxOverlapSeen;
+  }
+  if(Object.keys(exact).length) payload.exact=exact; else delete payload.exact;
+
+  const r2=await sb.from("app_settings").upsert({id:"working_hours",owner_id:currentUserId,value:payload,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+  if(r2.error){ errEl.textContent="Could not save: "+r2.error.message; return false; }
   workingHours=payload;
+  // Which cars they teach lives in its own row - the one the enquiry form already reads.
+  if(whGearMode!==whGearModeSaved){
+    const r3=await sb.from("app_settings").upsert({id:"enquiry_gearbox",owner_id:currentUserId,value:{mode:whGearMode},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+    if(r3.error){ errEl.textContent="Your hours were saved, but the car you teach in was not: "+r3.error.message; return false; }
+    whGearModeSaved=whGearMode;
+  }
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   alert("Saved — this now applies to the app's pupil availability screen, the website enquiry form, and your diary view here.");
   return true;

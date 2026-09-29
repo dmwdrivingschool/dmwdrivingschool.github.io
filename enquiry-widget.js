@@ -182,10 +182,48 @@ ${page ? "" : `
     return out.length ? out : ["09:00"];
   }
   // Each day has its own hours (Dale, 16 Sep 2026): perDay[day] when it's there and start < end, otherwise the overall start/end.
-  function daySlots(day) {
+  //
+  // From 29 Sep 2026 a day also carries a car, and may carry exact half-hour times instead of a start and a
+  // finish. want is the car the pupil picked ("manual" / "automatic" / "" for either). Lee Rhodes teaches
+  // manual Monday to Thursday and automatic Friday and Saturday; before this the form offered every working
+  // hour for both.
+  function gearLetter(g) { return g === "automatic" ? "a" : g === "manual" ? "m" : ""; }
+  function gearFits(slotGear, want) {
+    if (!want) return true;               // no choice made, or this instructor teaches one car only
+    if (!slotGear || slotGear === "b") return true;  // "either suits me" -- and what every older row means
+    return slotGear === want;
+  }
+  function daySlots(day, want) {
+    var g = gearLetter(want === undefined ? chosenGearbox() : want);
+    var ex = workHours.exact && typeof workHours.exact === "object" ? workHours.exact[day] : null;
+    if (ex && typeof ex === "object") {
+      var out = [];
+      Object.keys(ex).forEach(function (t) { if (gearFits(ex[t], g)) out.push(t); });
+      return out.sort();
+    }
+    var dayGear = workHours.gearbox && typeof workHours.gearbox === "object" ? workHours.gearbox[day] : null;
+    if (!gearFits(dayGear, g)) return [];
     var p = workHours.perDay && typeof workHours.perDay === "object" ? workHours.perDay[day] : null;
     if (p && timeMin(p.start) < timeMin(p.end)) return slotsFromHours(p.start, p.end);
     return slotsFromHours(workHours.start, workHours.end);
+  }
+  /** True when some day teaches this car at all. Used to grey out a choice that leads to an empty step. */
+  function teachesGear(want) {
+    var flags = workHours.days || {};
+    return ALL_DAYS.some(function (d) { return flags[d] !== false && daySlots(d, want).length > 0; });
+  }
+  /** Grey out a car nothing is taught in, so a pupil cannot pick it and then meet an empty availability step. */
+  function syncGearAvailability() {
+    if (gearboxMode !== "both") return;
+    Array.prototype.forEach.call(document.querySelectorAll("#dmw-gears .dmw-gear"), function (b) {
+      var want = b.getAttribute("data-gear");
+      var ok = teachesGear(want);
+      b.disabled = !ok;
+      b.style.opacity = ok ? "" : ".45";
+      b.style.cursor = ok ? "" : "not-allowed";
+      b.title = ok ? "" : "No " + want + " times are available at the moment.";
+      if (!ok && gearbox === want) { gearbox = ""; b.className = "dmw-gear"; }
+    });
   }
 
   function buildAvail() {
@@ -193,9 +231,16 @@ ${page ? "" : `
     root.innerHTML = "";
     var slotsByDay = {};
     var flags = workHours.days || {};
-    DAYS = ALL_DAYS.filter(function (d) { return flags[d] !== false; });
+    // A day with nothing left for the car they picked is dropped, not shown with an empty row under it.
+    DAYS = ALL_DAYS.filter(function (d) { return flags[d] !== false && daySlots(d).length > 0; });
+    if (!DAYS.length) DAYS = ALL_DAYS.filter(function (d) { return flags[d] !== false; });
     if (!DAYS.length) DAYS = ALL_DAYS.slice(0, 5);
     DAYS.forEach(function (d) { slotsByDay[d] = daySlots(d); });
+    // Times ticked for the other car are no longer on offer, so they are not still quietly selected.
+    Object.keys(availability).forEach(function (d) {
+      if (!slotsByDay[d]) { availability[d] = []; return; }
+      availability[d] = (availability[d] || []).filter(function (t) { return slotsByDay[d].indexOf(t) >= 0; });
+    });
     function hasAll(day) { return slotsByDay[day].every(function (t) { return (availability[day] || []).indexOf(t) >= 0; }); }
     // "All" buttons (Dale, 14 Sep 2026): every day and time at once, or a whole day. Pressing again clears.
     var everything = DAYS.every(hasAll);
@@ -250,9 +295,17 @@ ${page ? "" : `
   }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
     if (rows && rows[0] && rows[0].value) {
       var v = rows[0].value;
-      workHours = { start: v.start || workHours.start, end: v.end || workHours.end, days: Object.assign({}, workHours.days, v.days || {}), perDay: v.perDay || null };
+      workHours = {
+        start: v.start || workHours.start,
+        end: v.end || workHours.end,
+        days: Object.assign({}, workHours.days, v.days || {}),
+        perDay: v.perDay || null,
+        // Absent on every row saved before 29 Sep 2026, and absent for an instructor who teaches one car.
+        gearbox: v.gearbox || null,
+        exact: v.exact || null
+      };
     }
-  }).catch(function () {}).then(buildAvail);
+  }).catch(function () {}).then(function () { syncGearAvailability(); buildAvail(); });
 
   // Gearbox message — set in the Control Centre's "Your enquiry form"
   // panel: manual only, automatic only, or nothing (teaches both).
@@ -270,15 +323,19 @@ ${page ? "" : `
       warn.innerHTML = "<strong>Automatic only.<\\/strong> I only teach in an automatic car. Manual lessons are not available.";
       warn.style.display = "block";
     }
+    syncGearAvailability();
   }).catch(function () { el("dmw-gearbox-pick").style.display = "block"; });
 
   Array.prototype.forEach.call(document.querySelectorAll("#dmw-gears .dmw-gear"), function (b) {
     b.addEventListener("click", function () {
+      if (b.disabled) return;
       gearbox = b.getAttribute("data-gear");
       Array.prototype.forEach.call(document.querySelectorAll("#dmw-gears .dmw-gear"), function (x) {
         x.className = "dmw-gear" + (x === b ? " on" : "");
       });
       el("dmw-gears").classList.remove("dmw-invalid");
+      // The days and times on offer depend on the car, so step 2 is rebuilt now rather than left stale.
+      buildAvail();
     });
   });
   function chosenGearbox() {

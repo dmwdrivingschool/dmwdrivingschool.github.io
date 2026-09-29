@@ -2150,7 +2150,17 @@ async function loadSyllabus(){
     if(data && Array.isArray(data.value) && data.value.length) syllabusItems=data.value;
   }catch(e){}
 }
+// In a driving school the syllabus belongs to the school, not the instructor (Dale, 29 Sep 2026).
+// An ordinary member's editor is read-only; the school admin's writes go to schools.syllabus and a
+// trigger fans it out to every instructor's app_settings row, exactly as school terms already work.
+// Even if an old app build wrote its own row, the database guard overwrites it with the school's.
+function syllabusIsSchoolLocked(){ return !!currentSchoolId && !isSchoolAdminUser; }
 async function saveSyllabus(){
+  if(currentSchoolId && isSchoolAdminUser){
+    const {error}=await sb.from("schools").update({syllabus:syllabusItems}).eq("id",currentSchoolId);
+    if(error){ alert("Could not save: "+error.message); return false; }
+    return true;
+  }
   const {error}=await sb.from("app_settings").upsert({id:"syllabus",owner_id:currentUserId,value:syllabusItems,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
   if(error){ alert("Could not save: "+error.message); return false; }
   return true;
@@ -10746,7 +10756,7 @@ window.addEventListener("resize",()=>{ try{ settingsStickyOffsets(); }catch(e){}
 const HOW_TO_VIDEOS=[
   ["01-add-pupil","Add Your First Pupil","Add a pupil's details from the Pupils screen."],
   ["02-book-lesson","Book a Lesson","Tap a space in your diary, pick the pupil and save."],
-  ["03-working-hours","Set Your Working Hours","Choose the days you teach and each day's start and finish."],
+  ["03-working-hours","Gearbox & Working Hours","Choose the days you teach, the car for each day, and exact times where a day needs them."],
   ["04-pupil-login","Send a Pupil Their Login","Tap Password on the pupil's page and they're emailed a link to set their own."],
   ["05-take-payment","Take a Payment","Record a payment on the pupil's page and it appears in Money."],
   ["06-pencil-in","Pencil In Lessons and Send Offers","Pencil lessons in, then send all the offers in one go."],
@@ -10931,13 +10941,17 @@ ${esc(myFirst||"you")}</blockquote>
       <div class="err" id="paycats-err" style="margin-top:.5rem"></div>`;
     renderPayCats();
   } else if(which==="syllabus"){
+    // Same rule as the school terms panel: a member sees their school's, read-only.
+    const sylLocked=syllabusIsSchoolLocked();
     panel.innerHTML=`${settingsHeadHtml("Progress Syllabus")}
-      <p class="muted" style="margin-bottom:1rem">These topics appear on every pupil's Progress tab — here, in your instructor app, and in the pupil's own app. <strong>Drag and drop</strong> to reorder (or use ↑ / ↓). Changes save immediately.</p>
+      <p class="muted" style="margin-bottom:1rem">${sylLocked
+        ? "These topics appear on every pupil's Progress tab — here, in your instructor app, and in the pupil's own app. Your driving school sets the syllabus for everyone, so it can't be changed here."
+        : "These topics appear on every pupil's Progress tab — here, in your instructor app, and in the pupil's own app. <strong>Drag and drop</strong> to reorder (or use ↑ / ↓). Changes save immediately."}</p>
       <datalist id="syllabus-groups-dl"></datalist>
       <div id="syllabus-list"></div>
-      <div class="field" style="margin-top:1rem"><label>New Topic Name</label><input id="syl-new-name" placeholder="e.g. Night driving"></div>
+      ${sylLocked ? "" : `<div class="field" style="margin-top:1rem"><label>New Topic Name</label><input id="syl-new-name" placeholder="e.g. Night driving"></div>
       <div class="field"><label>Category</label><input id="syl-new-group" list="syllabus-groups-dl" placeholder="e.g. Basic Skills"></div>
-      <button class="btn btn-navy btn-sm" onclick="syllabusAdd()">Add Topic</button>`;
+      <button class="btn btn-navy btn-sm" onclick="syllabusAdd()">Add Topic</button>`}`;
     renderSyllabusList();
   } else if(which==="diary"){
     const view=localStorage.getItem("dmw_diary_view")||"week";
@@ -18919,11 +18933,19 @@ function renderSyllabusList(){
   if(!list) return;
   const groupsOrder=[];
   syllabusItems.forEach(t=>{ if(!groupsOrder.includes(t.group)) groupsOrder.push(t.group); });
+  const locked=syllabusIsSchoolLocked();
   let html=""; let lastGroup=null;
   syllabusItems.forEach((t,idx)=>{
     if(t.group!==lastGroup){
       html+=`<div class="muted" style="font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;margin:${idx===0?"0":"1rem"} 0 .35rem">${esc(t.group)}</div>`;
       lastGroup=t.group;
+    }
+    if(locked){
+      // A school member's view: their school's topics, nothing to change.
+      html+=`<div class="syllabus-row" data-id="${t.id}" style="display:flex;align-items:center;gap:.5rem;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;margin-bottom:.4rem">
+        <span style="flex:1;min-width:0;font-size:.85rem">${esc(t.name)}</span>
+      </div>`;
+      return;
     }
     html+=`<div class="syllabus-row" draggable="true" data-id="${t.id}" style="display:flex;align-items:center;gap:.5rem;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;margin-bottom:.4rem;cursor:grab">
       <span style="color:#94a3b8;font-size:1rem;line-height:1" title="Drag to reorder">⠿</span>
@@ -18936,7 +18958,7 @@ function renderSyllabusList(){
   });
   list.innerHTML=html||'<p class="muted">No topics yet.</p>';
   if(dl) dl.innerHTML=groupsOrder.map(g=>`<option value="${esc(g)}">`).join("");
-  syllabusBindDrag();
+  if(!locked) syllabusBindDrag();
 }
 async function syllabusPersist(){
   const ok=await saveSyllabus();

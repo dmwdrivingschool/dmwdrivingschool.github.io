@@ -10770,7 +10770,10 @@ const HOW_TO_VIDEOS=[
 ];
 function howToVideosHtml(){
   return `${settingsHeadHtml("How-To Videos")}
-    <p class="muted" id="howto-intro">Short videos showing how to set up and use Drive My Way. Each one is under 15 seconds.</p>
+    <!-- No length claim (29 Sep 2026). "Each one is under 15 seconds" was already wrong - clip 12 is 21s -
+         and clip 03 is now 55s because Gearbox & Working Hours is the most involved screen in the app. A
+         claim that has to be re-checked every time a clip is re-recorded is a claim that will be wrong again. -->
+    <p class="muted" id="howto-intro">Short videos showing how to set up and use Drive My Way.</p>
     <div class="howto-grid">${HOW_TO_VIDEOS.map(([file,title,line])=>`<div class="howto-card">
       <h4>${esc(title)}</h4><p>${esc(line)}</p>
       <video controls playsinline preload="none" poster="/how-to/posters/${esc(file)}.jpg" aria-label="${esc(title)}"><source src="/how-to/videos/${esc(file)}.mp4" type="video/mp4"></video>

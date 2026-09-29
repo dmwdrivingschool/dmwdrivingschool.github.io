@@ -12192,6 +12192,9 @@ function renderHelp(){
   const el=document.getElementById("help-content");
   const aud=helpAudience();
   const label = aud==="school" ? "driving schools" : aud==="member" ? "instructors in a driving school" : "solo instructors";
+  // A search used to open every match in full. Fine for three results, useless for fifty: searching
+  // "pupil" threw 56 expanded topics on screen at once (Dale, 29 Sep 2026). They stay closed, so the
+  // titles read as an index and you open the one you want.
   // raw is what goes back in the box, q is what we match on. They must not be the same thing: putting a
   // trimmed value back into the input ate every space as it was typed, so a search of more than one word
   // was impossible (Dale, 29 Sep 2026).
@@ -12211,7 +12214,7 @@ function renderHelp(){
     </div>`}
     ${q?"":guideSectionHtml(aud)}
     <input id="help-search" placeholder="Search help…" value="${esc(raw)}" oninput="renderHelp();focusHelpSearch()" style="width:100%;max-width:420px;padding:.6rem .75rem;border:1px solid var(--line);border-radius:8px;margin-bottom:1rem">
-    ${Object.keys(groups).map(t=>`<h3 style="margin:1rem 0 .4rem">${esc(t)}</h3>${groups[t].map(x=>`<details class="help-item" ${q?"open":""} style="border:1px solid var(--line);border-radius:8px;padding:.5rem .8rem;margin-bottom:.4rem"><summary style="cursor:pointer;font-weight:600">${esc(x.q)}</summary>${(x.il?[].concat(x.il):[]).filter(k=>GD_ILLUS[k]).map(k=>GD_ILLUS[k]()).join("")}<ol style="margin:.5rem 0 .25rem 1.1rem;padding:0;line-height:1.5">${x.b.map(li=>`<li style="margin:.2rem 0">${esc(li)}</li>`).join("")}</ol></details>`).join("")}`).join("") || '<p class="muted">Nothing matches that search.</p>'}`;
+    ${Object.keys(groups).map(t=>`<h3 style="margin:1rem 0 .4rem">${esc(t)}</h3>${groups[t].map(x=>`<details class="help-item" style="border:1px solid var(--line);border-radius:8px;padding:.5rem .8rem;margin-bottom:.4rem"><summary style="cursor:pointer;font-weight:600">${esc(x.q)}</summary>${(x.il?[].concat(x.il):[]).filter(k=>GD_ILLUS[k]).map(k=>GD_ILLUS[k]()).join("")}<ol style="margin:.5rem 0 .25rem 1.1rem;padding:0;line-height:1.5">${x.b.map(li=>`<li style="margin:.2rem 0">${esc(li)}</li>`).join("")}</ol></details>`).join("")}`).join("") || '<p class="muted">Nothing matches that search.</p>'}`;
 }
 
 // --- Diary sharing ---------------------------------------------------------

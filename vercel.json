@@ -34,7 +34,7 @@
       "permanent": false
     },
     {
-      "source": "/:page(((?!site).)*\\.html)",
+      "source": "/(index\\.html|admin\\.html|faq\\.html|pass-photos\\.html|contact\\.html|enquiry\\.html|enquiry-form\\.html|app-features\\.html|app-invite\\.html|cookies\\.html|passes\\.html|payments\\.html|prices\\.html|privacy\\.html|refund\\.html|terms\\.html|terms-of-use\\.html|withdraw\\.html)",
       "has": [
         {
           "type": "host",

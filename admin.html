@@ -3563,6 +3563,8 @@ function addrLine(p){
   return p.address_line1||p.address||[p.address_line1,p.postcode].filter(Boolean).join(", ")||"";
 }
 
+let pupilGroupOpen=null;
+function togglePupilGroup(id){ pupilGroupOpen = pupilGroupOpen===id ? null : id; renderPupils(); }
 function renderPupils(){
   const q=(document.getElementById("pupil-search").value||"").toLowerCase();
   const unassignedView = pupilStatusFilter==="unassigned";
@@ -3595,9 +3597,18 @@ function renderPupils(){
     if(!list.length){ el.innerHTML='<p class="muted">No pupils with other instructors yet. Assign pupils from the Unassigned tab, or move one of yours with Edit.</p>'; return; }
     const byInstr={}; list.forEach(p=>{ (byInstr[p.instructor_id]=byInstr[p.instructor_id]||[]).push(p); });
     const nameOf=id=>{ const i=schoolInstructorsCache.find(x=>x.id===id); return i?(i.full_name||i.email):"Instructor"; };
-    el.innerHTML = Object.keys(byInstr).sort((a,b)=>nameOf(a).localeCompare(nameOf(b))).map(iid=>`
-      <h3 style="margin:1rem 0 .4rem">${esc(nameOf(iid))} <span class="muted" style="font-weight:400;font-size:.85rem">· ${byInstr[iid].length} pupil${byInstr[iid].length===1?"":"s"}${owedNet(iid)>0.005?" · owed "+gbp(Math.round(owedNet(iid)*100)):""}</span> <button class="btn-outline" style="font-size:.72rem;padding:.2rem .5rem;margin-left:.4rem" onclick="openInstructorDiary('${iid}')">Diary</button></h3>
-      ${byInstr[iid].map(p=>`<div class="list-row">
+    el.innerHTML = Object.keys(byInstr).sort((a,b)=>nameOf(a).localeCompare(nameOf(b))).map(iid=>{
+      const open = !!q || pupilGroupOpen===iid;
+      return `
+      <h3 style="margin:1rem 0 .4rem;display:flex;align-items:center;gap:.5rem">
+        <button type="button" class="si-row" style="flex:1;padding:.5rem .2rem;font-weight:inherit;font-size:inherit"
+                onclick="togglePupilGroup('${iid}')">
+          ${esc(nameOf(iid))} <span class="muted" style="font-weight:400;font-size:.85rem">· ${byInstr[iid].length} pupil${byInstr[iid].length===1?"":"s"}${owedNet(iid)>0.005?" · owed "+gbp(Math.round(owedNet(iid)*100)):""}</span>
+          <span class="muted" style="font-weight:400;font-size:.8rem;float:right">${open?"Close":"Open"}</span>
+        </button>
+        <button class="btn-outline" style="font-size:.72rem;padding:.2rem .5rem" onclick="openInstructorDiary('${iid}')">Diary</button>
+      </h3>
+      ${!open ? "" : byInstr[iid].map(p=>`<div class="list-row">
         <div style="flex:1;min-width:0"><strong>${esc(p.first_name)} ${esc(p.last_name)}</strong>
           <div class="muted">${esc(p.phone||"")} · ${esc(p.email||"")}</div></div>
         <div class="actions">
@@ -3606,7 +3617,8 @@ function renderPupils(){
 
           <button class="btn-outline" onclick="showPupilById('${p.id}')">Details</button>
           <button class="btn-outline" onclick="editPupilById('${p.id}')">Edit</button>
-        </div></div>`).join("")}`).join("");
+        </div></div>`).join("")}`;
+    }).join("");
     return;
   }
   if(!list.length){
@@ -12421,6 +12433,13 @@ async function diaryIsLocked(ownerId){
   const {data}=await sb.from("app_settings").select("value").eq("owner_id",ownerId).eq("id","diary_access").maybeSingle();
   return !!(data && data.value && data.value.locked);
 }
+let diaryFromTab=null;
+function leaveInstructorDiary(){
+  diaryOwnerId=currentUserId;
+  const back=diaryFromTab; diaryFromTab=null;
+  if(back){ goTab(back); return; }
+  renderDiary();
+}
 async function openInstructorDiary(instrId){
   if(!schoolInstructorsCache.length) await loadSchoolInstructors();
   const name=instrName(instrId);
@@ -12431,12 +12450,14 @@ async function openInstructorDiary(instrId){
       <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Close</button>`);
     return;
   }
+  diaryFromTab = document.querySelector("#main-nav button.on")?.dataset.tab || null;
+  if(diaryFromTab === "diary") diaryFromTab = null;
   diaryOwnerId=instrId; keepDiaryOwner=true; goTab("diary");
 }
 async function renderDiaryOwnerBar(){
   const bar=document.getElementById("diary-owner-bar"); if(!bar) return;
   if(diaryOwnerId && diaryOwnerId!==currentUserId){
-    bar.innerHTML=`<div style="background:#fef3c7;color:#78350f;padding:.55rem .9rem;font-size:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap"><strong>Viewing ${esc(instrName(diaryOwnerId))}'s diary.</strong><span>Lessons you add here go in their diary and their pupils are told as normal.</span><a href="#" onclick="diaryOwnerId=currentUserId;renderDiary();return false" style="color:#78350f;font-weight:700;margin-left:auto">← Back to my diary</a></div>`;
+    bar.innerHTML=`<div style="background:#fef3c7;color:#78350f;padding:.55rem .9rem;font-size:.85rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap"><strong>Viewing ${esc(instrName(diaryOwnerId))}'s diary.</strong><span>Lessons you add here go in their diary and their pupils are told as normal.</span><a href="#" onclick="leaveInstructorDiary();return false" style="color:#78350f;font-weight:700;margin-left:auto">← ${diaryFromTab==="teams"?"Back to Instructors":diaryFromTab==="pupils"?"Back to Pupils":diaryFromTab==="school"?"Back to Driving School":diaryFromTab==="pditraining"?"Back to PDI Training":"Back to my diary"}</a></div>`;
     return;
   }
   if(currentSchoolId && !isSchoolAdminUser){
@@ -17067,24 +17088,24 @@ function traineeNeed(r){
       return ["good","Licence ended","Ended "+when];
     }
     if(p3.required && !p3.met)
-      return ["bad", `${traineeHrsWord(5-Number(p3.hours||0))} short`, `After part 3 &mdash; ${h(p3.hours)} of 5 done`];
+      return ["bad", `${traineeHrsWord(5-Number(p3.hours||0))} training short`, `After part 3 &mdash; ${h(p3.hours)} of 5 done`];
     if(!r.issued_on){
       const shortH=Math.max(0,40-Number(pre.hours||0)), shortCar=Math.max(0,10-Number(pre.in_car_hours||0));
-      if(shortH>0) return ["warn", `${traineeHrsWord(shortH)} short`, `${h(pre.hours)} of 40 before they can apply`];
+      if(shortH>0) return ["warn", `${traineeHrsWord(shortH)} training short`, `${h(pre.hours)} of 40 before they can apply`];
       if(shortCar>0) return ["warn", `${traineeHrsWord(shortCar)} in a car short`, `40 of 40 hours &middot; ${h(pre.in_car_hours)} of 10 in a car`];
       return ["good","Ready to apply",`${h(pre.hours)} hours, ${h(pre.in_car_hours)} in a car`];
     }
     if(r.route==="additional_training"){
       const shortH=Math.max(0,20-Number(add.hours||0)), shortCar=Math.max(0,(Number(add.hours||0)*0.25)-Number(add.on_road_hours||0));
       const by=add.deadline?`due ${new Date(add.deadline).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}${add.deadline_is==="part 3 booked"?", part 3 booked":""}`:"";
-      if(shortH>0) return ["bad", `${traineeHrsWord(shortH)} short`, `${h(add.hours)} of 20 &middot; ${by}`];
+      if(shortH>0) return ["bad", `${traineeHrsWord(shortH)} training short`, `${h(add.hours)} of 20 &middot; ${by}`];
       if(shortCar>0) return ["warn", `${traineeHrsWord(shortCar)} on the road short`, `20 of 20 &middot; needs a quarter on the road`];
       return ["good","Extra training done",`${h(add.hours)} hours &middot; ${by}`];
     }
     const req=Number(sup.required_hours||0), got=Number(sup.supervised_hours||0), shortH=Math.max(0,req-got);
     if(!Number(sup.instruction_hours||0)) return ["good","Nothing taught yet","No supervision owed"];
-    if(shortH>0) return ["bad", `${traineeHrsWord(shortH)} short`, `${h(got)} of ${h(req)} supervised &middot; ${sup.percent}%, needs 20%`];
-    return ["good", `${traineeHrsWord(got-req)} ahead`, `${h(got)} of ${h(req)} supervised &middot; ${sup.percent}%`];
+    if(shortH>0) return ["bad", `${traineeHrsWord(shortH)} supervision short`, `${h(got)} of ${h(req)} supervised &middot; ${sup.percent}%, needs 20%`];
+    return ["good", `${traineeHrsWord(got-req)} supervision ahead`, `${h(got)} of ${h(req)} supervised &middot; ${sup.percent}%`];
 }
 // The trainee licence, on the instructor's row. Red inside 30 days ONLY when nothing has been done
 // about it - an expiry with the next badge already applied for is in hand, not a crisis, and

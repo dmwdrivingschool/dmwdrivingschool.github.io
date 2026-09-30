@@ -528,6 +528,10 @@ a:hover{color:#a9c7ff}
 .car-card-px>strong{color:#fcd34d}
 .car-card-sold .muted,.car-card-px .muted{color:#e2d5c8}
 .metric,.matrix-head,.matrix-drawer{background:#263450}
+/* Instructors at a glance: a divider list, not boxes. Colour comes from the nav's own hover so it
+   belongs to the theme rather than being a fifth invented slate. */
+.si-row{width:100%;text-align:left;background:none;border:0;padding:.75rem .2rem;cursor:pointer;color:var(--text);font:inherit;border-radius:8px}
+.si-row:hover{background:#38486b}
 .matrix-head:hover{background:#38486b}
 .matrix-table,.matrix-table td.vname{background:#2a3859;color:var(--text)}
 .matrix-table th{background:#263450}
@@ -705,7 +709,12 @@ tbody tr:hover td{background:#334263}
     </div>
   </div>
   <nav class="nav" id="main-nav">
+    <!-- Order set by Dale, 30 Sep 2026: the school comes first, then the people, then the work.
+         Enquiries and Diary keep the places they already had, between Pupils and Tests. -->
     <button class="on" data-tab="dash">Dashboard</button>
+    <button data-tab="school" id="nav-school-btn" class="hidden">Driving School</button>
+    <button data-tab="teams" id="nav-teams-btn" class="hidden">Instructors</button>
+    <button data-tab="pditraining" id="nav-pdi-training-btn" class="hidden">PDI Training</button>
     <button data-tab="pupils">Pupils</button>
     <button data-tab="enquiries">Enquiries</button>
     <button data-tab="diary">Diary</button>
@@ -715,7 +724,6 @@ tbody tr:hover td{background:#334263}
     <button data-tab="portal">Learning Videos</button>
     <button data-tab="theory" id="nav-theory-btn" class="hidden">Theory &amp; Hazard Perception</button>
     <button data-tab="messages" id="nav-messages-btn" class="hidden">Messages</button>
-    <button data-tab="teams" id="nav-teams-btn" class="hidden">Instructors</button>
     <button data-tab="billing" id="nav-billing-btn" class="hidden">Billing</button>
     <button data-tab="website" id="nav-website-btn" class="hidden">Website</button>
     <button data-tab="help">Help</button>
@@ -1081,6 +1089,38 @@ tbody tr:hover td{background:#334263}
 
     <section id="tab-help" class="hidden">
       <div class="panel" id="help-content">Loading…</div>
+    </section>
+
+    <!-- Driving School (Dale, 30 Sep 2026): "it should be a tab saying Driving School - and that
+         should have everything to do with the driving school as a whole". The Dashboard is what
+         THIS person's business looks like; this tab is what the SCHOOL looks like. Test results by
+         instructor is the first thing in it. -->
+    <section id="tab-school" class="hidden">
+      <h2>Driving School</h2>
+      <p class="muted" style="margin:.2rem 0 1rem">Your school as a whole. The Dashboard shows your own figures; everything here is across every instructor in the school.</p>
+      <!-- One row per instructor, shut. Open it for everything the school knows about them
+           (Dale, 30 Sep 2026: "minimied initially press it expands to show the full table of
+           everything"). -->
+      <div class="panel" id="school-instructors-panel">
+        <h2 style="margin-bottom:.35rem">Instructors at a glance</h2>
+        <p class="muted" style="margin-bottom:.75rem">Tap an instructor to open their full record.</p>
+        <div id="school-instructors-list">Loading…</div>
+      </div>
+
+      <div class="panel" id="per-instructor-panel">
+        <h2 style="margin-bottom:.35rem">Test results by instructor</h2>
+        <p class="muted" id="per-instructor-note" style="margin-bottom:.75rem"></p>
+        <div id="per-instructor-table">Loading…</div>
+      </div>
+    </section>
+
+    <!-- PDI Training (Dale, 30 Sep 2026). The PEOPLE live on Instructors; this tab is the TRAINING:
+         which ADI trains which trainee, the hours behind it, and the forms that come out of it. -->
+    <section id="tab-pditraining" class="hidden">
+      <h2>PDI Training</h2>
+      <p class="muted" style="margin:.2rem 0 1rem">Trainee instructors on a licence, what DVSA still want from each of them, and the record to send in. Hours come out of the diary; nothing here is typed twice.</p>
+      <div id="pdi-training-list"></div>
+      <div id="pdi-training-detail"></div>
     </section>
 
     <section id="tab-teams" class="hidden">
@@ -2203,6 +2243,8 @@ function goTab(tab, pupilFilter){
   if(tab==="portal"){ loadVideoModules().then(()=>{ loadActivity(); loadLearningVideos(); }); }
   if(tab==="theory"){ loadTheoryProgress(); }
   if(tab==="teams"){ loadTeamsPanel(); loadMockTestUsageCC(); }
+  if(tab==="school"){ loadDrivingSchoolTab(); }
+  if(tab==="pditraining"){ pdiTrainingLoad = loadPdiTraining(); }
   if(tab==="messages"){ loadMessagesPanel(); }
   if(tab==="help"){ renderHelp(); }
   if(tab==="billing"){ loadBillingPanel(); }
@@ -2291,6 +2333,10 @@ async function enterApp(user,prof,pause){
   document.getElementById("nav-theory-btn")?.classList.toggle("hidden", !canSeeTheoryTab);
   document.getElementById("manage-videos-panel")?.classList.toggle("hidden", !isSuperAdminUser);
   document.getElementById("nav-teams-btn")?.classList.toggle("hidden", !isSuperAdminUser && !isSchoolAdminUser);
+  refreshDrivingSchoolTab();
+  // PDI Training only appears for a school that actually sponsors somebody. The nav is already two
+  // rows; a school with no trainees should not carry a fifteenth item it will never open.
+  refreshPdiTrainingTab();
   document.getElementById("nav-billing-btn")?.classList.remove("hidden"); // seat instructors get the tab too, but only a pointer to their admin (see loadBillingPanel)
   // The Website tab now has three audiences, not one (Dale, 26 Sep 2026):
   //   super admin          — Dale's own tool: the carousel and his pass wall, as before
@@ -2793,22 +2839,34 @@ function copyOwnAddressToSchool(){
 async function saveProfilePanel(){
   const errEl=document.getElementById("pf-err");
   errEl.textContent="";
+  // Say WHY nothing happened, where they are looking (Dale, 30 Sep 2026: "it needs to say to people
+  // why its not saving"). The message was already being written here, but quietly and below the fold,
+  // so pressing Save with an empty address looked like a dead button - which is how Dale lost his own
+  // ADI number three times over. Now it scrolls to itself and puts the cursor in the offending field.
+  const fail=(msg,focusId)=>{
+    errEl.textContent=msg;
+    const f=focusId?document.getElementById(focusId):null;
+    if(f){ f.focus({preventScroll:true}); f.scrollIntoView({block:"center",behavior:"smooth"}); }
+    else errEl.scrollIntoView({block:"center",behavior:"smooth"});
+    return undefined;
+  };
   const v=id=>(document.getElementById(id)?.value||"").trim();
   const name=v("pf-name"), phone=v("pf-phone"), adi=v("pf-adi");
   const address1=v("pf-address1"), address2=v("pf-address2"), city=v("pf-city"), postcode=v("pf-postcode");
-  if(!name){ errEl.textContent="Your name is required"; return; }
-  if(!address1||!postcode){ errEl.textContent="Address line 1 and postcode are required"; return; }
+  if(!name) return fail("Your name is required.","pf-name");
+  if(!address1) return fail("Address line 1 is required before anything on this screen can be saved.","pf-address1");
+  if(!postcode) return fail("A postcode is required before anything on this screen can be saved.","pf-postcode");
   if(currentSchoolId && isSchoolAdminUser && document.getElementById("sa-address1")){
     const sa1=v("sa-address1"), sa2=v("sa-address2"), sac=v("sa-city"), sap=v("sa-postcode");
-    if((sa1||sap) && (!sa1||!sap)){ errEl.textContent="School address needs at least line 1 and a postcode"; return; }
+    if((sa1||sap) && (!sa1||!sap)) return fail("Your school address needs at least line 1 and a postcode.", sa1?"sa-postcode":"sa-address1");
     const {error}=await sb.from("schools").update({address_line1:sa1||null,address_line2:sa2||null,city:sac||null,postcode:sap||null}).eq("id",currentSchoolId);
-    if(error){ errEl.textContent=error.message; return; }
+    if(error) return fail(error.message);
   }
   const {error:rpcError}=await sb.rpc("instructor_update_own_profile",{
     p_full_name:name, p_phone:phone, p_adi_badge_number:adi,
     p_address_line1:address1, p_address_line2:address2, p_city:city, p_postcode:postcode
   });
-  if(rpcError){ errEl.textContent=rpcError.message; return; }
+  if(rpcError) return fail(rpcError.message);
   document.getElementById("who").textContent=name;
   return true;
 }
@@ -3857,7 +3915,10 @@ function renderPupilSummary(){
   // A cancelled lesson marked "charged" (billed as if it went ahead — see
   // the app's Edit Lesson / Cancel Lesson) counts here too, same as the app
   // (src/lib/pupilCredit.ts), so Credit doesn't drift between the two.
-  const deliveredMins=lessons.filter(l=>l.status==="delivered"||(l.status==="cancelled"&&l.charged))
+  // No pupil, no money. Nothing to charge for, no money. The SAME positive rule as the app's
+  // src/lib/lessonMoney.ts - a list of types to exclude is what let a training session show
+  // "Unpaid", and a part 3 quietly eat a pupil's credit (30 Sep 2026).
+  const deliveredMins=lessons.filter(l=>!l.no_charge).filter(l=>l.status==="delivered"||(l.status==="cancelled"&&l.charged))
     .reduce((s,l)=>s+Math.round((new Date(l.end_time)-new Date(l.start_time))/60000),0);
   // Once a passed pupil's account closes (30 days after passing), their lesson
   // history is deleted, so deliveredMins above reads as 0 forever. Use the
@@ -4315,7 +4376,7 @@ function togglePupilMessagingCC(){
 // (id 'lesson_types', {order, hidden}) as the app's Settings → Diary Colours & Types, so changing it in either
 // place changes both. Lesson can't be hidden. Theory Test was removed as a type.
 const LESSON_TYPE_DEFS=[["lesson","Lesson"],["mock_test","Mock Test"],["driving_test","Driving Test"],["pass_plus","Pass Plus"],["refresher","Refresher"],["motorway","Motorway"]];
-const LESSON_TYPE_OTHER_LABELS={private:"Private / Other",gap:"Gap",student_away:"Away",lesson_offer:"Lesson offer",theory_test:"Theory Test"};
+const LESSON_TYPE_OTHER_LABELS={private:"Private / Other",gap:"Gap",student_away:"Away",lesson_offer:"Lesson offer",theory_test:"Theory Test",pdi_training:"PDI Training",part3_test:"Part 3 Test"};
 let lessonTypeSettings={order:LESSON_TYPE_DEFS.map(d=>d[0]),hidden:[]};
 function normaliseLessonTypes(v){
   const known=LESSON_TYPE_DEFS.map(d=>d[0]);
@@ -4423,7 +4484,7 @@ function renderPupilLessons(){
     const when=d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})+" "+d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
     const type=esc((l.title||l.lesson_type||"Lesson").replace(/_/g," "));
     const statusChip=l.status==="cancelled"?'<span class="chip chip-bad">Cancelled</span>':l.status==="delivered"?'<span class="chip chip-ok">Delivered</span>':'<span class="chip chip-wait">Booked</span>';
-    const payChip=l.payment_status==="paid"?'<span class="chip chip-ok">Paid</span>':'<span class="chip chip-bad">Unpaid</span>';
+    const payChip=!ccLessonShowsMoney(l)?'':l.payment_status==="paid"?'<span class="chip chip-ok">Paid</span>':'<span class="chip chip-bad">Unpaid</span>';
     const chargedChip=(l.status==="cancelled"&&l.charged)?' <span class="chip chip-bad">Charged</span>':'';
     const pickable=l.lesson_type!=="student_away"&&l.lesson_type!=="lesson_offer";
     const tick=lessonSelectMode
@@ -7845,9 +7906,12 @@ async function renderDiary(){
   const ws=new Date(weekStart), end=new Date(ws); end.setDate(end.getDate()+7);
   // Overlap query, not start-within-week: the app's multi-day Away blocks (and anything else spanning midnight) start before
   // the week or a given day but still cover it. Like the app, nothing starting more than 6 weeks ago is loaded.
+  // Keyed on WHOSE diary this is, not who is looking: a trainee's diary shows the training booked
+  // for them, and an ADI's shows the lesson they are sitting in on. One booking, two diaries
+  // (Dale, 30 Sep 2026). RLS allows all three; this is just the query catching up.
   // The signed-in account's diary colours, read alongside (at most once a minute; diaryColoursRefresh).
   const coloursJob=diaryColoursRefresh();
-  const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)").eq("instructor_id",owner)
+  const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)").or(`instructor_id.eq.${owner},trainee_id.eq.${owner},supervised_by.eq.${owner}`)
     .lt("start_time",end.toISOString()).gt("end_time",ws.toISOString()).gte("start_time",diaryPastFloorIso()).order("start_time");
   await coloursJob;
   if(seq!==diaryRenderSeq) return;
@@ -7933,7 +7997,7 @@ async function renderDiaryDayOrMonth(seq,owner){
   if(diaryView==="day"){ from=new Date(diaryDate); from.setHours(0,0,0,0); to=new Date(from); to.setDate(to.getDate()+1); }
   else{ from=startOfWeek(new Date(diaryDate.getFullYear(),diaryDate.getMonth(),1)); to=startOfWeek(new Date(diaryDate.getFullYear(),diaryDate.getMonth()+1,0)); to.setDate(to.getDate()+7); }
   const floor=diaryPastFloorIso(), fromIso=from.toISOString();
-  const {data}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)").eq("instructor_id",owner)
+  const {data}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)").or(`instructor_id.eq.${owner},trainee_id.eq.${owner},supervised_by.eq.${owner}`)
     .gte("start_time",fromIso>floor?fromIso:floor).lt("start_time",to.toISOString()).order("start_time");
   if(seq!==diaryRenderSeq) return;
   diaryLessonsCache=data||[];
@@ -7954,7 +8018,7 @@ function diaryDayHtml(list){
     const type=offer&&l.offer_lesson_type?`${lessonTypeLabel(l.offer_lesson_type)} offer`:lessonTypeLabel(l.lesson_type);
     const second=offer
       ? `<span class="dv-chip dv-offer">${l.offer_status==="declined"?"declined":l.offer_status==="offered"?"awaiting reply":"not yet asked"}</span>`
-      : `<span class="dv-chip ${paid?"dv-paid":"dv-unpaid"}">${paid?"paid":"unpaid"}</span>`;
+      : !ccLessonShowsMoney(l) ? "" : `<span class="dv-chip ${paid?"dv-paid":"dv-unpaid"}">${paid?"paid":"unpaid"}</span>`;
     return `<div class="dv-card" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="dv-time">${dLocalTime(new Date(l.start_time))}</div>
       <div class="dv-main"><div class="dv-name">${esc(diaryShortName(l,false))}</div>${l.title==="Appointment"&&l.notes?`<div class="dv-notes">${esc(l.notes)}</div>`:""}
       <div class="dv-chips"><span class="dv-chip dv-type">${esc(type)}</span>${second}</div></div></div>`;
@@ -7967,7 +8031,7 @@ function diaryMonthHtml(list){
   const lastSun=new Date(lastMon.getFullYear(),lastMon.getMonth(),lastMon.getDate()+6);
   const byDay={};
   list.forEach(l=>{ const k=dLocalDate(new Date(l.start_time)); (byDay[k]=byDay[k]||[]).push(l); });
-  const cls=l=>l.status==="cancelled"?"mv-cancelled":l.lesson_type==="lesson_offer"?"mv-offer":l.payment_status==="paid"?"mv-paid":"mv-unpaid";
+  const cls=l=>l.status==="cancelled"?"mv-cancelled":!ccLessonShowsMoney(l)?"mv-offer":l.payment_status==="paid"?"mv-paid":"mv-unpaid";
   let cells="";
   for(let i=0;;i++){
     const d=new Date(first.getFullYear(),first.getMonth(),first.getDate()+i);
@@ -8000,6 +8064,53 @@ async function onDiaryBlockClick(el){
 // for …" message.
 // instructor_id is the diary being looked at. prefill: {date, time} from a diary click, {date} from a month-view day.
 const DL_IDS=["dl-pupil","dl-type","dl-date","dl-start","dl-centre","dl-centre-time","dl-travel","dl-hours","dl-mins","dl-pickup","dl-pickup-addr","dl-pickup-save","dl-dropoff","dl-dropoff-addr","dl-repeat-unit","dl-repeat-count","dl-notes"];
+// Who the diary owner trains, and who may supervise them (Dale, 30 Sep 2026). Loaded when the Add
+// Lesson form opens rather than kept in sync, because it changes rarely and a stale list would offer
+// a pairing that no longer exists. Deliberately NOT added to LESSON_TYPE_DEFS: that list syncs to
+// every instructor's app, and the 25 solo instructors have no trainees to book.
+let dlTrainees=[], dlSupervisors=[];
+async function dlLoadPdiContext(ownerId){
+  dlTrainees=[]; dlSupervisors=[];
+  if(!ownerId) return;
+  try{
+    const {data:pairs}=await sb.from("trainee_trainers").select("trainee_id").eq("trainer_id",ownerId);
+    const ids=[...new Set((pairs||[]).map(x=>x.trainee_id))];
+    if(ids.length){
+      const {data:people}=await sb.from("profiles").select("id,full_name").in("id",ids).order("full_name");
+      dlTrainees=people||[];
+    }
+    // The owner may themselves be on a licence, in which case a lesson they teach can be supervised.
+    const {data:lic}=await sb.from("trainee_licences").select("id").eq("trainee_id",ownerId).is("ended_on",null).maybeSingle();
+    if(lic){
+      const {data:mine}=await sb.from("trainee_trainers").select("trainer_id").eq("trainee_id",ownerId);
+      const tids=[...new Set((mine||[]).map(x=>x.trainer_id))];
+      if(tids.length){
+        const {data:sup}=await sb.from("profiles").select("id,full_name").in("id",tids).order("full_name");
+        dlSupervisors=sup||[];
+      }
+    }
+  }catch(e){}
+}
+// Fills the two extra fields once the context arrives. The form is already on screen by then, so it
+// adds the PDI Training option rather than rebuilding the picker.
+function dlApplyPdiContext(){
+  const typeSel=document.getElementById("dl-type");
+  if(typeSel && dlTrainees.length && !typeSel.querySelector('option[value="pdi_training"]')){
+    const o=document.createElement("option"); o.value="pdi_training"; o.textContent="PDI Training";
+    typeSel.appendChild(o);
+  }
+  const tw=document.getElementById("dl-trainee-wrap"), ts=document.getElementById("dl-trainee");
+  if(ts && !ts.options.length){
+    ts.innerHTML='<option value="">Select trainee…</option>'+dlTrainees.map(t=>`<option value="${esc(t.id)}">${esc(t.full_name||"")}</option>`).join("");
+  }
+  const sw=document.getElementById("dl-supervised-wrap"), ss=document.getElementById("dl-supervised");
+  if(ss && !ss.options.length){
+    ss.innerHTML='<option value="">Nobody &mdash; not supervised</option>'+dlSupervisors.map(t=>`<option value="${esc(t.id)}">${esc(t.full_name||"")}</option>`).join("");
+  }
+  if(sw) sw.classList.toggle("hidden", dlSupervisors.length===0);
+  dlTypeChanged();
+}
+
 function openDiaryAddLesson(prefill){
   const p=prefill||{}, pupils=avPupils();
   const opts=pupils.map(x=>`<option value="${esc(x.id)}">${esc(x.first_name)} ${esc(x.last_name)}</option>`).join("");
@@ -8014,7 +8125,13 @@ function openDiaryAddLesson(prefill){
       ${pupils.length?"":'<div class="av-warn">No active pupils yet. Add pupils first.</div>'}
       <div id="dl-warn" class="av-warn"></div>
     </div>
-    <div class="field"><label>Type</label><select id="dl-type" onchange="dlTypeChanged()">${lessonTypeOptions("lesson",[])}</select></div>
+    <div class="field"><label>Type</label><select id="dl-type" onchange="dlTypeChanged()">${lessonTypeOptions("lesson",dlTrainees.length?["pdi_training"]:[])}</select></div>
+    <div class="field hidden" id="dl-trainee-wrap"><label>Trainee</label>
+      <select id="dl-trainee"></select>
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">Training you are giving them. It shows in their diary too, and the hours go on their ADI 21T record.</div></div>
+    <div class="field hidden" id="dl-supervised-wrap"><label>Supervised by</label>
+      <select id="dl-supervised"></select>
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">An ADI sitting in on this lesson. DVSA want a fifth of everything you teach supervised, and this is what counts towards it.</div></div>
     <div class="field"><label>Date</label><input type="date" id="dl-date" required oninput="avAddFormChanged();dlRepeatChanged()"></div>
     <div class="field"><label>Lesson start time</label><input type="time" id="dl-start" required oninput="avAddFormChanged();dlRepeatChanged()"></div>
     ${testCentreFieldsHtml("dl")}
@@ -8040,6 +8157,8 @@ function openDiaryAddLesson(prefill){
     </div>
     </form>`);
   // Showing pupils' free times: a click on the diary starts with the pupil it chose (avSlotPupilId, Dale, 15 Sep 2026)
+  // Fire and forget: the form is usable immediately and the PDI fields appear a moment later.
+  dlLoadPdiContext(diaryOwnerId||currentUserId).then(dlApplyPdiContext).catch(()=>{});
   const pick=p.time&&p.pupil&&pupils.some(x=>x.id===p.pupil)?p.pupil:"";
   const defaults={"dl-pupil":pick,"dl-type":"lesson","dl-date":p.date||dLocalDate(new Date()),"dl-start":p.time||"09:00","dl-centre":"","dl-centre-time":"","dl-travel":"",
     "dl-hours":"1","dl-mins":"60","dl-pickup":"home","dl-pickup-addr":"","dl-pickup-save":false,"dl-dropoff":"same","dl-dropoff-addr":"","dl-repeat-unit":"week","dl-repeat-count":"0","dl-notes":""};
@@ -8067,6 +8186,18 @@ function dlAfterApply(){ dlTypeChanged(); pickupSync("dl"); dropoffSync("dl"); d
 // A driving test has no repeat (Dale, 15 Sep 2026): the Repeat row is hidden and set back to Don't repeat, so a hidden choice can
 // never book extra tests (and saving a driving test books just the one, dlRepeatCount).
 function dlTypeChanged(){
+  // A training session has a trainee and no pupil; the database refuses any other shape, so the
+  // form has to stop asking for a pupil or the browser blocks the submit on a required empty field.
+  const pdi=fieldVal("dl-type")==="pdi_training";
+  const pupilWrap=document.getElementById("dl-pupil") ? document.getElementById("dl-pupil").closest(".field") : null;
+  if(pupilWrap) pupilWrap.classList.toggle("hidden", pdi);
+  const pupilSel=document.getElementById("dl-pupil");
+  if(pupilSel){ pupilSel.required = !pdi; if(pdi) pupilSel.value=""; }
+  const tw=document.getElementById("dl-trainee-wrap"); if(tw) tw.classList.toggle("hidden", !pdi);
+  const ts=document.getElementById("dl-trainee"); if(ts) ts.required = pdi;
+  // Supervision belongs to an ordinary lesson taught BY a trainee, never to a training session.
+  const sw=document.getElementById("dl-supervised-wrap");
+  if(sw) sw.classList.toggle("hidden", pdi || dlSupervisors.length===0);
   const test=fieldVal("dl-type")==="driving_test";
   const t=document.getElementById("dl-test"); if(t) t.classList.toggle("hidden",!test);
   const r=document.getElementById("dl-repeat-wrap"); if(r) r.classList.toggle("hidden",test);
@@ -8102,8 +8233,12 @@ async function saveDiaryAddLessonNow(){
   const form=document.getElementById("dl-form");
   if(!form||!form.reportValidity()) return;
   dlErr("");
-  const pupilId=fieldVal("dl-pupil"), lessonType=fieldVal("dl-type")||"lesson";
-  if(!pupilId) return dlErr("Please select a pupil");
+  const lessonType=fieldVal("dl-type")||"lesson";
+  const isPdi=lessonType==="pdi_training";
+  const pupilId=isPdi?"":fieldVal("dl-pupil");
+  const traineeId=isPdi?fieldVal("dl-trainee"):"";
+  if(isPdi){ if(!traineeId) return dlErr("Please choose which trainee this session is for"); }
+  else if(!pupilId) return dlErr("Please select a pupil");
   // Every day or week booked is its own lesson: the clash check, reflective log and "booked" message run for each one.
   const occurrences=lessonRepeatOccurrences(fieldVal("dl-date"),fieldVal("dl-start"),durFromHours(fieldVal("dl-hours")),dlRepeatCount(),dlRepeatUnitValue());
   if(!occurrences.length) return dlErr("Please choose a date and time");
@@ -8112,7 +8247,15 @@ async function saveDiaryAddLessonNow(){
   // Always unpaid (only payments change that) and the pupil's own gearbox, as in the app.
   const lesson={lesson_type:lessonType, payment_status:"unpaid", gearbox:(pupil&&pupil.preferred_gearbox)||"manual",
     notes:lessonNotesCombine(fieldVal("dl-notes"),lessonType,fieldVal("dl-centre"),fieldVal("dl-centre-time")),
-    status:"booked", pupil_id:pupilId, title:null, instructor_id:owner};
+    status:"booked", pupil_id:pupilId||null, title:null, instructor_id:owner};
+  if(isPdi){
+    lesson.trainee_id=traineeId;
+    lesson.title="PDI training";
+  }else{
+    // Only when somebody was chosen: an empty string would fail the foreign key.
+    const sup=fieldVal("dl-supervised");
+    if(sup) lesson.supervised_by=sup;
+  }
   // Home leaves the pick-up empty (the pupil's home address); School / Work / Other is kept on these lessons only.
   if(pickupType!=="home"&&pickupAddress){ lesson.pickup_label=pickupType; lesson.pickup_address=pickupAddress; }
   Object.assign(lesson, dropoffPayload("dl"));
@@ -13449,7 +13592,7 @@ function diaryLayoutOverlaps(dayLessons,day){
   return map;
 }
 // The app's getBlockStyle defaults (its Diary Colours before any are saved) and its Paid / Unpaid, Cancelled and offer footers.
-const DIARY_TYPE_COLOURS={lesson:["#fb923c","#22c55e"],driving_test:["#000000","#000000"],mock_test:["#fbbf24","#22c55e"],pass_plus:["#f472b6","#22c55e"],refresher:["#2dd4bf","#22c55e"],motorway:["#38bdf8","#0ea5e9"],private:["#475569","#475569"]};
+const DIARY_TYPE_COLOURS={pdi_training:["#92400e","#22c55e"],part3_test:["#000000","#000000"],lesson:["#fb923c","#22c55e"],driving_test:["#000000","#000000"],mock_test:["#fbbf24","#22c55e"],pass_plus:["#f472b6","#22c55e"],refresher:["#2dd4bf","#22c55e"],motorway:["#38bdf8","#0ea5e9"],private:["#475569","#475569"]};
 // Diary colours follow the signed-in account (Dale, 15 Sep 2026; the app's lib/diaryColours.ts, docs/shared-formats.md section 2):
 // app_settings id 'diary_colours', owner_id = the signed-in user. No row = never saved anywhere, so the defaults. `saved` is the
 // row's value as stored (defaults not filled in); every key is optional. Only '#…' colours are used, anything else falls back.
@@ -15367,7 +15510,7 @@ async function loadTeamsPanel(){
 
     const [{data:schools}, {data:instructors}] = await Promise.all([
       sb.from("schools").select("id,display_name,name,locked_at").order("display_name"),
-      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at,last_opened_at,app_version,app_platform,last_web_at").in("role",["instructor","super_admin"]).order("full_name"),
+      sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at,last_opened_at,app_version,app_platform,last_web_at,is_trainer,adi_badge_number").in("role",["instructor","super_admin"]).order("full_name"),
       // Only app 1.3.3 and later record an app open, so until everyone is on it the
       // rows fall back to when they last signed in (Dale, 18 Sep 2026).
       loadInstructorLastSeen()
@@ -15397,6 +15540,16 @@ async function loadTeamsPanel(){
     // Website grants for the whole list in one call, so the Teams panel is not N round trips.
     try{ const {data:wg} = await sb.rpc("website_grants_overview"); websiteGrantCache = wg || {}; }
     catch(e){ websiteGrantCache = {}; }
+    // The trainee licence on the row here too. The school-admin branch loads its own school's;
+    // this list spans every school, so it loads every open licence. Without this the chip was
+    // silently empty for a super admin - the function ran, schoolLicenceBy was just never filled
+    // (Dale, 30 Sep 2026).
+    try{
+      const {data:licRows} = await sb.from("trainee_licences")
+        .select("trainee_id,licence_number,licence_sequence,expires_on,extension_applied_on,extension_granted_on")
+        .is("ended_on",null);
+      schoolLicenceBy = Object.fromEntries((licRows||[]).map(r=>[r.trainee_id,r]));
+    }catch(e){ schoolLicenceBy={}; }
     videoFeaturesCache = Object.fromEntries((pfRows||[]).map(r=>[r.owner_type+":"+r.owner_id, r]));
     theoryFeaturesCache = videoFeaturesCache;
 
@@ -15469,7 +15622,7 @@ async function loadTeamsPanel(){
       </div>
       <div class="err" id="teams-err" style="margin-top:.5rem;display:block;text-align:left"></div>`;
 
-    const {data:instructors} = await sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at").eq("role","instructor").eq("school_id",currentSchoolId).order("full_name");
+    const {data:instructors} = await sb.from("profiles").select("id,full_name,email,phone,role,school_id,is_school_admin,locked_at,created_at,is_trainer,adi_badge_number").eq("role","instructor").eq("school_id",currentSchoolId).order("full_name");
     const instrRows = instructors||[];
     const instrIds = instrRows.map(i=>i.id);
     const {data:instrSubs} = instrIds.length
@@ -15489,7 +15642,14 @@ async function loadTeamsPanel(){
       schoolFeeBy = Object.fromEntries((ffRows||[]).map(r=>[r.instructor_id,r]));
       schoolFranchiseDefault = ffSchool && ffSchool.franchise_default_weekly!=null ? Number(ffSchool.franchise_default_weekly) : null;
       schoolPdiPending = new Set((pendingPdi||[]).map(r=>r.instructor_id));
-    }catch(e){ schoolPdiIds=new Set(); schoolPdiPending=new Set(); }
+      // The licence on the row itself, so scanning the list shows who is running out (Dale,
+      // 30 Sep 2026). Same argument as the trainer chip: a school owner should not have to open
+      // fifteen popups to find the one expiring in a fortnight.
+      const {data:licRows} = await sb.from("trainee_licences")
+        .select("trainee_id,licence_number,licence_sequence,expires_on,extension_applied_on,extension_granted_on")
+        .eq("school_id",currentSchoolId).is("ended_on",null);
+      schoolLicenceBy = Object.fromEntries((licRows||[]).map(r=>[r.trainee_id,r]));
+    }catch(e){ schoolPdiIds=new Set(); schoolPdiPending=new Set(); schoolLicenceBy={}; }
     renderFranchiseDefaultPanel(instrRows);
     const instrList=document.getElementById("instructors-list");
     instrList.innerHTML = instrRows.length ? instrRows.map(i=>renderInstructorRow(i, [], false)).join("") : '<p class="muted">No instructors yet.</p>';
@@ -15873,6 +16033,8 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
     + (!fullControls && !isMe ? franchiseFeeChip(i.id) : "")
     + (!fullControls && schoolPdiPending.has(i.id) ? ' <span class="chip chip-wait">Paid seat requested</span>' : "")
     + (fullControls ? accountChips('instructor', i.id) : "")
+    + (i.is_trainer ? ' <span class="chip chip-ok" title="Can be picked as a trainee instructor’s trainer">Trainer</span>' : "")
+    + traineeLicenceChip(i.id)
     + (isMe ? ' <span class="muted" style="font-size:.75rem">(you)</span>' : "")
     + `<div class="muted">${esc(i.email||"")}${(fullControls && !(opts&&opts.hideSchool))?" · "+schoolLabel:""}</div>`
     + (fullControls ? `<div class="muted">${esc(instructorSeenLabel(i))}</div>` : "")
@@ -15884,14 +16046,21 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
       + (!isMe ? `<button class="btn-outline" onclick="openInstructorDiary('${i.id}')">Diary</button><button class="btn-outline" onclick="openStaffThread('${i.id}')">Message</button>` : "");
     return manageRowHtml({ info, buttons, groups: [
       { label: "Money", items: isMe ? [] : [
-        manageItem("Pay", `openPayInstructor('${i.id}')`),
-        manageItem("Change franchise fee", `openChangeFranchiseFee('${i.id}','${nameEsc}')`),
-        manageItem("Franchise fee received", `franchiseQuickReceived('${i.id}')`),
+        manageItem("Pay them", `openPayInstructor('${i.id}')`),
+        manageItem("Fee received", `franchiseQuickReceived('${i.id}')`),
+        manageItem("Change their fee", `openChangeFranchiseFee('${i.id}','${nameEsc}')`),
       ]},
       { label: "Account", items: [
-        emailItem,
-        copyItem,
-        manageItem("Edit", `editInstructor('${i.id}')`),
+        // On the Account bar rather than a group of its own (Dale, 30 Sep 2026). Hidden for a solo
+        // instructor, who can never be paired with a trainee, and for a PDI, who cannot train one.
+        // Holding a trainee licence is what disqualifies somebody, not their billing. Deciding this
+        // from the PDI subscription alone offered the tick to a licence holder whose own record was
+        // on the same row - and the database refuses it, so the menu offered an error (found in the
+        // test school, 30 Sep 2026). Both instructor lists carry this item, so both are fixed.
+        // Straight to the picker for a trainee, because that is where you are when you think of it
+        // (Dale, 30 Sep 2026). It opens the one on PDI Training rather than a second copy that
+        // could drift away from it.
+        schoolLicenceBy[i.id] ? manageItem("Who trains them", `openTrainerPickerFor('${i.id}')`) : "",
         lockItem,
         (schoolPdiIds.has(i.id) && !schoolPdiPending.has(i.id)) ? manageItem("Request paid seat", `requestPdiUpgrade('${i.id}','${nameEsc}')`) : "",
       ]},
@@ -15940,6 +16109,15 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
         emailItem,
         copyItem,
         manageItem("Edit", `editInstructor('${i.id}')`),
+        // On the Account bar rather than a group of its own (Dale, 30 Sep 2026). Hidden for a solo
+        // instructor, who can never be paired with a trainee, and for a PDI, who cannot train one.
+        // Holding a trainee licence is what disqualifies somebody, not their billing. Deciding this
+        // from the PDI subscription alone offered the tick to a licence holder whose own record was
+        // on the same row - and the database refuses it, so the menu offered an error (found in the
+        // test school, 30 Sep 2026). Both instructor lists carry this item, so both are fixed.
+        (i.school_id && !schoolPdiIds.has(i.id) && !schoolLicenceBy[i.id])
+          ? manageItem(i.is_trainer ? "Can train PDIs: yes" : "Can train PDIs: no", `toggleTrainerRow('${i.id}',${i.is_trainer?"false":"true"})`)
+          : "",
         lockItem,
         (school && !isMe) ? manageItem(i.is_school_admin ? "Remove admin" : "Make admin", `toggleSchoolAdmin('${i.id}',${!i.is_school_admin})`) : "",
         // Remove 2FA for someone who has lost their phone, after a check code (Dale, 14 Sep 2026).
@@ -16102,8 +16280,45 @@ async function editInstructor(instructorId){
   // (Chrome offers "prevent this page from creating additional dialogs"
   // after the first one or two), which silently made phone/email
   // uneditable in practice even though the code behind them worked fine.
-  const {data:instr,error:loadError}=await sb.from("profiles").select("id,full_name,phone,email,school_id").eq("id",instructorId).single();
+  const {data:instr,error:loadError}=await sb.from("profiles")
+    .select("id,full_name,phone,email,school_id,adi_badge_number,address_line1,address_line2,city,postcode,is_trainer")
+    .eq("id",instructorId).single();
   if(loadError){ alert(loadError.message); return; }
+
+  // The trainee licence is edited here, on the person, because that is what it belongs to (Dale,
+  // 30 Sep 2026). Before this there was nowhere at all to record one - the test licence went in by
+  // hand - which is why the PDI Training record had a stray sponsor dropdown on it.
+  // The ROUTE is shown but locked once chosen: DVSA say "you can only choose one option and you
+  // cannot change to the other after", and the database refuses it too.
+  let lic=null;
+  if(instr.school_id && !instr.is_trainer){
+    try{
+      const {data}=await sb.from("trainee_licences")
+        .select("id,licence_number,licence_sequence,issued_on,expires_on,route,extension_applied_on,extension_granted_on")
+        .eq("trainee_id",instructorId).is("ended_on",null).maybeSingle();
+      lic=data||null;
+    }catch(e){}
+  }
+  const dval=d=>d?String(d).slice(0,10):"";
+  const licenceFields = (instr.school_id && !instr.is_trainer) ? `
+    <div style="border-top:1px solid var(--line);margin:.9rem 0 .6rem;padding-top:.7rem">
+      <strong style="font-size:.9rem">Trainee licence</strong>
+      <p class="muted" style="margin:.2rem 0 .5rem;font-size:.85rem">${lic?"Their pink badge.":"Leave blank unless they are on a trainee licence."}</p>
+      <div class="field"><label>Licence number</label><input id="edit-lic-no" value="${esc(lic?lic.licence_number||"":"")}" placeholder="PL/000000"></div>
+      <div class="field"><label>Which badge</label>
+        <select id="edit-lic-seq">${[1,2,3].map(n=>`<option value="${n}"${lic&&Number(lic.licence_sequence)===n?" selected":""}>${({1:"1st",2:"2nd",3:"3rd"})[n]} badge</option>`).join("")}</select></div>
+      <div class="field"><label>Issued</label><input id="edit-lic-from" type="date" value="${dval(lic&&lic.issued_on)}"></div>
+      <div class="field"><label>Expires</label><input id="edit-lic-to" type="date" value="${dval(lic&&lic.expires_on)}"></div>
+      <div class="field"><label>Route</label>
+        <select id="edit-lic-route" ${lic&&lic.route?"disabled":""}>
+          <option value="">Not chosen yet</option>
+          <option value="supervision"${lic&&lic.route==="supervision"?" selected":""}>Supervision — a fifth of their lessons</option>
+          <option value="additional_training"${lic&&lic.route==="additional_training"?" selected":""}>Extra training — 20 hours, a quarter on the road</option>
+        </select>
+        ${lic&&lic.route?'<p class="muted" style="margin-top:.3rem;font-size:.85rem">DVSA do not allow the option to be changed once chosen.</p>':""}</div>
+      <div class="field"><label>Next badge applied for</label><input id="edit-lic-applied" type="date" value="${dval(lic&&lic.extension_applied_on)}"></div>
+      <div class="field"><label>Next badge granted</label><input id="edit-lic-granted" type="date" value="${dval(lic&&lic.extension_granted_on)}"></div>
+    </div>` : "";
 
   openModal(`<h3 style="margin:0 0 1rem">Edit instructor</h3>
     <div class="field"><label>Full name</label><input id="edit-instr-name" value="${esc(instr.full_name||"")}"></div>
@@ -16111,6 +16326,13 @@ async function editInstructor(instructorId){
     <div class="field"><label>Email</label><input id="edit-instr-email" type="email" value="${esc(instr.email||"")}">
       <p class="muted" style="margin-top:.3rem">This is also their login — changing it changes what they sign in with. Useful if they're locked out and need a new email.</p>
     </div>
+    <div class="field"><label>ADI/PDI badge number</label><input id="edit-instr-badge" value="${esc(instr.adi_badge_number||"")}">
+      <p class="muted" style="margin-top:.3rem">Needed before they can train PDIs — form ADI 21S asks for it beside their signature.</p></div>
+    <div class="field"><label>Address line 1</label><input id="edit-instr-a1" value="${esc(instr.address_line1||"")}"></div>
+    <div class="field"><label>Address line 2</label><input id="edit-instr-a2" value="${esc(instr.address_line2||"")}"></div>
+    <div class="field"><label>Town or city</label><input id="edit-instr-city" value="${esc(instr.city||"")}"></div>
+    <div class="field"><label>Postcode</label><input id="edit-instr-pc" value="${esc(instr.postcode||"")}"></div>
+    ${licenceFields}
     <button class="btn btn-navy btn-sm" onclick="confirmEditInstructor('${instructorId}','${esc(instr.email||"").replace(/'/g,"&#39;")}')">Save</button>
     <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
     <div class="err" id="edit-instr-err" style="margin-top:.5rem"></div>`);
@@ -16123,11 +16345,43 @@ async function confirmEditInstructor(instructorId, originalEmail){
   const emailTrimmed=document.getElementById("edit-instr-email").value.trim().toLowerCase();
   if(!emailTrimmed){ errEl.textContent="Email can't be blank"; return; }
 
+  const val=id=>{ const el=document.getElementById(id); return el?el.value.trim():null; };
   const {error}=await sb.from("profiles").update({
     full_name: newName,
-    phone: newPhone||null
+    phone: newPhone||null,
+    adi_badge_number: val("edit-instr-badge")||null,
+    address_line1: val("edit-instr-a1")||null,
+    address_line2: val("edit-instr-a2")||null,
+    city: val("edit-instr-city")||null,
+    postcode: val("edit-instr-pc")||null
   }).eq("id",instructorId);
   if(error){ errEl.textContent=error.message; return; }
+
+  // The trainee licence, saved alongside. Nothing is written unless a number or a date was given,
+  // so an ordinary ADI edit does not quietly create an empty licence for them.
+  if(document.getElementById("edit-lic-no")){
+    const licNo=val("edit-lic-no"), from=val("edit-lic-from"), to=val("edit-lic-to");
+    const route=val("edit-lic-route"), applied=val("edit-lic-applied"), granted=val("edit-lic-granted");
+    if(licNo||from||to){
+      const row={ trainee_id:instructorId, licence_number:licNo||null,
+        licence_sequence:Number(val("edit-lic-seq"))||1,
+        issued_on:from||null, expires_on:to||null,
+        extension_applied_on:applied||null, extension_granted_on:granted||null };
+      if(route) row.route=route;
+      const {data:existing}=await sb.from("trainee_licences").select("id,school_id")
+        .eq("trainee_id",instructorId).is("ended_on",null).maybeSingle();
+      let licErr;
+      if(existing){
+        ({error:licErr}=await sb.from("trainee_licences").update(row).eq("id",existing.id));
+      }else{
+        const {data:who}=await sb.from("profiles").select("school_id").eq("id",instructorId).maybeSingle();
+        row.school_id=(who&&who.school_id)||currentSchoolId||null;
+        row.sponsor_id=currentUserId;
+        ({error:licErr}=await sb.from("trainee_licences").insert(row));
+      }
+      if(licErr){ errEl.textContent="Details saved, but the licence did not: "+licErr.message; return; }
+    }
+  }
 
   if(emailTrimmed !== originalEmail.toLowerCase()){
     try{
@@ -16708,7 +16962,7 @@ async function useSchoolDefaultFee(instrId){
 }
 
 // --- Trainee (PDI) onto a paid seat (Dale, 2026-09-11) ----------------------
-let schoolPdiIds=new Set(), schoolPdiPending=new Set();
+let schoolPdiIds=new Set(), schoolPdiPending=new Set(), schoolLicenceBy={};
 
 // School admin: ask Drive My Way. The price is shown before sending.
 async function requestPdiUpgrade(instructorId, name){
@@ -16755,6 +17009,977 @@ async function renderPdiUpgradeRequests(){
         ${r.note?`<div class="muted" style="font-size:.85rem">Note: ${esc(r.note)}</div>`:""}</div>
       <div class="actions"><button class="btn btn-navy btn-sm" onclick="respondPdiUpgrade('${r.id}',true)">Approve</button><button class="btn-outline btn-sm" onclick="respondPdiUpgrade('${r.id}',false)">Decline</button></div></div>`).join("")}`;
 }
+// Trainee instructors on a licence (Dale, 30 Sep 2026). DVSA's rules, not ours: 40 hours before
+// applying with at least 10 in a car, then either a fifth of everything they teach supervised by the
+// sponsor, or 20 hours of extra training with a quarter of it on the road. Fail part 3 or let the
+// three months lapse and it is 5 hours more. school_trainee_summary() does the arithmetic so this and
+// the app cannot disagree about it; everything here just phrases the answer.
+//
+// The column says HOURS SHORT rather than a percentage. On the supervision route the target moves
+// every time they teach - another ten hours taught is another two hours owed - so a percentage tells
+// a school owner he has a problem while hours tell a trainer what to go and do.
+//
+/// Hours, tidied. One place, so no two screens round differently.
+// "1 hour", not "1 hours" - the app says the same (lib/traineeNeed.ts).
+function traineeHrsWord(n){ const v=Math.round(Number(n||0)*10)/10; return traineeHrs(v)+" hour"+(v===1?"":"s"); }
+function traineeHrs(n){ const v=Math.round(Number(n||0)*10)/10; return (Number.isInteger(v)?v:v.toFixed(1)); }
+
+// Tokens, not hex: --bad and --ok flip for dark mode, and the tint is alpha over whatever the card
+// is, so the pill reads on both themes.
+function traineePill(tone,txt){
+  const c = tone==="bad" ? "background:rgba(225,29,72,.14);color:var(--bad)"
+          : tone==="warn" ? "background:rgba(245,158,11,.16);color:#f59e0b"
+          : "background:rgba(5,150,105,.14);color:var(--ok)";
+  return `<span style="${c};font-size:.78rem;padding:2px 9px;border-radius:6px;white-space:nowrap">${txt}</span>`;
+}
+
+// One row, shared by the dashboard panel and the PDI Training tab so they cannot disagree.
+function traineeRowHtml(r, clickable){
+  const h=traineeHrs;
+  const [tone,head,detail]=traineeNeed(r);
+  const days=r.days_left==null?"":`${r.days_left} day${r.days_left===1?"":"s"} left`;
+  const dayCol=r.days_left!=null&&r.days_left<=30?"var(--bad)":r.days_left!=null&&r.days_left<=60?"#f59e0b":"";
+  // One style attribute, not two: a second is silently ignored, so the pointer never appeared.
+  const open=clickable?` onclick="showTrainee('${r.trainee_id}')"`:"";
+  return `<div class="list-row" style="align-items:flex-start${clickable?";cursor:pointer":""}"${open}>
+    <div style="flex:1;min-width:0">
+      <strong>${esc(r.trainee_name||"Trainee")}</strong>
+      ${r.sponsor_name?` <span class="muted" style="font-size:.85rem">&middot; trained by ${esc(r.sponsor_name)}</span>`:` <span class="muted" style="font-size:.85rem">&middot; no trainer set</span>`}
+      <div class="muted" style="font-size:.85rem">${detail}</div>
+      ${r.ended_on?"":(days?`<div style="font-size:.85rem;color:${dayCol||"var(--muted)"}">Licence: ${days}</div>`:"")}
+    </div>
+    <div class="actions">${traineePill(tone,head)}</div>
+  </div>`;
+}
+
+// The one thing this trainee still owes, worst first. Returns [tone, headline, detail].
+// DVSA's rules, not ours, and the arithmetic is school_trainee_summary()'s -- this only phrases it.
+// HOURS SHORT rather than a percentage: on the supervision route the target moves every time they
+// teach, so a percentage tells a school owner he has a problem while hours tell a trainer what to do.
+function traineeNeed(r){
+  const h=traineeHrs;
+    const p=r.progress||{}, pre=p.pre_licence||{}, sup=p.supervision||{}, add=p.additional_training||{}, p3=p.post_part3||{};
+    // A finished licence is not behind on anything. Judging a qualified ADI on their supervision
+    // percentage would show a red "hours short" against somebody who has passed (Dale, 30 Sep 2026).
+    if(r.ended_on){
+      const when=new Date(r.ended_on).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+      if(r.part3_result==="pass") return ["good","Passed","Qualified on "+when+" &middot; send their 21S to DVSA"];
+      return ["good","Licence ended","Ended "+when];
+    }
+    if(p3.required && !p3.met)
+      return ["bad", `${traineeHrsWord(5-Number(p3.hours||0))} short`, `After part 3 &mdash; ${h(p3.hours)} of 5 done`];
+    if(!r.issued_on){
+      const shortH=Math.max(0,40-Number(pre.hours||0)), shortCar=Math.max(0,10-Number(pre.in_car_hours||0));
+      if(shortH>0) return ["warn", `${traineeHrsWord(shortH)} short`, `${h(pre.hours)} of 40 before they can apply`];
+      if(shortCar>0) return ["warn", `${traineeHrsWord(shortCar)} in a car short`, `40 of 40 hours &middot; ${h(pre.in_car_hours)} of 10 in a car`];
+      return ["good","Ready to apply",`${h(pre.hours)} hours, ${h(pre.in_car_hours)} in a car`];
+    }
+    if(r.route==="additional_training"){
+      const shortH=Math.max(0,20-Number(add.hours||0)), shortCar=Math.max(0,(Number(add.hours||0)*0.25)-Number(add.on_road_hours||0));
+      const by=add.deadline?`due ${new Date(add.deadline).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}${add.deadline_is==="part 3 booked"?", part 3 booked":""}`:"";
+      if(shortH>0) return ["bad", `${traineeHrsWord(shortH)} short`, `${h(add.hours)} of 20 &middot; ${by}`];
+      if(shortCar>0) return ["warn", `${traineeHrsWord(shortCar)} on the road short`, `20 of 20 &middot; needs a quarter on the road`];
+      return ["good","Extra training done",`${h(add.hours)} hours &middot; ${by}`];
+    }
+    const req=Number(sup.required_hours||0), got=Number(sup.supervised_hours||0), shortH=Math.max(0,req-got);
+    if(!Number(sup.instruction_hours||0)) return ["good","Nothing taught yet","No supervision owed"];
+    if(shortH>0) return ["bad", `${traineeHrsWord(shortH)} short`, `${h(got)} of ${h(req)} supervised &middot; ${sup.percent}%, needs 20%`];
+    return ["good", `${traineeHrsWord(got-req)} ahead`, `${h(got)} of ${h(req)} supervised &middot; ${sup.percent}%`];
+}
+// The trainee licence, on the instructor's row. Red inside 30 days ONLY when nothing has been done
+// about it - an expiry with the next badge already applied for is in hand, not a crisis, and
+// colouring it red either way trains people to ignore the colour (Dale, 30 Sep 2026).
+function traineeLicenceChip(instructorId){
+  const l = schoolLicenceBy && schoolLicenceBy[instructorId];
+  if(!l) return "";
+  const ord={1:"1st",2:"2nd",3:"3rd"}[Number(l.licence_sequence)||1];
+  const days = l.expires_on ? Math.round((new Date(l.expires_on)-new Date())/86400000) : null;
+  const dealtWith = !!(l.extension_applied_on || l.extension_granted_on);
+  const cls = (days!=null && days<=30 && !dealtWith) ? "chip-bad" : (days!=null && days<=60 && !dealtWith) ? "chip-wait" : "chip-info";
+  const when = l.expires_on ? new Date(l.expires_on).toLocaleDateString("en-GB",{day:"numeric",month:"short"}) : "";
+  const tail = l.extension_granted_on ? ", next granted" : l.extension_applied_on ? ", next applied for" : "";
+  // Clickable: it opens the licence box itself, so the whole record is one press away from the row
+  // rather than Manage - Edit - scroll (Dale, 30 Sep 2026).
+  return ` <span class="chip ${cls}" style="cursor:pointer" title="Open their trainee licence" onclick="event.stopPropagation();editInstructor('${instructorId}')">${ord} badge${when?` &middot; ${when}`:""}${days!=null?` (${days}d)`:""}${tail}</span>`;
+}
+
+// Ticked on the Instructors tab because being a trainer is an attribute of the PERSON; pairing a
+// trainer with a trainee is a relationship and lives on PDI Training (Dale, 30 Sep 2026).
+// The database refuses the tick without an ADI certificate number, so show that reason rather than
+// silently snapping the box back.
+// From the Instructors row's Manage menu. The database refuses the tick without an ADI certificate
+// number, so say that plainly rather than letting the menu close as though it worked.
+async function toggleTrainerRow(instructorId, on){
+  const {error}=await sb.from("profiles").update({is_trainer:!!on}).eq("id",instructorId);
+  if(error){ alert(error.message); return; }
+  await loadTeamsPanel();
+  refreshPdiTrainingTab();
+}
+
+async function setTrainer(instructorId, on){
+  const box=document.getElementById("instr-trainer"), err=document.getElementById("instr-trainer-err");
+  if(err) err.textContent="";
+  const {error}=await sb.from("profiles").update({is_trainer:!!on}).eq("id",instructorId);
+  if(error){
+    if(box) box.checked=!on;
+    if(err) err.textContent=error.message;
+    return;
+  }
+  refreshPdiTrainingTab();
+}
+
+// ---- PDI Training tab (Dale, 30 Sep 2026) -------------------------------------------------
+// The tab is the TRAINING, not the people: who trains whom, the hours behind it, and the forms.
+// Every figure comes from school_trainee_summary(), the same call the dashboard panel uses, so the
+// two cannot drift apart. Nothing here recomputes a threshold.
+let pdiObjectivesCache=[], pdiPart3Booking=null;
+let pdiTrainingRows=[], pdiNames={}, pdiWeeks=[], pdiBadges={}, pdiHours=[], pdiPaired=new Set(), pdiTrainerList=[], pdiTrainingLoad=null;
+
+// The same 0-5 scale instructors already grade pupils on (PUPIL_COMP_TO_LEVEL), so a trainer reads
+// a trainee's chart exactly as they read a pupil's.
+const PDI_LEVELS=["Not started","Introduced","Under full instruction","Prompted","Seldom prompted","Independent"];
+
+// Any ADI training this trainee can move the level, and it records whose judgement it was, because
+// the next trainer wants to know (Dale, 30 Sep 2026). The trainee cannot grade themselves - the
+// database refuses it.
+async function setObjectiveLevel(traineeId, objectiveId, level){
+  const {error}=await sb.rpc("set_trainee_objective_level",{p_trainee:traineeId,p_objective:objectiveId,p_level:Number(level)});
+  if(error){ alert(error.message); return; }
+  showTrainee(traineeId);
+}
+
+// Everything school-wide lives behind this tab, so it is shown to anybody running a school -
+// unlike PDI Training next door, which also waits until there is a trainee to show.
+function refreshDrivingSchoolTab(){
+  const btn=document.getElementById("nav-school-btn"); if(!btn) return;
+  btn.classList.toggle("hidden", !(isSchoolAdminUser && currentSchoolId));
+}
+
+// The tab fetches its own tests rather than leaning on whatever the Dashboard happened to load,
+// so it is right whether or not the Dashboard has been opened. Same window and same arithmetic as
+// the Snapshot: completed tests only, a rolling 12 months.
+async function loadDrivingSchoolTab(){
+  schoolAheadCache=null;
+  const yearAgo=new Date(); yearAgo.setFullYear(yearAgo.getFullYear()-1);
+  if(!testsCache.length) await loadTests();
+  if(!pupilsCache.length && !schoolPupilsCache.length) await loadPupils();
+  if(!schoolInstructorsCache.length) await loadSchoolInstructors();
+  schoolLast12=testsCache.filter(t=>(t.result==="pass"||t.result==="fail")&&new Date(t.test_date)>=yearAgo);
+  await renderTestsByInstructor(schoolLast12);
+  await renderSchoolInstructors(schoolLast12);
+}
+
+// Everything the school knows about each instructor, one shut row at a time.
+//
+// Built from what is already loaded - the same tests the table below it uses, and the same pupil
+// caches the Pupils tab uses - plus one query for what is still to come. Nothing is worked out
+// twice, so this panel cannot disagree with the one under it.
+let schoolInstructorOpen=null;
+let schoolInstructorData=null;
+let schoolLast12=[], schoolAheadCache=null;
+async function renderSchoolInstructors(last12){
+  const el=document.getElementById("school-instructors-list");
+  if(!el) return;
+
+  const allPupils=[...pupilsCache,...schoolPupilsCache];
+  // What is still to come: booked tests, and any part 3 in the diary. Fetched once when the tab is
+  // opened and kept - opening a row is not a reason to go back to the database.
+  if(!schoolAheadCache){
+    const now=new Date().toISOString();
+    const [{data:futureTests},{data:part3s},{data:pairs},{data:theory},{data:hazard},{data:clips}] = await Promise.all([
+      sb.from("practical_tests").select("pupil_id,test_date,instructor_id").gt("test_date",now),
+      sb.from("lessons").select("instructor_id,start_time,test_start_time").eq("lesson_type","part3_test").gt("start_time",now),
+      sb.from("trainee_trainers").select("trainer_id,trainee_id"),
+      // Theory and hazard, school-wide. The Theory tab next door is each instructor's own pupils;
+      // this is the only place an owner can compare across the school (Dale, 30 Sep 2026).
+      sb.from("theory_attempts").select("pupil_id,mode,passed"),
+      sb.from("hazard_attempts").select("pupil_id,clip_id"),
+      sb.from("hazard_clips").select("id").eq("active",true),
+    ]);
+    schoolAheadCache={
+      futureTests:futureTests||[],part3s:part3s||[],pairs:pairs||[],
+      theory:theory||[],hazard:hazard||[],clipTotal:(clips||[]).length,
+    };
+  }
+  const {futureTests,part3s,pairs,theory,hazard,clipTotal}=schoolAheadCache;
+
+  const ids=new Set((schoolInstructorsCache||[]).map(i=>i.id));
+  if(currentUserId) ids.add(currentUserId);
+  (last12||[]).forEach(t=>{ if(t.instructor_id) ids.add(t.instructor_id); });
+
+  const nameOf=id=>{
+    const i=(schoolInstructorsCache||[]).find(x=>x.id===id);
+    return (i&&(i.full_name||i.email)) || (id===currentUserId?"You":"Instructor");
+  };
+
+  schoolInstructorData=[...ids].map(id=>{
+    const mine=(last12||[]).filter(t=>t.instructor_id===id);
+    const n=mine.length, passes=mine.filter(t=>t.result==="pass").length;
+    const theirs=allPupils.filter(p=>p.instructor_id===id);
+    const p3=(part3s||[]).filter(x=>x.instructor_id===id)
+      .sort((a,b)=>new Date(a.start_time)-new Date(b.start_time))[0]||null;
+    // Theory and hazard for THEIR pupils. "Started" is the honest word: one practice attempt is
+    // not progress, but no attempt at all is the thing an owner wants to see.
+    const theirIds=new Set(theirs.filter(p=>p.status==="active").map(p=>p.id));
+    const theirTheory=(theory||[]).filter(a=>theirIds.has(a.pupil_id));
+    const theirHazard=(hazard||[]).filter(a=>theirIds.has(a.pupil_id));
+    const startedTheory=new Set(theirTheory.map(a=>a.pupil_id)).size;
+    const passedMock=new Set(theirTheory.filter(a=>a.mode==="mock"&&a.passed).map(a=>a.pupil_id)).size;
+    const startedHazard=new Set(theirHazard.map(a=>a.pupil_id)).size;
+    const clipsSeen=new Set(theirHazard.map(a=>a.clip_id)).size;
+    return {
+      id,
+      name: nameOf(id) + (id===currentUserId?" (you)":""),
+      active: theirs.filter(p=>p.status==="active").length,
+      waiting: theirs.filter(p=>p.status==="waiting").length,
+      passed: theirs.filter(p=>p.status==="passed").length,
+      tests:n, passes, fails: mine.filter(t=>t.result==="fail").length,
+      passRate: n?Math.round((passes/n)*100):null,
+      avgD: n?Math.round((mine.reduce((s,t)=>s+Number(t.driving_faults||0),0)/n)*100)/100:null,
+      avgS: n?Math.round((mine.reduce((s,t)=>s+Number(t.serious_faults||0),0)/n)*100)/100:null,
+      examPct: n?Math.round((mine.filter(t=>t.examiner_action).length/n)*10000)/100:null,
+      upcoming: (futureTests||[]).filter(t=>t.instructor_id===id).length,
+      startedTheory, passedMock, startedHazard, clipsSeen, clipTotal,
+      part3: p3,
+      trains: (pairs||[]).filter(x=>x.trainer_id===id).length,
+    };
+  }).sort((a,b)=> b.active-a.active || String(a.name).localeCompare(String(b.name)));
+
+  el.innerHTML = schoolInstructorData.map(r=>{
+    const open = schoolInstructorOpen===r.id;
+    const p3when = r.part3
+      ? new Date(r.part3.start_time).toLocaleDateString("en-GB",{day:"numeric",month:"short"})
+      : null;
+    // The shut line: the three things Dale asked to see without opening anything.
+    const quick = [
+      `${r.active} pupil${r.active===1?"":"s"}`,
+      r.passRate===null?"no tests yet":`${r.passRate}% pass rate`,
+      r.upcoming?`${r.upcoming} test${r.upcoming===1?"":"s"} booked`:null,
+      r.active?`${r.startedTheory}/${r.active} on theory`:null,
+      p3when?`part 3 ${p3when}`:null,
+    ].filter(Boolean).join(" &middot; ");
+    const rows = [
+      ["Active pupils", r.active],
+      ["Waiting", r.waiting],
+      ["Passed", r.passed],
+      ["Tests in the last 12 months", r.tests],
+      ["Passes", r.passes],
+      ["Fails", r.fails],
+      ["Pass rate", r.passRate===null?"&ndash;":r.passRate+"%"],
+      ["Average driving faults", r.avgD===null?"&ndash;":r.avgD],
+      ["Average serious faults", r.avgS===null?"&ndash;":r.avgS],
+      ["Examiner action taken", r.examPct===null?"&ndash;":r.examPct+"%"],
+      ["Tests still to come", r.upcoming],
+      ["Pupils who have started theory", r.active?`${r.startedTheory} of ${r.active}`:"&ndash;"],
+      ["Pupils who have passed a mock theory", r.active?`${r.passedMock} of ${r.active}`:"&ndash;"],
+      ["Pupils who have started hazard perception", r.active?`${r.startedHazard} of ${r.active}`:"&ndash;"],
+      ["Different hazard clips their pupils have watched", r.clipTotal?`${r.clipsSeen} of ${r.clipTotal}`:"&ndash;"],
+      ["Their own part 3", r.part3
+        ? new Date(r.part3.start_time).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})
+          + (r.part3.test_start_time?` at ${String(r.part3.test_start_time).slice(0,5)}`:"")
+        : "&ndash;"],
+      ["Trainees they train", r.trains||"&ndash;"],
+    ];
+    return `<div style="border-bottom:1px solid var(--line)">
+      <button type="button" class="si-row" onclick="toggleSchoolInstructor('${r.id}')">
+        <div style="display:flex;justify-content:space-between;gap:.5rem;align-items:baseline">
+          <strong>${esc(r.name)}</strong><span class="muted" style="font-size:.8rem">${open?"Close":"Open"}</span>
+        </div>
+        <div class="muted" style="font-size:.85rem;margin-top:.15rem">${quick}</div>
+      </button>
+      ${open?`<div style="padding:0 .2rem .85rem"><table><tbody>${
+        rows.map(([k,v])=>`<tr><td>${k}</td><td style="text-align:right">${v}</td></tr>`).join("")
+      }</tbody></table></div>`:""}
+    </div>`;
+  }).join("") || '<p class="muted">No instructors yet.</p>';
+}
+function toggleSchoolInstructor(id){
+  schoolInstructorOpen = schoolInstructorOpen===id ? null : id;
+  renderSchoolInstructors(schoolLast12);
+}
+
+async function refreshPdiTrainingTab(){
+  const btn=document.getElementById("nav-pdi-training-btn"); if(!btn) return;
+  if(!(isSchoolAdminUser && currentSchoolId)){ btn.classList.add("hidden"); return; }
+  try{
+    const {data,error}=await sb.rpc("school_trainee_summary");
+    btn.classList.toggle("hidden", !!error || !data || !data.length);
+  }catch(e){ btn.classList.add("hidden"); }
+}
+
+async function loadPdiTraining(){
+  const list=document.getElementById("pdi-training-list");
+  const detail=document.getElementById("pdi-training-detail");
+  if(!list) return;
+  detail.innerHTML="";
+  list.innerHTML='<p class="muted">Loading…</p>';
+  try{
+    const {data,error}=await sb.rpc("school_trainee_summary");
+    if(error) throw error;
+    pdiTrainingRows=data||[];
+  }catch(e){ list.innerHTML='<p class="muted">Could not load your trainees: '+esc(e.message||e)+'</p>'; return; }
+  if(!pdiTrainingRows.length){ list.innerHTML='<p class="muted">Nobody in your school is on a trainee licence.</p>'; return; }
+  const training=pdiTrainingRows.filter(r=>!r.ended_on);
+  const finished=pdiTrainingRows.filter(r=>r.ended_on);
+  const behind=training.filter(r=>traineeNeed(r)[0]==="bad").length;
+  const unsigned=training.reduce((s,r)=>s+Number((r.progress||{}).unconfirmed_hours||0),0);
+  list.innerHTML=`<div class="panel">
+    <strong>${training.length} on a trainee licence</strong>
+    ${behind?` <span style="color:var(--bad)">&middot; ${behind} behind</span>`:""}
+    ${unsigned?` <span class="muted">&middot; ${traineeHrs(unsigned)} hours not yet signed</span>`:""}
+    <p class="muted" style="margin:.3rem 0 .6rem">Tap a trainee for their record and to print it.</p>
+    ${training.map(r=>traineeRowHtml(r,true)).join("")}
+    ${finished.length?`<div style="margin-top:1rem;padding-top:.6rem;border-top:1px solid var(--line)">
+      <strong style="font-size:.9rem">Finished</strong>
+      <p class="muted" style="margin:.2rem 0 .5rem;font-size:.85rem">Their licence has ended, so they are off the list above. Kept for six months because ADI 21S goes to DVSA when a licence ends &mdash; which is the moment they pass.</p>
+      ${finished.map(r=>traineeRowHtml(r,true)).join("")}</div>`:""}
+  </div>`;
+}
+
+// One trainee: where they are, who trains them, and the weekly rows that become form ADI 21S.
+async function showTrainee(id){
+  const el=document.getElementById("pdi-training-detail"); if(!el) return;
+  const r=pdiTrainingRows.find(x=>x.trainee_id===id); if(!r) return;
+  el.innerHTML='<div class="panel"><p class="muted">Loading…</p></div>';
+  let hours=[], trainers=[], objectives=[];
+  try{
+    const [{data:hrs},{data:tr},{data:everyone},{data:objs},{data:p3rows},{data:paired}]=await Promise.all([
+      sb.from("trainee_training_hours").select("session_date,hours,kind,on_road,confirmed_at,supervisor_id,objective_id").eq("trainee_id",id).order("session_date"),
+      sb.from("profiles").select("id,full_name,adi_badge_number").eq("school_id",currentSchoolId).eq("is_trainer",true).order("full_name"),
+      // Names for the day-by-day view: 21S has room for four different ADIs, so a week can carry
+      // supervision from more than one of them and the record has to say which (Dale, 30 Sep 2026).
+      sb.from("profiles").select("id,full_name,adi_badge_number").eq("school_id",currentSchoolId),
+      sb.rpc("trainee_objectives",{p_trainee:id}),
+      // Their part 3, if one is in the diary. A trainee may BOOK it; only a trainer or the school
+      // may confirm it, because the three-month rule keys off that date (Dale, 30 Sep 2026).
+      sb.from("lessons").select("id,start_time,test_start_time,no_charge,pupil:pupils(first_name,last_name)")
+        .eq("lesson_type","part3_test").eq("instructor_id",id)
+        .order("start_time",{ascending:false}).limit(1),
+      // Who is actually paired with this trainee. Being ticked as a trainer is a capability; the
+      // pairing is what grants sight of the record, so the two are loaded separately.
+      sb.from("trainee_trainers").select("trainer_id").eq("trainee_id",id)
+    ]);
+    hours=hrs||[]; trainers=tr||[];
+    pdiNames={}; pdiBadges={};
+    (everyone||[]).forEach(x=>{ pdiNames[x.id]=x.full_name; pdiBadges[x.id]=x.adi_badge_number||""; });
+    objectives=objs||[]; pdiObjectivesCache=objectives;
+    pdiHours=hours; pdiTrainerList=trainers;
+    pdiPaired=new Set((paired||[]).map(x=>x.trainer_id));
+    pdiPart3Booking=(p3rows||[])[0]||null;
+  }catch(e){ el.innerHTML='<div class="panel"><p class="muted">Could not load the record.</p></div>'; return; }
+
+  const p=r.progress||{}, sup=p.supervision||{}, pre=p.pre_licence||{}, lic=p.licence||{};
+  const weeks=weeklyRows(hours, lic.issued_on); pdiWeeks=weeks;
+  // The training the trainee RECEIVED, which the weekly grid does not cover (Dale, 30 Sep 2026:
+  // "what about instructor training"). 21S records what they teach; the 40 hours before the licence
+  // and Option 2's extra training are the other half of the record and go on the 21T declaration.
+  const TRAIN_LABEL={pre_licence:"Before the licence",additional_training:"Extra training",post_part3_training:"After part 3"};
+  const received=(hours||[]).filter(r=>TRAIN_LABEL[r.kind]).sort((a,b)=>a.session_date<b.session_date?-1:1);
+  const h=traineeHrs;
+  const [tone,head,detail]=traineeNeed(r);
+
+  const trainerPicker = trainers.length
+    ? `<select id="pdi-trainer" style="max-width:16rem">${trainers.map(t=>`<option value="${t.id}"${t.id===r.sponsor_id?" selected":""}>${esc(t.full_name)}</option>`).join("")}</select>
+       <button class="btn btn-navy btn-sm" onclick="assignTrainer('${id}')">Save</button>`
+    : `<span class="muted">No trainers yet. Tick an instructor as a trainer on the Instructors tab &mdash; they need their ADI certificate number, because form 21S asks for it beside their signature.</span>`;
+
+  const pairedNames=[...pdiPaired].map(t=>pdiNames[t]).filter(Boolean).sort();
+  const pairedLine=`<div style="margin-top:.55rem;font-size:.85rem">${pairedNames.length
+      ? "Trains them: "+pairedNames.map(esc).join(", ")
+      : '<span class="muted">Nobody is paired with them yet, so only you can see this record.</span>'}
+    <button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openTrainerPicker('${id}')">Choose trainers</button></div>`;
+
+  el.innerHTML=`<div class="panel" style="margin-top:1rem">
+    <div style="display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:14rem">
+        <strong style="font-size:1.05rem">${esc(r.trainee_name||"Trainee")}</strong>
+        <div class="muted" style="font-size:.85rem">${lic.licence_number?esc(lic.licence_number)+" &middot; ":""}${r.ended_on?"licence ended "+new Date(r.ended_on).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}):(lic.expires_on?"expires "+new Date(lic.expires_on).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}):"no licence recorded")}</div>
+        ${lic.part3_result?`<div style="font-size:.85rem;margin-top:.15rem;color:${lic.part3_result==="pass"?"var(--ok)":"var(--bad)"}">Part 3 ${lic.part3_result==="pass"?"passed":"failed"}${lic.part3_taken_on?" on "+new Date(lic.part3_taken_on).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}):""}${lic.part3_result==="fail"?" &middot; five more hours needed":""}</div>`:""}
+        ${part3BookingLine(id, lic)}
+      </div>
+      <div>${traineePill(tone,head)}</div>
+      <div><button class="btn-outline btn-sm" onclick="printTrainee21S('${id}')">Print 21S</button>
+        ${r.ended_on?"":`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPart3('${id}')">Record part 3</button>`}</div>
+    </div>
+
+    <div style="margin-top:.9rem"><strong style="font-size:.9rem">Sponsor</strong>
+      <p class="muted" style="margin:.2rem 0 .4rem;font-size:.85rem">The ADI named on their licence. Everyone who trains them is listed underneath &mdash; several is normal, and only they can see this record.</p>
+      <div style="margin-top:.3rem">${trainerPicker}</div>${pairedLine}</div>
+
+    <div style="margin-top:.9rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.6rem">
+      <div class="metric"><div class="l">Taught</div><div class="v">${h(sup.instruction_hours)}h</div></div>
+      <div class="metric"><div class="l">Supervised</div><div class="v ${sup.met?"good":"bad"}">${h(sup.supervised_hours)}h</div></div>
+      <div class="metric"><div class="l">DVSA want</div><div class="v">${h(sup.required_hours)}h</div></div>
+      <div class="metric"><div class="l">Before the licence</div><div class="v ${pre.met?"good":"bad"}">${h(pre.hours)}h</div></div>
+    </div>
+    <p class="muted" style="margin:.4rem 0 0;font-size:.85rem">${detail}. Pre-licence training was ${h(pre.hours)} hours with ${h(pre.in_car_hours)} in a car; DVSA want 40 and 10.</p>
+
+    <div style="margin-top:1rem"><strong style="font-size:.9rem">Week by week</strong>
+      <p class="muted" style="margin:.2rem 0 .4rem;font-size:.85rem">This is form 21S: each week, the hours taught, the hours supervised, and whether it has been signed.</p>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.85rem">
+        <tr style="text-align:left"><th style="padding:.3rem .5rem">Week</th><th style="padding:.3rem .5rem">Instruction</th><th style="padding:.3rem .5rem">Supervised</th><th style="padding:.3rem .5rem">Signed</th></tr>
+        ${weeks.length?weeks.map((w,i)=>`<tr style="border-top:1px solid var(--line);cursor:pointer" onclick="toggleWeek(${i})">
+          <td style="padding:.3rem .5rem">${w.label}</td>
+          <td style="padding:.3rem .5rem">${w.given?h(w.given)+"h":"&mdash;"}</td>
+          <td style="padding:.3rem .5rem">${w.sup?h(w.sup)+"h":"&mdash;"}${w.who.size?` <span class="muted">&middot; ${[...w.who].map(id=>esc(pdiNames[id]||"?")).join(", ")}</span>`:""}</td>
+          <td style="padding:.3rem .5rem">${w.unsigned?`<span style="color:var(--bad)">${h(w.unsigned)}h unsigned</span>`:"Yes"}</td>
+        </tr><tr id="wk-${i}"></tr>`).join(""):`<tr><td colspan="4" class="muted" style="padding:.5rem">Nothing recorded since the licence was issued.</td></tr>`}
+      </table></div>
+    </div>
+
+    <div style="margin-top:1.2rem"><strong style="font-size:.9rem">Syllabus &mdash; ${objectives.filter(o=>Number(o.level)>0||Number(o.hours)>0).length} of ${objectives.length} started, ${objectives.filter(o=>Number(o.level)===5).length} independent</strong>
+      <p class="muted" style="margin:.2rem 0 .4rem;font-size:.85rem">The twenty objectives printed on form ADI 21T, plus anything your school has added, graded the same way you grade a pupil. Whoever trains them next picks up where the last one left off.</p>
+      <div style="display:grid;gap:.25rem">
+        ${objectives.map(o=>{
+          const done=Number(o.hours)>0;
+          // Who covered it, worked out from the sessions already loaded. Shown rather than hidden in
+          // a tooltip: Dale reviews on a phone, where there is no hover (Dale, 30 Sep 2026).
+          const mine=(hours||[]).filter(t=>t.objective_id===o.objective_id && t.supervisor_id);
+          const who=[...new Set(mine.map(t=>pdiNames[t.supervisor_id]).filter(Boolean))];
+          // Usually one PDI to one ADI, so do not print the same name twice with two labels
+          // (Dale, 30 Sep 2026). Only say which is which when they genuinely differ.
+          const sameOne = o.level_by && who.length===1 && who[0]===o.level_by;
+          // WHEN as well as who: on a record two or three ADIs share, "who said this and how long
+          // ago" is what makes a note worth acting on (Dale, 30 Sep 2026).
+          const gradedWhen = o.level_at ? new Date(o.level_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "";
+          const byLine = (sameOne ? [esc(o.level_by)]
+            : [o.level_by?`graded by ${esc(o.level_by)}`:"", who.length?`trained by ${who.map(esc).join(", ")}`:""])
+            .concat(gradedWhen?[gradedWhen]:[]).filter(Boolean).join(" &middot; ");
+          const lvl=Number(o.level||0);
+          const dot=lvl===5?"var(--ok)":lvl>0?"#f59e0b":"var(--muted)";
+          return `<div style="display:flex;gap:.6rem;align-items:center;padding:.3rem .1rem;border-bottom:1px solid var(--line);flex-wrap:wrap">
+            <span style="width:.6rem;height:.6rem;border-radius:50%;flex:none;background:${dot}"></span>
+            <span style="flex:1;min-width:11rem;font-size:.85rem${lvl?"":";opacity:.75"}">${esc(o.name)}${o.is_dvsa?"":' <span class="muted">(your school)</span>'}
+              ${byLine?`<div class="muted" style="font-size:.78rem">${byLine}</div>`:""}
+              <div style="margin-top:.2rem;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+                ${o.level_note?`<span class="chip chip-info">note</span><span class="muted" style="font-size:.78rem;flex:1;min-width:9rem">${esc(o.level_note)}</span>`:""}
+                <button class="btn-outline btn-sm" onclick="event.stopPropagation();editTraineeObjectiveNote('${id}','${o.objective_id}')">${o.level_note?"Edit note":"+ Note"}</button>
+              </div></span>
+            <select onchange="setObjectiveLevel('${id}','${o.objective_id}',this.value)" style="flex:none;max-width:12rem;font-size:.8rem">
+              ${PDI_LEVELS.map((lab,n)=>`<option value="${n}"${n===lvl?" selected":""}>${lab}</option>`).join("")}
+            </select>
+            <span style="flex:none;width:6.5rem;text-align:right;font-size:.8rem" class="${done?"":"muted"}">${done?h(o.hours)+"h"+(Number(o.in_car_hours)>0?" ("+h(o.in_car_hours)+" car)":""):"no hours"}</span>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>
+
+    <div style="margin-top:1.2rem"><strong style="font-size:.9rem">Training they were given</strong>
+      <p class="muted" style="margin:.2rem 0 .4rem;font-size:.85rem">Hours of training an ADI gave <em>them</em>, which go on their 21T declaration. Not to be confused with the syllabus above, which is how capable they are, or Week by week further up, which is what they teach.</p>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.85rem">
+        <tr style="text-align:left"><th style="padding:.3rem .5rem">Date</th><th style="padding:.3rem .5rem">Hours</th><th style="padding:.3rem .5rem">Stage</th><th style="padding:.3rem .5rem">In a car</th><th style="padding:.3rem .5rem">Given by</th></tr>
+        ${received.length?received.map(t=>`<tr style="border-top:1px solid var(--line)">
+          <td style="padding:.3rem .5rem">${new Date(t.session_date).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</td>
+          <td style="padding:.3rem .5rem">${h(t.hours)}h</td>
+          <td style="padding:.3rem .5rem">${TRAIN_LABEL[t.kind]}</td>
+          <td style="padding:.3rem .5rem">${t.on_road?"Yes":"&mdash;"}</td>
+          <td style="padding:.3rem .5rem" class="muted">${t.supervisor_id&&pdiNames[t.supervisor_id]?esc(pdiNames[t.supervisor_id]):"&mdash;"}</td>
+        </tr>`).join(""):`<tr><td colspan="5" class="muted" style="padding:.5rem">No training recorded against them yet.</td></tr>`}
+      </table></div>
+    </div>
+  </div>`;
+}
+
+// Group the hour rows into weeks starting Monday. Regulation 15(2) wants a signature every working
+// day; 21S is laid out weekly, so store daily and roll up here.
+function weeklyRows(hours, issuedOn){
+  const from = issuedOn ? new Date(issuedOn) : null;
+  const buckets = new Map();
+  (hours||[]).forEach(row=>{
+    if(row.kind!=="instruction_given" && row.kind!=="supervised") return;
+    const d=new Date(row.session_date);
+    if(from && d<from) return;
+    const m=new Date(d); m.setDate(m.getDate()-((m.getDay()+6)%7)); m.setHours(0,0,0,0);
+    const key=m.toISOString().slice(0,10);
+    const b=buckets.get(key)||{start:m,given:0,sup:0,unsigned:0,days:[],who:new Set()};
+    if(row.kind==="instruction_given") b.given+=Number(row.hours||0); else b.sup+=Number(row.hours||0);
+    if(!row.confirmed_at) b.unsigned+=Number(row.hours||0);
+    if(row.kind==="supervised" && row.supervisor_id) b.who.add(row.supervisor_id);
+    b.days.push(row);
+    buckets.set(key,b);
+  });
+  return [...buckets.values()].sort((a,b)=>a.start-b.start).map((b,i)=>({
+    ...b, label:`${i+1} &middot; w/c ${b.start.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`
+  }));
+}
+
+// A week opens to the days behind it: 21S has four ADI slots, so who supervised which day is part
+// of the record, not a detail (Dale, 30 Sep 2026).
+function toggleWeek(i){
+  const el=document.getElementById("wk-"+i); if(!el) return;
+  const w=pdiWeeks[i]; if(!w) return;
+  if(el.innerHTML){ el.innerHTML=""; return; }
+  const h=traineeHrs;
+  el.innerHTML=`<td colspan="4" style="padding:.4rem .5rem .6rem;background:rgba(127,127,127,.06)">
+    ${w.days.sort((a,b)=>a.session_date<b.session_date?-1:1).map(d=>`<div style="display:flex;gap:.6rem;flex-wrap:wrap;padding:.15rem 0;font-size:.82rem">
+      <span style="min-width:6.5rem">${new Date(d.session_date).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}</span>
+      <span style="min-width:4rem">${h(d.hours)}h</span>
+      <span style="min-width:7rem">${d.kind==="supervised"?"Supervised":"Instruction given"}</span>
+      <span style="flex:1;min-width:8rem" class="muted">${d.kind==="supervised"?(pdiNames[d.supervisor_id]?esc(pdiNames[d.supervisor_id]):"<em>supervisor not recorded</em>"):""}</span>
+      <span>${d.confirmed_at?'<span class="muted">signed</span>':'<span style="color:var(--bad)">not signed</span>'}</span>
+    </div>`).join("")}
+  </td>`;
+}
+
+async function assignTrainer(traineeId){
+  const sel=document.getElementById("pdi-trainer"); if(!sel) return;
+  const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId); if(!r) return;
+  const {error}=await sb.from("trainee_licences").update({sponsor_id:sel.value})
+    .eq("trainee_id",traineeId).is("ended_on",null);
+  if(error){ alert(error.message); return; }
+  await loadPdiTraining();
+  showTrainee(traineeId);
+}
+
+// Recording the part 3 (Dale, 30 Sep 2026). A pass ends the licence that day and turns their free
+// trainee seat into a paid one; Dale's rule is that the charge starts at the NEXT BILLING DATE and
+// the school is told the date before it happens, never afterwards. A fail leaves the licence open
+// and the further five hours DVSA require appear on the record by themselves.
+async function openPart3(traineeId){
+  const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId); if(!r) return;
+  const name=r.trainee_name||"this trainee";
+  let when=null, seats=null;
+  try{
+    const {data}=await sb.from("subscriptions")
+      .select("current_period_end,seats_purchased,videos_addon")
+      .eq("owner_type","school").eq("owner_id",currentSchoolId).maybeSingle();
+    if(data){ when=data.current_period_end; seats=data; }
+  }catch(e){}
+  // Never print "from undefined": Dale's own school has no subscription at all, and a school on a
+  // trial has no period end yet.
+  const billLine = !seats
+    ? "Your school has no billing set up, so nothing extra is charged."
+    : (when
+        ? `Their seat becomes ${gbp(SEAT_PRICE_PENCE+(seats.videos_addon?VIDEO_ADDON_PENCE:0))} a month from your next payment on ${new Date(when).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}, taking your school to ${gbp(schoolMonthlyPence((seats.seats_purchased||1)+1, seats.videos_addon))} a month. Nothing is charged before then.`
+        : `Their seat becomes ${gbp(SEAT_PRICE_PENCE+(seats.videos_addon?VIDEO_ADDON_PENCE:0))} a month from your next payment. Nothing is charged before then.`);
+
+  openModal(`<h3 style="margin:0 0 .5rem">Record ${esc(name)}'s part 3</h3>
+    <div class="field"><label>Date they sat it</label><input id="p3-date" type="date" max="${new Date().toISOString().slice(0,10)}" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Result</label>
+      <select id="p3-result" onchange="part3ResultChanged()">
+        <option value="pass">Passed</option>
+        <option value="fail">Failed</option>
+      </select></div>
+    <div id="p3-pass-part">
+      <div class="field"><label>Their ADI certificate number</label><input id="p3-badge" placeholder="Replaces their PL number"></div>
+      <p class="muted" style="margin:0 0 .75rem;font-size:.85rem">Their trainee licence ends on the date above and they become a full ADI. ${billLine} Drive My Way still approves the seat before anything changes.</p>
+      <p class="muted" style="margin:0 0 .75rem;font-size:.85rem">Send their ADI 21S to DVSA now &mdash; a licence ending is what the form is for. They stay on this screen for six months so you can still print it.</p>
+    </div>
+    <div id="p3-fail-part" style="display:none">
+      <p class="muted" style="margin:0 0 .75rem;font-size:.85rem">Their licence stays open. DVSA want a further <strong>five hours</strong> of training on a new declaration before they sit it again, and those hours will show on this record as soon as they are logged.</p>
+    </div>
+    <button class="btn btn-navy btn-sm" onclick="savePart3('${traineeId}')">Save</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
+    <div class="err" id="p3-err" style="margin-top:.5rem"></div>`);
+}
+
+function part3ResultChanged(){
+  const pass=(document.getElementById("p3-result")||{}).value==="pass";
+  const a=document.getElementById("p3-pass-part"), b=document.getElementById("p3-fail-part");
+  if(a) a.style.display=pass?"":"none";
+  if(b) b.style.display=pass?"none":"";
+}
+
+async function savePart3(traineeId){
+  const err=document.getElementById("p3-err");
+  const date=(document.getElementById("p3-date")||{}).value||"";
+  const result=(document.getElementById("p3-result")||{}).value||"";
+  const badge=((document.getElementById("p3-badge")||{}).value||"").trim();
+  if(!date){ if(err) err.textContent="Give the date they sat it."; return; }
+  if(result==="pass" && !badge){
+    if(err) err.textContent="Their ADI certificate number is needed: form 21S asks for it beside a trainer's signature, and they cannot be made a trainer without it.";
+    return;
+  }
+  let out=null;
+  try{
+    const {data,error}=await sb.rpc("record_part3_result",
+      {p_trainee:traineeId, p_taken_on:date, p_result:result, p_badge:badge||null});
+    if(error) throw error;
+    out=data;
+  }catch(e){ if(err) err.textContent=e.message||"Could not save that."; return; }
+
+  // The seat conversion goes through the same route as the manual "Request paid seat" button, so
+  // Drive My Way sees one queue and one approve/decline, not two.
+  let seatNote="";
+  if(out && out.needs_paid_seat && !out.already_pending){
+    try{
+      await manageAuthAdmin("request_pdi_upgrade",
+        {instructor_id:traineeId, note:"Passed their part 3 on "+date});
+      seatNote=" Drive My Way has been asked to move them onto a paid seat.";
+    }catch(e){ seatNote=" Their record is saved, but the paid-seat request did not send — use Request paid seat on the Instructors tab."; }
+  } else if(out && out.already_pending){
+    seatNote=" A paid-seat request was already waiting.";
+  }
+  closeModal();
+  alert(result==="pass"
+    ? "Recorded. Their trainee licence ended on "+date+"."+seatNote+" Send their ADI 21S to DVSA — you can still print it from here for six months."
+    : "Recorded. Their licence stays open and five further hours are now needed.");
+  await loadPdiTraining();
+  showTrainee(traineeId);
+  loadDash();
+}
+
+// The note on an objective, from the PDI Training record. Same store as the one on the instructor's
+// Details tab - one note per objective, latest wins, and you can always see whose it is and when
+// (Dale, 30 Sep 2026: "if a pdi is being trained by multiple adis it will help know who entered the
+// late note and when").
+function editTraineeObjectiveNote(traineeId, objectiveId){
+  const o = (pdiObjectivesCache||[]).find(x=>x.objective_id===objectiveId) || {};
+  openModal(`<h3 style="margin:0 0 .5rem">${esc(o.name||"Note")}</h3>
+    <p class="muted" style="margin-bottom:.6rem">What they did, and what to pick up next time. Whoever trains them next sees this.</p>
+    <div class="field"><textarea id="tr-obj-note" rows="4" placeholder="e.g. Good on approach, still talking over the pupil at junctions">${esc(o.level_note||"")}</textarea></div>
+    <button class="btn btn-navy btn-sm" onclick="saveTraineeObjectiveNote('${traineeId}','${objectiveId}')">Save</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal();showTrainee('${traineeId}')">Cancel</button>
+    <div class="err" id="tr-obj-err" style="margin-top:.5rem"></div>`);
+}
+async function saveTraineeObjectiveNote(traineeId, objectiveId){
+  const err=document.getElementById("tr-obj-err");
+  const note=(document.getElementById("tr-obj-note").value||"").trim();
+  const o=(pdiObjectivesCache||[]).find(x=>x.objective_id===objectiveId)||{};
+  const {error}=await sb.rpc("set_trainee_objective_level",
+    {p_trainee:traineeId, p_objective:objectiveId, p_level:Number(o.level||0), p_note:note||null});
+  if(error){ if(err) err.textContent=error.message; return; }
+  closeModal();
+  showTrainee(traineeId);
+}
+
+// Their part 3 in the diary. Three states worth telling apart:
+//   nothing booked          - say nothing
+//   booked, not confirmed   - the trainee put it in; a trainer has to agree it before the licence
+//                             carries the date, because missing the three-month window is what
+//                             triggers the extra five hours
+//   booked and confirmed    - just the date
+function part3BookingLine(traineeId, lic){
+  const b = pdiPart3Booking;
+  if(!b) return "";
+  const when = new Date(b.start_time);
+  const day = when.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const time = when.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+  const testAt = b.test_start_time ? String(b.test_start_time).slice(0,5) : "";
+  const times = testAt ? `test at ${testAt}, lesson from ${time}` : `at ${time}`;
+  const iso = when.toISOString().slice(0,10);
+  const confirmed = lic && lic.part3_booked_on === iso;
+  const who = b.pupil ? `${esc(b.pupil.first_name)} ${esc(b.pupil.last_name)}` : "a pupil";
+  // Whether the pupil is being billed for sitting in on somebody else's exam. Shown either way,
+  // because "no charge" is the default and a default nobody can see is a default nobody checks
+  // (Dale, 30 Sep 2026).
+  const free = b.no_charge !== false;
+  const chargeLine = `<div class="muted" style="font-size:.8rem;margin-top:.25rem">`
+    + (free ? "The pupil is not charged for this." : "The pupil is charged for this lesson.")
+    + ` <a href="#" onclick="event.preventDefault();setPart3Charge('${traineeId}','${b.id}',${free})">`
+    + (free ? "Charge them" : "Do not charge them") + `</a></div>`;
+  if(confirmed){
+    return `<div style="font-size:.85rem;margin-top:.15rem" class="muted">Part 3 booked for ${day}, ${times}, taking ${who}.</div>${chargeLine}`;
+  }
+  return `<div style="margin-top:.4rem;padding:.5rem .65rem;border-radius:8px;background:rgba(245,158,11,.12)">
+    <div style="font-size:.85rem"><strong>Part 3 booked for ${day}, ${times}</strong>, taking ${who}.</div>
+    <div class="muted" style="font-size:.8rem;margin:.2rem 0 .4rem">They have put this in themselves. Nothing counts until you agree it &mdash; the three-month rule runs from the date you confirm.</div>
+    <button class="btn btn-navy btn-sm" onclick="confirmPart3('${traineeId}','${b.id}')">Confirm this date</button>
+    ${chargeLine}
+  </div>`;
+}
+async function setPart3Charge(traineeId, lessonId, charge){
+  const {error}=await sb.from("lessons").update({no_charge: !charge}).eq("id", lessonId);
+  if(error){ alert(error.message); return; }
+  await loadPdiTraining();
+  showTrainee(traineeId);
+}
+async function confirmPart3(traineeId, lessonId){
+  const {error}=await sb.rpc("confirm_part3_booking",{p_lesson:lessonId});
+  if(error){ alert(error.message); return; }
+  await loadPdiTraining();
+  showTrainee(traineeId);
+}
+
+// Whether a lesson has anything to say about money. Mirrors src/lib/lessonMoney.ts in the app - if
+// one of them changes, change the other, or the two products will show different chips for the same
+// lesson (see the 25 Sep calculation audit).
+function ccLessonShowsMoney(l){
+  if(!l) return false;
+  if(!l.pupil_id) return false;
+  if(l.lesson_type==="lesson_offer") return false;
+  if(l.no_charge) return false;
+  return true;
+}
+
+// The same completed tests the Snapshot above is built from, split by who taught the pupil.
+//
+// Deliberately computed from the SAME array as the tiles above rather than from
+// school_metrics_by_instructor(): two implementations sitting inches apart on one screen is how
+// numbers start disagreeing. The rows therefore always add up to the figures above them.
+//
+// Anybody named on a test gets a row whatever their role says - that is how a school owner who
+// teaches sees their own results, which was the whole point (Dale, 30 Sep 2026).
+async function renderTestsByInstructor(last12){
+  const panel=document.getElementById("per-instructor-panel");
+  if(!panel) return;
+  // Sign-in fills this before the dashboard, but every other caller in this file guards it the
+  // same way rather than trusting the order - without a list, the table would quietly show one row.
+  if(!schoolInstructorsCache.length) await loadSchoolInstructors();
+
+  const ids=new Set((schoolInstructorsCache||[]).map(i=>i.id));
+  if(currentUserId) ids.add(currentUserId);
+  (last12||[]).forEach(t=>{ if(t.instructor_id) ids.add(t.instructor_id); });
+
+  const nameOf=id=>{
+    const i=(schoolInstructorsCache||[]).find(x=>x.id===id);
+    const n=i?(i.full_name||i.email):null;
+    return n || (id===currentUserId ? "You" : "Instructor");
+  };
+
+  const rows=[...ids].map(id=>{
+    const mine=(last12||[]).filter(t=>t.instructor_id===id);
+    const n=mine.length;
+    const passes=mine.filter(t=>t.result==="pass").length;
+    const sumD=mine.reduce((s,t)=>s+Number(t.driving_faults||0),0);
+    const sumS=mine.reduce((s,t)=>s+Number(t.serious_faults||0),0);
+    const examN=mine.filter(t=>t.examiner_action).length;
+    return {
+      id, name: nameOf(id) + (id===currentUserId ? " (you)" : ""), n, passes,
+      // Zeros rather than invented percentages when somebody has sat none - the same rule the
+      // Snapshot uses, and the reason a blank column is not shown as 0% red.
+      passRate: n?Math.round((passes/n)*100):null,
+      avgD: n?Math.round((sumD/n)*100)/100:null,
+      avgS: n?Math.round((sumS/n)*100)/100:null,
+      examPct: n?Math.round((examN/n)*10000)/100:null,
+    };
+  }).sort((a,b)=> b.n-a.n || String(a.name).localeCompare(String(b.name)));
+
+  const cell=v=>v===null?'<td class="muted">–</td>':`<td>${v}</td>`;
+  const body=rows.map(r=>`<tr>
+    <td>${esc(r.name)}</td>
+    <td>${r.n}</td>
+    <td>${r.passes}</td>
+    ${r.passRate===null?'<td class="muted">–</td>':`<td style="${r.passRate>55?"":"color:var(--bad);font-weight:600"}">${r.passRate}%</td>`}
+    ${cell(r.avgD)}${cell(r.avgS)}
+    ${r.examPct===null?'<td class="muted">–</td>':`<td>${r.examPct}%</td>`}
+  </tr>`).join("");
+
+  document.getElementById("per-instructor-table").innerHTML =
+    `<div style="max-height:60vh;overflow-y:auto"><table><thead><tr>
+      <th>Instructor</th><th>Tests</th><th>Passes</th><th>Pass rate</th>
+      <th>Avg driving</th><th>Avg serious</th><th>Examiner action</th>
+    </tr></thead><tbody>${body}</tbody></table></div>`;
+
+  const withAny=rows.filter(r=>r.n>0).length;
+  document.getElementById("per-instructor-note").textContent =
+    (last12||[]).length
+      ? `Completed tests in the last 12 months, the same ones the Snapshot above is built from. ${withAny} of ${rows.length} instructor${rows.length===1?"":"s"} ${withAny===1?"has":"have"} brought a pupil for a test in that time.`
+      : "No completed tests in the last 12 months yet.";
+}
+
+// Who trains a trainee, chosen by the school. Several ADIs to one trainee is normal - 21S has four
+// slots for exactly that reason - and ticking somebody as a trainer only gives them the capability:
+// this pairing is what actually lets them see the record (Dale, 30 Sep 2026: "if i was been trained
+// by tom, i wouldnt want fred knowing what goes on in my lesson as its nothing to do with fred").
+// The database refuses a pairing written by anybody but the school, so a trainer cannot let
+// themselves in.
+async function openTrainerPickerFor(traineeId){
+  goTab("pditraining");
+  // goTab has already started the load; wait for THAT one. Starting a second would blank the
+  // record out from under the modal, because loadPdiTraining clears the detail pane first.
+  try{ await pdiTrainingLoad; }catch(e){}
+  if(!pdiTrainingRows.some(x=>x.trainee_id===traineeId)){ alert("Could not open their training record."); return; }
+  await showTrainee(traineeId);
+  openTrainerPicker(traineeId);
+}
+
+function openTrainerPicker(traineeId){
+  const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId); if(!r) return;
+  if(!pdiTrainerList.length){ alert("Nobody in your school is ticked as a trainer yet. Tick them on the Instructors tab first - they need their ADI certificate number, because form 21S asks for it beside their signature."); return; }
+  openModal(`<h3 style="margin:0 0 .5rem">Who trains ${esc(r.trainee_name||"this trainee")}?</h3>
+    <p class="muted" style="margin-bottom:.75rem">Tick every ADI who trains them. They will see this record and can update the syllabus, so whoever trains them next picks up where the last one left off. Untick to remove somebody.</p>
+    <div style="display:grid;gap:.4rem;max-height:18rem;overflow:auto">
+      ${pdiTrainerList.map(t=>`<label style="display:flex;gap:.5rem;align-items:center;font-size:.9rem">
+        <input type="checkbox" class="pdi-trainer-tick" value="${t.id}"${pdiPaired.has(t.id)?" checked":""}>
+        <span>${esc(t.full_name||"")}${t.adi_badge_number?` <span class="muted">&middot; ${esc(t.adi_badge_number)}</span>`:' <span style="color:var(--bad)">&middot; no certificate number</span>'}${t.id===r.sponsor_id?' <span class="chip chip-info">Sponsor</span>':""}</span>
+      </label>`).join("")}
+    </div>
+    <button class="btn btn-navy btn-sm" style="margin-top:.75rem" onclick="saveTrainerPicker('${traineeId}')">Save</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
+    <div class="err" id="pdi-trainer-err" style="margin-top:.5rem"></div>`);
+}
+
+async function saveTrainerPicker(traineeId){
+  const err=document.getElementById("pdi-trainer-err");
+  const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId); if(!r) return;
+  // Their school, not the signed-in one: a super admin looking at somebody else's school would
+  // otherwise stamp their own id on the row. The write policy checks school_id against the caller's
+  // school, so it is required, not decoration - an insert without it is rejected outright.
+  const schoolId=((r.progress||{}).licence||{}).school_id || currentSchoolId;
+  const want=new Set([...document.querySelectorAll(".pdi-trainer-tick")].filter(c=>c.checked).map(c=>c.value));
+  const add=[...want].filter(x=>!pdiPaired.has(x));
+  const remove=[...pdiPaired].filter(x=>!want.has(x));
+  if(!add.length && !remove.length){ closeModal(); return; }
+  try{
+    if(add.length){
+      const {error}=await sb.from("trainee_trainers")
+        .insert(add.map(t=>({trainee_id:traineeId,trainer_id:t,school_id:schoolId,assigned_by:currentUserId})));
+      if(error) throw error;
+    }
+    if(remove.length){
+      const {error}=await sb.from("trainee_trainers").delete().eq("trainee_id",traineeId).in("trainer_id",remove);
+      if(error) throw error;
+    }
+  }catch(e){ if(err) err.textContent=e.message||"Could not save that."; return; }
+  closeModal();
+  showTrainee(traineeId);
+}
+
+// The point of the whole tab: the form, filled in, ready to sign. Opened as its own document so the
+// Control Centre's own print styles cannot reach it.
+// Print ADI 21S as the actual form, not as a dump of what is on screen.
+//
+// Laid out from the real thing (ADI 21S Rev. 02/17, "Record required by Regulation 15(2) of the
+// Motor cars (Driving Instruction) Regulations 2005"): two header boxes, then 28 week blocks of
+// Date / Hours Instruction / Hours Supervised / Signature of Trainee / Signature of ADI.
+//
+// It is THE RECORD (Dale, 30 Sep 2026), printed so it can be signed in wet ink and scanned - which
+// is what the form itself invites: "Alternatively send a scanned copy to PADI@dvsa.gov.uk". Every
+// signature box is therefore left EMPTY on purpose, however much we happen to know.
+async function printTrainee21S(id){
+  const r=pdiTrainingRows.find(x=>x.trainee_id===id); if(!r) return;
+  const lic=(r.progress||{}).licence||{};
+
+  // The header boxes need things the training record itself does not carry.
+  const [{data:me},{data:school}] = await Promise.all([
+    sb.from("profiles").select("full_name,adi_badge_number,phone,address_line1,address_line2,city,postcode").eq("id",id).maybeSingle(),
+    currentSchoolId
+      ? sb.from("schools").select("name,display_name,address_line1,address_line2,postcode,phone").eq("id",currentSchoolId).maybeSingle()
+      : Promise.resolve({data:null}),
+  ]);
+
+  // Every ADI who actually supervised, not just the sponsor. The form has four slots and wants a
+  // certificate number beside each signature; a sponsor who never sat in and an ADI who did every
+  // week would otherwise both be misrepresented on a form it is an offence to get wrong.
+  const supIds=[...new Set((pdiHours||[]).filter(t=>t.kind==="supervised"&&t.supervisor_id).map(t=>t.supervisor_id))];
+  const ordered=[r.sponsor_id,...supIds.filter(x=>x!==r.sponsor_id)].filter(Boolean);
+  const slots=ordered.slice(0,4);
+  const missingNo=slots.filter(x=>!pdiBadges[x]);
+
+  // Hours by day. Stored per session and rolled up here, so the same record prints whether the
+  // form wants a line per day or one line per week.
+  const byDay={};
+  (pdiHours||[]).forEach(h=>{
+    const d=String(h.session_date).slice(0,10);
+    const x=byDay[d]||(byDay[d]={instruction:0,supervised:0,who:new Set()});
+    if(h.kind==="instruction_given") x.instruction+=Number(h.hours||0);
+    // Who supervised, printed beside the hours so the ADI signing can see which rows are theirs
+    // without counting back through the week (Dale, 30 Sep 2026). More than one ADI in a day is
+    // normal in a school, so it is a set.
+    if(h.kind==="supervised"){ x.supervised+=Number(h.hours||0); if(h.supervisor_id) x.who.add(h.supervisor_id); }
+  });
+
+  const startOn = lic.issued_on ? new Date(lic.issued_on) : null;
+  const dmy=d=>d.toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"2-digit"});
+  const hrs=n=>n?(Math.round(n*100)/100):"";
+
+  // 28 weeks, because a trainee licence runs six months and that is what the form prints.
+  let weeks="";
+  for(let w=0; w<28; w++){
+    const from = startOn ? new Date(startOn.getFullYear(),startOn.getMonth(),startOn.getDate()+w*7) : null;
+    const to   = from ? new Date(from.getFullYear(),from.getMonth(),from.getDate()+6) : null;
+    const days = from ? Object.keys(byDay).filter(d=>{ const x=new Date(d+"T00:00:00"); return x>=from && x<=to; }).sort() : [];
+    const rows = days.length
+      ? days.map(d=>{
+          const x=byDay[d];
+          const who=[...x.who].map(function(pid){ return esc(pdiNames[pid]||""); }).filter(Boolean).join(", ");
+          return "<tr><td>"+dmy(new Date(d+"T00:00:00"))+"</td><td>"+hrs(x.instruction)+"</td><td>"+hrs(x.supervised)+"</td><td>"+who+"</td><td class=\"sigbox\"></td><td class=\"sigbox\"></td></tr>";
+        }).join("")
+      : "<tr><td>&nbsp;</td><td></td><td></td><td></td><td class=\"sigbox\"></td><td class=\"sigbox\"></td></tr>";
+    // The form asks these in the ninth, fourteenth and nineteenth weeks.
+    const ask=[8,13,18].includes(w)
+      ? "<tr><td colspan=\"6\" class=\"ask\">Have you spoken to your supervisor ADI about your progress? &nbsp;&nbsp; Have you applied for a Part 3 test?</td></tr>"
+      : "";
+    weeks += "<table class=\"wk\"><tr><th colspan=\"6\" class=\"wkh\">Week "+(w+1)
+      + (from?" &nbsp;<span class=\"wkd\">"+dmy(from)+" to "+dmy(to)+"</span>":"")
+      + "</th></tr>"
+      + "<tr><th style=\"width:13%\">Date</th><th style=\"width:13%\">Hours Instruction</th><th style=\"width:13%\">Hours Supervised</th>"
+      + "<th style=\"width:21%\">Supervised by</th><th style=\"width:20%\">Signature of Trainee</th><th style=\"width:20%\">Signature of ADI</th></tr>"
+      + rows + ask + "</table>";
+  }
+
+  const addr=[me&&me.address_line1,me&&me.address_line2,me&&me.city].filter(Boolean).join(", ");
+  const schoolName=school?(school.display_name||school.name||""):"";
+  const schoolAddr=school?[school.address_line1,school.address_line2].filter(Boolean).join(", "):"";
+  const line=(label,value)=>"<div class=\"f\"><span class=\"fl\">"+label+"</span><span class=\"fv\">"+esc(value||"")+"</span></div>";
+
+  // Said on the form itself, not in an alert nobody keeps: a box that cannot be filled is the thing
+  // DVSA will bounce it for.
+  const warnings=[];
+  if(!(me&&me.adi_badge_number)) warnings.push("No Personal Reference Number (PRN) recorded for this trainee &mdash; it is their ADI/PDI badge number, which they can add on their own Profile in the app.");
+  if(missingNo.length) warnings.push("No ADI certificate number recorded for "+missingNo.map(x=>esc(pdiNames[x]||"?")).join(", ")+". DVSA want it beside the signature &mdash; add it on the Instructors tab.");
+  if(school && !school.phone) warnings.push("No telephone number recorded for "+esc(schoolName||"the school")+". The form asks for the training establishment's number.");
+  if(ordered.length>4) warnings.push("<strong>"+ordered.length+" different ADIs supervised this trainee.</strong> The form has room for four; "+ordered.slice(4).map(x=>esc(pdiNames[x]||"?")).join(", ")+(ordered.length===5?" needs":" need")+" a continuation sheet.");
+
+  // A blocked popup used to mean the button did nothing at all, with no message - the worst
+  // possible outcome for a form somebody is trying to send to DVSA.
+  const win=window.open("","_blank","width=900,height=1000");
+  const printInPlace=(html)=>{
+    const f=document.createElement("iframe");
+    f.setAttribute("aria-hidden","true");
+    f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    document.body.appendChild(f);
+    const d=f.contentWindow.document;
+    d.open(); d.write(html); d.close();
+    setTimeout(function(){ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert("Could not open the print view: "+(e.message||e)); }
+                           setTimeout(function(){ f.remove(); }, 60000); }, 300);
+  };
+
+  const css = "@page{size:A4;margin:12mm}"
+    + "body{font-family:system-ui,Arial,sans-serif;color:#111;margin:0;font-size:11px}"
+    + "h1{font-size:16px;margin:0}.sub{font-size:10px;margin:2px 0 10px}"
+    + ".boxes{display:flex;gap:10px;margin-bottom:10px}.box{flex:1;border:1px solid #333;padding:8px}"
+    + ".box h2{font-size:11px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em}"
+    + ".f{display:flex;gap:6px;border-bottom:1px solid #bbb;padding:3px 0}"
+    + ".fl{width:52%;color:#333}.fv{flex:1;font-weight:600}"
+    + ".adi{border-bottom:1px solid #bbb;padding:4px 0;margin-bottom:4px}.adi .n{font-weight:600}"
+    + ".adi .s{display:block;border-bottom:1px solid #333;height:16px;margin-top:10px}"
+    + "table{width:100%;border-collapse:collapse;margin-bottom:6px}"
+    + "th,td{border:1px solid #666;padding:3px 4px;text-align:left;font-size:10px}"
+    + "th{background:#eee;font-weight:600}.wkh{background:#333;color:#fff;text-align:left}"
+    + ".wkd{font-weight:400;font-size:9px}.sigbox{height:18px}.ask{font-style:italic;background:#fafafa}"
+    + ".grid{column-count:2;column-gap:10px}.wk{break-inside:avoid}"
+    + ".note{border:1px solid #333;padding:8px;margin-top:10px;font-size:10px}"
+    + ".warn{color:#b00000;font-size:10px;margin:2px 0}";
+
+  const printHtml = "<!doctype html><html><head><meta charset=\"utf-8\"><title>ADI 21S &mdash; "+esc(r.trainee_name||"")+"</title>"
+    + "<style>"+css+"</style></head><body>"
+    + "<h1>Licensed Trainee Supervision Record</h1>"
+    + "<div class=\"sub\">Form ADI 21S &middot; Record required by Regulation 15(2) of the Motor cars (Driving Instruction) Regulations 2005"
+    + " &middot; prepared from the Drive My Way diary on "+new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})+"</div>"
+    + (warnings.length?"<div>"+warnings.map(function(x){return "<p class=\"warn\">"+x+"</p>";}).join("")+"</div>":"")
+    + "<div class=\"boxes\"><div class=\"box\"><h2>1 &nbsp; Your details</h2>"
+    + line("Serial Number on Licence:", lic.licence_number)
+    + line("Your Personal Reference Number (PRN):", me&&me.adi_badge_number)
+    + line("Name of Licence Holder:", r.trainee_name)
+    + line("Home address:", addr)
+    + line("Postcode:", me&&me.postcode)
+    + line("Telephone number (with area code):", me&&me.phone)
+    + line("Name of the Training Establishment on Licence:", schoolName)
+    + line("Business Address:", schoolAddr)
+    + line("Postcode:", school&&school.postcode)
+    + line("Telephone number (with area code):", school&&school.phone)
+    + "</div><div class=\"box\"><h2>2 &nbsp; ADI details &mdash; who have signed overleaf</h2>"
+    + [0,1,2,3].map(function(n){ const pid=slots[n]; return "<div class=\"adi\">"
+        + "<div class=\"n\">ADI's Name: "+(pid?esc(pdiNames[pid]||""):"&nbsp;")+"</div>"
+        + "<div>ADI Certificate Number: "+(pid?esc(pdiBadges[pid]||""):"")+"</div>"
+        + "<span class=\"s\"></span><div style=\"font-size:9px\">Signed</div></div>"; }).join("")
+    + "</div></div>"
+    + "<div class=\"grid\">"+weeks+"</div>"
+    + "<div class=\"note\"><strong>Notes.</strong> For the duration of your trainee licence, you must keep a record of the number of hours"
+    + " you spend giving driving instruction and the number of hours you are directly supervised by an Approved Driving Instructor."
+    + " You must be supervised for at least one fifth of the time you give instruction during this period. This form must be available"
+    + " to any DVSA official upon demand. <strong>Remember it is an offence to make a false declaration. If you did not receive the"
+    + " supervision you should not sign.</strong><br><br>"
+    + "<strong>Where to send your form.</strong> At the end of the 6 months please send this completed record to: Register of Approved"
+    + " Driving Instructors, DVSA, 1 Unity Square, Nottingham, NG2 1AY. Alternatively send a scanned copy to PADI@dvsa.gov.uk</div>"
+    + "</body></html>";
+
+  if(win){ win.document.write(printHtml); win.document.close(); win.focus(); }
+  else { printInPlace(printHtml); }
+}
+
 async function respondPdiUpgrade(id, approve){
   let note="";
   if(approve){
@@ -16839,7 +18064,7 @@ function daysAgo(dateStr){
 }
 
 async function showInstructorDetail(instructorId){
-  const {data:i} = await sb.from("profiles").select("id,full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode,school_id,is_school_admin,created_at,last_opened_at,app_version,app_platform,last_web_at").eq("id",instructorId).single();
+  const {data:i} = await sb.from("profiles").select("id,full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode,school_id,is_school_admin,is_trainer,created_at,last_opened_at,app_version,app_platform,last_web_at").eq("id",instructorId).single();
   // Their last sign-in, in case their app is too old to record opens.
   await loadInstructorLastSeen();
   // How much they're actually using it, not just that they signed in once. Super admin only.
@@ -16884,22 +18109,240 @@ async function showInstructorDetail(instructorId){
   }
 
   const paymentsBlock = (isSuperAdminUser && sub && !i.school_id) ? await superAdminPaymentsBlock(sub.id) : "";
-  openModal(`<h3 style="margin:0 0 1rem">${esc(i.full_name||i.email)}</h3>
-    <div class="field"><label>Contact</label>
+
+  // The trainee licence belongs to the PERSON, so it lives here beside their badge number rather
+  // than on the PDI Training record (Dale, 30 Sep 2026). Which pink badge they are on, when it runs
+  // out, and whether the next one has been applied for -- an expiry already in hand should not read
+  // as a crisis. Someone on a licence cannot also be a trainer, so that row is hidden for them.
+  let instrLic=null;
+  try{
+    const {data}=await sb.from("trainee_licences")
+      .select("id,licence_number,licence_sequence,issued_on,expires_on,route,extension_applied_on,extension_granted_on,sponsor_id")
+      .eq("trainee_id",instructorId).is("ended_on",null).maybeSingle();
+    instrLic=data||null;
+  }catch(e){}
+  const ord=n=>({1:"1st",2:"2nd",3:"3rd"}[Number(n)||1]);
+  const dmy=d=>d?new Date(d).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"";
+  const daysLeft=instrLic&&instrLic.expires_on?Math.round((new Date(instrLic.expires_on)-new Date())/86400000):null;
+  const instrLicenceBlock = instrLic ? `<div class="field"><label>Trainee licence (${ord(instrLic.licence_sequence)} badge)</label>
+      <p>${instrLic.licence_number?esc(instrLic.licence_number):'<span class="muted">no number recorded</span>'}
+        &middot; issued ${dmy(instrLic.issued_on)||"&mdash;"}
+        &middot; expires <strong style="${daysLeft!=null&&daysLeft<=30&&!instrLic.extension_applied_on?"color:var(--bad)":""}">${dmy(instrLic.expires_on)||"&mdash;"}</strong>${daysLeft!=null?` <span class="muted">(${daysLeft} days)</span>`:""}</p>
+      <div class="muted" style="font-size:.85rem">Route: ${instrLic.route==="supervision"?"supervision, a fifth of their lessons":instrLic.route==="additional_training"?"20 hours extra training":"not chosen yet"}
+        ${instrLic.extension_granted_on?` &middot; next badge granted ${dmy(instrLic.extension_granted_on)}`:instrLic.extension_applied_on?` &middot; next badge applied for ${dmy(instrLic.extension_applied_on)}`:" &middot; no extension applied for"}</div>
+    </div>` : "";
+
+  // Tabbed like a pupil's Details, with the tabs that suit an instructor (Dale, 30 Sep 2026: "it
+  // should do the same for adi/pdi - but showing the relivant tabs to them"). Training and Progress
+  // only exist for somebody on a trainee licence: an ordinary ADI has no 21T record to show.
+  instrDetail = { i, school, address, billingBlock, paymentsBlock, instrLicenceBlock, instrLic, opens7,
+                  tab: (instrDetail && instrDetail.i && instrDetail.i.id === instructorId) ? instrDetail.tab : "summary" };
+  renderInstructorModal();
+}
+
+
+// The Diary / Training / Progress panes on an instructor's Details (Dale, 30 Sep 2026).
+//
+// LESSONS ARE SPLIT IN TWO. Dale asked "lessons - whos lessons are they?" and he was right that one
+// mixed list is useless: training a trainee RECEIVED and lessons they TAUGHT are the two halves of
+// ADI 21S and mean opposite things. Holidays, gaps and appointments are left out entirely - they
+// are personal time, nothing to do with a DVSA record, and a plain trainer cannot even see them.
+async function loadInstructorPane(which, instructorId){
+  const el = document.getElementById("instr-pane"); if(!el) return;
+  try{
+    if(which === "money"){
+      // The money between this school and this instructor. Their Drive My Way subscription is not
+      // it - that is Billing's job, and a school seat is paid by the school anyway.
+      const [{data:fee},{data:charges}] = await Promise.all([
+        sb.from("franchise_fees").select("weekly_amount,active,source").eq("instructor_id",instructorId).maybeSingle(),
+        sb.from("franchise_charges").select("week_start,amount,status,netted_amount,cash_amount,paid_at")
+          .eq("instructor_id",instructorId).order("week_start",{ascending:false}).limit(12),
+      ]);
+      const due=(charges||[]).filter(c=>c.status!=="paid");
+      const owed=due.reduce((t,c)=>t+Number(c.amount||0),0);
+      const rows=(charges||[]).map(c=>{
+        const wk=new Date(c.week_start+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+        const paid=c.status==="paid";
+        const how=paid
+          ? [Number(c.netted_amount)>0?poundsFmt(c.netted_amount)+" from money held":null,
+             Number(c.cash_amount)>0?poundsFmt(c.cash_amount)+" paid":null].filter(Boolean).join(" + ")
+          : "";
+        return `<tr><td>${wk}</td><td>${poundsFmt(c.amount)}</td>
+          <td>${paid?'<span class="chip chip-ok">Paid</span>':'<span class="chip chip-bad">Due</span>'}</td>
+          <td class="muted">${how}</td></tr>`;
+      }).join("");
+      el.innerHTML = `<div class="field"><label>Franchise fee</label>
+          <p>${fee&&fee.weekly_amount!=null?`<strong>${poundsFmt(fee.weekly_amount)}</strong> a week${fee.source==="default"?' <span class="muted">(school default)</span>':' <span class="muted">(set for them)</span>'}`:'<span class="muted">No franchise fee set</span>'}</p>
+        </div>
+        <div class="field"><label>Owed to the school</label>
+          <p>${due.length?`<strong>${poundsFmt(owed)}</strong> across ${due.length} week${due.length===1?"":"s"}`:'<span class="muted">Nothing outstanding</span>'}</p>
+        </div>
+        ${rows?`<table><thead><tr><th>Week</th><th>Fee</th><th>Status</th><th>How</th></tr></thead><tbody>${rows}</tbody></table>`
+              :'<p class="muted">No franchise weeks recorded yet.</p>'}`;
+      return;
+    }
+    if(which === "diary"){
+      const {data} = await sb.from("lessons")
+        .select("id,start_time,end_time,status,lesson_type,supervised_by,pupil:pupils(first_name,last_name)")
+        .or(`instructor_id.eq.${instructorId},trainee_id.eq.${instructorId}`)
+        .not("lesson_type","in","(gap,student_away,private)")
+        .order("start_time",{ascending:false}).limit(40);
+      const rows = data||[];
+      const received = rows.filter(l=>l.lesson_type==="pdi_training");
+      const taught   = rows.filter(l=>l.lesson_type!=="pdi_training");
+      const line = l=>`<div class="list-row"><div style="flex:1">
+          <strong>${l.lesson_type==="pdi_training"?"Training session":l.lesson_type==="part3_test"?"Part 3 test":(l.pupil?esc(l.pupil.first_name+" "+l.pupil.last_name):"Lesson")}</strong>
+          ${l.supervised_by?' <span class="chip chip-info">supervised</span>':""}
+          <div class="muted" style="font-size:.85rem">${new Date(l.start_time).toLocaleString("en-GB",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} &middot; ${esc(l.status)}</div>
+        </div></div>`;
+      el.innerHTML = `
+        <div class="field"><label>Training they were given</label>
+          ${received.length?received.map(line).join(""):'<p class="muted">None recorded.</p>'}</div>
+        <div class="field"><label>Lessons they taught</label>
+          ${taught.length?taught.map(line).join(""):'<p class="muted">None recorded.</p>'}</div>
+        <p class="muted" style="font-size:.8rem">Holidays, gaps and appointments are their own time and are not shown here.</p>`;
+      return;
+    }
+
+    if(which === "training"){
+      const {data:pr} = await sb.rpc("trainee_progress",{p_trainee_id:instructorId});
+      const {data:hrs} = await sb.from("trainee_training_hours")
+        .select("session_date,hours,kind,on_road,confirmed_at")
+        .eq("trainee_id",instructorId).order("session_date",{ascending:false}).limit(60);
+      const sup=(pr&&pr.supervision)||{}, pre=(pr&&pr.pre_licence)||{};
+      const KIND={pre_licence:"Before the licence",instruction_given:"Taught",supervised:"Supervised",
+                  additional_training:"Extra training",post_part3_training:"After part 3"};
+      el.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.6rem;margin-bottom:.8rem">
+          <div class="metric"><div class="l">Taught</div><div class="v">${traineeHrs(sup.instruction_hours)}h</div></div>
+          <div class="metric"><div class="l">Supervised</div><div class="v ${sup.met?"good":"bad"}">${traineeHrs(sup.supervised_hours)}h</div></div>
+          <div class="metric"><div class="l">DVSA want</div><div class="v">${traineeHrs(sup.required_hours)}h</div></div>
+          <div class="metric"><div class="l">Before the licence</div><div class="v ${pre.met?"good":"bad"}">${traineeHrs(pre.hours)}h</div></div>
+        </div>
+        ${(hrs||[]).length ? (hrs||[]).map(x=>`<div class="list-row"><div style="flex:1">
+            <strong>${KIND[x.kind]||esc(x.kind)}</strong>
+            <div class="muted" style="font-size:.85rem">${new Date(x.session_date).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}${x.on_road?" &middot; in a car":""}</div>
+          </div><div class="actions">${traineeHrs(x.hours)}h${x.confirmed_at?"":' <span style="color:var(--bad);font-size:.8rem">not signed</span>'}</div></div>`).join("")
+          : '<p class="muted">No hours recorded yet.</p>'}`;
+      return;
+    }
+
+    // Progress: laid out like a pupil's, with a note under each objective and a pill once there is
+    // one (Dale, 30 Sep 2026). set_trainee_objective_level already took a note - it was never shown.
+    const {data:objs} = await sb.rpc("trainee_objectives",{p_trainee:instructorId});
+    instrObjectives = objs||[];
+    el.innerHTML = instrObjectives.map((o,idx)=>{
+      const lvl=Number(o.level||0);
+      const dot=lvl===5?"var(--ok)":lvl>0?"#f59e0b":"var(--muted)";
+      return `<div style="padding:.5rem 0;border-bottom:1px solid var(--line)">
+        <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+          <span style="width:.6rem;height:.6rem;border-radius:50%;flex:none;background:${dot}"></span>
+          <span style="flex:1;min-width:11rem;font-size:.9rem">${esc(o.name)}
+            ${(o.level_by||o.level_at)?`<div class="muted" style="font-size:.78rem">${[o.level_by?"graded by "+esc(o.level_by):null, o.level_at?new Date(o.level_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):null].filter(Boolean).join(" &middot; ")}</div>`:""}</span>
+          <select onchange="setInstrObjectiveLevel('${instructorId}','${o.objective_id}',this.value)" style="flex:none;max-width:12rem;font-size:.82rem">
+            ${PDI_LEVELS.map((lab,n)=>`<option value="${n}"${n===lvl?" selected":""}>${lab}</option>`).join("")}
+          </select>
+        </div>
+        <div style="margin-top:.25rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+          ${o.level_note?`<span class="chip chip-info">note</span><span class="muted" style="font-size:.82rem;flex:1;min-width:10rem">${esc(o.level_note)}</span>`:""}
+          <button class="btn-outline btn-sm" onclick="editInstrObjectiveNote('${instructorId}','${o.objective_id}',${idx})">${o.level_note?"Edit note":"+ Note"}</button>
+        </div>
+      </div>`;
+    }).join("") || '<p class="muted">No objectives yet.</p>';
+  }catch(e){
+    el.innerHTML = `<p class="muted">Could not load that: ${esc(e.message||e)}</p>`;
+  }
+}
+
+let instrObjectives = [];
+async function setInstrObjectiveLevel(instructorId, objectiveId, level){
+  const o = instrObjectives.find(x=>x.objective_id===objectiveId);
+  const {error} = await sb.rpc("set_trainee_objective_level",
+    {p_trainee:instructorId, p_objective:objectiveId, p_level:Number(level), p_note:(o&&o.level_note)||null});
+  if(error){ alert(error.message); return; }
+  loadInstructorPane("progress", instructorId);
+}
+// A note per objective, kept with the grade rather than in a separate log: whoever trains them next
+// wants "why they are at this level", not a diary entry somewhere else.
+function editInstrObjectiveNote(instructorId, objectiveId, idx){
+  const o = instrObjectives[idx] || {};
+  openModal(`<h3 style="margin:0 0 .5rem">${esc(o.name||"Note")}</h3>
+    <p class="muted" style="margin-bottom:.6rem">What they did, and what to pick up next time. Whoever trains them next sees this.</p>
+    <div class="field"><textarea id="instr-obj-note" rows="4" placeholder="e.g. Good on approach, still talking over the pupil at junctions">${esc(o.level_note||"")}</textarea></div>
+    <button class="btn btn-navy btn-sm" onclick="saveInstrObjectiveNote('${instructorId}','${objectiveId}',${idx})">Save</button>
+    <button class="btn-outline" style="margin-left:.5rem" onclick="renderInstructorModal()">Cancel</button>
+    <div class="err" id="instr-obj-err" style="margin-top:.5rem"></div>`);
+}
+async function saveInstrObjectiveNote(instructorId, objectiveId, idx){
+  const err=document.getElementById("instr-obj-err");
+  const note=(document.getElementById("instr-obj-note").value||"").trim();
+  const o = instrObjectives[idx] || {};
+  const {error} = await sb.rpc("set_trainee_objective_level",
+    {p_trainee:instructorId, p_objective:objectiveId, p_level:Number(o.level||0), p_note:note||null});
+  if(error){ if(err) err.textContent=error.message; return; }
+  renderInstructorModal();
+}
+
+let instrDetail = null;
+function instrTab(t){ if(instrDetail){ instrDetail.tab = t; renderInstructorModal(); } }
+
+function renderInstructorModal(){
+  if(!instrDetail) return;
+  const {i, school, address, billingBlock, paymentsBlock, instrLicenceBlock, instrLic, opens7} = instrDetail;
+  const tab = instrDetail.tab || "summary";
+  const tabs = [["summary","Summary"],["diary","Diary"],["money","Money"]]
+    .concat(instrLic ? [["training","Training"],["progress","Progress"]] : [])
+    .concat([["logins","Logins"]]);
+  const tabBtns = tabs.map(([id,label])=>`<button class="${tab===id?"on":""}" onclick="instrTab('${id}')">${label}</button>`).join("");
+  let body = "", pane = null;
+  if(tab==="summary"){
+    body = `<div class="field"><label>Contact</label>
       <p>${esc(i.email||"")}${i.phone?" · "+esc(i.phone):'<span class="muted"> · no phone yet</span>'}</p>
       <p class="muted">${address}</p>
+      <p style="margin-top:.4rem">
+        <a class="btn-outline btn-sm" href="mailto:${esc(i.email||"")}">Send email</a>
+        <button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="navigator.clipboard.writeText('${esc(i.email||"")}')">Copy email</button>
+        <button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="editInstructor('${i.id}')">Edit</button>
+      </p>
     </div>
     <div class="field"><label>ADI/PDI badge number</label><p>${i.adi_badge_number?esc(i.adi_badge_number):'<span class="muted">Not provided yet</span>'}</p></div>
+    ${instrLicenceBlock}
+    ${instrLic ? "" : `<div class="field"><label>Can train PDIs</label>
+      <p><strong>${i.is_trainer?"Yes":"No"}</strong>
+        <button class="btn-outline btn-sm" style="margin-left:.6rem" onclick="setTrainer('${i.id}',${i.is_trainer?"false":"true"})">${i.is_trainer?"Turn off":"Turn on"}</button></p>
+      <div class="muted" style="font-size:.85rem">Needed before they can be picked as a trainee's trainer. Requires their ADI certificate number, because form ADI 21S asks for it beside their signature.</div>
+      <div class="err" id="instr-trainer-err"></div>
+    </div>`}
     <div class="field"><label>School</label><p>${school?esc(school.display_name||school.name):"Solo"}${i.is_school_admin?" (admin)":""}</p></div>
-    <div class="field"><label>Signed up</label><p>${daysAgo(i.created_at)||"—"}</p></div>
-    <div class="field"><label>App use</label>
+    <div class="field"><label>Signed up</label><p>${daysAgo(i.created_at)||"&mdash;"}</p></div>`;
+  } else if(tab==="diary"){
+    body = `<div id="instr-pane"><p class="muted">Loading&hellip;</p></div>`; pane = "diary";
+  } else if(tab==="money"){
+    body = `<div id="instr-pane"><p class="muted">Loading&hellip;</p></div>`; pane = "money";
+  } else if(tab==="training"){
+    body = `<div id="instr-pane"><p class="muted">Loading&hellip;</p></div>`; pane = "training";
+  } else if(tab==="progress"){
+    body = `<div id="instr-pane"><p class="muted">Loading&hellip;</p></div>`; pane = "progress";
+  } else {
+    body = `    <div class="field"><label>App use</label>
       <p>${esc(instructorSeenLabel(i))}</p>
       ${lastOpenedLabel(i.last_opened_at, i.app_version, i.app_platform) ? "" : `<p class="muted" style="font-size:.78rem">Their app is older than 1.3.3, so every open is not recorded. This is the last thing they did${whenLabelCC(instructorSeenRow(i.id).signedIn)?", and they last signed in "+esc(whenLabelCC(instructorSeenRow(i.id).signedIn)):""}.</p>`}
       ${opens7===null?"":`<p class="muted">Opened ${opens7} time${opens7===1?"":"s"} in the last 7 days</p>`}
     </div>
     ${billingBlock}
-    ${paymentsBlock}
-    <button class="btn-outline" onclick="closeModal()">Close</button>`);
+    </div>`;
+  }
+
+  openModal(`<h2 style="margin-bottom:.6rem">${esc(i.full_name||i.email)}${instrLic?' <span class="chip chip-info">PDI</span>':(i.is_trainer?' <span class="chip chip-ok">Trainer</span>':"")}</h2>
+    <div class="tabs-sub">${tabBtns}</div>
+    <div>${body}</div>
+    <div class="actions" style="margin-top:1rem">
+      <button class="btn btn-navy btn-sm" onclick="closeModal();editInstructor('${i.id}')">Edit</button>
+      <button class="btn-outline" onclick="closeModal()">Close</button>
+    </div>`);
+  // AFTER openModal: the pane element does not exist until the modal is on the page, so calling the
+  // loader first left it stuck on "Loading..." forever (30 Sep 2026).
+  if(pane) loadInstructorPane(pane, i.id);
 }
 
 async function showSchoolDetail(schoolId){
@@ -21212,7 +22655,7 @@ async function loadTheoryProgress(){
     const [{data:pupils, error:pErr}, {data:attempts, error:aErr}, {data:hazAttempts}, {data:hazClips}, {data:hazMocks}] = await Promise.all([
       // Active pupils only (Dale, 20 Sep 2026). Passed pupils kept appearing here long after they'd finished,
       // and a waiting-list pupil hasn't started lessons — neither is someone whose theory progress you'd act on.
-      sb.from("pupils").select("id,first_name,last_name,email,portal_username,status").eq("status","active"),
+      sb.from("pupils").select("id,first_name,last_name,email,portal_username,status,instructor_id").eq("status","active"),
       sb.from("theory_attempts").select("id,pupil_id,mode,category,score,total,passed,created_at").order("created_at",{ascending:false}),
       sb.from("hazard_attempts").select("pupil_id,clip_id,score,max_score,created_at").order("created_at",{ascending:false}),
       sb.from("hazard_clips").select("id").eq("active", true),
@@ -21221,7 +22664,14 @@ async function loadTheoryProgress(){
     if(pErr) throw pErr;
     if(aErr) throw aErr;
     const clipTotal = (hazClips||[]).length;
-    const rows = (pupils||[]).map(p=>{
+    // This tab is the instructor's OWN pupils (Dale, 30 Sep 2026: "that one should be a personal
+    // one for the owner of the school who teaches"). RLS hands a school admin every pupil in the
+    // school, so without this a school owner saw all of them in one undifferentiated list with no
+    // column saying whose they were. The school-wide view is in the Driving School tab.
+    const mineOnly = (isSchoolAdminUser && currentSchoolId)
+      ? (pupils||[]).filter(p=>p.instructor_id===currentUserId)
+      : (pupils||[]);
+    const rows = mineOnly.map(p=>{
       const label = ((p.first_name||"")+" "+(p.last_name||"")).trim() || p.email || p.portal_username || "Pupil";
       const mine = (attempts||[]).filter(a=>a.pupil_id===p.id);
       const mocks = mine.filter(a=>a.mode==="mock");
@@ -21422,7 +22872,10 @@ function downloadPupilTemplate(){
     "Jane,Smith,07123456789,jane@example.com,1 High Street,,Anytown,AB1 2CD,active"
   ];
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([lines.join("\\n")],{type:"text/csv"}));
+  // join("\n"), not join("\\n") — the escaped version put a literal backslash-n in the file, so the
+  // template downloaded as ONE line and would not import. Excel opens it as a single broken row
+  // (30 Sep 2026).
+  a.href=URL.createObjectURL(new Blob([lines.join("\r\n")+"\r\n"],{type:"text/csv"}));
   a.download="dmw-pupils-import-template.csv";
   a.click();
 }

@@ -21,6 +21,17 @@
       ],
       "destination": "/admin.html",
       "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?<sub>.*)\\.drivemyway\\.co\\.uk"
+        }
+      ],
+      "destination": "/site.html",
+      "permanent": false
     }
   ],
   "headers": [

@@ -12,3 +12,10 @@
 # ...except the Control Centre's How-To Videos (Dale, 16 Sep 2026), which admin.html plays from this site's own
 # domain (/how-to/videos). 11 short clips, about 20MB in all.
 !how-to/videos/*.mp4
+
+# DMW's own school website. GitHub Pages serves it at dmwdrivingschool.co.uk and needs it in the
+# repo; Vercel only serves the Control Centre and instructor websites and must never serve it. On
+# Vercel the filesystem is checked BEFORE rewrites, so while this file was deployed it answered "/"
+# on every instructor subdomain - a pupil on their instructor's site landed on a rival school.
+# Excluded here so "/" falls through to the rewrite that serves site.html.
+index.html

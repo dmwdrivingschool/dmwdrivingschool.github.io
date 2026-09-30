@@ -738,6 +738,7 @@ tbody tr:hover td{background:#334263}
       <div id="twofa-banner" style="display:none;margin:0 0 1rem;padding:.75rem 1rem;border:1px solid var(--line);border-left:4px solid #16a34a;border-radius:12px"></div>
       <div id="website-promo-banner" style="display:none;margin:0 0 1rem;padding:.75rem 1rem;border:1px solid var(--line);border-left:4px solid var(--navy,#0A4CA1);border-radius:12px"></div>
       <div id="dash-terms" class="hidden"></div>
+      <div id="dash-testbooking" class="hidden"></div>
       <div id="dash-join" class="hidden"></div>
       <div id="dash-pdi" class="hidden"></div>
       <div id="dash-owed" class="hidden"></div>
@@ -2591,12 +2592,16 @@ async function refreshFeedbackCard(prof){
     feedbackCardState=(st&&st.value)||{};
     const daysSince=t=>t?(Date.now()-new Date(t).getTime())/86400000:Infinity;
     if(daysSince(feedbackCardState.closed_at)<4 || daysSince(feedbackCardState.sent_at)<14) return;
-    el.innerHTML=`<div style="display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start">
-        <div><strong>How's your trial going?</strong><div class="muted" style="font-size:.85rem;margin-top:.15rem">Tell us what's working and what isn't. It goes straight to the Drive My Way team.</div></div>
-        <button type="button" class="btn-outline btn-sm" onclick="closeFeedbackCard()" aria-label="Close" title="Not now">✕</button>
-      </div>
-      ${feedbackFormHtml("fbc","trial_card")}`;
-    el.style.display="block";
+    // Never on top of another modal - the welcome tour, What's New and Complete your profile can all
+    // be up on a first sign-in, and a fourth thing landing on them is worse than the banner was.
+    // Waits a moment so it is not the very first thing that happens either.
+    setTimeout(() => {
+      if(!document.getElementById("modal").classList.contains("hidden")) return;
+      openModal(`<h3 style="margin:0 0 .25rem">How's your trial going?</h3>
+        <p class="muted" style="margin-bottom:.6rem">Tell us what's working and what isn't. It goes straight to the Drive My Way team.</p>
+        ${feedbackFormHtml("fbc","trial_card")}
+        <p style="margin:.75rem 0 0"><a href="#" onclick="event.preventDefault();closeFeedbackCard()">Not now</a></p>`);
+    }, 2500);
   }catch(e){}
 }
 async function saveFeedbackCardState(patch){
@@ -2606,6 +2611,7 @@ async function saveFeedbackCardState(patch){
 function closeFeedbackCard(){
   const el=document.getElementById("feedback-card");
   if(el) el.style.display="none";
+  closeModal();
   saveFeedbackCardState({ closed_at: new Date().toISOString() });
 }
 function openFeedbackModal(){
@@ -2653,7 +2659,7 @@ async function sendFeedback(prefix, source){
     await callFn("send-feedback",{ source, rating, comment, ok_to_contact: okToContact });
     if(source==="trial_card") saveFeedbackCardState({ sent_at: new Date().toISOString() });
     box.innerHTML=`<p style="margin:.6rem 0 0"><strong>Thank you!</strong> We read every message${okToContact?", and we'll email you if we'd like to know more":""}.</p>`;
-    if(source==="trial_card") setTimeout(()=>{ const el=document.getElementById("feedback-card"); if(el) el.style.display="none"; }, 8000);
+    if(source==="trial_card") setTimeout(()=>{ closeModal(); }, 2500);
   }catch(e){
     err.textContent=(e&&e.message)||"Couldn't send that. Please try again.";
     btn.disabled=false; btn.textContent="Send";
@@ -3489,6 +3495,7 @@ function loadDash(){
   // "Driving School Snapshot" for a driving school, "Your Snapshot" for a solo instructor (Dale, 16 Sep 2026: it said "School snapshot").
   { const st=document.getElementById("dash-snapshot-title"); if(st) st.textContent=currentSchoolId?"Driving School Snapshot":"Your Snapshot"; }
   renderTermsBanner();
+  renderTestBookingBanner();
   renderReferralTile();
   renderDashNoticesCC();
   showAccountMessagesCC();
@@ -12290,7 +12297,7 @@ function guideGoCall(st){
 }
 function guideSectionHtml(aud){
   const steps=guideSteps(aud);
-  return `<details class="gd-guide" open style="margin:0 0 1.1rem"><summary style="cursor:pointer;font-weight:700;font-size:1rem">📘 Start here: a quick guide</summary>
+  return `<details class="gd-guide" style="margin:0 0 1.1rem"><summary style="cursor:pointer;font-weight:700;font-size:1rem">📘 Start here: a quick guide</summary>
     <div class="gd-cards">${steps.map((st,i)=>`<div class="gd-card">${GD_ILLUS[st.il]()}<h4><span class="gd-num">${i+1}</span>${esc(st.t)}</h4><p>${esc(st.x)}</p>${st.tab==="help"?"":`<button class="btn-outline btn-sm" onclick="${guideGoCall(st)}">${esc(st.go)}</button>`}</div>`).join("")}</div>
     <button class="btn btn-navy btn-sm" onclick="tourFirst=false;openWelcomeTour()">▶ Replay the welcome tour</button>
   </details>`;
@@ -19708,6 +19715,53 @@ function openReferralFromDash(){
     else if(++tries>40) clearInterval(t);
   },150);
 }
+// Nobody knows Test Booking Help is there. Measured 30 Sep 2026: of 26 real instructors, FIVE had
+// ever opened the screen, and everything on it defaults to off - so 21 people had the whole feature
+// switched off without knowing it existed. Every one of the five who found it turned it on, so it
+// is wanted once seen.
+//
+// It lives in the Control Centre rather than the app on purpose (Dale, 30 Sep 2026): this deploys
+// the moment it is pushed, where an app banner would sit unreleased for weeks.
+//
+// Shown a few days in rather than on day one - somebody still deciding whether they like the app
+// does not need a feature pitch - and only once they have an active pupil, because it is about
+// pupils booking tests. It stays until it is dealt with: every cleverer trigger we considered
+// (a pupil passing theory, a pupil reaching 30 hours) turned out to depend on data almost nobody
+// enters, so this one depends on nothing.
+let testBookingBannerCache = null;
+async function renderTestBookingBanner(){
+  const el = document.getElementById("dash-testbooking"); if(!el) return;
+  const hide = () => { el.className = "hidden"; el.innerHTML = ""; };
+  if(isSuperAdminUser) return hide();
+
+  try{
+    // Dismissed for good once they have been to the screen, whatever they chose there.
+    const {data:seen} = await sb.from("app_settings").select("value")
+      .eq("owner_id", currentUserId).eq("id", "test_booking_help").maybeSingle();
+    if(seen) return hide();
+
+    // Not on day one. Four days is long enough to have used it for something.
+    const {data:me} = await sb.from("profiles").select("created_at, adi_badge_number")
+      .eq("id", currentUserId).maybeSingle();
+    if(!me || !me.created_at) return hide();
+    const days = (Date.now() - new Date(me.created_at).getTime()) / 86400000;
+    if(days < 4) return hide();
+
+    // And only if they have somebody to teach.
+    const {count} = await sb.from("pupils").select("id", {count:"exact", head:true})
+      .eq("instructor_id", currentUserId).eq("status", "active");
+    if(!count) return hide();
+
+    const noBadge = !String(me.adi_badge_number || "").trim();
+    el.className = "panel";
+    el.style.cssText = "border-left:4px solid #d97706;margin-bottom:1rem";
+    el.innerHTML = `<div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;justify-content:space-between">
+      <span>Your pupils book their own driving tests. You can show them the days you cannot do one, so they do not book a test you are not free for.${
+        noBadge ? ' You will need your ADI badge number, which they put into GOV.UK.' : ''}</span>
+      <button class="btn btn-navy btn-sm" onclick="goTab('settings');openSettings('testbooking')">Set this up</button></div>`;
+  }catch(e){ hide(); }
+}
+
 async function renderTermsBanner(){
   const el=document.getElementById("dash-terms"); if(!el) return;
   const hide=()=>{ el.className="hidden"; el.innerHTML=""; };

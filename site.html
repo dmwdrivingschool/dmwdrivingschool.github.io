@@ -449,7 +449,7 @@
   // this script. Reading only ?page= therefore sent every clean path to the home page instead:
   // /passes, /prices, /app and /privacy have all quietly rendered the wrong page. The path is what
   // the visitor actually typed, so fall back to it.
-  var PAGES = /^(passes|prices|app|privacy|download|contact)$/i;
+  var PAGES = /^(passes|prices|app|privacy|download|contact|terms)$/i;
   var page = (q.get("page") || "").trim();
   var seg = (location.pathname.split("/").filter(Boolean).pop() || "").toLowerCase();
   if (!page && PAGES.test(seg)) page = seg;
@@ -457,25 +457,33 @@
   // the fallback above would send them all straight back here. Clean paths collapse to the root.
   var basePath = PAGES.test(seg) ? location.pathname.replace(/[^\/]+$/, "") || "/" : location.pathname;
   var dom = "";
+  // True when the address itself says whose site this is, which is every real visitor. Only a
+  // Control Centre preview arrives with ?s= or ?i= and no domain of its own.
+  var byAddress = false;
   if (!sub && !id) {
     var host = location.hostname.toLowerCase();
     if (/\.drivemyway\.co\.uk$/i.test(host) && host.split(".").length > 3) {
       sub = host.split(".")[0];
+      byAddress = true;
     } else if (host !== "localhost" && host.indexOf(".") > 0) {
       dom = host;
+      byAddress = true;
     }
   }
   if (!sub && !dom && (!id || !uuid.test(id))) return gone();
 
   // Keeps whichever of ?s= / ?i= got us here, so links between pages do not lose the site.
   function urlFor(p){
-    var base = basePath + "?";
+    // On a real address the subdomain already identifies the site and vercel.json rewrites
+    // /passes and the rest server side, so a link is just the path. Nobody should be reading
+    // site.html?s=name&page=passes out of their address bar (Dale, 30 Sep 2026).
+    if (byAddress) return p ? "/" + p : "/";
     var parts = [];
     if (sub) parts.push("s=" + encodeURIComponent(sub));
     else if (id) parts.push("i=" + encodeURIComponent(id));
     if (q.get("preview") === "1") parts.push("preview=1");
     if (p) parts.push("page=" + p);
-    return parts.length ? base + parts.join("&") : basePath;
+    return parts.length ? basePath + "?" + parts.join("&") : basePath;
   }
 
   // Instructors type "50", not "£50".
@@ -656,7 +664,7 @@
     var c = d.content || {};
     if (d.preview && !d.published) {
       var bar = document.createElement("div");
-      bar.textContent = "Preview — this is not live yet. Press “Put it live” in your Control Centre when you are happy with it.";
+      bar.textContent = "Preview. This is not live yet. Press “Put it live” in your Control Centre when you are happy with it.";
       bar.style.cssText = "background:#111;color:#fff;text-align:center;padding:10px 16px;font:600 14px/1.4 system-ui,sans-serif";
       document.body.insertBefore(bar, document.body.firstChild);
     }
@@ -838,12 +846,12 @@
           hoursHtml +
           '<p style="margin-top:26px"><a class="btn" href="' + enquiry + '">Open the enquiry form</a></p>' +
           '<p style="margin-top:14px">A couple of minutes: your name, a phone number and an email, ' +
-            'your date of birth, your address and postcode, and roughly when you are free &mdash; that ' +
+            'your date of birth, your address and postcode, and roughly when you are free. That ' +
             'last one is what lets me find you a slot that actually works.</p>' +
           '<h2>What happens after you enquire</h2>' +
           '<p>It lands on my phone as you send it, so you are not waiting on somebody checking an ' +
             'inbox, and I will come back to you to sort out a first lesson.</p>' +
-          '<p>You pick a password on the form, so your Drive My Way account is already yours &mdash; ' +
+          '<p>You pick a password on the form, so your Drive My Way account is already yours, ' +
             'there is no invite to wait for. Confirm your email from the link we send, download the app ' +
             'from the App Store or Google Play, and sign in with that email and password.</p>' +
           '<p>The app shows where your enquiry is up to, so you will see the moment I have accepted it. ' +
@@ -915,7 +923,7 @@
             'have to confirm you were happy for it to be kept, and the app records who confirmed it and ' +
             'when. Only ' + esc(name) + ' can see it, along with Drive My Way&rsquo;s administrators to ' +
             'support the account. You can read it, change it or delete it yourself at any time in the ' +
-            'app, without giving a reason &mdash; deleting it removes the record of your consent with it. ' +
+            'app, without giving a reason. Deleting it removes the record of your consent with it. ' +
             'It is never published on this website.</p>' +
           '<h2>Cookies</h2>' +
           '<p>There are none. This website sets no cookies, uses no analytics and loads no trackers, so ' +
@@ -924,7 +932,7 @@
           '<p>Photos published since the Drive My Way app started asking are there because the pupil ' +
             'agreed to it in the app. They are asked about each place separately, they can say no and ' +
             'it makes no difference to their lessons, and they can change their mind at any time, in ' +
-            'the app or from the link they were emailed &mdash; the photo comes down and the file is ' +
+            'the app or from the link they were emailed. The photo comes down and the file is ' +
             'deleted.</p>' +
           '<p>Photos published before then were put up on the basis of permission given to ' + esc(name) + ' ' +
             'at the time, so there is no record of it in the app and no withdrawal link on them. If one ' +
@@ -949,7 +957,7 @@
     // A page of every pass. Seventy-odd photos do not belong on a home page, but they are the best
     // thing an instructor has, so they get a page of their own with the lot on it.
     if (page === "passes") {
-      document.title = passLabel + " — " + name;
+      document.title = passLabel + " · " + name;
       root.innerHTML = header +
         '<div class="wrap"><section class="page-head"><h1>' + esc(passLabel) + '</h1>' +
         '<p class="sub">Every photo and every review, added the day they passed.</p></section>' +
@@ -964,7 +972,7 @@
     // for three, and falls apart at six; a row each reads the same however many they have, and it is the
     // shape people already know from a price list.
     if (page === "prices") {
-      document.title = "Prices — " + name;
+      document.title = "Prices · " + name;
       root.innerHTML = header +
         '<div class="wrap"><section class="page-head"><h1>Prices</h1>' +
         '<p class="sub">Everything I charge, in one place.</p></section>' +
@@ -1014,7 +1022,7 @@
           '<ol class="dl-steps">' +
             '<li><h2>Send your details</h2>' +
               '<p>The enquiry form takes a couple of minutes, and it sets up your login at the same ' +
-                'time &mdash; you pick your own password on it. Do this first: without it there is ' +
+                'time, and you pick your own password on it. Do this first: without it there is ' +
                 'no account to sign in to.</p>' +
               '<p class="dl-act"><a class="btn" href="' + enquiry + '">Open the enquiry form</a></p></li>' +
             '<li><h2>Download it</h2>' +
@@ -1031,14 +1039,14 @@
                 'moment it is accepted.</p></li>' +
           '</ol>' +
           '<p class="store-note">Already had an email from ' + esc(name) + ' to set your password, or a setup ' +
-            'link by text? Use that instead &mdash; it does the same job and you can skip step one.</p>' +
+            'link by text? Use that instead. It does the same job and you can skip step one.</p>' +
           '<p class="dl-act"><a class="btn btn-quiet" href="' + urlFor("app") + '">See what is in the app</a></p>' +
         '</section></div>' + footer;
       return;
     }
 
     if (page === "app") {
-      document.title = "The Drive My Way app — " + name;
+      document.title = "The Drive My Way app · " + name;
       var prem = d.premium !== false;
       var feats = APP_FEATURES.filter(function(f){ return prem || !f[3]; });
       var owner = name + (/s$/i.test(name) ? "’" : "’s");
@@ -1055,8 +1063,8 @@
           '<span class="chip">Free with your lessons</span>' +
           '<h1><span>Your lessons,</span> <span>in one app</span></h1>' +
           '<p class="lead">' + esc(owner) + ' pupils get the Drive My Way app, on iPhone or Android, and ' +
-            'it costs you nothing. Sending the enquiry form creates your login at the same time &mdash; you ' +
-            'pick your own password on it &mdash; so you can sign in straight away and watch your enquiry ' +
+            'it costs you nothing. Sending the enquiry form creates your login at the same time, and you ' +
+            'pick your own password on it, so you can sign in straight away and watch your enquiry ' +
             'come through.</p>' +
           '<div class="store">' +
             '<a href="https://play.google.com/store/apps/details?id=uk.co.dmwdrivingschool.instructor" target="_blank" rel="noopener">' +
@@ -1088,7 +1096,7 @@
       return;
     }
 
-    document.title = name + (c.town ? " — driving lessons in " + c.town : "");
+    document.title = name + (c.town ? " · driving lessons in " + c.town : "");
 
     // Only sections with something in them are drawn. A half-filled site should look short, never
     // broken, and never show an empty heading.

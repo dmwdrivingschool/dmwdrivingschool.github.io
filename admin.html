@@ -18328,7 +18328,7 @@ function renderInstructorModal(){
     </div>
     <div class="field"><label>ADI/PDI badge number</label><p>${i.adi_badge_number?esc(i.adi_badge_number):'<span class="muted">Not provided yet</span>'}</p></div>
     ${instrLicenceBlock}
-    ${instrLic ? "" : `<div class="field"><label>Can train PDIs</label>
+    ${(instrLic || !i.school_id) ? "" : `<div class="field"><label>Can train PDIs</label>
       <p><strong>${i.is_trainer?"Yes":"No"}</strong>
         <button class="btn-outline btn-sm" style="margin-left:.6rem" onclick="setTrainer('${i.id}',${i.is_trainer?"false":"true"})">${i.is_trainer?"Turn off":"Turn on"}</button></p>
       <div class="muted" style="font-size:.85rem">Needed before they can be picked as a trainee's trainer. Requires their ADI certificate number, because form ADI 21S asks for it beside their signature.</div>

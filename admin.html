@@ -8173,7 +8173,7 @@ function openDiaryAddLesson(prefill){
       ${pupils.length?"":'<div class="av-warn">No active pupils yet. Add pupils first.</div>'}
       <div id="dl-warn" class="av-warn"></div>
     </div>
-    <div class="field"><label>Type</label><select id="dl-type" onchange="dlTypeChanged()">${lessonTypeOptions("lesson",dlTrainees.length?["pdi_training"]:[])}</select></div>
+    <div class="field"><label>Type</label><select id="dl-type" onchange="dlTypeChanged()">${lessonTypeOptions(p.type||"lesson",(dlTrainees.length||p.type==="pdi_training")?["pdi_training"]:[])}</select></div>
     <div class="field hidden" id="dl-trainee-wrap"><label>Trainee</label>
       <select id="dl-trainee"></select>
       <div class="muted" style="font-size:.8rem;margin-top:.25rem">Training you are giving them. It shows in their diary too, and the hours go on their ADI 21T record.</div></div>
@@ -8208,7 +8208,7 @@ function openDiaryAddLesson(prefill){
   // Fire and forget: the form is usable immediately and the PDI fields appear a moment later.
   dlLoadPdiContext(diaryOwnerId||currentUserId).then(dlApplyPdiContext).catch(()=>{});
   const pick=p.time&&p.pupil&&pupils.some(x=>x.id===p.pupil)?p.pupil:"";
-  const defaults={"dl-pupil":pick,"dl-type":"lesson","dl-date":p.date||dLocalDate(new Date()),"dl-start":p.time||"09:00","dl-centre":"","dl-centre-time":"","dl-travel":"",
+  const defaults={"dl-pupil":pick,"dl-type":p.type||"lesson","dl-date":p.date||dLocalDate(new Date()),"dl-start":p.time||"09:00","dl-centre":"","dl-centre-time":"","dl-travel":"",
     "dl-hours":"1","dl-mins":"60","dl-pickup":"home","dl-pickup-addr":"","dl-pickup-save":false,"dl-dropoff":"same","dl-dropoff-addr":"","dl-repeat-unit":"week","dl-repeat-count":"0","dl-notes":""};
   // A diary click gives the date and time, a month-view day the date; opened from + Add the remembered ones come back too.
   const dateFromTap=!!p.date, timeFromTap=!!p.time, key=draftKey("lesson");
@@ -8222,7 +8222,7 @@ function openDiaryAddLesson(prefill){
     formApply(d ? {...defaults,...d,
       "dl-date":dateFromTap?defaults["dl-date"]:(d["dl-date"]||defaults["dl-date"]),
       "dl-start":timeFromTap?defaults["dl-start"]:(d["dl-start"]||defaults["dl-start"]),
-      "dl-pupil":pick||d["dl-pupil"]||"", "dl-type":d["dl-type"]||"lesson"} : defaults);
+      "dl-pupil":pick||d["dl-pupil"]||"", "dl-type":p.type||d["dl-type"]||"lesson"} : defaults);
     dlErr(""); dlAfterApply();
     return !!d;
   };
@@ -12794,7 +12794,7 @@ function diaryNowTick(){
 setInterval(diaryNowTick,60000);
 function diarySetVal(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
 function diaryPlusHour(t){ const [h,m]=t.split(":").map(Number); const d=new Date(2000,0,1,h,m+60); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
-function onDiaryGridClick(ev,col){
+async function onDiaryGridClick(ev,col){
   if(ev.target.closest(".d-block,.d-allday")) return;
   const rect=col.getBoundingClientRect();
   const hourFloat=(ev.clientY-rect.top)/diaryGrid.hourH;
@@ -12810,10 +12810,17 @@ function onDiaryGridClick(ev,col){
   const shown=diaryView==="week"?avShownPupils():[];
   diarySlotPupil=avSlotPupilId(shown.map(s=>s.pupil.id),[]);
   const go=fn=>`closeModal();${fn}({date:'${date}',time:'${time}',pupil:diarySlotPupil})`;
+  /* PDI Training straight off this menu (Jason Tinkler, 1 Oct 2026: "THERE IS NO WAY TO ADD PDI
+     TRAINING LESSON TO THE DIARY"). It was reachable - Add lesson, then change Type - but nothing on
+     the way in said so, and with no pupils the Add Lesson form opens on "No active pupils yet. Add
+     pupils first", which reads as a dead end. Only shown to somebody who actually has a trainee. */
+  await dlLoadPdiContext(diaryOwnerId||currentUserId).catch(()=>{});
+  const diarySlotTrainees = dlTrainees;
   openModal(`<h3 style="margin:0 0 .75rem">${esc(label)} ${time}</h3>
     ${shown.length?'<p id="slot-free" style="margin:-.35rem 0 .75rem;font-weight:600;font-size:.9rem"></p>':""}
     <div style="display:flex;flex-direction:column;gap:.5rem">
       <button class="btn btn-navy" onclick="${go("openDiaryAddLesson")}">Add lesson</button>
+      ${diarySlotTrainees.length?`<button class="btn-outline" onclick="closeModal();openDiaryAddLesson({date:'${date}',time:'${time}',type:'pdi_training'})">Add PDI training</button>`:""}
       <button class="btn-outline" onclick="${go("openLessonOffer")}">Lesson offer (pencil in)</button>
       <button class="btn-outline" onclick="closeModal();openDiaryGapAt('${date}','${time}')">Create gap</button>
       <button class="btn-outline" onclick="closeModal();openAwayAt('${date}')">Create Holiday/Appointment</button>

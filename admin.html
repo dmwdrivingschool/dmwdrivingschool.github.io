@@ -16181,6 +16181,14 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
         (i.school_id && !schoolPdiIds.has(i.id) && !schoolLicenceBy[i.id])
           ? manageItem(i.is_trainer ? "Can train PDIs: yes" : "Can train PDIs: no", `toggleTrainerRow('${i.id}',${i.is_trainer?"false":"true"})`)
           : "",
+        /* The same switch as the tick box on their Edit form, put where somebody actually looks for it
+           (Jason Tinkler, 1 Oct 2026: "Also looking for the tick box?"). It was three taps and a scroll
+           down - Details, Edit, scroll - while "Can train PDIs" sat right here on the menu, so this is
+           where he went hunting. A trainer cannot also be a trainee, which is why it is hidden for one. */
+        (i.school_id && !i.is_trainer)
+          ? manageItem(schoolLicenceBy[i.id] ? "Trainee instructor: yes" : "Trainee instructor: no",
+              `toggleTraineeRow('${i.id}',${schoolLicenceBy[i.id]?"false":"true"},'${(i.full_name||i.email||"").replace(/'/g,"\'")}')`)
+          : "",
         lockItem,
         (school && !isMe) ? manageItem(i.is_school_admin ? "Remove admin" : "Make admin", `toggleSchoolAdmin('${i.id}',${!i.is_school_admin})`) : "",
         // Remove 2FA for someone who has lost their phone, after a check code (Dale, 14 Sep 2026).
@@ -17210,6 +17218,34 @@ function traineeLicenceChip(instructorId){
 // silently snapping the box back.
 // From the Instructors row's Manage menu. The database refuses the tick without an ADI certificate
 // number, so say that plainly rather than letting the menu close as though it worked.
+/* Start or end somebody's trainee record from the row. Starting it is what makes them appear on the
+   PDI Training tab, lets a trainer be assigned, and puts PDI Training in the diary's lesson types -
+   none of which needs a pink badge, because part 2 and part 3 training come first. Ending it sets
+   ended_on rather than deleting, so the hours and grades they have already earned stay. */
+async function toggleTraineeRow(instructorId, on, name){
+  if(!on && !confirm(`Stop treating ${name||"them"} as a trainee instructor?
+
+Their training record, hours and grades are kept - they just come off the PDI Training list.`)) return;
+  if(on){
+    const {data:who}=await sb.from("profiles").select("school_id").eq("id",instructorId).maybeSingle();
+    const {error}=await sb.from("trainee_licences").insert({
+      trainee_id:instructorId,
+      school_id:(who&&who.school_id)||currentSchoolId||null,
+      sponsor_id:currentUserId,
+      pre_licence_declared_at:new Date().toISOString(),
+      created_by:currentUserId
+    });
+    if(error){ alert(error.message); return; }
+  }else{
+    const {error}=await sb.from("trainee_licences")
+      .update({ended_on:new Date().toISOString().slice(0,10), ended_reason:"removed"})
+      .eq("trainee_id",instructorId).is("ended_on",null);
+    if(error){ alert(error.message); return; }
+  }
+  await loadTeamsPanel();
+  refreshPdiTrainingTab();
+}
+
 async function toggleTrainerRow(instructorId, on){
   const {error}=await sb.from("profiles").update({is_trainer:!!on}).eq("id",instructorId);
   if(error){ alert(error.message); return; }

@@ -16567,10 +16567,19 @@ function syncNewInstrBilling(){
   const schoolId=(document.getElementById("new-instr-school")||{}).value;
   const isPdi=!!(document.getElementById("new-instr-pdi")||{}).checked;
   const applies=!schoolId && !isPdi;
+  /* Hidden, not just disabled (Dale, 1 Oct 2026). A disabled <select> still shows whatever is
+     selected, so creating Jason's first PDI displayed "Invite to set up Direct Debit (30 days free,
+     then GBP 11.99 a month)" greyed out underneath "This is a PDI (free while training)" - two lines
+     flatly contradicting each other, and it read as though his school was about to be charged. The
+     edge function ignores billing whenever is_pdi is set, so nothing was ever going to be billed;
+     the screen was the only thing saying otherwise. */
   sel.disabled=!applies;
+  sel.style.display=applies?"":"none";
+  const lbl=sel.parentElement?sel.parentElement.querySelector("label"):null;
+  if(lbl) lbl.style.display=applies?"":"none";
   if(note){
     note.style.display=applies?"none":"block";
-    note.textContent = isPdi ? "PDIs are free while training." : "Covered by the school's seats, so no separate billing.";
+    note.textContent = isPdi ? "PDIs are free while training, so there is nothing to bill." : "Covered by the school's seats, so no separate billing.";
   }
 }
 

@@ -247,6 +247,17 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 /* modal */
 .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
 .modal-box{background:#fff;border-radius:20px 20px 0 0;padding:1.4rem;width:100%;max-width:540px;max-height:90vh;overflow:auto;box-shadow:0 -8px 40px rgba(15,23,42,.2)}
+/* An always-reachable way out of every dialog (Jason Tinkler, 1 Oct 2026: "there is no way to back
+   out of things in the control centre"). The sheet is 90vh with its own scroll, so the only backdrop
+   left to tap was a thin strip at the top - behind the status bar on an iPhone. Opening Add Lesson by
+   mistake meant scrolling a fourteen-field form to reach Close at the bottom.
+   Sticky INSIDE the sheet rather than floating above it, so it can never land under the status bar or
+   Safari's own chrome, and it stays put while the form scrolls under it. Floated, so nothing below it
+   shifts. */
+#modal-x{position:sticky;top:0;float:right;margin:-.5rem -.5rem .2rem .6rem;width:2.75rem;height:2.75rem;border-radius:50%;border:none;background:rgba(15,23,42,.1);color:var(--text,#0f172a);font-size:1.15rem;line-height:1;cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center}
+#modal-x:hover{background:rgba(15,23,42,.2)}
+body.dark #modal-x,.dark #modal-x{background:rgba(255,255,255,.22);color:#fff}
+body.dark #modal-x:hover,.dark #modal-x:hover{background:rgba(255,255,255,.32)}
 @media(min-width:600px){.modal{align-items:center}.modal-box{border-radius:20px;box-shadow:0 24px 70px -20px rgba(15,23,42,.35)}}
 /* The choice dialog floats clear of the edges at every width (Dale, 25 Sep 2026), matching the app's
    ChoiceDialog. Its Cancel used to sit against the bottom of the screen, next to the phone's own buttons -
@@ -21164,7 +21175,14 @@ async function delRes(id){if(!confirm("Delete?"))return; await sb.from("resource
 // Leaving or replacing a form keeps an unfinished add form for 10 minutes (draftLeave, the app's lib/formDraft.ts). modalGuard is
 // the open editor's own Close, so a click on the dim background asks "Save changes?" for an existing item as the app does.
 var modalGuard=null, diaryHoldOpenedAt=0, formDraft=null;
-function openModal(html){ draftLeave(); modalGuard=null; const box=document.getElementById("modal-box"); draftHookBox(box); box.innerHTML=html; document.getElementById("modal").classList.remove("hidden"); }
+function openModal(html){ draftLeave(); modalGuard=null; const box=document.getElementById("modal-box"); draftHookBox(box); box.innerHTML=html;
+  // Through modalBackdrop(), not closeModal(), so an unsaved-changes guard still gets its say.
+  const x=document.createElement("button");
+  x.type="button"; x.id="modal-x"; x.setAttribute("aria-label","Close"); x.title="Close";
+  x.innerHTML="&#10005;"; x.onclick=modalBackdrop;
+  box.insertBefore(x, box.firstChild);
+  box.scrollTop=0;
+  document.getElementById("modal").classList.remove("hidden"); }
 function closeModal(){ draftLeave(); modalGuard=null; document.getElementById("modal").classList.add("hidden"); }
 function modalBackdrop(){
   // The finger lifting after a press and hold mustn't close the editor it just opened.

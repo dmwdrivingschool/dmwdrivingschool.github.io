@@ -902,7 +902,7 @@ tbody tr:hover td{background:#334263}
             <button class="btn-outline btn-sm" onclick="openLessonSwap()">Swap</button>
             <button class="btn-outline btn-sm" onclick="openDiaryGap()">+ Gap</button>
             <button class="btn-outline btn-sm" onclick="openAwayModal()">+ Holiday</button>
-            <button class="btn-outline btn-sm hidden" id="diary-pdi-btn" onclick="openDiaryAddLesson({type:'pdi_training'})">+ PDI Training</button>
+            <button class="btn-outline btn-sm hidden" id="diary-pdi-btn" onclick="openPdiTraining({})">+ PDI Training</button>
             <button class="btn btn-navy btn-sm" onclick="openDiaryAddLesson()">+ Add</button>
           </div>
         </div>
@@ -8135,94 +8135,139 @@ async function openTraineeRecordFrom(traineeId){
 // constraint wants a trainee and no pupil), and it has no way at all to change WHO is being trained.
 // So a session could be booked and then never changed (Dale, 1 Oct 2026: "once pdi training is
 // booked how can it be edited?!").
-async function openPdiTrainingEdit(lessonId){
-  let l=diaryLessonsCache.find(x=>x.id===lessonId);
-  if(!l){
-    const {data}=await sb.from("lessons").select("*, trainee:profiles!lessons_trainee_id_fkey(id,full_name)").eq("id",lessonId).maybeSingle();
-    l=data;
+// Booking and editing a training session, one form so that editing looks like booking. Its own
+// screen, not a type inside Add Lesson (Dale, 2 Oct 2026: "it should be its own menu - not lesson
+// type"), which also takes Pick-up, Drop-off, gearbox and payment off it - none of them ever applied
+// to training. Field order is his: trainee, type, date, time, duration, pick up, repeat, notes.
+async function openPdiTraining(opts){
+  const o = opts || {}, l = o.lesson || null, editing = !!l;
+  await dlLoadPdiContext((l && l.instructor_id) || diaryOwnerId || currentUserId).catch(()=>{});
+  // The trainee on an existing session stays pickable even if the pairing has since been removed, so
+  // it can still be edited without silently moving it to somebody else.
+  const list = dlTrainees.slice();
+  if(editing && l.trainee_id && !list.some(t=>t.id===l.trainee_id)){
+    list.push({id:l.trainee_id, full_name:(l.trainee&&l.trainee.full_name)||"Their trainee"});
   }
-  if(!l) return alert("Could not find that training session — try refreshing.");
-  await dlLoadPdiContext(l.instructor_id||diaryOwnerId||currentUserId).catch(()=>{});
-  // The trainee on the booking stays pickable even if the pairing has since been removed, so an
-  // existing session can still be edited without silently moving it to somebody else.
-  const list=dlTrainees.slice();
-  if(l.trainee_id&&!list.some(t=>t.id===l.trainee_id)) list.push({id:l.trainee_id,full_name:(l.trainee&&l.trainee.full_name)||"Their trainee"});
-  const s=new Date(l.start_time), mins=Math.round((new Date(l.end_time)-s)/60000)||120;
-  const other=!!l.pickup_address;
-  // Delivered is what writes the hours onto the 21T record, and a cron only sweeps up sessions whose
-  // end time passed within the last 30 days. Backdated training is older than that by definition, so
-  // without this it would sit "booked" for ever and count for nothing (Dale, 1 Oct 2026, putting
-  // Darren Harper's part 2 training in). Deliberately NOT a wider cron window: that lookback is
-  // platform-wide and delivered drives pupil credit and earnings for every instructor.
-  const past=new Date(l.end_time)<new Date(), done=l.status==="delivered";
-  openModal(`<h2 style="margin-bottom:1rem">Edit PDI training</h2>
-    <form id="pt-form" onsubmit="savePdiTrainingEdit('${esc(l.id)}');return false">
+  if(!list.length) return alert("Nobody is paired with you as a trainee yet. Your school sets who you train.");
+  const s = editing ? new Date(l.start_time) : null;
+  const mins = editing ? (Math.round((new Date(l.end_time)-s)/60000)||120) : 120;
+  const part = editing ? String(l.pdi_part || 2) : "2";
+  const past = editing && new Date(l.end_time) < new Date(), done = editing && l.status==="delivered";
+  openModal(`<h2 style="margin-bottom:1rem">${editing?"Edit":"Add"} PDI Training</h2>
+    <form id="pt-form" onsubmit="savePdiTraining(${editing?`'${esc(l.id)}'`:"null"});return false">
     <div id="pt-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
     <div class="field"><label>Trainee</label>
-      <select id="pt-trainee" required>${list.map(t=>`<option value="${esc(t.id)}"${t.id===l.trainee_id?" selected":""}>${esc(t.full_name||"")}</option>`).join("")}</select>
-      <div class="muted" style="font-size:.8rem;margin-top:.25rem">It shows in their diary too, and the hours go on their ADI 21T record.</div></div>
-    <div class="field"><label>Date</label><input type="date" id="pt-date" required value="${dLocalDate(s)}"></div>
-    <div class="field"><label>Start time</label><input type="time" id="pt-start" required value="${dLocalTime(s)}"></div>
+      <select id="pt-trainee" required>${list.map(t=>`<option value="${esc(t.id)}"${editing&&t.id===l.trainee_id?" selected":""}>${esc(t.full_name||"")}</option>`).join("")}</select>
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">It shows in their diary too, and the hours go on their record.</div></div>
+    <div class="field"><label>Type</label>
+      <select id="pt-part">
+        <option value="2"${part==="2"?" selected":""}>Part 2</option>
+        <option value="3"${part==="3"?" selected":""}>Part 3</option></select>
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">Part 2 is their own driving. Part 3 is learning to instruct, and only part 3 counts towards the 40 hours on their ADI 21T.</div></div>
+    <div class="field"><label>Date</label><input type="date" id="pt-date" required value="${editing?dLocalDate(s):(o.date||dLocalDate(new Date()))}"></div>
+    <div class="field"><label>Lesson start time</label><input type="time" id="pt-start" required value="${editing?dLocalTime(s):(o.time||"09:00")}"></div>
     <div class="two">
       <div class="field"><label>Hours</label><input type="number" min="0" step="0.25" id="pt-hours" value="${durHoursFromMins(String(mins))}" oninput="durHoursInput('pt-hours','pt-mins')"></div>
       <div class="field"><label>Minutes</label><input type="number" min="0" step="15" id="pt-mins" value="${mins}" oninput="durMinsInput('pt-hours','pt-mins')"></div>
     </div>
-    <div class="field"><label>Where</label>
-      <select id="pt-where" onchange="ptWhereChanged()">
-        <option value="usual"${other?"":" selected"}>The usual place</option>
-        <option value="other"${other?" selected":""}>Somewhere else</option></select></div>
-    <div class="field${other?"":" hidden"}" id="pt-where-wrap"><label>Address</label><input type="text" id="pt-where-addr" value="${esc(l.pickup_address||"")}" placeholder="Where you are meeting them"></div>
-    <div class="field"><label>Notes (optional)</label><textarea id="pt-notes" rows="2" placeholder="Private notes…">${esc(l.notes||"")}</textarea></div>
+    <div class="field"><label>Pick up</label><input type="text" id="pt-pickup" value="${editing?esc(l.pickup_address||""):""}" placeholder="Where you are meeting them"></div>
+    ${editing?"":`<div class="field"><label>Repeat</label>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <span class="d-views" role="group" aria-label="Repeat by"><button type="button" data-unit="day" onclick="ptRepeatUnit('day')">Day</button><button type="button" data-unit="week" class="on" onclick="ptRepeatUnit('week')">Week</button><button type="button" data-unit="fortnight" onclick="ptRepeatUnit('fortnight')">Fortnight</button></span>
+        <input type="hidden" id="pt-repeat-unit" value="week">
+        <span style="display:inline-flex;align-items:center;gap:.4rem">+ <input type="number" id="pt-repeat-count" min="0" max="26" step="1" inputmode="numeric" value="0" aria-label="How many more" style="width:4.5rem" oninput="ptRepeatChanged()"> <span id="pt-repeat-word">weeks</span></span>
+      </div>
+      <div class="muted" id="pt-repeat-summary" style="font-size:.78rem;margin-top:.3rem"></div></div>`}
+    <div class="field"><label>Notes (optional)</label><textarea id="pt-notes" rows="2" placeholder="What you are covering…">${editing?esc(l.notes||""):""}</textarea></div>
     ${done?`<div class="muted" style="font-size:.82rem;margin:-.3rem 0 .8rem">Already delivered, so the hours are on their record. Changing the length here will not move them.</div>`
       :past?`<div class="muted" style="font-size:.82rem;margin:-.3rem 0 .8rem">This one has already been and gone. Mark it delivered to put the hours on their record.</div>`:""}
     <div class="actions">
       <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
-      ${l.status==="cancelled"?"":`<button type="button" class="btn-outline" id="pt-off" onclick="cancelPdiTraining('${esc(l.id)}')">Call it off</button>`}
+      ${editing&&l.status!=="cancelled"?`<button type="button" class="btn-outline" id="pt-off" onclick="cancelPdiTraining('${esc(l.id)}')">Call it off</button>`:""}
       ${past&&!done&&l.status!=="cancelled"?`<button type="button" class="btn-outline" id="pt-done" onclick="deliverPdiTraining('${esc(l.id)}')">Mark delivered</button>`:""}
-      <button type="submit" class="btn btn-navy btn-sm" id="pt-save">Save changes</button>
+      <button type="submit" class="btn btn-navy btn-sm" id="pt-save">${editing?"Save changes":"Save"}</button>
     </div>
     </form>`);
+  if(!editing) ptRepeatChanged();
 }
-function ptWhereChanged(){ const w=document.getElementById("pt-where-wrap"); if(w) w.classList.toggle("hidden",fieldVal("pt-where")!=="other"); }
+function ptRepeatUnitValue(){ const v=fieldVal("pt-repeat-unit"); return v==="day"?"day":v==="fortnight"?"fortnight":"week"; }
+function ptRepeatUnit(u){ diarySetVal("pt-repeat-unit",u==="day"?"day":u==="fortnight"?"fortnight":"week"); ptRepeatChanged(); }
+function ptRepeatCount(){ return lessonRepeatParse(fieldVal("pt-repeat-count"),ptRepeatUnitValue()).count; }
+function ptRepeatChanged(){
+  const unit=ptRepeatUnitValue(), raw=fieldVal("pt-repeat-count");
+  document.querySelectorAll("#pt-form [data-unit]").forEach(b=>b.classList.toggle("on",b.dataset.unit===unit));
+  const input=document.getElementById("pt-repeat-count"); if(input) input.max=String(lessonRepeatMax(unit));
+  const w=document.getElementById("pt-repeat-word"); if(w) w.textContent=lessonRepeatWord(unit,raw.trim()===""?0:Number(raw));
+  const sum=document.getElementById("pt-repeat-summary");
+  if(sum) sum.textContent=lessonRepeatSummary(fieldVal("pt-date"),fieldVal("pt-start"),unit,ptRepeatCount());
+  const b=document.getElementById("pt-save"); if(b&&!b.disabled){ const n=ptRepeatCount(); b.textContent=n>0?`Save (\u00d7${n+1})`:"Save"; }
+}
 function ptErr(msg){ const el=document.getElementById("pt-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
-function savePdiTrainingEdit(id){ return runOnce("pdiTrainingEdit",()=>savePdiTrainingEditNow(id)); }
-async function savePdiTrainingEditNow(id){
+function savePdiTraining(id){ return runOnce("pdiTraining",()=>savePdiTrainingNow(id)); }
+async function savePdiTrainingNow(id){
   const form=document.getElementById("pt-form");
   if(!form||!form.reportValidity()) return;
   ptErr("");
   const traineeId=fieldVal("pt-trainee");
   if(!traineeId) return ptErr("Choose which trainee this session is for");
   const mins=Math.round(Number(fieldVal("pt-mins"))||0);
-  const start=dLocalDateTime(fieldVal("pt-date"),fieldVal("pt-start"));
-  if(!start||mins<=0) return ptErr("Give a date, a start time and how long it is");
-  const other=fieldVal("pt-where")==="other", addr=fieldVal("pt-where-addr").trim();
-  const btn=document.getElementById("pt-save"); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
-  // pupil_id stays null and the trainee stays set: the shape constraint refuses anything else, and
-  // that is the whole point of it.
-  const {error}=await sb.from("lessons").update({
-    lesson_type:"pdi_training", trainee_id:traineeId, pupil_id:null, title:"PDI training",
-    start_time:start.toISOString(), end_time:new Date(start.getTime()+mins*60000).toISOString(),
+  if(mins<=0) return ptErr("Give a date, a start time and how long it is");
+  const pickup=fieldVal("pt-pickup").trim();
+  // pupil_id stays null and the trainee stays set: the shape constraint refuses anything else.
+  const base={lesson_type:"pdi_training", trainee_id:traineeId, pupil_id:null, title:"PDI training",
+    pdi_part:Number(fieldVal("pt-part"))===3?3:2,
     notes:fieldVal("pt-notes").trim()||null,
-    pickup_label:other&&addr?"Other":null, pickup_address:other&&addr?addr:null
-  }).eq("id",id);
-  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save changes"; } return ptErr(error.message); }
-  closeModal();
-  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+    pickup_label:pickup?"Other":null, pickup_address:pickup||null};
+  const btn=document.getElementById("pt-save"); if(btn){ btn.disabled=true; btn.textContent="Saving"+"\u2026"; }
+  try{
+    if(id){
+      const start=dLocalDateTime(fieldVal("pt-date"),fieldVal("pt-start"));
+      if(!start) return ptErr("Give a date and a start time");
+      const {error}=await sb.from("lessons").update({...base,
+        start_time:start.toISOString(), end_time:new Date(start.getTime()+mins*60000).toISOString()}).eq("id",id);
+      if(error) return ptErr(error.message);
+    }else{
+      // Every repeat is its own session, clash checked like a lesson.
+      const occurrences=lessonRepeatOccurrences(fieldVal("pt-date"),fieldVal("pt-start"),mins,ptRepeatCount(),ptRepeatUnitValue());
+      if(!occurrences.length) return ptErr("Please choose a date and time");
+      const owner=diaryOwnerId||currentUserId;
+      if(!(await confirmBookClashes(occurrences,owner))) return;
+      const {error}=await sb.from("lessons").insert(occurrences.map(o=>({...base,
+        instructor_id:owner, status:"booked", payment_status:"unpaid",
+        start_time:o.start.toISOString(), end_time:o.end.toISOString()})));
+      if(error) return ptErr(error.message);
+    }
+    closeModal();
+    if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+    if(pdiRecordId) showTrainee(pdiRecordId);
+  }catch(e){ ptErr((e&&e.message)||"Could not save that"); }
+  finally{ const b=document.getElementById("pt-save"); if(b){ b.disabled=false; b.textContent=id?"Save changes":"Save"; } }
 }
-// Marking it delivered is what makes the hours exist: lesson_makes_trainee_hours fires on the move
-// to delivered and files it as pre-licence, extra training or post part 3 by looking at the licence.
-// It never rewrites them afterwards, which is why a delivered session is no longer editable.
+// Marking it delivered is what makes the hours exist: lesson_makes_trainee_hours fires on the move to
+// delivered and files it by the part. It never rewrites them, which is why a delivered session is no
+// longer editable. A cron only sweeps the last 30 days, so backdated training needs this button.
 async function deliverPdiTraining(id){
-  const btn=document.getElementById("pt-done"); if(btn){ btn.disabled=true; btn.textContent="Marking\u2026"; }
+  const btn=document.getElementById("pt-done"); if(btn){ btn.disabled=true; btn.textContent="Marking"+"\u2026"; }
   const {error}=await sb.from("lessons").update({status:"delivered"}).eq("id",id);
   if(error){ if(btn){ btn.disabled=false; btn.textContent="Mark delivered"; } return ptErr(error.message); }
   closeModal();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   if(pdiRecordId) showTrainee(pdiRecordId);
 }
+
 // Called off rather than deleted, exactly like a lesson: both diaries keep a crossed-out record and
 // "Hide cancellations" tidies it away. No hours are written either way, because the trigger writes
 // those on DELIVERED.
+// Kept as the way in from a diary block, a day card and the record's Lessons tab.
+async function openPdiTrainingEdit(lessonId){
+  let l=diaryLessonsCache.find(x=>x.id===lessonId);
+  if(!l){
+    const {data}=await sb.from("lessons").select("*, trainee:profiles!lessons_trainee_id_fkey(id,full_name)").eq("id",lessonId).maybeSingle();
+    l=data;
+  }
+  if(!l) return alert("Could not find that training session \u2014 try refreshing.");
+  return openPdiTraining({lesson:l});
+}
 async function cancelPdiTraining(id){
   if(!confirm("Call this training session off? It will show as cancelled in both diaries.")) return;
   const btn=document.getElementById("pt-off"); if(btn){ btn.disabled=true; btn.textContent="Calling off…"; }
@@ -8282,10 +8327,6 @@ async function dlLoadPdiContext(ownerId){
 // Fills the two extra fields once the context arrives. The form is already on screen by then, so it
 // adds the PDI Training option rather than rebuilding the picker.
 function dlApplyPdiContext(){
-  const tw=document.getElementById("dl-trainee-wrap"), ts=document.getElementById("dl-trainee");
-  if(ts && !ts.options.length){
-    ts.innerHTML='<option value="">Select trainee…</option>'+dlTrainees.map(t=>`<option value="${esc(t.id)}">${esc(t.full_name||"")}</option>`).join("");
-  }
   const sw=document.getElementById("dl-supervised-wrap"), ss=document.getElementById("dl-supervised");
   if(ss && !ss.options.length){
     ss.innerHTML='<option value="">Nobody &mdash; not supervised</option>'+dlSupervisors.map(t=>`<option value="${esc(t.id)}">${esc(t.full_name||"")}</option>`).join("");
@@ -8312,10 +8353,7 @@ async function openDiaryAddLesson(prefill){
       ${pupils.length?"":'<div class="av-warn">No active pupils yet. Add pupils first.</div>'}
       <div id="dl-warn" class="av-warn"></div>
     </div>
-    <div class="field"><label>Type</label><select id="dl-type" onchange="dlTypeChanged()">${lessonTypeOptions(p.type||"lesson",p.type==="pdi_training"?["pdi_training"]:[])}</select></div>
-    <div class="field hidden" id="dl-trainee-wrap"><label>Trainee</label>
-      <select id="dl-trainee"></select>
-      <div class="muted" style="font-size:.8rem;margin-top:.25rem">Training you are giving them. It shows in their diary too, and the hours go on their ADI 21T record.</div></div>
+    <div class="field"><label>Type</label><select id="dl-type" onchange="dlTypeChanged()">${lessonTypeOptions(p.type||"lesson",[])}</select></div>
     <div class="field hidden" id="dl-supervised-wrap"><label>Supervised by</label>
       <select id="dl-supervised"></select>
       <div class="muted" style="font-size:.8rem;margin-top:.25rem">An ADI sitting in on this lesson. DVSA want a fifth of everything you teach supervised, and this is what counts towards it.</div></div>
@@ -8373,18 +8411,10 @@ function dlAfterApply(){ dlTypeChanged(); pickupSync("dl"); dropoffSync("dl"); d
 // A driving test has no repeat (Dale, 15 Sep 2026): the Repeat row is hidden and set back to Don't repeat, so a hidden choice can
 // never book extra tests (and saving a driving test books just the one, dlRepeatCount).
 function dlTypeChanged(){
-  // A training session has a trainee and no pupil; the database refuses any other shape, so the
-  // form has to stop asking for a pupil or the browser blocks the submit on a required empty field.
-  const pdi=fieldVal("dl-type")==="pdi_training";
-  const pupilWrap=document.getElementById("dl-pupil") ? document.getElementById("dl-pupil").closest(".field") : null;
-  if(pupilWrap) pupilWrap.classList.toggle("hidden", pdi);
-  const pupilSel=document.getElementById("dl-pupil");
-  if(pupilSel){ pupilSel.required = !pdi; if(pdi) pupilSel.value=""; }
-  const tw=document.getElementById("dl-trainee-wrap"); if(tw) tw.classList.toggle("hidden", !pdi);
-  const ts=document.getElementById("dl-trainee"); if(ts) ts.required = pdi;
-  // Supervision belongs to an ordinary lesson taught BY a trainee, never to a training session.
+  // Training is booked on its own form now (openPdiTraining), so nothing here deals with a trainee.
+  // Supervised by stays: that really is an ordinary lesson, taught by the trainee with an ADI sitting in.
   const sw=document.getElementById("dl-supervised-wrap");
-  if(sw) sw.classList.toggle("hidden", pdi || dlSupervisors.length===0);
+  if(sw) sw.classList.toggle("hidden", dlSupervisors.length===0);
   const test=fieldVal("dl-type")==="driving_test";
   const t=document.getElementById("dl-test"); if(t) t.classList.toggle("hidden",!test);
   const r=document.getElementById("dl-repeat-wrap"); if(r) r.classList.toggle("hidden",test);
@@ -8421,11 +8451,8 @@ async function saveDiaryAddLessonNow(){
   if(!form||!form.reportValidity()) return;
   dlErr("");
   const lessonType=fieldVal("dl-type")||"lesson";
-  const isPdi=lessonType==="pdi_training";
-  const pupilId=isPdi?"":fieldVal("dl-pupil");
-  const traineeId=isPdi?fieldVal("dl-trainee"):"";
-  if(isPdi){ if(!traineeId) return dlErr("Please choose which trainee this session is for"); }
-  else if(!pupilId) return dlErr("Please select a pupil");
+  const pupilId=fieldVal("dl-pupil");
+  if(!pupilId) return dlErr("Please select a pupil");
   // Every day or week booked is its own lesson: the clash check, reflective log and "booked" message run for each one.
   const occurrences=lessonRepeatOccurrences(fieldVal("dl-date"),fieldVal("dl-start"),durFromHours(fieldVal("dl-hours")),dlRepeatCount(),dlRepeatUnitValue());
   if(!occurrences.length) return dlErr("Please choose a date and time");
@@ -8435,14 +8462,9 @@ async function saveDiaryAddLessonNow(){
   const lesson={lesson_type:lessonType, payment_status:"unpaid", gearbox:(pupil&&pupil.preferred_gearbox)||"manual",
     notes:lessonNotesCombine(fieldVal("dl-notes"),lessonType,fieldVal("dl-centre"),fieldVal("dl-centre-time")),
     status:"booked", pupil_id:pupilId||null, title:null, instructor_id:owner};
-  if(isPdi){
-    lesson.trainee_id=traineeId;
-    lesson.title="PDI training";
-  }else{
-    // Only when somebody was chosen: an empty string would fail the foreign key.
-    const sup=fieldVal("dl-supervised");
-    if(sup) lesson.supervised_by=sup;
-  }
+  // Only when somebody was chosen: an empty string would fail the foreign key.
+  const sup=fieldVal("dl-supervised");
+  if(sup) lesson.supervised_by=sup;
   // Home leaves the pick-up empty (the pupil's home address); School / Work / Other is kept on these lessons only.
   if(pickupType!=="home"&&pickupAddress){ lesson.pickup_label=pickupType; lesson.pickup_address=pickupAddress; }
   Object.assign(lesson, dropoffPayload("dl"));
@@ -12968,7 +12990,7 @@ async function onDiaryGridClick(ev,col){
     ${shown.length?'<p id="slot-free" style="margin:-.35rem 0 .75rem;font-weight:600;font-size:.9rem"></p>':""}
     <div style="display:flex;flex-direction:column;gap:.5rem">
       <button class="btn btn-navy" onclick="${go("openDiaryAddLesson")}">Add lesson</button>
-      ${diarySlotTrainees.length?`<button class="btn-outline" onclick="closeModal();openDiaryAddLesson({date:'${date}',time:'${time}',type:'pdi_training'})">Add PDI training</button>`:""}
+      ${diarySlotTrainees.length?`<button class="btn-outline" onclick="closeModal();openPdiTraining({date:'${date}',time:'${time}'})">Add PDI training</button>`:""}
       <button class="btn-outline" onclick="${go("openLessonOffer")}">Lesson offer (pencil in)</button>
       <button class="btn-outline" onclick="closeModal();openDiaryGapAt('${date}','${time}')">Create gap</button>
       <button class="btn-outline" onclick="closeModal();openAwayAt('${date}')">Create Holiday/Appointment</button>
@@ -13880,7 +13902,11 @@ function diaryBlockBaseName(l,compact){
   // pupil it is for (Dale, 1 Oct 2026). The app does this already (blockFallbackName in Diary.tsx) and the
   // Control Centre read "Private". The brown already says what kind of block it is, so the words say who.
   // The name comes from the trainee's profile, which only a school admin can read: "PDI training" otherwise.
-  if(l&&l.lesson_type==="pdi_training") return (l.trainee&&l.trainee.full_name)||"PDI training";
+  // Which part, not just that it is training (Jason Tinkler, 1 Oct 2026). Same shape as a part 3 test.
+  if(l&&l.lesson_type==="pdi_training"){
+    const who=(l.trainee&&l.trainee.full_name)||"PDI training";
+    return `Part ${l.pdi_part===3?3:2} \u00b7 ${who}`;
+  }
   if(!p||!p.first_name) return fallback;
   const last=String(p.last_name||"").trim();
   if(compact) return last?`${p.first_name} ${last}`:p.first_name;

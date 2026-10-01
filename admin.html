@@ -8246,6 +8246,75 @@ async function deliverPdiTraining(id){
 // Called off rather than deleted, exactly like a lesson: both diaries keep a crossed-out record and
 // "Hide cancellations" tidies it away. No hours are written either way, because the trigger writes
 // those on DELIVERED.
+// Training that already happened, put in as a list rather than booked one session at a time
+// (Dale, 2 Oct 2026). Jason Tinkler has Darren Harper's part 2 training going back months, and
+// nobody is going to book twenty past sessions through the diary and then mark each one delivered.
+//
+// These go straight in as delivered, which is what writes the hours, so they also sidestep the cron
+// that only sweeps the last 30 days. The part decides whether they count towards the 40, same as
+// anything else.
+let pdiPastRows=1;
+function openPdiPastTraining(traineeId){
+  const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId);
+  pdiPastRows=3;
+  openModal(`<h2 style="margin-bottom:.4rem">Add past training</h2>
+    <p class="muted" style="margin:0 0 1rem;font-size:.88rem">Training you have already given ${esc((r&&r.trainee_name)||"them")}. It goes on their record as Part ${pdiPart}, and is marked delivered straight away so the hours count.${pdiPart===3?" Only training within the last 6 months counts towards the 40 on form ADI 21T.":""}</p>
+    <form id="pp-form" onsubmit="savePdiPastTraining('${esc(traineeId)}');return false">
+    <div id="pp-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+    <div id="pp-rows"></div>
+    <button type="button" class="btn-outline btn-sm" onclick="pdiPastAddRow()">+ Another</button>
+    <div class="actions">
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      <button type="submit" class="btn btn-navy btn-sm" id="pp-save">Save</button>
+    </div>
+    </form>`);
+  const wrap=document.getElementById("pp-rows");
+  if(wrap){ wrap.innerHTML=""; for(let i=0;i<pdiPastRows;i++) wrap.insertAdjacentHTML("beforeend", pdiPastRowHtml(i)); }
+}
+function pdiPastRowHtml(i){
+  return `<div class="two" style="gap:.5rem;align-items:end" data-pp-row="${i}">
+    <div class="field" style="margin-bottom:.5rem"><label>Date</label><input type="date" id="pp-date-${i}"></div>
+    <div class="field" style="margin-bottom:.5rem"><label>Start time</label><input type="time" id="pp-time-${i}" value="09:00"></div>
+    <div class="field" style="margin-bottom:.5rem"><label>Hours</label><input type="number" min="0" step="0.25" id="pp-hours-${i}" placeholder="e.g. 2"></div>
+  </div>`;
+}
+function pdiPastAddRow(){
+  const wrap=document.getElementById("pp-rows"); if(!wrap) return;
+  wrap.insertAdjacentHTML("beforeend", pdiPastRowHtml(pdiPastRows++));
+}
+function ppErr(msg){ const el=document.getElementById("pp-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
+function savePdiPastTraining(traineeId){ return runOnce("pdiPast",()=>savePdiPastTrainingNow(traineeId)); }
+async function savePdiPastTrainingNow(traineeId){
+  ppErr("");
+  const rows=[];
+  for(let i=0;i<pdiPastRows;i++){
+    const d=fieldVal("pp-date-"+i), t=fieldVal("pp-time-"+i)||"09:00", hrs=Number(fieldVal("pp-hours-"+i));
+    if(!d && !fieldVal("pp-hours-"+i)) continue;
+    if(!d) return ppErr("Give a date on every line you have filled in");
+    if(!(hrs>0)) return ppErr("Give how many hours on every line you have filled in");
+    const start=dLocalDateTime(d,t);
+    if(!start) return ppErr("That date does not look right");
+    if(start>new Date()) return ppErr("This is for training that has already happened");
+    rows.push({start, mins:Math.round(hrs*60)});
+  }
+  if(!rows.length) return ppErr("Fill in at least one line");
+  const owner=diaryOwnerId||currentUserId;
+  const btn=document.getElementById("pp-save"); if(btn){ btn.disabled=true; btn.textContent="Saving\u2026"; }
+  try{
+    const payload=rows.map(r=>({lesson_type:"pdi_training", trainee_id:traineeId, pupil_id:null,
+      title:"PDI training", pdi_part:pdiPart, instructor_id:owner, status:"booked", payment_status:"unpaid",
+      start_time:r.start.toISOString(), end_time:new Date(r.start.getTime()+r.mins*60000).toISOString()}));
+    const {data:made,error}=await sb.from("lessons").insert(payload).select("id");
+    if(error) return ppErr(error.message);
+    // Booked then delivered, in two steps on purpose: lesson_makes_trainee_hours fires on the MOVE to
+    // delivered, so a row inserted as delivered would write no hours at all.
+    const {error:e2}=await sb.from("lessons").update({status:"delivered"}).in("id",(made||[]).map(x=>x.id));
+    if(e2) return ppErr(e2.message);
+    closeModal();
+    showTrainee(traineeId);
+  }catch(e){ ppErr((e&&e.message)||"Could not save that"); }
+  finally{ const b=document.getElementById("pp-save"); if(b){ b.disabled=false; b.textContent="Save"; } }
+}
 // Kept as the way in from a diary block, a day card and the record's Lessons tab.
 async function openPdiTrainingEdit(lessonId){
   let l=diaryLessonsCache.find(x=>x.id===lessonId);
@@ -17915,6 +17984,10 @@ function renderTraineeRecord(){
     const TRAIN_LABEL={pre_licence:"Before the licence",additional_training:"Extra training",post_part3_training:"After part 3",part2_training:"Part 2 training"};
     const received=(hours||[]).filter(x=>TRAIN_LABEL[x.kind]&&(pdiPart===2)===(x.kind==="part2_training")).sort((a,b)=>a.session_date<b.session_date?-1:1);
     pane=`<div class="panel" style="margin-top:.6rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem">
+        <strong style="font-size:.9rem">Part ${pdiPart} hours</strong>
+        <button class="btn-outline btn-sm" onclick="openPdiPastTraining('${id}')">Add past training</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.6rem">
         <div class="metric"><div class="l">Taught</div><div class="v">${h(sup.instruction_hours)}h</div></div>
         <div class="metric"><div class="l">Supervised</div><div class="v ${sup.met?"good":"bad"}">${h(sup.supervised_hours)}h</div></div>

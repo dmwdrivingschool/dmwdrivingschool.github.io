@@ -8094,10 +8094,26 @@ function diaryMonthHtml(list){
 
 // A click, as in the app's Diary.tsx: an offer opens Pencil in, a pupil's entry opens the pupil (cancelled ones on Lessons),
 // Away / Appointment their own editor, anything else Edit Lesson. Right-click or press and hold edits instead (diaryHookHold).
+// The PDI Training tab is a school admin's, so only they can be sent to it (refreshPdiTrainingTab).
+function pdiTabAvailable(){
+  const b=document.getElementById("nav-pdi-training-btn");
+  return !!(isSchoolAdminUser && currentSchoolId && b && !b.classList.contains("hidden"));
+}
+// Clicking a training session opens the PDI's record, exactly as clicking a lesson opens the pupil,
+// and as the app's diary goes to /instructor/pdis/:id (Dale, 1 Oct 2026). Press and hold still edits
+// the booking itself, so both ways in are kept. Anybody without the tab keeps the lesson editor.
+async function openTraineeRecordFrom(traineeId){
+  goTab("pditraining");
+  // goTab has already started the load; wait for THAT one, as openTrainerPickerFor does.
+  try{ await pdiTrainingLoad; }catch(e){}
+  if(!pdiTrainingRows.some(x=>x.trainee_id===traineeId)){ alert("Could not open their training record."); return; }
+  await showTrainee(traineeId);
+}
 async function onDiaryBlockClick(el){
   if(diaryHold.fired){ diaryHold.fired=false; return; }
   const l=diaryEntryFromEl(el); if(!l) return;
   if(l.lesson_type==="lesson_offer"){ openLessonOfferEdit(l.id); return; }
+  if(l.lesson_type==="pdi_training"&&l.trainee_id&&pdiTabAvailable()){ openTraineeRecordFrom(l.trainee_id); return; }
   if(l.pupil_id){
     let p=allPupils().find(x=>x.id===l.pupil_id);
     if(!p){ const {data}=await sb.from("pupils").select("*").eq("id",l.pupil_id).maybeSingle(); p=data; }

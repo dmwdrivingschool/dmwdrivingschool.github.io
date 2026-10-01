@@ -18164,27 +18164,46 @@ function daysAgo(dateStr){
   return `${months} month${months===1?"":"s"} ago`;
 }
 
+/* Details used to do up to FIVE round trips - profile, last seen, app opens, subscription, school -
+   one after another, and only THEN open anything. On a phone that is a second or two of a button
+   that looks broken, so you press it again (Jason Tinkler, 1 Oct 2026). Now it opens straight away
+   and fills in, and the queries that do not depend on each other run together: two trips, not five.
+   The token stops a slow reply from reopening a dialog somebody has already closed, or from landing
+   on top of a different instructor they have since pressed. */
+let instrDetailToken = 0;
 async function showInstructorDetail(instructorId){
-  const {data:i} = await sb.from("profiles").select("id,full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode,school_id,is_school_admin,is_trainer,created_at,last_opened_at,app_version,app_platform,last_web_at").eq("id",instructorId).single();
-  // Their last sign-in, in case their app is too old to record opens.
-  await loadInstructorLastSeen();
-  // How much they're actually using it, not just that they signed in once. Super admin only.
-  let opens7 = null;
-  if(isSuperAdminUser){
-    const {data:n} = await sb.rpc("app_opens_last_7_days", {p_profile: instructorId});
-    if(typeof n === "number") opens7 = n;
-  }
-  // On a school seat, billing is the school's subscription, not their own.
-  const {data:sub} = i.school_id
-    ? await sb.from("subscriptions").select("id,plan,status,trial_ends_at,current_period_end,past_due_since,manual_payment_note,seats_purchased").eq("owner_type","school").eq("owner_id",i.school_id).maybeSingle()
-    : await sb.from("subscriptions").select("id,plan,status,trial_ends_at,current_period_end,past_due_since,manual_payment_note,seats_purchased").eq("owner_type","instructor").eq("owner_id",instructorId).maybeSingle();
+  const token = ++instrDetailToken;
+  openModal('<h2 style="margin-bottom:.6rem">Instructor</h2><p class="muted">Loading&hellip;</p>');
+  const stillWanted = () => token===instrDetailToken && !document.getElementById("modal").classList.contains("hidden");
+
+  const [profRes, , opensRes] = await Promise.all([
+    sb.from("profiles").select("id,full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode,school_id,is_school_admin,is_trainer,created_at,last_opened_at,app_version,app_platform,last_web_at").eq("id",instructorId).single(),
+    // Their last sign-in, in case their app is too old to record opens.
+    loadInstructorLastSeen(),
+    // How much they're actually using it, not just that they signed in once. Super admin only.
+    isSuperAdminUser ? sb.rpc("app_opens_last_7_days", {p_profile: instructorId}) : Promise.resolve({data:null})
+  ]);
+  if(!stillWanted()) return;
+  const i = profRes && profRes.data;
+  if(!i){ openModal('<h2 style="margin-bottom:.6rem">Instructor</h2><p class="muted">Could not load their details. Try again in a moment.</p>'); return; }
+  const opens7 = typeof (opensRes&&opensRes.data) === "number" ? opensRes.data : null;
+
   // schoolsCache is only filled on the super-admin Teams view; a school
   // admin looking at their own instructor needs the name fetched.
-  let school = schoolsCache.find(s=>s.id===i.school_id) || null;
-  if(!school && i.school_id){
-    const {data:sc} = await sb.from("schools").select("id,display_name,name").eq("id",i.school_id).maybeSingle();
-    school = sc || null;
-  }
+  const cachedSchool = schoolsCache.find(s=>s.id===i.school_id) || null;
+  const subCols = "id,plan,status,trial_ends_at,current_period_end,past_due_since,manual_payment_note,seats_purchased";
+  const [subRes, schoolRes] = await Promise.all([
+    // On a school seat, billing is the school's subscription, not their own.
+    i.school_id
+      ? sb.from("subscriptions").select(subCols).eq("owner_type","school").eq("owner_id",i.school_id).maybeSingle()
+      : sb.from("subscriptions").select(subCols).eq("owner_type","instructor").eq("owner_id",instructorId).maybeSingle(),
+    (!cachedSchool && i.school_id)
+      ? sb.from("schools").select("id,display_name,name").eq("id",i.school_id).maybeSingle()
+      : Promise.resolve({data:null})
+  ]);
+  if(!stillWanted()) return;
+  const sub = subRes && subRes.data;
+  const school = cachedSchool || (schoolRes && schoolRes.data) || null;
   const addressLines = [i.address_line1, i.address_line2, i.city, i.postcode].filter(Boolean);
   const address = addressLines.length ? esc(addressLines.join(", ")) : "Not provided yet";
 

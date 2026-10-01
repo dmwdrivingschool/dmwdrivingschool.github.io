@@ -7961,7 +7961,7 @@ async function renderDiary(){
   // (Dale, 30 Sep 2026). RLS allows all three; this is just the query catching up.
   // The signed-in account's diary colours, read alongside (at most once a minute; diaryColoursRefresh).
   const coloursJob=diaryColoursRefresh();
-  const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)").or(`instructor_id.eq.${owner},trainee_id.eq.${owner},supervised_by.eq.${owner}`)
+  const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name), trainee:profiles!lessons_trainee_id_fkey(id,full_name)").or(`instructor_id.eq.${owner},trainee_id.eq.${owner},supervised_by.eq.${owner}`)
     .lt("start_time",end.toISOString()).gt("end_time",ws.toISOString()).gte("start_time",diaryPastFloorIso()).order("start_time");
   await coloursJob;
   if(seq!==diaryRenderSeq) return;
@@ -8047,7 +8047,7 @@ async function renderDiaryDayOrMonth(seq,owner){
   if(diaryView==="day"){ from=new Date(diaryDate); from.setHours(0,0,0,0); to=new Date(from); to.setDate(to.getDate()+1); }
   else{ from=startOfWeek(new Date(diaryDate.getFullYear(),diaryDate.getMonth(),1)); to=startOfWeek(new Date(diaryDate.getFullYear(),diaryDate.getMonth()+1,0)); to.setDate(to.getDate()+7); }
   const floor=diaryPastFloorIso(), fromIso=from.toISOString();
-  const {data}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name)").or(`instructor_id.eq.${owner},trainee_id.eq.${owner},supervised_by.eq.${owner}`)
+  const {data}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name), trainee:profiles!lessons_trainee_id_fkey(id,full_name)").or(`instructor_id.eq.${owner},trainee_id.eq.${owner},supervised_by.eq.${owner}`)
     .gte("start_time",fromIso>floor?fromIso:floor).lt("start_time",to.toISOString()).order("start_time");
   if(seq!==diaryRenderSeq) return;
   diaryLessonsCache=data||[];
@@ -13726,9 +13726,23 @@ function diaryColoursRefresh(force){
   })();
   return diaryColoursJob;
 }
-// The app's shortName: the week grid shows the full name, lists "Sam S."; a holiday says Holiday.
+// The app's blockName: a part 3 carries a pupil like any other lesson, so it drew nothing but that
+// pupil's name in a black box - identical to the pupil's OWN driving test, which is also black
+// (Dale, 30 Sep 2026: "it shows as black on the diary there is nothing that saying its part3"). It was
+// fixed in the app then and not here. Black stays, because it IS a test and reads as one at a glance;
+// the words are what say whose test it is. Bites a PDI's own diary and a trainer viewing it.
 function diaryShortName(l,compact){
+  const name=diaryBlockBaseName(l,compact);
+  return l&&l.lesson_type==="part3_test"?`Part 3 · ${name}`:name;
+}
+// The app's shortName: the week grid shows the full name, lists "Sam S."; a holiday says Holiday.
+function diaryBlockBaseName(l,compact){
   const p=l&&l.pupil; let fallback=(l&&l.title)||"Private"; if(fallback==="Away") fallback="Holiday";
+  // A training session has no pupil, so it says WHO is being trained, the same way a lesson says which
+  // pupil it is for (Dale, 1 Oct 2026). The app does this already (blockFallbackName in Diary.tsx) and the
+  // Control Centre read "Private". The brown already says what kind of block it is, so the words say who.
+  // The name comes from the trainee's profile, which only a school admin can read: "PDI training" otherwise.
+  if(l&&l.lesson_type==="pdi_training") return (l.trainee&&l.trainee.full_name)||"PDI training";
   if(!p||!p.first_name) return fallback;
   const last=String(p.last_name||"").trim();
   if(compact) return last?`${p.first_name} ${last}`:p.first_name;

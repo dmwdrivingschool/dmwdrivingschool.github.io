@@ -8159,8 +8159,12 @@ function dlApplyPdiContext(){
   dlTypeChanged();
 }
 
-function openDiaryAddLesson(prefill){
+async function openDiaryAddLesson(prefill){
   const p=prefill||{}, pupils=avPupils();
+  // Loaded BEFORE the form is drawn, not after: "+ Add" and the month view come straight here
+  // without going through the slot menu, and the Type dropdown has to be right first time
+  // (Jason Tinkler, 1 Oct 2026, still could not find it).
+  await dlLoadPdiContext(diaryOwnerId||currentUserId).catch(()=>{});
   const opts=pupils.map(x=>`<option value="${esc(x.id)}">${esc(x.first_name)} ${esc(x.last_name)}</option>`).join("");
   // dl-free = "Free at this time" chips, dl-warn = doesn't-fit-their-free-time note; both kept up to date by avAddFormChanged.
   openModal(`<h2 style="margin-bottom:1rem">Add Lesson</h2>
@@ -8206,7 +8210,7 @@ function openDiaryAddLesson(prefill){
     </form>`);
   // Showing pupils' free times: a click on the diary starts with the pupil it chose (avSlotPupilId, Dale, 15 Sep 2026)
   // Fire and forget: the form is usable immediately and the PDI fields appear a moment later.
-  dlLoadPdiContext(diaryOwnerId||currentUserId).then(dlApplyPdiContext).catch(()=>{});
+  dlApplyPdiContext();
   const pick=p.time&&p.pupil&&pupils.some(x=>x.id===p.pupil)?p.pupil:"";
   const defaults={"dl-pupil":pick,"dl-type":p.type||"lesson","dl-date":p.date||dLocalDate(new Date()),"dl-start":p.time||"09:00","dl-centre":"","dl-centre-time":"","dl-travel":"",
     "dl-hours":"1","dl-mins":"60","dl-pickup":"home","dl-pickup-addr":"","dl-pickup-save":false,"dl-dropoff":"same","dl-dropoff-addr":"","dl-repeat-unit":"week","dl-repeat-count":"0","dl-notes":""};

@@ -8144,11 +8144,6 @@ async function dlLoadPdiContext(ownerId){
 // Fills the two extra fields once the context arrives. The form is already on screen by then, so it
 // adds the PDI Training option rather than rebuilding the picker.
 function dlApplyPdiContext(){
-  const typeSel=document.getElementById("dl-type");
-  if(typeSel && dlTrainees.length && !typeSel.querySelector('option[value="pdi_training"]')){
-    const o=document.createElement("option"); o.value="pdi_training"; o.textContent="PDI Training";
-    typeSel.appendChild(o);
-  }
   const tw=document.getElementById("dl-trainee-wrap"), ts=document.getElementById("dl-trainee");
   if(ts && !ts.options.length){
     ts.innerHTML='<option value="">Select trainee…</option>'+dlTrainees.map(t=>`<option value="${esc(t.id)}">${esc(t.full_name||"")}</option>`).join("");
@@ -8179,7 +8174,7 @@ async function openDiaryAddLesson(prefill){
       ${pupils.length?"":'<div class="av-warn">No active pupils yet. Add pupils first.</div>'}
       <div id="dl-warn" class="av-warn"></div>
     </div>
-    <div class="field"><label>Type</label><select id="dl-type" onchange="dlTypeChanged()">${lessonTypeOptions(p.type||"lesson",(dlTrainees.length||p.type==="pdi_training")?["pdi_training"]:[])}</select></div>
+    <div class="field"><label>Type</label><select id="dl-type" onchange="dlTypeChanged()">${lessonTypeOptions(p.type||"lesson",p.type==="pdi_training"?["pdi_training"]:[])}</select></div>
     <div class="field hidden" id="dl-trainee-wrap"><label>Trainee</label>
       <select id="dl-trainee"></select>
       <div class="muted" style="font-size:.8rem;margin-top:.25rem">Training you are giving them. It shows in their diary too, and the hours go on their ADI 21T record.</div></div>

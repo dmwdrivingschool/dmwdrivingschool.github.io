@@ -1346,13 +1346,17 @@ const BUSINESS_TYPES={
 // Also saved there: car_pct / phone_pct (business use, sole traders),
 // car_costs ("actual" or "mileage"), cs_date (company
 // confirmation statement date, MM-DD, or null).
-const BUSINESS_TYPE_DEFAULTS={type:"sole_cash",dual_controls:true,year_end:"03-31",car_pct:100,phone_pct:100,car_costs:"actual",cs_date:null,saved:false};
+const BUSINESS_TYPE_DEFAULTS={type:"sole_cash",dual_controls:true,year_end:"03-31",sole_year_end:"04-05",car_pct:100,phone_pct:100,car_costs:"actual",cs_date:null,saved:false};
 let businessType=Object.assign({},BUSINESS_TYPE_DEFAULTS);
 function normaliseBusinessType(v,saved){
   v=v||{};
   const pct=x=>{ const n=Math.round(Number(x)); return x!==undefined&&x!==null&&x!==""&&n>=0&&n<=100?n:100; };
   const md=x=>/^\d{2}-\d{2}$/.test(x||"")?x:null;
   return {type:BUSINESS_TYPES[v.type]?v.type:"sole_cash",dual_controls:true,year_end:md(v.year_end)||"03-31",
+    // Only two values are valid for a sole trader. Since basis period reform profits are taxed on a
+    // tax-year basis whatever the books say, and HMRC treats 31 March as equivalent to 5 April - so
+    // these are the only two year ends that are actually correct. Anything else is ignored.
+    sole_year_end:v.sole_year_end==="03-31"?"03-31":"04-05",
     car_pct:pct(v.car_pct),phone_pct:pct(v.phone_pct),car_costs:"actual",
     cs_date:md(v.cs_date),saved:!!saved};
 }
@@ -1370,6 +1374,14 @@ async function loadBusinessType(){
   applyBusinessTypeUi();
 }
 function isCompany(){ return businessType.type==="company"; }
+/* Where this account's own accounting year begins and ends (Raymond, 1 Oct 2026: "the facility to
+   reboot everything on 1st April and start a fresh accounting period"). Everything used to assume
+   6 April - 5 April for every sole trader. Most run 1 April - 31 March instead, which HMRC accepts
+   because 31 March is treated as equivalent to 5 April. Defaults to 5 April, so nobody who leaves it
+   alone sees a single figure change. Companies are unaffected - they have their own year_end. */
+function soleYearEndsMarch(){ return !isCompany() && businessType.sole_year_end==="03-31"; }
+function fyStart(){ return soleYearEndsMarch()?"04-01":"04-06"; }
+function fyEnd(){ return soleYearEndsMarch()?"03-31":"04-05"; }
 function usesHpSplit(){ return !(businessType.type==="sole_cash"&&businessType.dual_controls); }
 // Sole traders: only the business share of car and phone costs counts, and
 // with HMRC's mileage rate the car's own costs don't count at all (the rate
@@ -1527,7 +1539,7 @@ function claimablePart(r){
   return Math.round(base*businessFactor(r)*100)/100;
 }
 function notClaimablePart(r){ return Math.round((Number(r.amount||0)-claimablePart(r))*100)/100; }
-function hpTaxYear(iso){ const y=Number(iso.slice(0,4)); return iso.slice(5)>="04-06"?y:y-1; }
+function hpTaxYear(iso){ const st=fyStart(); const y=Number(iso.slice(0,4)); return iso.slice(5)>=st?y:y-1; }
 // --- Your cars (Dale, 12 Sep 2026) -----------------------------------------
 // Each car with its finance (hire purchase, PCP or lease), insurance, car tax
 // and MOT. Payments ticked "Add automatically" are added to the owner's
@@ -2208,7 +2220,13 @@ async function saveSyllabus(){
 }
 
 function startOfWeek(d){const x=new Date(d);const day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x}
-function taxYearBounds(offset){const now=new Date();let y=now.getFullYear();if(now<new Date(y,3,6))y--;y+=offset;return{from:y+"-04-06",to:(y+1)+"-04-05"}}
+function taxYearBounds(offset){
+  const st=fyStart(), en=fyEnd();
+  const today=new Date().toISOString().slice(0,10);
+  let y=Number(today.slice(0,4)); if(today.slice(5)<st) y--;
+  y+=offset||0;
+  return {from:`${y}-${st}`,to:`${y+1}-${en}`};
+}
 
 document.getElementById("main-nav").addEventListener("click",e=>{
   const b=e.target.closest("button[data-tab]"); if(!b)return; goTab(b.dataset.tab);
@@ -9043,7 +9061,7 @@ function onPayCatChange(setDefault){
 function milesFromNotes(n){ const m=String(n||"").match(/\((\d+(?:\.\d+)?)\s*miles\)/i); return m?Number(m[1]):0; }
 function stripMilesNote(n){ return String(n||"").replace(/\s*\(\d+(?:\.\d+)?\s*miles\)/ig,"").trim(); }
 function isMileageCat(cat){ const d=EXPENSE_CAT_DEFS.find(x=>x.name===cat); return !!(d&&d.mileage); }
-function taxYearOf(iso){ const y=Number(iso.slice(0,4)); const s=iso.slice(5)>="04-06"?y:y-1; return {from:`${s}-04-06`,to:`${s+1}-04-05`}; }
+function taxYearOf(iso){ const st=fyStart(), en=fyEnd(); const y=Number(iso.slice(0,4)); const s=iso.slice(5)>=st?y:y-1; return {from:`${s}-${st}`,to:`${s+1}-${en}`}; }
 function mileageAmount(miles,date,cat,excludeId){
   const {from}=taxYearOf(date);
   const before=(txCache||[]).filter(r=>r.id!==excludeId&&!(r.instructor_id&&r.instructor_id!==currentUserId)&&(r.category||"")===cat
@@ -9246,8 +9264,14 @@ function financeCategoryTable(rows,standardCats,label,isExp){
 // Nothing is sent to HMRC from here.
 let taxSum=null;
 function taxQuarterBounds(y,q){
-  const starts=[`${y}-04-06`,`${y}-07-06`,`${y}-10-06`,`${y+1}-01-06`];
-  const ends=[`${y}-07-05`,`${y}-10-05`,`${y+1}-01-05`,`${y+1}-04-05`];
+  // HMRC's calendar quarters election, which is what a 31 March year end goes with - otherwise the
+  // quarters end on the 5th and the year ends on the 31st and nothing lines up.
+  const starts=soleYearEndsMarch()
+    ? [`${y}-04-01`,`${y}-07-01`,`${y}-10-01`,`${y+1}-01-01`]
+    : [`${y}-04-06`,`${y}-07-06`,`${y}-10-06`,`${y+1}-01-06`];
+  const ends=soleYearEndsMarch()
+    ? [`${y}-06-30`,`${y}-09-30`,`${y}-12-31`,`${y+1}-03-31`]
+    : [`${y}-07-05`,`${y}-10-05`,`${y+1}-01-05`,`${y+1}-04-05`];
   return q===0?{from:starts[0],to:ends[3]}:{from:starts[q-1],to:ends[q-1]};
 }
 function taxSummaryDefaults(){
@@ -9474,11 +9498,11 @@ function renderTaxSummary(){
   if(!taxSum) taxSum=taxSummaryDefaults();
   const {y,q,ytd}=taxSum;
   const qb=taxQuarterBounds(y,q);
-  const from=(q===0||ytd)?`${y}-04-06`:qb.from, to=qb.to;
+  const from=(q===0||ytd)?`${y}-${fyStart()}`:qb.from, to=qb.to;
   const {own,rows,flagged,turnoverGross,refunds,turnover,otherInc,notBusiness,heads,usedHeadings,totExp,totNot,totClaim,profitTax,profitAll,hpInterest,hpUncovered,hpInterestEntries}=taxFigures(from,to);
   const cy=Number(taxYearBounds(0).from.slice(0,4));
-  const earliest=own.reduce((m,r)=>{ const d=r.transaction_date||""; return d&&d<m?d:m; },`${cy}-04-06`);
-  let ey=Number(earliest.slice(0,4)); if(earliest.slice(5)<"04-06") ey--;
+  const earliest=own.reduce((m,r)=>{ const d=r.transaction_date||""; return d&&d<m?d:m; },`${cy}-${fyStart()}`);
+  let ey=Number(earliest.slice(0,4)); if(earliest.slice(5)<fyStart()) ey--;
   const years=[]; for(let yy=cy; yy>=Math.min(ey,y); yy--) years.push(yy);
   const money=n=>(n<0?"-£":"£")+Math.abs(n).toFixed(2);
   const qLabel=["Whole tax year","Quarter 1 · 6 Apr – 5 Jul","Quarter 2 · 6 Jul – 5 Oct","Quarter 3 · 6 Oct – 5 Jan","Quarter 4 · 6 Jan – 5 Apr"];
@@ -20230,6 +20254,11 @@ function openBusinessTypeModal(){
         <div class="muted" style="font-size:.78rem;margin-top:.25rem">The date your last confirmation statement was made up to, shown on Companies House. It adds that deadline to your dashboard.</div>
       </div>
       <div id="biz-sole-wrap">
+        <h4 style="margin:1.2rem 0 .3rem">Your year end</h4>
+        <p class="muted" style="font-size:.85rem;margin-bottom:.5rem">Most sole traders run their books to 31 March rather than 5 April. HMRC accepts either &mdash; 31 March counts as the same thing. Pick the one your accounts already use.</p>
+        ${radio("biz-sole-ye","04-05",t.sole_year_end!=="03-31","5 April","The tax year itself, 6 April to 5 April.")}
+        ${radio("biz-sole-ye","03-31",t.sole_year_end==="03-31","31 March","1 April to 31 March. Quarterly figures use HMRC's calendar quarters to match.")}
+        <p class="muted" style="font-size:.78rem;margin:-.1rem 0 .6rem">Changing this moves a few days of entries between one year and the next, so last year's totals can shift. Nothing is deleted.</p>
         <h4 style="margin:1.2rem 0 .3rem">Business use</h4>
         <p class="muted" style="font-size:.85rem;margin-bottom:.5rem">If you also use these privately, only the business share can be claimed. Leave them at 100% if you don't.</p>
         <div class="two">
@@ -20261,7 +20290,9 @@ async function saveBusinessType(){
   const csD=val("biz-cs-day"), csM=val("biz-cs-month");
   if(type==="company"&&((csD==="")!==(csM===""))){ err.textContent="Choose both the day and the month of the confirmation statement date, or neither."; return; }
   const csLast=csM?new Date(Date.UTC(2000,Number(csM),0)).getUTCDate():31;
+  const soleYeEl=document.querySelector('input[name="biz-sole-ye"]:checked');
   const value={type,dual_controls:true,year_end,
+    sole_year_end:soleYeEl&&soleYeEl.value==="03-31"?"03-31":"04-05",
     car_pct:pctOk(val("biz-car-pct"))?Math.round(Number(val("biz-car-pct"))):100,
     phone_pct:pctOk(val("biz-phone-pct"))?Math.round(Number(val("biz-phone-pct"))):100,
     car_costs:"actual",

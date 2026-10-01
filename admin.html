@@ -18083,7 +18083,9 @@ function renderTraineeRecord(){
         <div class="muted" style="font-size:.85rem">${lic.licence_number?esc(lic.licence_number)+" &middot; ":""}${r.ended_on?"licence ended "+longDate(r.ended_on):(lic.expires_on?"expires "+longDate(lic.expires_on):"no licence recorded")}</div>
       </div>
       <div>${traineePill(tone,head)}</div>
-      <div><button class="btn-outline btn-sm" onclick="printTrainee21S('${id}')">Print 21S</button></div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        <button class="btn-outline btn-sm" onclick="printTrainee21T('${id}')" title="The declaration that gets them their trainee licence">Print 21T</button>
+        <button class="btn-outline btn-sm" onclick="printTrainee21S('${id}')" title="The supervision record for while they hold the licence">Print 21S</button></div>
     </div>
     ${partBar}
     ${tabBar}
@@ -18447,6 +18449,116 @@ async function saveTrainerPicker(traineeId){
 // It is THE RECORD (Dale, 30 Sep 2026), printed so it can be signed in wet ink and scanned - which
 // is what the form itself invites: "Alternatively send a scanned copy to PADI@dvsa.gov.uk". Every
 // signature box is therefore left EMPTY on purpose, however much we happen to know.
+// Form ADI 21T, the Instructor Training Declaration, which is what gets a PDI their pink licence.
+// We printed the 21S first, which is the form for AFTER the licence, so until now the one Jason
+// Tinkler needs first did not exist (Dale, 2 Oct 2026). Page 3 of the real form is a table with one
+// row per training objective and columns for date, hours and both signatures, which is exactly the
+// 20 objectives we already hold.
+//
+// Only part 3 training counts. The declaration says "40 hours training in the giving of driving
+// instruction", in those words, so part 2 work is left off this form entirely.
+async function printTrainee21T(id){
+  const r=pdiTrainingRows.find(x=>x.trainee_id===id); if(!r) return;
+  const lic=(r.progress||{}).licence||{};
+  const [{data:me},{data:school},{data:adi},{data:objs}] = await Promise.all([
+    sb.from("profiles").select("full_name,adi_badge_number,phone,address_line1,address_line2,city,postcode").eq("id",id).maybeSingle(),
+    currentSchoolId
+      ? sb.from("schools").select("name,display_name,address_line1,address_line2,city,postcode,phone").eq("id",currentSchoolId).maybeSingle()
+      : Promise.resolve({data:null}),
+    r.sponsor_id
+      ? sb.from("profiles").select("full_name,adi_badge_number,address_line1,address_line2,city,postcode").eq("id",r.sponsor_id).maybeSingle()
+      : Promise.resolve({data:null}),
+    sb.rpc("trainee_objectives",{p_trainee:id,p_list:"21t"})
+  ]);
+
+  const line=(label,value)=>"<div class=\"f\"><span class=\"fl\">"+label+"</span><span class=\"fv\">"+esc(value||"")+"</span></div>";
+  const joinAddr=x=>!x?"":[x.address_line1,x.address_line2,x.city].filter(Boolean).join(", ");
+  const addr=joinAddr(me), schoolName=school?(school.display_name||school.name):"", schoolAddr=joinAddr(school);
+  const dmy=d=>d?new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"2-digit"}):"";
+  const hrs=n=>Number(n)>0?(Math.round(Number(n)*100)/100):"";
+
+  // The 40 is only what was given in the last 6 months, which is what the declaration says.
+  const since=new Date(); since.setMonth(since.getMonth()-6);
+  const counted=(pdiHours||[]).filter(x=>x.kind==="pre_licence" && new Date(x.session_date)>=since);
+  const total=counted.reduce((n,x)=>n+Number(x.hours||0),0);
+  const inCar=counted.filter(x=>x.on_road).reduce((n,x)=>n+Number(x.hours||0),0);
+  const attributed=(objs||[]).reduce((n,o)=>n+Number(o.hours||0),0);
+
+  const warnings=[];
+  if(!(me&&me.adi_badge_number)) warnings.push("No Personal Reference Number (PRN) recorded for this trainee &mdash; it is their PDI badge number, which they can add on their own Profile in the app.");
+  if(!adi) warnings.push("No sponsoring ADI set, so section 2 cannot be filled in. Set one on the Details tab.");
+  else if(!adi.adi_badge_number) warnings.push("No ADI PRN recorded for "+esc(adi.full_name||"the sponsoring ADI")+". The form asks for it in section 2.");
+  if(total<40) warnings.push("<strong>"+(Math.round(total*10)/10)+" hours recorded in the last 6 months.</strong> The declaration is for not less than 40.");
+  if(inCar<10) warnings.push((Math.round(inCar*10)/10)+" of those hours were in a car. DVSA want at least 10.");
+  if(Math.round(attributed*100)!==Math.round(total*100)) warnings.push("Hours are not split across the training objectives below, so the dates and hours in the table are blank and the total is shown underneath. Fill the rows in by hand, or they can be left for the ADI and trainee to complete when signing.");
+
+  const rows=(objs||[]).map(o=>"<tr><td>"+esc(o.name)+"</td><td>"+dmy(o.last_on)+"</td><td>"+hrs(o.hours)
+    +"</td><td class=\"sigbox\"></td><td class=\"sigbox\"></td></tr>").join("");
+
+  const win=window.open("","_blank","width=900,height=1000");
+  const printInPlace=(html)=>{
+    const f=document.createElement("iframe");
+    f.setAttribute("aria-hidden","true");
+    f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    document.body.appendChild(f);
+    const d=f.contentWindow.document;
+    d.open(); d.write(html); d.close();
+    setTimeout(function(){ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert("Could not open the print view: "+(e.message||e)); }
+                           setTimeout(function(){ f.remove(); }, 60000); }, 300);
+  };
+  const css = "@page{size:A4;margin:12mm}"
+    + "body{font-family:system-ui,Arial,sans-serif;color:#111;margin:0;font-size:11px}"
+    + "h1{font-size:16px;margin:0}.sub{font-size:10px;margin:2px 0 10px}"
+    + ".boxes{display:flex;gap:10px;margin-bottom:10px}.box{flex:1;border:1px solid #333;padding:8px}"
+    + ".box h2{font-size:11px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em}"
+    + ".f{display:flex;gap:6px;border-bottom:1px solid #bbb;padding:3px 0}"
+    + ".fl{width:52%;color:#333}.fv{flex:1;font-weight:600}"
+    + ".dec{font-size:10px;margin:6px 0}.sig{display:block;border-bottom:1px solid #333;height:18px;margin-top:12px}"
+    + "table{width:100%;border-collapse:collapse;margin-bottom:6px}"
+    + "th,td{border:1px solid #666;padding:3px 4px;text-align:left;font-size:10px}"
+    + "th{background:#eee;font-weight:600}.sigbox{height:18px;width:22%}"
+    + ".tot{font-weight:700}.note{border:1px solid #333;padding:8px;margin-top:10px;font-size:10px}"
+    + ".warn{color:#b00000;font-size:10px;margin:2px 0}";
+  const printHtml = "<!doctype html><html><head><meta charset=\"utf-8\"><title>ADI 21T &mdash; "+esc(r.trainee_name||"")+"</title>"
+    + "<style>"+css+"</style></head><body>"
+    + "<h1>Instructor Training Declaration</h1>"
+    + "<div class=\"sub\">Form ADI 21T &middot; send with an application for a trainee licence"
+    + " &middot; prepared from the Drive My Way record on "+new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})+"</div>"
+    + (warnings.length?"<div>"+warnings.map(function(x){return "<p class=\"warn\">"+x+"</p>";}).join("")+"</div>":"")
+    + "<div class=\"boxes\"><div class=\"box\"><h2>1 &nbsp; Your declaration</h2>"
+    + line("Personal Reference Number:", me&&me.adi_badge_number)
+    + line("Name of applicant:", r.trainee_name)
+    + line("Home address:", addr)
+    + line("Postcode:", me&&me.postcode)
+    + line("Name of the Training Establishment:", schoolName)
+    + line("Address:", schoolAddr)
+    + line("Postcode:", school&&school.postcode)
+    + "<p class=\"dec\">I hereby declare that within the last 6 months I have received a total of not less than 40 hours training in the giving of driving instruction as required.</p>"
+    + "<span class=\"sig\"></span><div style=\"font-size:9px\">Signed</div>"
+    + "<span class=\"sig\"></span><div style=\"font-size:9px\">Dated</div>"
+    + "</div><div class=\"box\"><h2>2 &nbsp; Instructor's declaration</h2>"
+    + line("Name of Instructor:", adi&&adi.full_name)
+    + line("Business Address:", joinAddr(adi)||schoolAddr)
+    + line("Postcode:", (adi&&adi.postcode)||(school&&school.postcode))
+    + line("ADI PRN:", adi&&adi.adi_badge_number)
+    + "<p class=\"dec\">I hereby declare that within the last 6 months the above named trainee has been given a total of not less than 40 hours training in the giving of driving instruction as required. A record of such training is set out overleaf.</p>"
+    + "<span class=\"sig\"></span><div style=\"font-size:9px\">Signed</div>"
+    + "<span class=\"sig\"></span><div style=\"font-size:9px\">Dated</div>"
+    + "</div></div>"
+    + "<h2 style=\"font-size:12px;margin:10px 0 4px\">3 &nbsp; Record of Training</h2>"
+    + "<table><tr><th>Training objectives</th><th>Date training given</th><th>No. of hours</th><th>Signature of Trainee</th><th>Signature of ADI</th></tr>"
+    + rows
+    + "<tr><td colspan=\"2\" class=\"tot\">Total Hours (Not less than 40 hours)</td><td class=\"tot\">"+(Math.round(total*100)/100)+"</td><td></td><td></td></tr>"
+    + "</table>"
+    + "<div class=\"note\"><strong>Notes.</strong> The trainee must receive some training in every one of the objectives above."
+    + " At least 10 of the 40 hours must be in a car, and all of it within the last 6 months."
+    + " <strong>Remember it is an offence to make a false declaration.</strong><br><br>"
+    + "<strong>Where to send your form.</strong> Send this completed declaration to the Registrar at the same time as the"
+    + " application for a trainee licence. A first application is made at www.gov.uk/apply-for-a-trainee-driving-instructor-licence</div>"
+    + "</body></html>";
+  if(win){ win.document.write(printHtml); win.document.close(); win.focus(); }
+  else { printInPlace(printHtml); }
+}
 async function printTrainee21S(id){
   const r=pdiTrainingRows.find(x=>x.trainee_id===id); if(!r) return;
   const lic=(r.progress||{}).licence||{};

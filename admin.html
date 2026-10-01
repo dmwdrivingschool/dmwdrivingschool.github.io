@@ -8149,6 +8149,12 @@ async function openPdiTrainingEdit(lessonId){
   if(l.trainee_id&&!list.some(t=>t.id===l.trainee_id)) list.push({id:l.trainee_id,full_name:(l.trainee&&l.trainee.full_name)||"Their trainee"});
   const s=new Date(l.start_time), mins=Math.round((new Date(l.end_time)-s)/60000)||120;
   const other=!!l.pickup_address;
+  // Delivered is what writes the hours onto the 21T record, and a cron only sweeps up sessions whose
+  // end time passed within the last 30 days. Backdated training is older than that by definition, so
+  // without this it would sit "booked" for ever and count for nothing (Dale, 1 Oct 2026, putting
+  // Darren Harper's part 2 training in). Deliberately NOT a wider cron window: that lookback is
+  // platform-wide and delivered drives pupil credit and earnings for every instructor.
+  const past=new Date(l.end_time)<new Date(), done=l.status==="delivered";
   openModal(`<h2 style="margin-bottom:1rem">Edit PDI training</h2>
     <form id="pt-form" onsubmit="savePdiTrainingEdit('${esc(l.id)}');return false">
     <div id="pt-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
@@ -8167,9 +8173,12 @@ async function openPdiTrainingEdit(lessonId){
         <option value="other"${other?" selected":""}>Somewhere else</option></select></div>
     <div class="field${other?"":" hidden"}" id="pt-where-wrap"><label>Address</label><input type="text" id="pt-where-addr" value="${esc(l.pickup_address||"")}" placeholder="Where you are meeting them"></div>
     <div class="field"><label>Notes (optional)</label><textarea id="pt-notes" rows="2" placeholder="Private notes…">${esc(l.notes||"")}</textarea></div>
+    ${done?`<div class="muted" style="font-size:.82rem;margin:-.3rem 0 .8rem">Already delivered, so the hours are on their record. Changing the length here will not move them.</div>`
+      :past?`<div class="muted" style="font-size:.82rem;margin:-.3rem 0 .8rem">This one has already been and gone. Mark it delivered to put the hours on their record.</div>`:""}
     <div class="actions">
       <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
       ${l.status==="cancelled"?"":`<button type="button" class="btn-outline" id="pt-off" onclick="cancelPdiTraining('${esc(l.id)}')">Call it off</button>`}
+      ${past&&!done&&l.status!=="cancelled"?`<button type="button" class="btn-outline" id="pt-done" onclick="deliverPdiTraining('${esc(l.id)}')">Mark delivered</button>`:""}
       <button type="submit" class="btn btn-navy btn-sm" id="pt-save">Save changes</button>
     </div>
     </form>`);
@@ -8199,6 +8208,17 @@ async function savePdiTrainingEditNow(id){
   if(error){ if(btn){ btn.disabled=false; btn.textContent="Save changes"; } return ptErr(error.message); }
   closeModal();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+}
+// Marking it delivered is what makes the hours exist: lesson_makes_trainee_hours fires on the move
+// to delivered and files it as pre-licence, extra training or post part 3 by looking at the licence.
+// It never rewrites them afterwards, which is why a delivered session is no longer editable.
+async function deliverPdiTraining(id){
+  const btn=document.getElementById("pt-done"); if(btn){ btn.disabled=true; btn.textContent="Marking\u2026"; }
+  const {error}=await sb.from("lessons").update({status:"delivered"}).eq("id",id);
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Mark delivered"; } return ptErr(error.message); }
+  closeModal();
+  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+  if(pdiRecordId) showTrainee(pdiRecordId);
 }
 // Called off rather than deleted, exactly like a lesson: both diaries keep a crossed-out record and
 // "Hide cancellations" tidies it away. No hours are written either way, because the trigger writes

@@ -901,6 +901,7 @@ tbody tr:hover td{background:#334263}
             <button class="btn-outline btn-sm" onclick="openLessonSwap()">Swap</button>
             <button class="btn-outline btn-sm" onclick="openDiaryGap()">+ Gap</button>
             <button class="btn-outline btn-sm" onclick="openAwayModal()">+ Holiday</button>
+            <button class="btn-outline btn-sm hidden" id="diary-pdi-btn" onclick="openDiaryAddLesson({type:'pdi_training'})">+ PDI Training</button>
             <button class="btn btn-navy btn-sm" onclick="openDiaryAddLesson()">+ Add</button>
           </div>
         </div>
@@ -7945,6 +7946,7 @@ async function renderDiary(){
   // Loaded once and then cached; a first render without them simply shows none.
   if(!bankHolidayMap) loadBankHolidaysCC().then(()=>{ if(bankHolidaysOn()) renderDiary(); });
   diaryHeaderUi();
+  refreshDiaryPdiButton();
   renderDiaryOwnerBar();
   renderDiaryHolidays();
   avLoadChosen(); avPrune();
@@ -12782,6 +12784,15 @@ async function cancellationNoticeHours(instructorId){
 // Diary header, as in the app (Dale, 15 Sep 2026): Now goes back to this week, Go to date opens the week of any day, and a
 // line crosses today's column at the current time (the account's "Current time line" colour), moved every minute.
 function diaryGoNow(){ diarySetDate(new Date()); renderDiary(); }
+/* + PDI Training on the toolbar, next to + Gap and + Holiday. Hidden unless this diary's owner
+   actually trains somebody, so nobody carries a button they can never use. */
+async function refreshDiaryPdiButton(){
+  const btn=document.getElementById("diary-pdi-btn"); if(!btn) return;
+  try{
+    await dlLoadPdiContext(diaryOwnerId||currentUserId);
+    btn.classList.toggle("hidden", !dlTrainees.length);
+  }catch(e){ btn.classList.add("hidden"); }
+}
 function openDiaryGoToDate(){
   const shown=diaryDate;
   openModal(`<h3 style="margin:0 0 .75rem">Go to date</h3>

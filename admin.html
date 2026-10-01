@@ -17837,7 +17837,10 @@ async function showTrainee(id){
 // The plan for the next session is the previous session's log, carried forward, exactly as a pupil's
 // Summary does it. Written by the trainer on the session that has been; never typed in here.
 function pdiPlanHtml(next){
-  const logs=(pdiLogs||[]).slice().sort((a,b)=>(a.log_date||"")<(b.log_date||"")?1:-1);
+  // The most recent write-up before the session that is coming, which is the one that set its aim.
+  const cut=next?dLocalDate(new Date(next.start_time)):null;
+  const logs=(pdiLogs||[]).filter(x=>!cut||!x.log_date||x.log_date<=cut)
+                          .sort((a,b)=>(a.log_date||"")<(b.log_date||"")?1:-1);
   const last=logs[0];
   if(!last||!(last.next_session||last.session_goal)){
     return '<p class="muted" style="font-size:.88rem">Nothing yet. Write up a session once it has been and what you set for next time shows here.</p>';
@@ -17957,10 +17960,16 @@ function renderTraineeRecord(){
       const name=l.lesson_type==="pdi_training"?"Training session"
         :l.lesson_type==="part3_test"?"Part 3 test"
         :l.pupil?esc(l.pupil.first_name+" "+l.pupil.last_name):esc(l.title||"Lesson");
+      // Writing up a session that has been is what makes the next one's plan appear, the same way a
+      // pupil's lesson plan comes from the last reflective log (Dale, 2 Oct 2026).
+      const written=(pdiLogs||[]).some(x=>x.lesson_id===l.id);
+      const canLog=l.lesson_type==="pdi_training"&&l.status!=="cancelled"&&new Date(l.start_time)<new Date();
       return `<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0">
         <strong>${name}</strong>${l.supervised_by?' <span class="chip chip-info">supervised</span>':""}
+        ${written?' <span class="chip chip-info">written up</span>':""}
         <div class="muted" style="font-size:.85rem">${when}${l.lesson_type==="pdi_training"&&mins>0?" &middot; "+h(mins/60)+"h":""}</div>
       </div><div class="actions"><span class="muted" style="font-size:.8rem">${esc(l.status)}</span>
+        ${canLog?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiLog('${esc(l.id)}')">${written?"Write-up":"Write up"}</button>`:""}
         ${canEdit?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiTrainingEdit('${esc(l.id)}')">Edit</button>`:""}</div></div>`;
     };
     pane=`<div class="panel" style="margin-top:.6rem">
@@ -18449,6 +18458,47 @@ async function saveTrainerPicker(traineeId){
 // It is THE RECORD (Dale, 30 Sep 2026), printed so it can be signed in wet ink and scanned - which
 // is what the form itself invites: "Alternatively send a scanned copy to PADI@dvsa.gov.uk". Every
 // signature box is therefore left EMPTY on purpose, however much we happen to know.
+// Writing up a training session. Two questions, because that is all a trainer will actually fill in
+// after a lesson: what was covered, and what next time is for. The second becomes the lesson plan on
+// their Summary, which is how a pupil's works - the trainer writes it once and it carries forward,
+// rather than anybody typing a plan into a box (Dale, 2 Oct 2026).
+function openPdiLog(lessonId){
+  const l=(pdiLessons||[]).find(x=>x.id===lessonId); if(!l) return;
+  const existing=(pdiLogs||[]).find(x=>x.lesson_id===lessonId)||null;
+  const when=new Date(l.start_time);
+  openModal(`<h2 style="margin-bottom:.25rem">Write up this session</h2>
+    <p class="muted" style="margin:0 0 1rem;font-size:.88rem">${when.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})} &middot; Part ${l.pdi_part===3?3:2}</p>
+    <form id="pl-form" onsubmit="savePdiLog('${esc(lessonId)}');return false">
+    <div id="pl-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+    <div class="field"><label>What you covered</label>
+      <textarea id="pl-done" rows="3" placeholder="What you worked on and how it went">${existing?esc(existing.achieved||""):""}</textarea></div>
+    <div class="field"><label>Aim for next session</label>
+      <textarea id="pl-next" rows="3" placeholder="What the next session is for">${existing?esc(existing.next_session||""):""}</textarea>
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">This shows as the lesson plan on their Summary, and they can read it.</div></div>
+    <div class="actions">
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      <button type="submit" class="btn btn-navy btn-sm" id="pl-save">Save</button>
+    </div>
+    </form>`);
+}
+function plErr(msg){ const el=document.getElementById("pl-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
+function savePdiLog(lessonId){ return runOnce("pdiLog",()=>savePdiLogNow(lessonId)); }
+async function savePdiLogNow(lessonId){
+  plErr("");
+  const l=(pdiLessons||[]).find(x=>x.id===lessonId); if(!l) return;
+  const done=fieldVal("pl-done").trim(), next=fieldVal("pl-next").trim();
+  if(!done && !next) return plErr("Write something in one of the boxes");
+  const existing=(pdiLogs||[]).find(x=>x.lesson_id===lessonId)||null;
+  const btn=document.getElementById("pl-save"); if(btn){ btn.disabled=true; btn.textContent="Saving\u2026"; }
+  const row={trainee_id:l.trainee_id, pupil_id:null, lesson_id:lessonId,
+    log_date:dLocalDate(new Date(l.start_time)), achieved:done||null, next_session:next||null};
+  const {error}= existing
+    ? await sb.from("reflective_logs").update(row).eq("id",existing.id)
+    : await sb.from("reflective_logs").insert(row);
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save"; } return plErr(error.message); }
+  closeModal();
+  if(pdiRecordId) showTrainee(pdiRecordId);
+}
 // Form ADI 21T, the Instructor Training Declaration, which is what gets a PDI their pink licence.
 // We printed the 21S first, which is the form for AFTER the licence, so until now the one Jason
 // Tinkler needs first did not exist (Dale, 2 Oct 2026). Page 3 of the real form is a table with one

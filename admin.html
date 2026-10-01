@@ -8069,9 +8069,14 @@ function diaryDayHtml(list){
     const second=offer
       ? `<span class="dv-chip dv-offer">${l.offer_status==="declined"?"declined":l.offer_status==="offered"?"awaiting reply":"not yet asked"}</span>`
       : !ccLessonShowsMoney(l) ? "" : `<span class="dv-chip ${paid?"dv-paid":"dv-unpaid"}">${paid?"paid":"unpaid"}</span>`;
+    // A training session gets a spelled-out Edit, because the Control Centre is used on a desktop
+    // where the app's long press does not exist and a right click is nobody's first guess
+    // (Dale, 1 Oct 2026: "it needs to be an edit button on it or something").
+    const editBtn = l.lesson_type==="pdi_training"
+      ? `<button class="btn-outline btn-sm" onclick="event.stopPropagation();openPdiTrainingEdit('${esc(l.id)}')">Edit</button>` : "";
     return `<div class="dv-card" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="dv-time">${dLocalTime(new Date(l.start_time))}</div>
       <div class="dv-main"><div class="dv-name">${esc(diaryShortName(l,false))}</div>${l.title==="Appointment"&&l.notes?`<div class="dv-notes">${esc(l.notes)}</div>`:""}
-      <div class="dv-chips"><span class="dv-chip dv-type">${esc(type)}</span>${second}</div></div></div>`;
+      <div class="dv-chips"><span class="dv-chip dv-type">${esc(type)}</span>${second}</div></div>${editBtn?`<div class="actions">${editBtn}</div>`:""}</div>`;
   };
   return `<div class="dv-wrap">${diaryHoldTipHtml()}<div class="dv-list">${items.length?items.map(card).join(""):'<div class="dv-empty">No lessons on this day</div>'}</div></div>`;
 }
@@ -8108,6 +8113,88 @@ async function openTraineeRecordFrom(traineeId){
   try{ await pdiTrainingLoad; }catch(e){}
   if(!pdiTrainingRows.some(x=>x.trainee_id===traineeId)){ alert("Could not open their training record."); return; }
   await showTrainee(traineeId);
+}
+// Editing a booked training session, mirroring the app's PdiTrainingModal field for field. The
+// ordinary lesson editor cannot do this job: leTypeChanged only drops the pupil for "private" and
+// "gap", so a training session opened there asks for a pupil it is forbidden to have (the shape
+// constraint wants a trainee and no pupil), and it has no way at all to change WHO is being trained.
+// So a session could be booked and then never changed (Dale, 1 Oct 2026: "once pdi training is
+// booked how can it be edited?!").
+async function openPdiTrainingEdit(lessonId){
+  let l=diaryLessonsCache.find(x=>x.id===lessonId);
+  if(!l){
+    const {data}=await sb.from("lessons").select("*, trainee:profiles!lessons_trainee_id_fkey(id,full_name)").eq("id",lessonId).maybeSingle();
+    l=data;
+  }
+  if(!l) return alert("Could not find that training session — try refreshing.");
+  await dlLoadPdiContext(l.instructor_id||diaryOwnerId||currentUserId).catch(()=>{});
+  // The trainee on the booking stays pickable even if the pairing has since been removed, so an
+  // existing session can still be edited without silently moving it to somebody else.
+  const list=dlTrainees.slice();
+  if(l.trainee_id&&!list.some(t=>t.id===l.trainee_id)) list.push({id:l.trainee_id,full_name:(l.trainee&&l.trainee.full_name)||"Their trainee"});
+  const s=new Date(l.start_time), mins=Math.round((new Date(l.end_time)-s)/60000)||120;
+  const other=!!l.pickup_address;
+  openModal(`<h2 style="margin-bottom:1rem">Edit PDI training</h2>
+    <form id="pt-form" onsubmit="savePdiTrainingEdit('${esc(l.id)}');return false">
+    <div id="pt-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+    <div class="field"><label>Trainee</label>
+      <select id="pt-trainee" required>${list.map(t=>`<option value="${esc(t.id)}"${t.id===l.trainee_id?" selected":""}>${esc(t.full_name||"")}</option>`).join("")}</select>
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">It shows in their diary too, and the hours go on their ADI 21T record.</div></div>
+    <div class="field"><label>Date</label><input type="date" id="pt-date" required value="${dLocalDate(s)}"></div>
+    <div class="field"><label>Start time</label><input type="time" id="pt-start" required value="${dLocalTime(s)}"></div>
+    <div class="two">
+      <div class="field"><label>Hours</label><input type="number" min="0" step="0.25" id="pt-hours" value="${durHoursFromMins(String(mins))}" oninput="durHoursInput('pt-hours','pt-mins')"></div>
+      <div class="field"><label>Minutes</label><input type="number" min="0" step="15" id="pt-mins" value="${mins}" oninput="durMinsInput('pt-hours','pt-mins')"></div>
+    </div>
+    <div class="field"><label>Where</label>
+      <select id="pt-where" onchange="ptWhereChanged()">
+        <option value="usual"${other?"":" selected"}>The usual place</option>
+        <option value="other"${other?" selected":""}>Somewhere else</option></select></div>
+    <div class="field${other?"":" hidden"}" id="pt-where-wrap"><label>Address</label><input type="text" id="pt-where-addr" value="${esc(l.pickup_address||"")}" placeholder="Where you are meeting them"></div>
+    <div class="field"><label>Notes (optional)</label><textarea id="pt-notes" rows="2" placeholder="Private notes…">${esc(l.notes||"")}</textarea></div>
+    <div class="actions">
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      ${l.status==="cancelled"?"":`<button type="button" class="btn-outline" id="pt-off" onclick="cancelPdiTraining('${esc(l.id)}')">Call it off</button>`}
+      <button type="submit" class="btn btn-navy btn-sm" id="pt-save">Save changes</button>
+    </div>
+    </form>`);
+}
+function ptWhereChanged(){ const w=document.getElementById("pt-where-wrap"); if(w) w.classList.toggle("hidden",fieldVal("pt-where")!=="other"); }
+function ptErr(msg){ const el=document.getElementById("pt-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
+function savePdiTrainingEdit(id){ return runOnce("pdiTrainingEdit",()=>savePdiTrainingEditNow(id)); }
+async function savePdiTrainingEditNow(id){
+  const form=document.getElementById("pt-form");
+  if(!form||!form.reportValidity()) return;
+  ptErr("");
+  const traineeId=fieldVal("pt-trainee");
+  if(!traineeId) return ptErr("Choose which trainee this session is for");
+  const mins=Math.round(Number(fieldVal("pt-mins"))||0);
+  const start=dLocalDateTime(fieldVal("pt-date"),fieldVal("pt-start"));
+  if(!start||mins<=0) return ptErr("Give a date, a start time and how long it is");
+  const other=fieldVal("pt-where")==="other", addr=fieldVal("pt-where-addr").trim();
+  const btn=document.getElementById("pt-save"); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
+  // pupil_id stays null and the trainee stays set: the shape constraint refuses anything else, and
+  // that is the whole point of it.
+  const {error}=await sb.from("lessons").update({
+    lesson_type:"pdi_training", trainee_id:traineeId, pupil_id:null, title:"PDI training",
+    start_time:start.toISOString(), end_time:new Date(start.getTime()+mins*60000).toISOString(),
+    notes:fieldVal("pt-notes").trim()||null,
+    pickup_label:other&&addr?"Other":null, pickup_address:other&&addr?addr:null
+  }).eq("id",id);
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save changes"; } return ptErr(error.message); }
+  closeModal();
+  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+}
+// Called off rather than deleted, exactly like a lesson: both diaries keep a crossed-out record and
+// "Hide cancellations" tidies it away. No hours are written either way, because the trigger writes
+// those on DELIVERED.
+async function cancelPdiTraining(id){
+  if(!confirm("Call this training session off? It will show as cancelled in both diaries.")) return;
+  const btn=document.getElementById("pt-off"); if(btn){ btn.disabled=true; btn.textContent="Calling off…"; }
+  const {error}=await sb.from("lessons").update({status:"cancelled",charged:false}).eq("id",id);
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Call it off"; } return ptErr(error.message); }
+  closeModal();
+  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
 }
 async function onDiaryBlockClick(el){
   if(diaryHold.fired){ diaryHold.fired=false; return; }
@@ -14753,7 +14840,8 @@ function diaryEntryFromEl(el){
 }
 // The app's openLessonEditor: an offer opens Pencil in, Away / Appointment their own editor, anything else Edit Lesson.
 function diaryOpenEditorFor(l){
-  if(l.lesson_type==="lesson_offer") openLessonOfferEdit(l.id);
+  if(l.lesson_type==="pdi_training") openPdiTrainingEdit(l.id);
+  else if(l.lesson_type==="lesson_offer") openLessonOfferEdit(l.id);
   else if(l.title==="Away"||l.title==="Appointment") openAwayModal(l.id);
   else openLessonEditor(l.id,"diary");
 }

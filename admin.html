@@ -8080,7 +8080,10 @@ function diaryDayHtml(list){
   const key=dLocalDate(diaryDate), items=list.filter(l=>dLocalDate(new Date(l.start_time))===key);
   const card=l=>{
     const offer=l.lesson_type==="lesson_offer", paid=l.payment_status==="paid";
-    const type=offer&&l.offer_lesson_type?`${lessonTypeLabel(l.offer_lesson_type)} offer`:lessonTypeLabel(l.lesson_type);
+    // Which part, on the chip that already says what kind of block it is (Dale, 2 Oct 2026).
+    const type=offer&&l.offer_lesson_type?`${lessonTypeLabel(l.offer_lesson_type)} offer`
+      :l.lesson_type==="pdi_training"?`Part ${l.pdi_part===3?3:2} training`
+      :lessonTypeLabel(l.lesson_type);
     const second=offer
       ? `<span class="dv-chip dv-offer">${l.offer_status==="declined"?"declined":l.offer_status==="offered"?"awaiting reply":"not yet asked"}</span>`
       : !ccLessonShowsMoney(l) ? "" : `<span class="dv-chip ${paid?"dv-paid":"dv-unpaid"}">${paid?"paid":"unpaid"}</span>`;
@@ -13905,7 +13908,7 @@ function diaryBlockBaseName(l,compact){
   // Which part, not just that it is training (Jason Tinkler, 1 Oct 2026). Same shape as a part 3 test.
   if(l&&l.lesson_type==="pdi_training"){
     const who=(l.trainee&&l.trainee.full_name)||"PDI training";
-    return `Part ${l.pdi_part===3?3:2} \u00b7 ${who}`;
+    return who;
   }
   if(!p||!p.first_name) return fallback;
   const last=String(p.last_name||"").trim();
@@ -13946,7 +13949,7 @@ function diaryBlockHtml(l,day,layout,startH,endH,hourH){
   const full=l.pupil&&l.pupil.first_name?`${l.pupil.first_name} ${l.pupil.last_name||""}`.trim():name;
   const times=`${dLocalTime(new Date(l.start_time))}–${dLocalTime(new Date(l.end_time))}`;
   const tip=[full,times,foot?foot.text:"",appt&&l.notes?l.notes:""].filter(Boolean).join(" · ");
-  return `<div class="d-block${appt?" appt":""}" style="top:${top}px;height:${height}px;left:calc(${left}% + 1px);width:calc(${w}% - 2px);z-index:${pos.zIndex+1};background:${diaryBlockColour(l,colours)};padding-bottom:${hasFooter?15:2}px${cancelled?";opacity:.95":""}" title="${esc(tip)}" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="d-bname"><div class="nm"${cancelled?' style="text-decoration:line-through"':""}>${esc(name)}</div>${appt&&l.notes?`<div class="nt">${esc(l.notes)}</div>`:""}</div><div class="tm">${times}</div>${foot?`<div class="d-foot" style="background:${foot.bg}">${foot.text}</div>`:""}</div>`;
+  return `<div class="d-block${appt?" appt":""}" style="top:${top}px;height:${height}px;left:calc(${left}% + 1px);width:calc(${w}% - 2px);z-index:${pos.zIndex+1};background:${diaryBlockColour(l,colours)};padding-bottom:${hasFooter?15:2}px${cancelled?";opacity:.95":""}" title="${esc(tip)}" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="d-bname"><div class="nm"${cancelled?' style="text-decoration:line-through"':""}>${esc(name)}</div>${l.lesson_type==="pdi_training"?`<div class="nt">Part ${l.pdi_part===3?3:2}</div>`:""}${appt&&l.notes?`<div class="nt">${esc(l.notes)}</div>`:""}</div><div class="tm">${times}</div>${foot?`<div class="d-foot" style="background:${foot.bg}">${foot.text}</div>`:""}</div>`;
 }
 
 // --- Unfinished add forms (the app's lib/formDraft.ts, Dale 13 Sep 2026) -----------------------------------------------------

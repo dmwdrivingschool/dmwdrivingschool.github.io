@@ -17421,32 +17421,42 @@ function traineeRowHtml(r, clickable){
 function traineeNeed(r){
   const h=traineeHrs;
     const p=r.progress||{}, pre=p.pre_licence||{}, sup=p.supervision||{}, add=p.additional_training||{}, p3=p.post_part3||{};
-    // A finished licence is not behind on anything. Judging a qualified ADI on their supervision
-    // percentage would show a red "hours short" against somebody who has passed (Dale, 30 Sep 2026).
+    // Every line here says the thing in full, in words somebody who does not know the forms can
+    // read. Dale, 2 Oct 2026: "37 hours training short" left him asking "what training?", and
+    // "EVERYTHING NEEDS TO BE CLEAR". No form numbers, no percentages, no "the 40".
     if(r.ended_on){
       const when=new Date(r.ended_on).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
-      if(r.part3_result==="pass") return ["good","Passed","Qualified on "+when+" &middot; send their 21S to DVSA"];
-      return ["good","Licence ended","Ended "+when];
+      if(r.part3_result==="pass") return ["good","Qualified","They passed their part 3 and qualified on "+when+". Send their supervision record to DVSA."];
+      return ["good","Licence ended","Their trainee licence ended on "+when+"."];
     }
     if(p3.required && !p3.met)
-      return ["bad", `${traineeHrsWord(5-Number(p3.hours||0))} training short`, `After part 3 &mdash; ${h(p3.hours)} of 5 done`];
+      return ["bad", `${traineeHrsWord(5-Number(p3.hours||0))} of extra training still needed`,
+        `They failed their part 3, so DVSA want five more hours of training before they sit it again. ${h(p3.hours)} of those five done.`];
     if(!r.issued_on){
       const shortH=Math.max(0,40-Number(pre.hours||0)), shortCar=Math.max(0,10-Number(pre.in_car_hours||0));
-      if(shortH>0) return ["warn", `${traineeHrsWord(shortH)} training short`, `${h(pre.hours)} of 40 before they can apply`];
-      if(shortCar>0) return ["warn", `${traineeHrsWord(shortCar)} in a car short`, `40 of 40 hours &middot; ${h(pre.in_car_hours)} of 10 in a car`];
-      return ["good","Ready to apply",`${h(pre.hours)} hours, ${h(pre.in_car_hours)} in a car`];
+      if(shortH>0) return ["warn", `${traineeHrsWord(shortH)} of training still needed`,
+        `Before they can apply for a trainee licence they need 40 hours of training in how to instruct. They have had ${h(pre.hours)}, of which ${h(pre.in_car_hours)} were in a car, and at least 10 must be.`];
+      if(shortCar>0) return ["warn", `${traineeHrsWord(shortCar)} more of it needs to be in a car`,
+        `They have all 40 hours of training, but only ${h(pre.in_car_hours)} of them were in a car and DVSA want at least 10.`];
+      return ["good","Ready to apply for a licence",
+        `They have the 40 hours of training, ${h(pre.in_car_hours)} of them in a car. Print their 21T and they can apply.`];
     }
     if(r.route==="additional_training"){
       const shortH=Math.max(0,20-Number(add.hours||0)), shortCar=Math.max(0,(Number(add.hours||0)*0.25)-Number(add.on_road_hours||0));
-      const by=add.deadline?`due ${new Date(add.deadline).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}${add.deadline_is==="part 3 booked"?", part 3 booked":""}`:"";
-      if(shortH>0) return ["bad", `${traineeHrsWord(shortH)} training short`, `${h(add.hours)} of 20 &middot; ${by}`];
-      if(shortCar>0) return ["warn", `${traineeHrsWord(shortCar)} on the road short`, `20 of 20 &middot; needs a quarter on the road`];
-      return ["good","Extra training done",`${h(add.hours)} hours &middot; ${by}`];
+      const by=add.deadline?` It is due by ${new Date(add.deadline).toLocaleDateString("en-GB",{day:"numeric",month:"long"})}${add.deadline_is==="part 3 booked"?", which is when their part 3 is booked":""}.`:"";
+      if(shortH>0) return ["bad", `${traineeHrsWord(shortH)} of extra training still needed`,
+        `They chose extra training over being supervised, so they owe 20 hours of it. They have done ${h(add.hours)}.${by}`];
+      if(shortCar>0) return ["warn", `${traineeHrsWord(shortCar)} more of it needs to be on the road`,
+        `They have all 20 hours, but a quarter of it has to be on the road and only ${h(add.on_road_hours)} hours were.${by}`];
+      return ["good","Extra training done",`All 20 hours done, ${h(add.on_road_hours)} of them on the road.${by}`];
     }
     const req=Number(sup.required_hours||0), got=Number(sup.supervised_hours||0), shortH=Math.max(0,req-got);
-    if(!Number(sup.instruction_hours||0)) return ["good","Nothing taught yet","No supervision owed"];
-    if(shortH>0) return ["bad", `${traineeHrsWord(shortH)} supervision short`, `${h(got)} of ${h(req)} supervised &middot; ${sup.percent}%, needs 20%`];
-    return ["good", `${traineeHrsWord(got-req)} supervision ahead`, `${h(got)} of ${h(req)} supervised &middot; ${sup.percent}%`];
+    if(!Number(sup.instruction_hours||0)) return ["good","No supervision owed yet",
+      "They have not taught a lesson yet, so there is nothing to be supervised on."];
+    if(shortH>0) return ["bad", `${traineeHrsWord(shortH)} of supervision still needed`,
+      `An ADI has to sit in on a fifth of everything they teach. They have taught ${h(sup.instruction_hours)} hours, so that is ${h(req)} hours supervised, and ${h(got)} has been.`];
+    return ["good", "Supervision up to date",
+      `An ADI has sat in on ${h(got)} hours of the ${h(req)} needed, against the ${h(sup.instruction_hours)} hours they have taught.`];
 }
 // The trainee licence, on the instructor's row. Red inside 30 days ONLY when nothing has been done
 // about it - an expiry with the next badge already applied for is in hand, not a crisis, and
@@ -17729,7 +17739,7 @@ async function loadPdiTraining(){
   list.innerHTML=`<div class="panel">
     <strong>${live.length} trainee instructor${live.length===1?"":"s"}</strong>
     ${behind?` <span style="color:var(--bad)">&middot; ${behind} behind</span>`:""}
-    ${unsigned?` <span class="muted">&middot; ${traineeHrs(unsigned)} hours not yet signed</span>`:""}
+    ${unsigned?` <span class="muted">&middot; ${traineeHrs(unsigned)} hours still waiting to be signed off by an ADI</span>`:""}
     <p class="muted" style="margin:.3rem 0 .2rem">Tap a trainee for their record and to print it.</p>
     ${theirs.length?group("You train",ours,""):ours.map(pdiRowHtml).join("")}
     ${group("Elsewhere in the school",theirs,"Trained by somebody else. You can see the record because you run the school.")}
@@ -17743,20 +17753,19 @@ async function loadPdiTraining(){
 // fifth is worked out from.
 function pdiRowHtml(r){
   const h=traineeHrs, sup=(r.progress||{}).supervision||{};
-  const taught=Number(sup.instruction_hours||0);
-  const req=Number(sup.required_hours||0), got=Number(sup.supervised_hours||0);
-  const short=Math.round((req-got)*10)/10;
-  const need = !taught ? "No supervision owed yet"
-    : short<=0 ? `Supervision met &mdash; ${h(got)} of ${h(req)}`
-    : `${h(short)} hours of supervision still needed`;
-  const tone=traineeNeed(r)[0];
+  // The same words as the record, so a row and the screen it opens never say different things. It
+  // used to say supervision on everybody, which means nothing to a trainee with no licence yet.
+  const [tone,head,detail]=traineeNeed(r);
   const col=tone==="bad"?"var(--bad)":tone==="warn"?"#b45309":"var(--ok)";
-  const days=r.days_left==null||r.ended_on?"":`${r.days_left} day${r.days_left===1?"":"s"} left on their licence`;
+  const days=r.days_left==null||r.ended_on?"":`${r.days_left} day${r.days_left===1?"":"s"} left on their trainee licence`;
+  const taught=Number(sup.instruction_hours||0);
+  const foot=[taught?`${h(taught)} hours taught`:"", days].filter(Boolean).join(" &middot; ");
   return `<div class="list-row" style="align-items:flex-start;cursor:pointer" onclick="showTrainee('${r.trainee_id}')">
     <div style="flex:1;min-width:0">
       <strong>${esc(r.trainee_name||"Trainee")}</strong>
-      <div style="font-size:.85rem;color:${col}">${need}</div>
-      <div class="muted" style="font-size:.85rem">${h(taught)} lesson hours taught${days?" &middot; "+days:""}</div>
+      <div style="font-size:.85rem;color:${col}">${head}</div>
+      <div class="muted" style="font-size:.85rem">${detail}</div>
+      ${foot?`<div class="muted" style="font-size:.85rem">${foot}</div>`:""}
     </div>
     <div class="actions"><span class="muted">&rsaquo;</span></div></div>`;
 }
@@ -17866,8 +17875,8 @@ function renderTraineeRecord(){
       <button type="button" class="${pdiPart===2?"on":""}" onclick="setPdiPart(2)">Part 2</button>
       <button type="button" class="${pdiPart===3?"on":""}" onclick="setPdiPart(3)">Part 3</button></span>
     <span class="muted" style="font-size:.8rem">${pdiPart===2
-      ? "Their own driving, for the part 2 test. These hours do not count towards the 40."
-      : "Learning to instruct. These are the hours that go on form ADI 21T."}</span></div>`;
+      ? "Part 2 is their own driving test. This training does not count towards the 40 hours they need for a trainee licence."
+      : "Part 3 is learning to instruct. This is the training that counts towards the 40 hours they need for a trainee licence."}</span></div>`;
   const tabBar=`<div class="d-views" role="group" aria-label="Record" style="margin:.5rem 0 .2rem;flex-wrap:wrap">
     ${PDI_TABS.map(t=>`<button type="button" class="${pdiTab===t[0]?"on":""}" onclick="setPdiTab('${t[0]}')">${t[1]}</button>`).join("")}</div>`;
 
@@ -18089,9 +18098,10 @@ function renderTraineeRecord(){
     <div style="display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap">
       <div style="flex:1;min-width:14rem">
         <strong style="font-size:1.05rem">${esc(r.trainee_name||"Trainee")}</strong>
-        <div class="muted" style="font-size:.85rem">${lic.licence_number?esc(lic.licence_number)+" &middot; ":""}${r.ended_on?"licence ended "+longDate(r.ended_on):(lic.expires_on?"expires "+longDate(lic.expires_on):"no licence recorded")}</div>
+        <div class="muted" style="font-size:.85rem">${lic.licence_number?esc(lic.licence_number)+" &middot; ":""}${r.ended_on?"Their trainee licence ended on "+longDate(r.ended_on):(lic.expires_on?"Their trainee licence runs out on "+longDate(lic.expires_on):"They do not have a trainee licence yet")}</div>
       </div>
-      <div>${traineePill(tone,head)}</div>
+      <div style="max-width:16rem">${traineePill(tone,head)}
+        <div class="muted" style="font-size:.78rem;margin-top:.25rem">${detail}</div></div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap">
         <button class="btn-outline btn-sm" onclick="printTrainee21T('${id}')" title="The declaration that gets them their trainee licence">Print 21T</button>
         <button class="btn-outline btn-sm" onclick="printTrainee21S('${id}')" title="The supervision record for while they hold the licence">Print 21S</button></div>

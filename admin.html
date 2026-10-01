@@ -16354,8 +16354,14 @@ async function editInstructor(instructorId){
   const dval=d=>d?String(d).slice(0,10):"";
   const licenceFields = (instr.school_id && !instr.is_trainer) ? `
     <div style="border-top:1px solid var(--line);margin:.9rem 0 .6rem;padding-top:.7rem">
-      <strong style="font-size:.9rem">Trainee licence</strong>
-      <p class="muted" style="margin:.2rem 0 .5rem;font-size:.85rem">${lic?"Their pink badge.":"Leave blank unless they are on a trainee licence."}</p>
+      <strong style="font-size:.9rem">Trainee instructor</strong>
+      <p class="muted" style="margin:.2rem 0 .5rem;font-size:.85rem">A PDI trains for part 2 and part 3 BEFORE applying for a trainee licence (Jason Tinkler, 1 Oct 2026), so tick the box to start their record now and fill the pink badge in later if they get one.</p>
+      <label style="display:flex;gap:.5rem;align-items:flex-start;font-weight:normal;margin-bottom:.6rem;cursor:pointer">
+        <input type="checkbox" id="edit-lic-training" style="width:auto;margin-top:.25rem" ${lic?"checked":""}>
+        <span>They are a trainee instructor with us<br><span class="muted" style="font-size:.82rem">Starts their training record, so you can be set as their trainer and book PDI Training in the diary. No licence needed.</span></span>
+      </label>
+      <strong style="font-size:.9rem">Trainee licence (pink badge)</strong>
+      <p class="muted" style="margin:.2rem 0 .5rem;font-size:.85rem">${lic&&lic.licence_number?"Their pink badge.":"Leave blank until they actually have one."}</p>
       <div class="field"><label>Licence number</label><input id="edit-lic-no" value="${esc(lic?lic.licence_number||"":"")}" placeholder="PL/000000"></div>
       <div class="field"><label>Which badge</label>
         <select id="edit-lic-seq">${[1,2,3].map(n=>`<option value="${n}"${lic&&Number(lic.licence_sequence)===n?" selected":""}>${({1:"1st",2:"2nd",3:"3rd"})[n]} badge</option>`).join("")}</select></div>
@@ -16414,7 +16420,8 @@ async function confirmEditInstructor(instructorId, originalEmail){
   if(document.getElementById("edit-lic-no")){
     const licNo=val("edit-lic-no"), from=val("edit-lic-from"), to=val("edit-lic-to");
     const route=val("edit-lic-route"), applied=val("edit-lic-applied"), granted=val("edit-lic-granted");
-    if(licNo||from||to){
+    const training=!!(document.getElementById("edit-lic-training")||{}).checked;
+    if(licNo||from||to||training){
       const row={ trainee_id:instructorId, licence_number:licNo||null,
         licence_sequence:Number(val("edit-lic-seq"))||1,
         issued_on:from||null, expires_on:to||null,
@@ -16429,6 +16436,8 @@ async function confirmEditInstructor(instructorId, originalEmail){
         const {data:who}=await sb.from("profiles").select("school_id").eq("id",instructorId).maybeSingle();
         row.school_id=(who&&who.school_id)||currentSchoolId||null;
         row.sponsor_id=currentUserId;
+        // Started before the pink badge exists - the normal way round, not an edge case.
+        if(!licNo) row.pre_licence_declared_at=new Date().toISOString();
         ({error:licErr}=await sb.from("trainee_licences").insert(row));
       }
       if(licErr){ errEl.textContent="Details saved, but the licence did not: "+licErr.message; return; }

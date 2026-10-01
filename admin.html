@@ -16928,18 +16928,38 @@ function openRequestPdi(){
     <div class="field"><label>Phone (optional)</label><input id="rp-phone"></div>
     <div class="field"><label>PDI badge number (optional)</label><input id="rp-badge"></div>
     <div class="field"><label>Note for Drive My Way (optional)</label><input id="rp-note" placeholder="e.g. Starts training with us on Monday"></div>
-    <button class="btn btn-navy btn-sm" onclick="sendRequestPdi()">Send request</button>
+    <button class="btn btn-navy btn-sm" id="rp-send" onclick="sendRequestPdi()">Send request</button>
     <button class="btn-outline" style="margin-left:.5rem" onclick="closeModal()">Cancel</button>
     <div class="err" id="rp-err" style="margin-top:.5rem;display:block;text-align:left"></div>`);
 }
+/* Jason Tinkler sent Colleen Smith twice in the same minute on 1 Oct 2026 - two identical requests,
+   two emails and two pushes to Drive My Way, and two "Create this PDI" buttons sitting there waiting
+   to make the same account twice. The button stayed live while the request was in flight, so on a
+   phone it is one easy double-tap. Disabled from the first press now, and a second pending request
+   for the same person is refused rather than queued. */
+let requestPdiBusy=false;
 async function sendRequestPdi(){
+  if(requestPdiBusy) return;
   const err=document.getElementById("rp-err"); err.textContent="";
+  const btn=document.getElementById("rp-send");
   const v=id=>(document.getElementById(id).value||"").trim();
   if(!v("rp-name")){ err.textContent="Enter their full name"; return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v("rp-email"))){ err.textContent="Enter a valid email address"; return; }
+
+  // The duplicate check is SERVER side, in manage-auth: admin_notifications is super-admin read only,
+  // so a school admin asking here would always get nothing back and the guard would be for show.
+
+  requestPdiBusy=true;
+  if(btn){ btn.disabled=true; btn.textContent="Sending…"; }
   try{
     await manageAuthAdmin("request_add_pdi",{full_name:v("rp-name"), email:v("rp-email"), phone:v("rp-phone"), badge:v("rp-badge"), note:v("rp-note")});
-  }catch(e){ err.textContent=e.message||"Could not send the request"; return; }
+  }catch(e){
+    err.textContent=e.message||"Could not send the request";
+    requestPdiBusy=false;
+    if(btn){ btn.disabled=false; btn.textContent="Send request"; }
+    return;
+  }
+  requestPdiBusy=false;
   closeModal();
   alert("Request sent to Drive My Way. They'll add your trainee to your school, and the trainee gets an email to set up their login.");
 }

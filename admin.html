@@ -731,6 +731,7 @@ tbody tr:hover td{background:#334263}
     <button data-tab="school" id="nav-school-btn" class="hidden">Driving School</button>
     <button data-tab="teams" id="nav-teams-btn" class="hidden">Instructors</button>
     <button data-tab="pditraining" id="nav-pdi-training-btn" class="hidden">PDIs &amp; Training</button>
+    <button data-tab="mytraining" id="nav-my-training-btn" class="hidden">My Training</button>
     <button data-tab="pupils">Pupils</button>
     <button data-tab="enquiries">Enquiries</button>
     <button data-tab="diary">Diary</button>
@@ -1130,6 +1131,15 @@ tbody tr:hover td{background:#334263}
         <p class="muted" id="per-instructor-note" style="margin-bottom:.75rem"></p>
         <div id="per-instructor-table">Loading…</div>
       </div>
+    </section>
+
+    <!-- A trainee's own record (Dale, 2 Oct 2026). The same five tabs their trainer sees, so when a
+         trainer says "look at number seven under risk management" it means the same thing to both of
+         them. Read only: they see everything and change nothing, bar booking their own part 3. -->
+    <section id="tab-mytraining" class="hidden">
+      <h2>My Training</h2>
+      <p class="muted" style="margin:.2rem 0 1rem">Your record as your trainer sees it. You cannot change it: they record it, you check it.</p>
+      <div id="my-training-detail"></div>
     </section>
 
     <!-- PDI Training (Dale, 30 Sep 2026). The PEOPLE live on Instructors; this tab is the TRAINING:
@@ -2281,6 +2291,7 @@ function goTab(tab, pupilFilter){
   if(tab==="teams"){ loadTeamsPanel(); loadMockTestUsageCC(); }
   if(tab==="school"){ loadDrivingSchoolTab(); }
   if(tab==="pditraining"){ pdiRecordId=null; pdiTrainingLoad = loadPdiTraining(); }
+  if(tab==="mytraining"){ pdiTrainingLoad = loadMyTraining(); }
   if(tab==="diary") pdiCameFromDiary=false;
   if(tab==="messages"){ loadMessagesPanel(); }
   if(tab==="help"){ renderHelp(); }
@@ -2374,6 +2385,7 @@ async function enterApp(user,prof,pause){
   // PDI Training only appears for a school that actually sponsors somebody. The nav is already two
   // rows; a school with no trainees should not carry a fifteenth item it will never open.
   refreshPdiTrainingTab();
+  refreshMyTrainingTab();
   document.getElementById("nav-billing-btn")?.classList.remove("hidden"); // seat instructors get the tab too, but only a pointer to their admin (see loadBillingPanel)
   // The Website tab now has three audiences, not one (Dale, 26 Sep 2026):
   //   super admin          — Dale's own tool: the carousel and his pass wall, as before
@@ -17611,6 +17623,7 @@ Their training record, hours and grades are kept - they just come off the PDI Tr
   }
   await loadTeamsPanel();
   refreshPdiTrainingTab();
+  refreshMyTrainingTab();
 }
 
 async function toggleTrainerRow(instructorId, on){
@@ -17618,6 +17631,7 @@ async function toggleTrainerRow(instructorId, on){
   if(error){ alert(error.message); return; }
   await loadTeamsPanel();
   refreshPdiTrainingTab();
+  refreshMyTrainingTab();
 }
 
 async function setTrainer(instructorId, on){
@@ -17630,6 +17644,7 @@ async function setTrainer(instructorId, on){
     return;
   }
   refreshPdiTrainingTab();
+  refreshMyTrainingTab();
 }
 
 // ---- PDI Training tab (Dale, 30 Sep 2026) -------------------------------------------------
@@ -17815,7 +17830,38 @@ async function refreshPdiTrainingTab(){
   }catch(e){ btn.classList.add("hidden"); }
 }
 
+// Shown to anybody holding a trainee licence, which is the same test the app makes.
+async function refreshMyTrainingTab(){
+  const btn=document.getElementById("nav-my-training-btn"); if(!btn) return;
+  try{
+    const {data}=await sb.from("trainee_licences").select("id").eq("trainee_id",currentUserId).is("ended_on",null).maybeSingle();
+    btn.classList.toggle("hidden", !data);
+  }catch(e){ btn.classList.add("hidden"); }
+}
+// Their own record. school_trainee_summary is a school admin's list, so the row is built here from
+// trainee_progress, which a trainee may read about themselves.
+async function loadMyTraining(){
+  const el=document.getElementById("my-training-detail"); if(!el) return;
+  el.innerHTML='<div class="panel"><p class="muted">Loading&hellip;</p></div>';
+  pdiSelfView=true;
+  try{
+    const [{data:prog},{data:me}]=await Promise.all([
+      sb.rpc("trainee_progress",{p_trainee_id:currentUserId}),
+      sb.from("profiles").select("id,full_name").eq("id",currentUserId).maybeSingle()
+    ]);
+    const lic=(prog&&prog.licence)||{};
+    pdiTrainingRows=[{trainee_id:currentUserId, trainee_name:(me&&me.full_name)||"You",
+      sponsor_id:lic.sponsor_id||null, sponsor_name:null,
+      issued_on:lic.issued_on||null, expires_on:lic.expires_on||null, days_left:lic.days_left,
+      route:lic.route||null, ended_on:(prog&&prog.ended_on)||null,
+      part3_result:(prog&&prog.part3_result)||null, progress:prog}];
+  }catch(e){ el.innerHTML='<div class="panel"><p class="muted">Could not load your record.</p></div>'; return; }
+  pdiRecordId=null;
+  await showTrainee(currentUserId);
+}
+
 async function loadPdiTraining(){
+  pdiSelfView=false;
   const list=document.getElementById("pdi-training-list");
   const detail=document.getElementById("pdi-training-detail");
   if(!list) return;
@@ -17893,7 +17939,7 @@ function pdiRowHtml(r){
 const PDI_TABS=[["summary","Summary"],["details","Details"],["lessons","Lessons"],["training","Training"],["progress","Progress"]];
 // DVSA's four, off the part 3 marking sheet, not the pupil syllabus's six (Dale, 2 Oct 2026).
 const PDI_COMPETENCY_LEVELS=["No evidence","Demonstrated in a few elements","Demonstrated in most elements","Demonstrated in all elements"];
-let pdiCameFromDiary=false;
+let pdiCameFromDiary=false, pdiSelfView=false;
 let pdiTab="summary", pdiRecordId=null, pdiPerson=null, pdiLicence=null, pdiLessons=[], pdiPart=2, pdiCompetencies=[], pdiLogs=[];
 // Switching tab redraws from what is already loaded, so it never goes back to the database.
 function setPdiTab(t){ pdiTab=t; renderTraineeRecord(); }
@@ -17912,7 +17958,7 @@ function setPdiPart(n){ pdiPart=Number(n)===3?3:2; renderTraineeRecord(); }
 // toggle is passed only by a row click. Everything else that calls this - saving a session,
 // writing up a log, recording a part 2 - wants a refresh and must never close the record instead.
 async function showTrainee(id, toggle){
-  const el=document.getElementById("pdi-training-detail"); if(!el) return;
+  const el=pdiDetailEl(); if(!el) return;
   // Clicking the one that is already open closes it, the way a row that opens should (Dale, 2 Oct
   // 2026). Clicking the PDIs tab itself does the same, by clearing pdiRecordId first.
   if(toggle && pdiRecordId===id && el.innerHTML.trim()){ closeTrainee(); return; }
@@ -17981,7 +18027,9 @@ function pdiPlanHtml(next){
                           .sort((a,b)=>(a.log_date||"")<(b.log_date||"")?1:-1);
   const last=logs[0];
   if(!last||!(last.next_session||last.session_goal)){
-    return '<p class="muted" style="font-size:.88rem">Nothing yet. Write up a session once it has been and what you set for next time shows here.</p>';
+    return pdiSelfView
+      ? '<p class="muted" style="font-size:.88rem">Nothing yet. Your trainer sets this when they write up a session.</p>'
+      : '<p class="muted" style="font-size:.88rem">Nothing yet. Write up a session once it has been and what you set for next time shows here.</p>';
   }
   const when=last.log_date?new Date(last.log_date).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"";
   return `<div style="border-radius:8px;background:rgba(37,99,235,.10);padding:.55rem .7rem">
@@ -18005,13 +18053,32 @@ function openPdiPlan(){
   openPdiLog(l.id);
   setTimeout(()=>{ const el=document.getElementById("pl-next"); if(el) el.focus(); },150);
 }
+// Their own record and a trainer's are the same screen, so it is drawn into whichever is open.
+function pdiDetailEl(){
+  const mine=document.getElementById("tab-mytraining");
+  if(mine && !mine.classList.contains("hidden")) return document.getElementById("my-training-detail");
+  return document.getElementById("pdi-training-detail");
+}
+// Their own record reads in the second person. Applied only to the lines this file writes, never to
+// the objective names: the 17 competencies are DVSA's wording and must stay exactly as printed.
+function youify(t){
+  if(!pdiSelfView||!t) return t;
+  return String(t)
+    .replace(/They have/g,"You have").replace(/they have/g,"you have")
+    .replace(/They are/g,"You are").replace(/they are/g,"you are")
+    .replace(/themselves/g,"yourself")
+    .replace(/They/g,"You").replace(/they/g,"you")
+    .replace(/Their/g,"Your").replace(/their/g,"your")
+    .replace(/them/g,"you");
+}
 function renderTraineeRecord(){
-  const el=document.getElementById("pdi-training-detail"); if(!el) return;
+  const el=pdiDetailEl(); if(!el) return;
   const id=pdiRecordId, r=pdiTrainingRows.find(x=>x.trainee_id===id); if(!r) return;
   const h=traineeHrs, hours=pdiHours, objectives=pdiObjectivesCache||[];
   const p=r.progress||{}, sup=p.supervision||{}, pre=p.pre_licence||{}, lic=p.licence||{};
   const weeks=weeklyRows(hours, lic.issued_on); pdiWeeks=weeks;
-  const [tone,head,detail]=traineeNeed(r);
+  let [tone,head,detail]=traineeNeed(r);
+  head=youify(head); detail=youify(detail);
   const longDate=d=>d?new Date(d).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}):"";
   const row=(label,value)=>value?`<div style="display:flex;justify-content:space-between;gap:.75rem;padding:.45rem 0;border-bottom:1px solid var(--line);font-size:.88rem">
       <span class="muted">${label}</span><span style="text-align:right">${value}</span></div>`:"";
@@ -18046,22 +18113,22 @@ function renderTraineeRecord(){
     if(next){
       const from=new Date(next.start_time), to=new Date(next.end_time);
       const mins=Math.max(0,Math.round((to-from)/60000));
-      nextCard=`<div class="list-row" style="align-items:flex-start;cursor:pointer" onclick="openPdiTrainingEdit('${esc(next.id)}')">
+      nextCard=`<div class="list-row" style="align-items:flex-start${pdiSelfView?"":";cursor:pointer"}"${pdiSelfView?"":` onclick="openPdiTrainingEdit('${esc(next.id)}')"`}>
         <div style="flex:1;min-width:0">
           <strong>${from.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</strong>
           <div class="muted" style="font-size:.85rem">${dLocalTime(from)}&ndash;${dLocalTime(to)} &middot; ${h(mins/60)}h &middot; Part ${pdiPart}</div>
           ${next.pickup_address?`<div class="muted" style="font-size:.85rem">Meeting at ${esc(next.pickup_address)}</div>`:""}
-        </div><div class="actions"><span class="muted">Edit</span></div></div>`;
+        </div>${pdiSelfView?"":'<div class="actions"><span class="muted">Edit</span></div>'}</div>`;
     }
     pane=`<div class="panel" style="margin-top:.6rem">
       <strong style="font-size:.9rem">Next training session</strong>
       <div style="margin:.3rem 0 1rem">${nextCard}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap">
         <strong style="font-size:.9rem">Lesson plan</strong>
-        <button class="btn-outline btn-sm" onclick="openPdiPlan()">${pdiPlanSource()?"Edit the plan":"Set a plan"}</button>
+        ${pdiSelfView?"":`<button class="btn-outline btn-sm" onclick="openPdiPlan()">${pdiPlanSource()?"Edit the plan":"Set a plan"}</button>`}
       </div>
       <div style="margin:.3rem 0 1rem" id="pdi-plan">${pdiPlanHtml(next)}</div>
-      <strong style="font-size:.9rem">Training they have had</strong>
+      <strong style="font-size:.9rem">${pdiSelfView?"Training you have had":"Training they have had"}</strong>
       <div style="margin-top:.3rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.6rem">
         <div class="metric"><div class="l">Part ${pdiPart} hours</div><div class="v">${h(total)}h</div></div>
         ${pdiPart===3?`<div class="metric"><div class="l">Of those, in a car</div><div class="v">${h(inCar)}h</div></div>`:""}
@@ -18095,16 +18162,18 @@ function renderTraineeRecord(){
       ${row("Next badge granted", longDate(L.extension_granted_on))}
       ${row("Licence ended", longDate(L.ended_on))}
       ${pdiLicence?"":'<p class="muted" style="margin:.6rem 0 0;font-size:.88rem">No trainee licence recorded yet.</p>'}
-      <div style="margin-top:.8rem"><button class="btn-outline btn-sm" onclick="editInstructor('${id}')">Edit their details</button>
-        <div class="muted" style="font-size:.8rem;margin-top:.25rem">Their name, email, phone, badge number and address, and everything about their trainee licence.</div></div>
-      <div style="margin-top:1rem"><strong style="font-size:.9rem">Sponsor</strong>
+      ${pdiSelfView?"":`<div style="margin-top:.8rem"><button class="btn-outline btn-sm" onclick="editInstructor('${id}')">Edit their details</button>
+        <div class="muted" style="font-size:.8rem;margin-top:.25rem">Their name, email, phone, badge number and address, and everything about their trainee licence.</div></div>`}
+      ${pdiSelfView?`<div style="margin-top:1rem"><strong style="font-size:.9rem">Who trains you</strong>
+        <div style="margin-top:.3rem;font-size:.88rem">${[...pdiPaired].map(t=>pdiNames[t]).filter(Boolean).sort().map(esc).join(", ")||'<span class="muted">Nobody is paired with you yet.</span>'}</div></div>`
+      :`<div style="margin-top:1rem"><strong style="font-size:.9rem">Sponsor</strong>
         <p class="muted" style="margin:.2rem 0 .4rem;font-size:.85rem">The ADI named on their licence. Everyone who trains them is listed underneath &mdash; several is normal, and only they can see this record.</p>
         <div style="margin-top:.3rem">${trainerPicker}</div>
         <div style="margin-top:.55rem;font-size:.85rem">${pairedNames.length
           ? "Trains them: "+pairedNames.map(esc).join(", ")
           : '<span class="muted">Nobody is paired with them yet, so only you can see this record.</span>'}
           <button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openTrainerPicker('${id}')">Choose trainers</button></div>
-      </div></div>`;
+      </div>`}</div>`;
   }
 
   if(pdiTab==="lessons"){
@@ -18141,16 +18210,16 @@ function renderTraineeRecord(){
         ${written?' <span class="chip chip-info">written up</span>':""}
         <div class="muted" style="font-size:.85rem">${when}${l.lesson_type==="pdi_training"&&mins>0?" &middot; "+h(mins/60)+"h":""}</div>
       </div><div class="actions"><span class="muted" style="font-size:.8rem">${esc(l.status)}</span>
-        ${canDeliver?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="deliverPdiTraining('${esc(l.id)}')">Mark delivered</button>`:""}
-        ${canLog?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiLog('${esc(l.id)}')">${written?"Write-up":"Write up"}</button>`:""}
-        ${canEdit?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiTrainingEdit('${esc(l.id)}')">Edit</button>`:""}</div></div>`;
+        ${canDeliver&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="deliverPdiTraining('${esc(l.id)}')">Mark delivered</button>`:""}
+        ${canLog&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiLog('${esc(l.id)}')">${written?"Write-up":"Write up"}</button>`:""}
+        ${canEdit&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiTrainingEdit('${esc(l.id)}')">Edit</button>`:""}</div></div>`;
     };
     pane=`<div class="panel" style="margin-top:.6rem">
-      <strong style="font-size:.9rem">Training they were given</strong>
+      <strong style="font-size:.9rem">${pdiSelfView?"Training you were given":"Training they were given"}</strong>
       <div style="margin:.3rem 0 1rem">${received.length?received.map(card).join(""):'<p class="muted" style="font-size:.88rem">None recorded.</p>'}</div>
-      ${pdiPart===3?`<strong style="font-size:.9rem">Lessons they taught</strong>
+      ${pdiPart===3?`<strong style="font-size:.9rem">${pdiSelfView?"Lessons you taught":"Lessons they taught"}</strong>
       <div style="margin-top:.3rem">${taught.length?taught.map(card).join(""):'<p class="muted" style="font-size:.88rem">None recorded.</p>'}</div>`:""}
-      <p class="muted" style="margin:.8rem 0 0;font-size:.8rem">Holidays, gaps and appointments are their own time and are not shown here.</p></div>`;
+      <p class="muted" style="margin:.8rem 0 0;font-size:.8rem">Holidays, gaps and appointments are ${pdiSelfView?"your":"their"} own time and are not shown here.</p></div>`;
   }
 
   if(pdiTab==="part3"){
@@ -18168,7 +18237,7 @@ function renderTraineeRecord(){
     pane=`<div class="panel" style="margin-top:.6rem">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem">
         <strong style="font-size:.9rem">Where they stand</strong>
-        <button class="btn-outline btn-sm" onclick="openPdiPastTraining('${id}')">Add past training</button>
+        ${pdiSelfView?"":`<button class="btn-outline btn-sm" onclick="openPdiPastTraining('${id}')">Add past training</button>`}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.6rem">
         <div class="metric"><div class="l">Taught</div><div class="v">${h(sup.instruction_hours)}h</div></div>
@@ -18179,14 +18248,18 @@ function renderTraineeRecord(){
       <p class="muted" style="margin:.4rem 0 0;font-size:.85rem">${detail}. Pre-licence training was ${h(pre.hours)} hours with ${h(pre.in_car_hours)} in a car; DVSA want 40 and 10.</p>
 
       <div style="margin-top:1rem"><strong style="font-size:.9rem">Week by week</strong>
-        <p class="muted" style="margin:.2rem 0 .4rem;font-size:.85rem">This is form 21S: each week, the hours taught, the hours supervised, and whether it has been signed.</p>
+        <p class="muted" style="margin:.2rem 0 .4rem;font-size:.85rem">This is form 21S: each week, the hours taught, the hours supervised, and whether it has been signed. ${pdiSelfView?"Your trainer signs these off.":"Signing off records that you have checked the hours are right. The printed form still has blank signature boxes for a wet signature."}</p>
         <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.85rem">
           <tr style="text-align:left"><th style="padding:.3rem .5rem">Week</th><th style="padding:.3rem .5rem">Instruction</th><th style="padding:.3rem .5rem">Supervised</th><th style="padding:.3rem .5rem">Signed</th></tr>
           ${weeks.length?weeks.map((w,i)=>`<tr style="border-top:1px solid var(--line);cursor:pointer" onclick="toggleWeek(${i})">
             <td style="padding:.3rem .5rem">${w.label}</td>
             <td style="padding:.3rem .5rem">${w.given?h(w.given)+"h":"&mdash;"}</td>
             <td style="padding:.3rem .5rem">${w.sup?h(w.sup)+"h":"&mdash;"}${w.who.size?` <span class="muted">&middot; ${[...w.who].map(x=>esc(pdiNames[x]||"?")).join(", ")}</span>`:""}</td>
-            <td style="padding:.3rem .5rem">${w.unsigned?`<span style="color:var(--bad)">${h(w.unsigned)}h unsigned</span>`:"Yes"}</td>
+            <td style="padding:.3rem .5rem">${w.unsigned
+              ? (pdiSelfView
+                  ? `<span style="color:var(--bad)">${h(w.unsigned)}h unsigned</span>`
+                  : `<button class="btn-outline btn-sm" style="white-space:nowrap" onclick="event.stopPropagation();signTraineeWeek('${id}','${dLocalDate(w.start)}','${dLocalDate(new Date(w.start.getFullYear(),w.start.getMonth(),w.start.getDate()+6))}')">Sign off ${h(w.unsigned)}h</button>`)
+              : "Yes"}</td>
           </tr><tr id="wk-${i}"></tr>`).join(""):`<tr><td colspan="4" class="muted" style="padding:.5rem">Nothing recorded since the licence was issued.</td></tr>`}
         </table></div>
       </div>
@@ -18217,7 +18290,7 @@ function renderTraineeRecord(){
       ? `The 17 competencies &mdash; ${list.filter(o=>Number(o.level)>0).length} of ${list.length} graded, ${list.filter(o=>Number(o.level)===3).length} in all elements`
       : `Syllabus &mdash; ${list.filter(o=>Number(o.level)>0||Number(o.hours)>0).length} of ${list.length} started, ${list.filter(o=>Number(o.level)===5).length} independent`;
     const blurb=pdiPart===3
-      ? "The 17 competencies the ADI part 3 and the standards check are marked on, scored the way an examiner scores them. Whoever trains them next picks up where the last one left off."
+      ? `The 17 competencies the ADI part 3 and the standards check are marked on, scored the way an examiner scores them. ${pdiSelfView?"Your trainer grades these; you cannot change them.":"Whoever trains them next picks up where the last one left off."}`
       : "Part 2 is an enhanced driving test, so this is the driving syllabus, graded the same way you grade a pupil.";
     pane=`<div class="panel" style="margin-top:.6rem">
       <strong style="font-size:.9rem">${head}</strong>
@@ -18247,11 +18320,13 @@ function renderTraineeRecord(){
               ${byLine?`<div class="muted" style="font-size:.78rem">${byLine}</div>`:""}
               <div style="margin-top:.2rem;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
                 ${o.level_note?`<span class="chip chip-info">note</span><span class="muted" style="font-size:.78rem;flex:1;min-width:9rem">${esc(o.level_note)}</span>`:""}
-                <button class="btn-outline btn-sm" onclick="event.stopPropagation();editTraineeObjectiveNote('${id}','${o.objective_id}')">${o.level_note?"Edit note":"+ Note"}</button>
+                ${pdiSelfView?"":`<button class="btn-outline btn-sm" onclick="event.stopPropagation();editTraineeObjectiveNote('${id}','${o.objective_id}')">${o.level_note?"Edit note":"+ Note"}</button>`}
               </div></span>
-            <select onchange="setObjectiveLevel('${id}','${o.objective_id}',this.value)" style="flex:none;max-width:14rem;font-size:.8rem">
+            ${pdiSelfView
+              ? `<span style="flex:none;max-width:14rem;font-size:.8rem" class="${lvl?"":"muted"}">${esc(levels[lvl]||levels[0])}</span>`
+              : `<select onchange="setObjectiveLevel('${id}','${o.objective_id}',this.value)" style="flex:none;max-width:14rem;font-size:.8rem">
               ${levels.map((lab,n)=>`<option value="${n}"${n===lvl?" selected":""}>${lab}</option>`).join("")}
-            </select>
+            </select>`}
             <span style="flex:none;width:6.5rem;text-align:right;font-size:.8rem" class="${done?"":"muted"}">${done?h(o.hours)+"h"+(Number(o.in_car_hours)>0?" ("+h(o.in_car_hours)+" car)":""):"no hours"}</span>
           </div>`;
         }).join("")})()}
@@ -18259,21 +18334,21 @@ function renderTraineeRecord(){
   }
 
   el.innerHTML=`<div class="panel" style="margin-top:1rem;padding-bottom:.4rem">
-    <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.7rem">
+    ${pdiSelfView?"":`<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.7rem">
       <button class="btn-outline btn-sm" onclick="closeTrainee()">&lsaquo; All PDIs</button>
       ${pdiCameFromDiary?`<button class="btn-outline btn-sm" onclick="backToDiaryFromRecord()">&lsaquo; Back to the diary</button>`:""}
-    </div>
+    </div>`}
     <div style="display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap">
       <div style="flex:1;min-width:14rem">
         <strong style="font-size:1.05rem">${esc(r.trainee_name||"Trainee")}</strong>
-        <div class="muted" style="font-size:.85rem">${lic.licence_number?esc(lic.licence_number)+" &middot; ":""}${r.ended_on?"Their trainee licence ended on "+longDate(r.ended_on)
+        <div class="muted" style="font-size:.85rem">${lic.licence_number?esc(lic.licence_number)+" &middot; ":""}${youify(r.ended_on?"Their trainee licence ended on "+longDate(r.ended_on)
   :lic.expires_on?((new Date(lic.expires_on)<new Date()?"Their trainee licence expired on ":"Their trainee licence runs out on ")+longDate(lic.expires_on))
-  :"They do not have a trainee licence yet"}</div>
+  :"They do not have a trainee licence yet")}</div>
       </div>
       <div style="max-width:16rem">${traineePill(tone,head)}
         <div class="muted" style="font-size:.78rem;margin-top:.25rem">${detail}</div></div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-        <button class="btn-outline btn-sm" onclick="openPart2Passed('${id}')" title="${lic.part2_passed_on?"Change the date they passed":"Record the day they passed their part 2, which takes part 2 off their record"}">${lic.part2_passed_on?`Part 2 passed ${longDate(lic.part2_passed_on)}`:"Mark part 2 passed"}</button>
+        ${pdiSelfView?"":`<button class="btn-outline btn-sm" onclick="openPart2Passed('${id}')" title="${lic.part2_passed_on?"Change the date they passed":"Record the day they passed their part 2, which takes part 2 off their record"}">${lic.part2_passed_on?`Part 2 passed ${longDate(lic.part2_passed_on)}`:"Mark part 2 passed"}</button>`}
         <button class="btn-outline btn-sm" onclick="printTrainee21T('${id}')" title="The declaration that gets them their trainee licence">Print 21T</button>
         <button class="btn-outline btn-sm" onclick="printTrainee21S('${id}')" title="The supervision record for while they hold the licence">Print 21S</button></div>
     </div>
@@ -18715,6 +18790,15 @@ async function deletePart3Booking(traineeId, lessonId){
   const {error}=await sb.from("lessons").delete().eq("id",lessonId);
   if(error){ alert(error.message); return; }
   closeModal(); await loadPdiTraining(); showTrainee(traineeId);
+}
+// An ADI countersigning a week of hours. Regulation 15(2) wants the trainee signing daily and the
+// ADI signing the days they supervised; 21S is laid out weekly, so a week is what you press.
+async function signTraineeWeek(traineeId, from, to){
+  const {data,error}=await sb.rpc("sign_trainee_hours",{p_trainee:traineeId,p_from:from,p_to:to});
+  if(error){ alert(error.message); return; }
+  if(!data) alert("Nothing left to sign in that week.");
+  await loadPdiTraining();
+  await showTrainee(traineeId);
 }
 // Recording a part 2 pass. The trainee tells, the trainer records, same as everything else here.
 function openPart2Passed(traineeId){

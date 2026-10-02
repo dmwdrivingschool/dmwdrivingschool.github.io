@@ -18255,15 +18255,19 @@ function renderTraineeRecord(){
   const row=(label,value)=>value?`<div style="display:flex;justify-content:space-between;gap:.75rem;padding:.45rem 0;border-bottom:1px solid var(--line);font-size:.88rem">
       <span class="muted">${label}</span><span style="text-align:right">${value}</span></div>`:"";
 
-  // Once part 2 is passed there is no part 2 side to the record any more.
+  // Passing part 2 used to take the whole part 2 side off the record. It should not: the training
+  // happened, the hours are real, and a session filed as part 2 by mistake became unreachable the
+  // moment they passed, which is exactly the fix Darren and Colleen need (Dale, 2 Oct 2026).
+  // What passing DOES stop is booking any more of it, and the booking form already refuses that.
   const p2done=lic.part2_passed_on||null;
-  if(p2done) pdiPart=3;
-  const partBar=p2done?"":`<div style="margin:.9rem 0 .2rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+  const partBar=`<div style="margin:.9rem 0 .2rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
     <span class="d-views" role="group" aria-label="Which part">
       <button type="button" class="${pdiPart===2?"on":""}" onclick="setPdiPart(2)">Part 2</button>
       <button type="button" class="${pdiPart===3?"on":""}" onclick="setPdiPart(3)">Part 3</button></span>
     <span class="muted" style="font-size:.8rem">${pdiPart===2
-      ? "Part 2 is their own driving test. This training does not count towards the 40 hours they need for a trainee licence."
+      ? (p2done
+          ? "They passed their part 2 on "+longDate(p2done)+", so there is no more of it to book. What is here is what they did."
+          : "Part 2 is their own driving test. This training does not count towards the 40 hours they need for a trainee licence.")
       : "Part 3 is learning to instruct. This is the training that counts towards the 40 hours they need for a trainee licence."}</span></div>`;
   const tabBar=`<div class="d-views" role="group" aria-label="Record" style="margin:.5rem 0 .2rem;flex-wrap:wrap">
     ${PDI_TABS.map(t=>`<button type="button" class="${pdiTab===t[0]?"on":""}" onclick="setPdiTab('${t[0]}')">${t[1]}</button>`).join("")}</div>`;

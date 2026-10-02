@@ -21525,6 +21525,15 @@ async function saveTerms(wasSet){
   const err=document.getElementById("terms-err"); err.textContent="";
   if(!body){ err.textContent="Terms can't be empty"; return; }
   const hours=Math.max(0,Math.round(Number(document.getElementById("terms-hours").value)||0));
+  /* 0 hours with {{HOURS}} still in the text produces "Please give at least 0 hours' notice", which
+     tells pupils they can cancel whenever they like, and nothing would ever be flagged for a charge
+     decision either. One instructor had exactly that in front of 51 pupils (Dale, 2 Oct 2026). The
+     combination is refused rather than saved quietly; 0 on its own is fine for somebody who does not
+     charge for late cancellations and has written their own wording. */
+  if(!hours && body.indexOf("{{HOURS}}")!==-1){
+    err.textContent="With the notice set to 0, your terms read “Please give at least 0 hours’ notice to cancel”, which tells pupils they can cancel at any time. Put a number in, or take {{HOURS}} out of the text.";
+    return;
+  }
   if(currentSchoolId && isSchoolAdminUser){
     // schools.terms_body fans out to every instructor's app_settings row (trigger).
     const {error}=await sb.from("schools").update({terms_body:body, cancellation_notice_hours:hours}).eq("id",currentSchoolId);

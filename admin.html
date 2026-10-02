@@ -16755,6 +16755,9 @@ async function confirmEditInstructor(instructorId, originalEmail){
   }
   closeModal();
   await loadTeamsPanel();
+  // Their details are also the Details tab of their PDI record, so refresh it rather than leaving
+  // the screen behind the modal showing what it said before (Dale, 2 Oct 2026).
+  if(pdiRecordId===instructorId){ await loadPdiTraining(); await showTrainee(instructorId); }
 }
 
 async function deleteInstructor(instructorId, name){
@@ -18021,6 +18024,8 @@ function renderTraineeRecord(){
       ${row("Next badge granted", longDate(L.extension_granted_on))}
       ${row("Licence ended", longDate(L.ended_on))}
       ${pdiLicence?"":'<p class="muted" style="margin:.6rem 0 0;font-size:.88rem">No trainee licence recorded yet.</p>'}
+      <div style="margin-top:.8rem"><button class="btn-outline btn-sm" onclick="editInstructor('${id}')">Edit their details</button>
+        <div class="muted" style="font-size:.8rem;margin-top:.25rem">Their name, email, phone, badge number and address, and everything about their trainee licence.</div></div>
       <div style="margin-top:1rem"><strong style="font-size:.9rem">Sponsor</strong>
         <p class="muted" style="margin:.2rem 0 .4rem;font-size:.85rem">The ADI named on their licence. Everyone who trains them is listed underneath &mdash; several is normal, and only they can see this record.</p>
         <div style="margin-top:.3rem">${trainerPicker}</div>

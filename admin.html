@@ -18046,8 +18046,9 @@ async function showTrainee(id, toggle){
               level_note:g.note||null, level_at:g.updated_at||null, level_by:null, hours:0, in_car_hours:0};
     });
     pdiLogs=logs||[];
-    // Open on the part they are actually doing: part 3 once any of it is booked, part 2 before that.
-    pdiPart=(pdiLessons||[]).some(x=>x.lesson_type==="pdi_training"&&x.pdi_part===3)?3:2;
+    // Part 2 until the pass is recorded, then part 3. The same single rule the pill uses, rather
+    // than also guessing from whether a part 3 session happens to be booked (Dale, 2 Oct 2026).
+    pdiPart=((pdiLicence&&pdiLicence.part2_passed_on)||((r.progress||{}).licence||{}).part2_passed_on)?3:2;
   }catch(e){ el.innerHTML='<div class="panel"><p class="muted">Could not load the record.</p></div>'; return; }
   renderTraineeRecord();
 }

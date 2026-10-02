@@ -17931,9 +17931,28 @@ async function loadPdiTraining(){
 // Which part they are on, beside their name. One rule: they are on part 3 once part 2 is marked
 // passed, and on part 2 until then (Dale, 2 Oct 2026). Deliberately not guessed from their sessions
 // or from holding a licence - both of those can disagree with the record, and did.
+// Where they are up to, in words. "Part 3" on its own did not say whether it was passed, booked or
+// next (Dale, 2 Oct 2026, having to ask). .chip capitalises every word, hence text-transform:none.
 function partChip(r){
-  const passed=((r.progress||{}).licence||{}).part2_passed_on;
-  return `<span class="chip ${passed?"chip-info":"chip-wait"}">Part ${passed?3:2}</span>`;
+  const L=(r.progress||{}).licence||{};
+  const part=Number(L.working_towards||2);
+  const held=part===3 ? (L.part3_taken_on?null:L.part3_hold_from) : part===2 ? L.part2_hold_from : null;
+  const label=`Working towards part ${part}`;
+  // Two short pills stacked, not one long one. A chip will not shrink, so a single pill carrying
+  // both squeezed the name into one word per line on a phone (Dale, 2 Oct 2026).
+  const st="text-transform:none;white-space:nowrap";
+  const stage=`<span class="chip ${part===3?"chip-info":"chip-wait"}" style="${st}">${label}</span>`;
+  const wait=held?`<span class="chip chip-bad" style="${st}" title="On hold since ${esc(held)}">On hold ${esc(heldFor(held))}</span>`:"";
+  // What they have actually got behind them, which is a different question from what they are on.
+  const done=[L.part1_passed_on?1:0, L.part2_passed_on?2:0, L.part3_result==="pass"?3:0].filter(Boolean);
+  const passed=done.length
+    ? `<span class="chip chip-ok" style="${st}">Passed part${done.length>1?"s":""} ${done.length>1?done.slice(0,-1).join(", ")+" and "+done[done.length-1]:done[0]}</span>`
+    : "";
+  // Passed first: what they have got behind them, then where they are, then what is holding them up.
+  const pills=[passed,stage,wait].filter(Boolean);
+  return pills.length>1
+    ? `<span style="display:inline-flex;flex-direction:column;gap:.25rem;align-items:flex-end">${pills.join("")}</span>`
+    : pills[0];
 }
 function pdiRowHtml(r){
   const h=traineeHrs, sup=(r.progress||{}).supervision||{};
@@ -17951,7 +17970,7 @@ function pdiRowHtml(r){
       <div style="font-size:.85rem;color:${col}">${head}</div>
       ${foot?`<div class="muted" style="font-size:.82rem">${foot}</div>`:""}
     </div>
-    <div class="actions" style="gap:.4rem;align-items:center">${partChip(r)}<span class="muted">&rsaquo;</span></div></div>`;
+    <div class="actions" style="gap:.4rem;align-items:center;flex:0 0 auto">${partChip(r)}<span class="muted">&rsaquo;</span></div></div>`;
 }
 
 // One trainee: where they are, who trains them, and the weekly rows that become form ADI 21S.
@@ -18038,7 +18057,7 @@ async function showTrainee(id, toggle){
       // The licence in full. r.progress.licence has most of it but not the badge sequence or the
       // next-badge dates, which are exactly what the Details tab is for.
       sb.from("trainee_licences")
-        .select("licence_number,licence_sequence,issued_on,expires_on,route,ended_on,part3_booked_on,part3_taken_on,part3_result,extension_applied_on,extension_granted_on")
+        .select("licence_number,licence_sequence,issued_on,expires_on,route,ended_on,part3_booked_on,part3_taken_on,part3_result,extension_applied_on,extension_granted_on,part1_passed_on,part2_passed_on,part2_hold_from,part3_hold_from,dbs_done,dbs_issued_on,working_towards")
         .eq("trainee_id",id).order("issued_on",{ascending:false}).limit(1).maybeSingle(),
       // Lessons tab. Personal time is left out entirely: a holiday or an appointment is their own
       // business and has nothing to do with a DVSA record (Dale, 30 Sep 2026).
@@ -18213,6 +18232,8 @@ function renderTraineeRecord(){
       : `<span class="muted">No trainers yet. Tick an instructor as a trainer on the Instructors tab &mdash; they need their ADI certificate number, because form 21S asks for it beside their signature.</span>`;
     const pairedNames=[...pdiPaired].map(t=>pdiNames[t]).filter(Boolean).sort();
     pane=`<div class="panel" style="margin-top:.6rem">
+      ${row("DBS", L.dbs_done?("Done"+(L.dbs_issued_on?" &middot; issued "+longDate(L.dbs_issued_on):"")):'<span class="muted">Not recorded</span>')}
+      ${row("Part 1 passed", longDate(L.part1_passed_on))}
       ${row("Email", pdiPerson&&pdiPerson.email?esc(pdiPerson.email):"")}
       ${row("Phone", pdiPerson&&pdiPerson.phone?esc(pdiPerson.phone):"")}
       ${row("ADI number", pdiPerson&&pdiPerson.adi_badge_number?esc(pdiPerson.adi_badge_number):"")}
@@ -18225,7 +18246,8 @@ function renderTraineeRecord(){
       ${row("Next badge granted", longDate(L.extension_granted_on))}
       ${row("Licence ended", longDate(L.ended_on))}
       ${pdiLicence?"":'<p class="muted" style="margin:.6rem 0 0;font-size:.88rem">No trainee licence recorded yet.</p>'}
-      ${pdiSelfView?"":`<div style="margin-top:.8rem"><button class="btn-outline btn-sm" onclick="editInstructor('${id}')">Edit their details</button>
+      ${pdiSelfView?"":`<div style="margin-top:.8rem"><button class="btn-outline btn-sm" onclick="openTraineeDbs('${id}')">DBS</button>
+        <button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="editInstructor('${id}')">Edit their details</button>
         <div class="muted" style="font-size:.8rem;margin-top:.25rem">Their name, email, phone, badge number and address, and everything about their trainee licence.</div></div>`}
       ${pdiSelfView?`<div style="margin-top:1rem"><strong style="font-size:.9rem">Who trains you</strong>
         <div style="margin-top:.3rem;font-size:.88rem">${[...pdiPaired].map(t=>pdiNames[t]).filter(Boolean).sort().map(esc).join(", ")||'<span class="muted">Nobody is paired with you yet.</span>'}</div></div>`
@@ -18451,6 +18473,9 @@ function renderTraineeRecord(){
       <div style="max-width:16rem">${traineePill(tone,head)}
         <div class="muted" style="font-size:.78rem;margin-top:.25rem">${detail}</div></div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        ${pdiSelfView||lic.part2_passed_on?"":`<button class="btn-outline btn-sm" onclick="openTestHold('${id}',2)" title="${lic.part2_hold_from?"Change or clear when their part 2 went on hold":"Record that their part 2 is on hold waiting for a date"}">${lic.part2_hold_from?`Part 2 on hold ${esc(heldFor(lic.part2_hold_from))}`:"Part 2 on hold"}</button>`}
+        ${pdiSelfView||!lic.part2_passed_on||lic.part3_taken_on?"":`<button class="btn-outline btn-sm" onclick="openTestHold('${id}',3)" title="${lic.part3_hold_from?"Change or clear when their part 3 went on hold":"Record that their part 3 is on hold waiting for a date"}">${lic.part3_hold_from?`Part 3 on hold ${esc(heldFor(lic.part3_hold_from))}`:"Part 3 on hold"}</button>`}
+        ${pdiSelfView?"":`<span style="display:inline-flex;align-items:center;gap:.4rem;margin-right:.4rem"><span class="muted" style="font-size:.8rem">Working towards</span><span class="d-views" role="group" aria-label="Working towards">${[1,2,3].map(n=>`<button type="button" class="${Number(lic.working_towards||2)===n?"on":""}" onclick="setWorkingTowards('${id}',${n})" title="What they are working towards now. Not the same as which training you are looking at below.">Part ${n}</button>`).join("")}</span></span>`}
         ${pdiSelfView?"":`<button class="btn-outline btn-sm" onclick="openPart1Passed('${id}')" title="${lic.part1_passed_on?"Change the date they passed":"Record the day they passed their part 1 theory, which is what lets them book part 2 and part 3"}">${lic.part1_passed_on?`Part 1 passed ${longDate(lic.part1_passed_on)}`:"Mark part 1 passed"}</button>`}
         ${pdiSelfView?"":`<button class="btn-outline btn-sm" onclick="openPart2Passed('${id}')" title="${lic.part2_passed_on?"Change the date they passed":"Record the day they passed their part 2, which takes part 2 off their record"}">${lic.part2_passed_on?`Part 2 passed ${longDate(lic.part2_passed_on)}`:"Mark part 2 passed"}</button>`}
         <button class="btn-outline btn-sm" onclick="printTrainee21T('${id}')" title="The declaration that gets them their trainee licence">Print 21T</button>
@@ -18945,13 +18970,13 @@ async function openPdiCovered(lessonId){
   const got={}; mine.forEach(x=>{ got[x.objective_id]=(got[x.objective_id]||0)+Number(x.hours||0); });
   const objs=(pdiObjectivesCache||[]).slice();
   openModal(`<h2 style="margin-bottom:.25rem">What did you cover</h2>
-    <p class="muted" style="margin:0 0 .8rem;font-size:.88rem">${h(total)} hours on ${longDate(l.start_time)}. Put the hours against what you actually did. Anything you leave stays on the session as training time, it is only left off the form.</p>
+    <p class="muted" style="margin:0 0 .8rem;font-size:.88rem">${traineeHrs(total)} hours on ${new Date(l.start_time).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}. Put the hours against what you actually did. Anything you leave stays on the session as training time, it is only left off the form.</p>
     <div id="cov-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
     <div style="max-height:22rem;overflow:auto;border:1px solid var(--line);border-radius:10px">
       ${objs.map(o=>`<label style="display:flex;gap:.6rem;align-items:center;padding:.45rem .6rem;border-bottom:1px solid var(--line)">
         <span style="flex:1;font-size:.85rem">${esc(o.name)}</span>
         <input type="number" class="cov-h" data-obj="${esc(o.objective_id)}" min="0" step="0.25" style="width:5rem"
-               value="${got[o.objective_id]?h(got[o.objective_id]):""}" oninput="covTotal(${total})" placeholder="0">
+               value="${got[o.objective_id]?traineeHrs(got[o.objective_id]):""}" oninput="covTotal(${total})" placeholder="0">
       </label>`).join("")}
     </div>
     <p class="muted" id="cov-sum" style="margin:.5rem 0 0;font-size:.85rem"></p>
@@ -18968,9 +18993,9 @@ function covTotal(total){
   const el=document.getElementById("cov-sum"); if(!el) return;
   const left=Math.round((total-used)*100)/100;
   el.textContent = used>total+0.001
-    ? `${h(used)} hours against a ${h(total)} hour session. That is ${h(used-total)} too many.`
-    : left>0.001 ? `${h(used)} of ${h(total)} hours placed. ${h(left)} left over, which stays on the session.`
-    : `All ${h(total)} hours placed.`;
+    ? `${traineeHrs(used)} hours against a ${traineeHrs(total)} hour session. That is ${traineeHrs(used-total)} too many.`
+    : left>0.001 ? `${traineeHrs(used)} of ${traineeHrs(total)} hours placed. ${traineeHrs(left)} left over, which stays on the session.`
+    : `All ${traineeHrs(total)} hours placed.`;
   el.style.color = used>total+0.001 ? "#e11d48" : "";
 }
 // The quick way, and the honest version of what Jason has been doing by hand for ten years.
@@ -18984,11 +19009,95 @@ async function savePdiCovered(lessonId,total){
   const split=covRows().map(el=>({objective_id:el.dataset.obj,hours:Number(el.value)||0})).filter(x=>x.hours>0);
   const used=split.reduce((n,x)=>n+x.hours,0);
   const err=document.getElementById("cov-err");
-  if(used>total+0.001){ if(err){ err.textContent=`That is ${h(used)} hours against a ${h(total)} hour session.`; err.style.display="block"; } return; }
+  if(used>total+0.001){ if(err){ err.textContent=`That is ${traineeHrs(used)} hours against a ${traineeHrs(total)} hour session.`; err.style.display="block"; } return; }
   const btn=document.getElementById("cov-save"); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
   const {error}=await sb.rpc("set_training_objectives",{p_lesson:lessonId,p_split:split});
   if(error){ if(btn){ btn.disabled=false; btn.textContent="Save"; } if(err){ err.textContent=error.message; err.style.display="block"; } return; }
   closeModal(); await loadPdiTraining(); showTrainee(pdiRecordId);
+}
+/**
+ * How long a test has been on hold, said the way you would say it. Jason Tinkler, 2 Oct 2026: there
+ * are never any part 2 dates, so a PDI goes on hold straight after part 1 and again after part 2,
+ * and he wants to see at a glance how long they have been waiting.
+ */
+function heldFor(from){
+  if(!from) return "";
+  const d0=new Date(from+"T12:00:00"), now=new Date();
+  const days=Math.max(0,Math.round((now-d0)/86400000));
+  if(days===0) return "today";
+  if(days===1) return "1 day";
+  if(days<14) return days+" days";
+  if(days<61){ const w=Math.floor(days/7); return w+" week"+(w===1?"":"s"); }
+  let months=(now.getFullYear()-d0.getFullYear())*12+(now.getMonth()-d0.getMonth());
+  if(now.getDate()<d0.getDate()) months--;
+  const rem=Math.max(0,Math.round((now-new Date(d0.getFullYear(),d0.getMonth()+months,d0.getDate(),12))/86400000));
+  const wk=Math.floor(rem/7);
+  return months+" month"+(months===1?"":"s")+(wk>0?" "+wk+" week"+(wk===1?"":"s"):"");
+}
+async function setWorkingTowards(traineeId, part){
+  const {error}=await sb.rpc("set_working_towards",{p_trainee:traineeId,p_part:part});
+  if(error) return alert(error.message);
+  await loadPdiTraining(); showTrainee(traineeId);
+}
+function openTraineeDbs(traineeId){
+  const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId);
+  const L=((r&&r.progress&&r.progress.licence)||{});
+  openModal(`<h2 style="margin-bottom:.25rem">DBS</h2>
+    <p class="muted" style="margin:0 0 1rem;font-size:.88rem">A DBS comes before anything else, and the certificate coming back is what lets them apply for their PRN.</p>
+    <form id="dbs-form" onsubmit="saveTraineeDbs('${esc(traineeId)}');return false">
+    <div id="dbs-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+    <label style="display:flex;gap:.6rem;align-items:center;margin-bottom:.8rem;font-weight:normal">
+      <input type="checkbox" id="dbs-done" ${L.dbs_done?"checked":""} onchange="document.getElementById('dbs-date').disabled=!this.checked">
+      <span>DBS done</span></label>
+    <div class="field"><label>Issue date</label>
+      <input type="date" id="dbs-date" value="${esc(L.dbs_issued_on||"")}" ${L.dbs_done?"":"disabled"}>
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">Leave it blank if you have not got the certificate in front of you.</div></div>
+    <div class="actions">
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      <button type="submit" class="btn btn-navy btn-sm" id="dbs-save">Save</button>
+    </div>
+    </form>`);
+}
+async function saveTraineeDbs(traineeId){
+  const done=document.getElementById("dbs-done").checked;
+  const d=fieldVal("dbs-date")||null;
+  const err=document.getElementById("dbs-err");
+  if(d&&dLocalDateTime(d,"12:00")>new Date()){ if(err){ err.textContent="A DBS cannot have been issued in the future"; err.style.display="block"; } return; }
+  const btn=document.getElementById("dbs-save"); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
+  const {error}=await sb.rpc("set_trainee_dbs",{p_trainee:traineeId,p_done:done,p_issued_on:done?d:null});
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save"; } if(err){ err.textContent=error.message; err.style.display="block"; } return; }
+  closeModal(); await loadPdiTraining(); showTrainee(traineeId);
+}
+function openTestHold(traineeId, part){
+  const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId);
+  const L=((r&&r.progress&&r.progress.licence)||{});
+  const cur=(part===2?L.part2_hold_from:L.part3_hold_from)||"";
+  openModal(`<h2 style="margin-bottom:.25rem">Part ${part} on hold</h2>
+    <p class="muted" style="margin:0 0 1rem;font-size:.88rem">The day their part ${part} went on hold waiting for a date. The record shows how long it has been ever since, so you can see who has been waiting longest without working it out.</p>
+    <form id="th-form" onsubmit="saveTestHold('${esc(traineeId)}',${part});return false">
+    <div id="th-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+    <div class="field"><label>On hold since</label><input type="date" id="th-date" required value="${esc(cur||"")}"></div>
+    <div class="actions">
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      ${cur?`<button type="button" class="btn-outline" onclick="clearTestHold('${esc(traineeId)}',${part})">Not on hold any more</button>`:""}
+      <button type="submit" class="btn btn-navy btn-sm" id="th-save">Save</button>
+    </div>
+    </form>`);
+}
+function thErr(msg){ const el=document.getElementById("th-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
+async function saveTestHold(traineeId, part){
+  const d=fieldVal("th-date");
+  if(!d) return thErr("Give the date it went on hold");
+  if(dLocalDateTime(d,"12:00")>new Date()) return thErr("It cannot have gone on hold in the future");
+  const btn=document.getElementById("th-save"); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
+  const {error}=await sb.rpc("set_test_hold",{p_trainee:traineeId,p_part:part,p_from:d});
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save"; } return thErr(error.message); }
+  closeModal(); await loadPdiTraining(); showTrainee(traineeId);
+}
+async function clearTestHold(traineeId, part){
+  const {error}=await sb.rpc("set_test_hold",{p_trainee:traineeId,p_part:part,p_from:null});
+  if(error) return thErr(error.message);
+  closeModal(); await loadPdiTraining(); showTrainee(traineeId);
 }
 function openPart1Passed(traineeId){
   const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId);

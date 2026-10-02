@@ -14432,17 +14432,69 @@ function loStartDraft(prefill,pick){
  * without printing"). The form is the same HTML either way; this just shows it first.
  */
 function showFormOnScreen(html, printInPlace){
-  openModal(`<div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;margin-bottom:.6rem">
-      <h2 style="margin:0">The form</h2>
+  // A4 at 96dpi less the 12mm margins the form sets. The page is laid out in two columns at this
+  // width; render it any narrower and the columns collide (Dale, 2 Oct 2026: "this form is
+  // overlapped"). So draw it at page width and scale the whole thing, which is what a print preview
+  // does and means what is on screen is exactly what comes out.
+  const PAGE_W = 794;
+  let fitScale = 1, scale = 1;
+  openModal(`<div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap">
+      <h2 style="margin:0;flex:1;min-width:6rem">The form</h2>
+      <span class="d-views" role="group" aria-label="Zoom">
+        <button type="button" id="form-out" aria-label="Zoom out">&minus;</button>
+        <button type="button" id="form-fit">Fit</button>
+        <button type="button" id="form-in" aria-label="Zoom in">+</button>
+      </span>
       <button class="btn btn-navy btn-sm" id="form-print">Print it</button>
     </div>
-    <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff">
-      <iframe id="form-view" style="width:100%;height:62vh;border:0;background:#fff"></iframe>
+    <div id="form-box" style="border:1px solid var(--line);border-radius:10px;overflow:auto;background:#fff;max-height:60vh;touch-action:pan-x pan-y">
+      <div id="form-holder" style="position:relative">
+        <iframe id="form-view" scrolling="no" style="width:${PAGE_W}px;border:0;background:#fff;display:block;transform-origin:top left"></iframe>
+      </div>
     </div>
-    <p class="muted" style="margin:.5rem 0 0;font-size:.82rem">Read it here, or print it and sign it. Nothing is sent anywhere.</p>
+    <p class="muted" style="margin:.5rem 0 0;font-size:.82rem">This is the page as it will print. Pinch or use the buttons to zoom in. Nothing is sent anywhere.</p>
     <div class="actions"><button type="button" class="btn-outline" onclick="closeModal()">Close</button></div>`);
+
   const f=document.getElementById("form-view");
   const d=f.contentWindow.document; d.open(); d.write(html); d.close();
+
+  const draw=()=>{
+    const holder=document.getElementById("form-holder"); if(!holder||!f.contentWindow) return;
+    const doc=f.contentWindow.document;
+    const h=Math.max(doc.body?doc.body.scrollHeight:0, doc.documentElement?doc.documentElement.scrollHeight:0, 400);
+    f.style.height=h+"px";
+    f.style.transform="scale("+scale+")";
+    // The holder carries the scaled size, because a transform does not change layout height.
+    holder.style.width=(PAGE_W*scale)+"px";
+    holder.style.height=(h*scale)+"px";
+  };
+  const fit=()=>{
+    const box=document.getElementById("form-box"); if(!box) return;
+    fitScale=Math.min(1,(box.clientWidth-2)/PAGE_W);
+    scale=fitScale; draw();
+  };
+  const zoom=(k)=>{ scale=Math.min(3,Math.max(fitScale*0.5,k)); draw(); };
+
+  // Twice over, or the height is measured before the tables have settled.
+  fit(); setTimeout(fit,150); setTimeout(fit,600);
+
+  document.getElementById("form-fit").onclick=fit;
+  document.getElementById("form-in").onclick=()=>zoom(scale*1.25);
+  document.getElementById("form-out").onclick=()=>zoom(scale/1.25);
+
+  // Pinch on the form itself. Without this a pinch zooms the whole Control Centre, which is not
+  // what anybody means when they pinch a document (Dale, 2 Oct 2026).
+  const box=document.getElementById("form-box");
+  let startDist=0, startScale=1;
+  const dist=(t)=>Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY);
+  box.addEventListener("touchstart",(e)=>{
+    if(e.touches.length===2){ startDist=dist(e.touches); startScale=scale; }
+  },{passive:true});
+  box.addEventListener("touchmove",(e)=>{
+    if(e.touches.length===2 && startDist>0){ e.preventDefault(); zoom(startScale*(dist(e.touches)/startDist)); }
+  },{passive:false});
+  box.addEventListener("touchend",()=>{ startDist=0; },{passive:true});
+
   const btn=document.getElementById("form-print");
   if(btn) btn.onclick=()=>{
     // Print the frame that is already on screen, so what comes out is what was read. If the browser

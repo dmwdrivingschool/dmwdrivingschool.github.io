@@ -18003,7 +18003,7 @@ async function showTrainee(id, toggle){
       // on 2 Oct 2026 chasing a database fault that was not there: the hours had moved, the sentence
       // above them had not. Ask for it fresh, every time the record is opened or redrawn.
       sb.rpc("trainee_progress",{p_trainee_id:id}),
-      sb.from("trainee_training_hours").select("session_date,hours,kind,on_road,confirmed_at,supervisor_id,objective_id").eq("trainee_id",id).order("session_date"),
+      sb.from("trainee_training_hours").select("session_date,hours,kind,on_road,confirmed_at,supervisor_id,objective_id,lesson_id").eq("trainee_id",id).order("session_date"),
       sb.from("profiles").select("id,full_name,adi_badge_number").eq("school_id",currentSchoolId).eq("is_trainer",true).order("full_name"),
       // Names for the day-by-day view: 21S has room for four different ADIs, so a week can carry
       // supervision from more than one of them and the record has to say which (Dale, 30 Sep 2026).
@@ -18066,7 +18066,17 @@ async function showTrainee(id, toggle){
     pdiLogs=logs||[];
     // Part 2 until the pass is recorded, then part 3. The same single rule the pill uses, rather
     // than also guessing from whether a part 3 session happens to be booked (Dale, 2 Oct 2026).
-    pdiPart=((pdiLicence&&pdiLicence.part2_passed_on)||((r.progress||{}).licence||{}).part2_passed_on)?3:2;
+    // Open on the part the training is actually on, not on part 2 by default. Jason Tinkler's PDIs
+    // do their part 3 training BEFORE they sit part 2, because it feeds the drive, so Darren's
+    // record was opening on an empty part 2 while eight part 3 sessions sat behind the other button
+    // (2 Oct 2026). Part 2 passed still wins, because then there is no part 2 left.
+    const p2done=(pdiLicence&&pdiLicence.part2_passed_on)||((r.progress||{}).licence||{}).part2_passed_on;
+    const train=(les||[]).filter(l=>l.lesson_type==="pdi_training"&&l.status!=="cancelled")
+                         .sort((a,b)=>a.start_time<b.start_time?-1:1);
+    const now=new Date();
+    // The next session if there is one, otherwise the last that happened.
+    const current=train.find(l=>new Date(l.start_time)>=now)||train[train.length-1];
+    pdiPart = p2done ? 3 : current ? (current.pdi_part===3?3:2) : 2;
   }catch(e){ el.innerHTML='<div class="panel"><p class="muted">Could not load the record.</p></div>'; return; }
   renderTraineeRecord();
 }
@@ -18258,12 +18268,18 @@ function renderTraineeRecord(){
       // Delivered is what writes the hours, and nothing does it automatically for up to 15 minutes,
       // so a session moved to a past date sits saying "booked" with no way to act on it.
       const canDeliver=l.lesson_type==="pdi_training"&&l.status==="booked"&&over;
+      // The 21T wants hours in all twenty of its sections or DVSA refuse it, and until now there was
+      // nowhere to say which a session counted towards (Jason Tinkler, 2 Oct 2026). Only part 3
+      // training goes on that form, so only part 3 is asked.
+      const canCover=l.lesson_type==="pdi_training"&&l.status==="delivered"&&l.pdi_part===3;
+      const tagged=(pdiHours||[]).some(x=>x.lesson_id===l.id&&x.objective_id);
       return `<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0">
         <strong>${name}</strong>${l.supervised_by?' <span class="chip chip-info">supervised</span>':""}
         ${written?' <span class="chip chip-info">written up</span>':""}
         <div class="muted" style="font-size:.85rem">${when}${l.lesson_type==="pdi_training"&&mins>0?" &middot; "+h(mins/60)+"h":""}</div>
       </div><div class="actions"><span class="muted" style="font-size:.8rem">${esc(l.status)}</span>
         ${canDeliver&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="deliverPdiTraining('${esc(l.id)}')">Mark delivered</button>`:""}
+        ${canCover&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiCovered('${esc(l.id)}')">${tagged?"Covered":"What did you cover"}</button>`:""}
         ${canLog&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiLog('${esc(l.id)}')">${written?"Write-up":"Write up"}</button>`:""}
         ${canEdit&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiTrainingEdit('${esc(l.id)}')">Edit</button>`:""}</div></div>`;
     };
@@ -18435,6 +18451,7 @@ function renderTraineeRecord(){
       <div style="max-width:16rem">${traineePill(tone,head)}
         <div class="muted" style="font-size:.78rem;margin-top:.25rem">${detail}</div></div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        ${pdiSelfView?"":`<button class="btn-outline btn-sm" onclick="openPart1Passed('${id}')" title="${lic.part1_passed_on?"Change the date they passed":"Record the day they passed their part 1 theory, which is what lets them book part 2 and part 3"}">${lic.part1_passed_on?`Part 1 passed ${longDate(lic.part1_passed_on)}`:"Mark part 1 passed"}</button>`}
         ${pdiSelfView?"":`<button class="btn-outline btn-sm" onclick="openPart2Passed('${id}')" title="${lic.part2_passed_on?"Change the date they passed":"Record the day they passed their part 2, which takes part 2 off their record"}">${lic.part2_passed_on?`Part 2 passed ${longDate(lic.part2_passed_on)}`:"Mark part 2 passed"}</button>`}
         <button class="btn-outline btn-sm" onclick="printTrainee21T('${id}')" title="The declaration that gets them their trainee licence">Print 21T</button>
         <button class="btn-outline btn-sm" onclick="printTrainee21S('${id}')" title="The supervision record for while they hold the licence">Print 21S</button></div>
@@ -18913,6 +18930,97 @@ async function setTopicLevel(traineeId, topicId, clicked, current){
   showTrainee(traineeId);
 }
 // Recording a part 2 pass. The trainee tells, the trainer records, same as everything else here.
+/**
+ * What a session covered, against the twenty training objectives of form ADI 21T.
+ *
+ * Hours, not ticks: the form has a column for them and DVSA reject a form with an empty section, so
+ * Jason has been writing two hours in every box for ten years for want of anywhere to put the truth.
+ * Anything left over stays on the session as untagged time, so the 40 can never shrink because
+ * somebody tagged half of it.
+ */
+async function openPdiCovered(lessonId){
+  const l=(pdiLessons||[]).find(x=>x.id===lessonId); if(!l) return;
+  const total=Math.round(((new Date(l.end_time)-new Date(l.start_time))/3600000)*100)/100;
+  const mine=(pdiHours||[]).filter(x=>x.lesson_id===lessonId&&x.objective_id);
+  const got={}; mine.forEach(x=>{ got[x.objective_id]=(got[x.objective_id]||0)+Number(x.hours||0); });
+  const objs=(pdiObjectivesCache||[]).slice();
+  openModal(`<h2 style="margin-bottom:.25rem">What did you cover</h2>
+    <p class="muted" style="margin:0 0 .8rem;font-size:.88rem">${h(total)} hours on ${longDate(l.start_time)}. Put the hours against what you actually did. Anything you leave stays on the session as training time, it is only left off the form.</p>
+    <div id="cov-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+    <div style="max-height:22rem;overflow:auto;border:1px solid var(--line);border-radius:10px">
+      ${objs.map(o=>`<label style="display:flex;gap:.6rem;align-items:center;padding:.45rem .6rem;border-bottom:1px solid var(--line)">
+        <span style="flex:1;font-size:.85rem">${esc(o.name)}</span>
+        <input type="number" class="cov-h" data-obj="${esc(o.objective_id)}" min="0" step="0.25" style="width:5rem"
+               value="${got[o.objective_id]?h(got[o.objective_id]):""}" oninput="covTotal(${total})" placeholder="0">
+      </label>`).join("")}
+    </div>
+    <p class="muted" id="cov-sum" style="margin:.5rem 0 0;font-size:.85rem"></p>
+    <div class="actions">
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      <button type="button" class="btn-outline" onclick="spreadCovered(${total})">Spread it evenly</button>
+      <button type="button" class="btn btn-navy btn-sm" id="cov-save" onclick="savePdiCovered('${esc(lessonId)}',${total})">Save</button>
+    </div>`);
+  covTotal(total);
+}
+function covRows(){ return [...document.querySelectorAll(".cov-h")]; }
+function covTotal(total){
+  const used=covRows().reduce((n,el)=>n+(Number(el.value)||0),0);
+  const el=document.getElementById("cov-sum"); if(!el) return;
+  const left=Math.round((total-used)*100)/100;
+  el.textContent = used>total+0.001
+    ? `${h(used)} hours against a ${h(total)} hour session. That is ${h(used-total)} too many.`
+    : left>0.001 ? `${h(used)} of ${h(total)} hours placed. ${h(left)} left over, which stays on the session.`
+    : `All ${h(total)} hours placed.`;
+  el.style.color = used>total+0.001 ? "#e11d48" : "";
+}
+// The quick way, and the honest version of what Jason has been doing by hand for ten years.
+function spreadCovered(total){
+  const rows=covRows(); if(!rows.length) return;
+  const each=Math.round((total/rows.length)*4)/4;
+  rows.forEach(el=>{ el.value=each>0?each:""; });
+  covTotal(total);
+}
+async function savePdiCovered(lessonId,total){
+  const split=covRows().map(el=>({objective_id:el.dataset.obj,hours:Number(el.value)||0})).filter(x=>x.hours>0);
+  const used=split.reduce((n,x)=>n+x.hours,0);
+  const err=document.getElementById("cov-err");
+  if(used>total+0.001){ if(err){ err.textContent=`That is ${h(used)} hours against a ${h(total)} hour session.`; err.style.display="block"; } return; }
+  const btn=document.getElementById("cov-save"); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
+  const {error}=await sb.rpc("set_training_objectives",{p_lesson:lessonId,p_split:split});
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save"; } if(err){ err.textContent=error.message; err.style.display="block"; } return; }
+  closeModal(); await loadPdiTraining(); showTrainee(pdiRecordId);
+}
+function openPart1Passed(traineeId){
+  const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId);
+  const cur=((r&&r.progress&&r.progress.licence)||{}).part1_passed_on||"";
+  openModal(`<h2 style="margin-bottom:.25rem">Part 1 passed</h2>
+    <p class="muted" style="margin:0 0 1rem;font-size:.88rem">The day ${esc((r&&r.trainee_name)||"they")} passed their part 1 theory. They need it before they can book part 2 or part 3.</p>
+    <form id="p1-form" onsubmit="savePart1Passed('${esc(traineeId)}');return false">
+    <div id="p1-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+    <div class="field"><label>Date passed</label><input type="date" id="p1-date" required value="${esc(cur||"")}"></div>
+    <div class="actions">
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      ${cur?`<button type="button" class="btn-outline" onclick="clearPart1Passed('${esc(traineeId)}')">They have not passed it</button>`:""}
+      <button type="submit" class="btn btn-navy btn-sm" id="p1-save">Save</button>
+    </div>
+    </form>`);
+}
+function p1Err(msg){ const el=document.getElementById("p1-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
+async function savePart1Passed(traineeId){
+  const d=fieldVal("p1-date");
+  if(!d) return p1Err("Give the date they passed");
+  if(dLocalDateTime(d,"12:00")>new Date()) return p1Err("A part 1 pass cannot be in the future");
+  const btn=document.getElementById("p1-save"); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
+  const {error}=await sb.rpc("set_part1_passed",{p_trainee:traineeId,p_passed_on:d});
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save"; } return p1Err(error.message); }
+  closeModal(); await loadPdiTraining(); showTrainee(traineeId);
+}
+async function clearPart1Passed(traineeId){
+  if(!confirm("Take the part 1 pass off their record?")) return;
+  const {error}=await sb.rpc("set_part1_passed",{p_trainee:traineeId,p_passed_on:null});
+  if(error) return p1Err(error.message);
+  closeModal(); await loadPdiTraining(); showTrainee(traineeId);
+}
 function openPart2Passed(traineeId){
   const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId);
   const cur=((r&&r.progress&&r.progress.licence)||{}).part2_passed_on||"";

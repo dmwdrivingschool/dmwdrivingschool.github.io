@@ -8380,11 +8380,12 @@ async function savePdiPastTrainingNow(traineeId){
 }
 // Kept as the way in from a diary block, a day card and the record's Lessons tab.
 async function openPdiTrainingEdit(lessonId){
-  let l=diaryLessonsCache.find(x=>x.id===lessonId);
-  if(!l){
-    const {data}=await sb.from("lessons").select("*, trainee:profiles!lessons_trainee_id_fkey(id,full_name)").eq("id",lessonId).maybeSingle();
-    l=data;
-  }
+  // Always read the row, never the diary's cache. Editing from a trainee's record reloads the
+  // record but leaves diaryLessonsCache holding the values from before the save, so opening Edit a
+  // second time showed the OLD time and length, and saving from there put them back. You could
+  // undo your own change without touching anything (found 2 Oct 2026). One small query is worth it.
+  const {data}=await sb.from("lessons").select("*, trainee:profiles!lessons_trainee_id_fkey(id,full_name)").eq("id",lessonId).maybeSingle();
+  const l=data||diaryLessonsCache.find(x=>x.id===lessonId);
   if(!l) return alert("Could not find that training session \u2014 try refreshing.");
   return openPdiTraining({lesson:l});
 }

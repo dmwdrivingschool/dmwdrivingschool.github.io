@@ -17928,7 +17928,7 @@ async function showTrainee(id, toggle){
       sb.rpc("trainee_objectives",{p_trainee:id,p_list:"competencies"}),
       // Their part 3, if one is in the diary. A trainee may BOOK it; only a trainer or the school
       // may confirm it, because the three-month rule keys off that date (Dale, 30 Sep 2026).
-      sb.from("lessons").select("id,start_time,test_start_time,no_charge,pupil:pupils(first_name,last_name)")
+      sb.from("lessons").select("id,start_time,end_time,pupil_id,test_start_time,no_charge,notes,pupil:pupils(first_name,last_name)")
         .eq("lesson_type","part3_test").eq("instructor_id",id)
         .order("start_time",{ascending:false}).limit(1),
       // Who is actually paired with this trainee. Being ticked as a trainer is a capability; the
@@ -18040,7 +18040,9 @@ function renderTraineeRecord(){
         ${pdiPart===3?`<div class="metric"><div class="l">DVSA want (21T)</div><div class="v ${pre.met?"good":"bad"}">40h, 10 in a car</div></div>`:""}
       </div>
       ${pdiPart===3?`<p class="muted" style="margin:.4rem 0 0;font-size:.85rem">${detail}</p>`:""}
-      ${p3b?`<div style="margin-top:1rem"><strong style="font-size:.9rem">Part 3 test</strong>${p3b}</div>`:""}
+      <div style="margin-top:1rem"><strong style="font-size:.9rem">Part 3 test</strong>
+        ${p3b||'<p class="muted" style="margin:.2rem 0 .4rem;font-size:.88rem">Nothing booked. They can put it in from their own diary, or you can book it for them.</p>'}
+        <div style="margin-top:.4rem"><button class="btn-outline btn-sm" onclick="openPart3Booking('${id}')">${pdiPart3Booking?"Change the booking":"Book their part 3"}</button></div></div>
     </div>`;
   }
 
@@ -18595,6 +18597,83 @@ async function saveTrainerPicker(traineeId){
 // It is THE RECORD (Dale, 30 Sep 2026), printed so it can be signed in wet ink and scanned - which
 // is what the form itself invites: "Alternatively send a scanned copy to PADI@dvsa.gov.uk". Every
 // signature box is therefore left EMPTY on purpose, however much we happen to know.
+// Booking a part 3, from the trainer's side. Until now only the PDI could put one in, from their own
+// diary in the app, which assumes they have the app: Jason Tinkler's two are on a build with no PDI
+// features at all, so nobody could book one (Dale, 2 Oct 2026).
+//
+// Confirming the date onto the licence stays a separate act, because the three month rule runs from
+// it and a trainee must not be able to set their own.
+async function openPart3Booking(traineeId){
+  const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId); if(!r) return;
+  const b=pdiPart3Booking;
+  // Their pupils, because on a part 3 they teach one of their own with an examiner watching.
+  let pupils=schoolPupilsCache.filter(x=>x.instructor_id===traineeId&&x.status!=="deleted");
+  if(!pupils.length){
+    const {data}=await sb.from("pupils").select("id,first_name,last_name,status").eq("instructor_id",traineeId).neq("status","deleted").order("first_name");
+    pupils=data||[];
+  }
+  if(!pupils.length) return alert("They have no pupils yet. A part 3 is taken with a real pupil in the car, so add one to their diary first.");
+  const s0=b?new Date(b.start_time):null;
+  const mins=b?(Math.round((new Date(b.end_time)-s0)/60000)||120):120;
+  const centre=b?parseTestCentre(b.notes||""):"";
+  openModal(`<h2 style="margin-bottom:.25rem">${b?"Edit":"Book"} their part 3 test</h2>
+    <p class="muted" style="margin:0 0 1rem;font-size:.88rem">They take one of their own pupils and teach a normal lesson while an examiner watches.${b?"":" Booking it here does not confirm it onto their licence; you do that separately."}</p>
+    <form id="p3b-form" onsubmit="savePart3Booking('${esc(traineeId)}');return false">
+    <div id="p3b-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+    <div class="field"><label>Pupil they are taking</label>
+      <select id="p3b-pupil" required>${pupils.map(x=>`<option value="${esc(x.id)}"${b&&b.pupil_id===x.id?" selected":""}>${esc(x.first_name)} ${esc(x.last_name)}</option>`).join("")}</select></div>
+    <div class="field"><label>Date</label><input type="date" id="p3b-date" required value="${s0?dLocalDate(s0):""}"></div>
+    <div class="field"><label>Test time</label><input type="time" id="p3b-test" value="${b&&b.test_start_time?String(b.test_start_time).slice(0,5):""}">
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">What time the examiner expects them.</div></div>
+    <div class="field"><label>Lesson starts</label><input type="time" id="p3b-start" required value="${s0?dLocalTime(s0):"09:00"}">
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">Usually earlier than the test, to get there and warm up.</div></div>
+    <div class="two">
+      <div class="field"><label>Hours</label><input type="number" min="0" step="0.25" id="p3b-hours" value="${durHoursFromMins(String(mins))}" oninput="durHoursInput('p3b-hours','p3b-mins')"></div>
+      <div class="field"><label>Minutes</label><input type="number" min="0" step="15" id="p3b-mins" value="${mins}" oninput="durMinsInput('p3b-hours','p3b-mins')"></div>
+    </div>
+    <div class="field"><label>Test centre (optional)</label><input type="text" id="p3b-centre" value="${esc(centre||"")}" placeholder="Which centre"></div>
+    <label style="display:flex;align-items:center;gap:.5rem;margin:.5rem 0">
+      <input type="checkbox" id="p3b-charge" style="width:auto" ${b&&b.no_charge===false?"checked":""}>
+      <span>Charge the pupil for this lesson<br><span class="muted" style="font-size:.82rem">Most schools do not, since the pupil is sitting in on somebody else's exam.</span></span>
+    </label>
+    <div class="actions">
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      ${b?`<button type="button" class="btn-outline" onclick="deletePart3Booking('${esc(traineeId)}','${esc(b.id)}')">Cancel the test</button>`:""}
+      <button type="submit" class="btn btn-navy btn-sm" id="p3b-save">Save</button>
+    </div>
+    </form>`);
+}
+function p3bErr(msg){ const el=document.getElementById("p3b-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
+function savePart3Booking(traineeId){ return runOnce("part3Booking",()=>savePart3BookingNow(traineeId)); }
+async function savePart3BookingNow(traineeId){
+  const form=document.getElementById("p3b-form");
+  if(!form||!form.reportValidity()) return;
+  p3bErr("");
+  const mins=Math.round(Number(fieldVal("p3b-mins"))||0);
+  const start=dLocalDateTime(fieldVal("p3b-date"),fieldVal("p3b-start"));
+  if(!start||mins<=0) return p3bErr("Give a date, a start time and how long the lesson is");
+  const centre=fieldVal("p3b-centre").trim();
+  const row={lesson_type:"part3_test", instructor_id:traineeId, pupil_id:fieldVal("p3b-pupil"),
+    trainee_id:null, pdi_part:null,
+    start_time:start.toISOString(), end_time:new Date(start.getTime()+mins*60000).toISOString(),
+    test_start_time:fieldVal("p3b-test")||null,
+    no_charge:!fieldChecked("p3b-charge"),
+    notes:centre?`Test centre: ${centre}`:null};
+  const btn=document.getElementById("p3b-save"); if(btn){ btn.disabled=true; btn.textContent="Saving\u2026"; }
+  const b=pdiPart3Booking;
+  // Moving one a trainer has already confirmed clears the confirmation, so they have to agree the new
+  // date. A database trigger does that, not this screen.
+  const {error}= b ? await sb.from("lessons").update(row).eq("id",b.id)
+                   : await sb.from("lessons").insert({...row, status:"booked", payment_status:"unpaid"});
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save"; } return p3bErr(error.message); }
+  closeModal(); await loadPdiTraining(); showTrainee(traineeId);
+}
+async function deletePart3Booking(traineeId, lessonId){
+  if(!confirm("Take this part 3 test off their diary? The booking is removed and any confirmed date comes off their licence.")) return;
+  const {error}=await sb.from("lessons").delete().eq("id",lessonId);
+  if(error){ alert(error.message); return; }
+  closeModal(); await loadPdiTraining(); showTrainee(traineeId);
+}
 // Recording a part 2 pass. The trainee tells, the trainer records, same as everything else here.
 function openPart2Passed(traineeId){
   const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId);

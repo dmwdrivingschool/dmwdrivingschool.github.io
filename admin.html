@@ -12702,6 +12702,235 @@ async function answerHowHeard(value){
   maybeShowWelcomeTour();
 }
 
+/* ---- Setting up, after the Direct Debit ---------------------------------------------------------
+ *
+ * Dale, 2 Oct 2026. "Complete your profile" is left exactly as it was: optional, at sign-up, for
+ * somebody still on a free trial. This is the other one. Once there is a Direct Debit the account is
+ * real, and the things that make the product work for their pupils get asked for properly.
+ *
+ * TWO STRENGTHS, decided by when the mandate was set up:
+ *   - from SETUP_GATE_FROM onwards: a gate. No X, no Later. They are paying and have not started.
+ *   - before that: the same screens, dismissible, headed "we recommend". The four who were already
+ *     paying when this was built are mid-term with pupils in the car, and locking somebody out of
+ *     their own diary over a missing setting is a rotten thing to do to a customer.
+ *
+ * It only ever asks for what is MISSING. Somebody short of one thing gets one screen. That is the
+ * whole design: the welcome tour and the welcome modal are both dismissed by nearly everybody and 16
+ * of 26 accounts still have no badge number, so length is what kills these, not dismissability.
+ *
+ * NOT in here, on purpose:
+ *   - Business type. It reads like one question and is not: the row carries the year end, the car
+ *     percentage and cash or accruals, and writing half of it would break the tax summary.
+ *   - Lesson types. 3 of the first 4 payers never set them and nothing is wrong, which says the
+ *     default list is right. Never make somebody answer a question whose right answer is "leave it".
+ *   - Pupil self booking. A feature choice, not information, and the default is already no.
+ * All three are on the last screen as things worth doing, with a link, and no obligation.
+ */
+const SETUP_GATE_FROM = "2026-10-02T16:00:00Z";
+let setupState = null, setupIdx = 0, setupGate = false;
+
+/** Everything the wizard needs, in one go. Null means do not show it at all. */
+async function setupGather(){
+  if(isSuperAdminUser) return null;
+  const sub = await sb.from("subscriptions")
+    .select("gocardless_mandate_id,mandate_set_up_at")
+    .eq("owner_type","instructor").eq("owner_id",currentUserId).maybeSingle();
+  const mandate = sub.data && sub.data.gocardless_mandate_id;
+  if(!mandate) return null;                       // still on a trial: the old box has them
+  const done = await sb.from("app_settings").select("id")
+    .eq("owner_id",currentUserId).eq("id","setup_done").maybeSingle();
+  if(done.data) return null;
+
+  const [prof, settings, pay] = await Promise.all([
+    sb.from("profiles").select("full_name,phone,adi_badge_number,address_line1,address_line2,city,postcode").eq("id",currentUserId).maybeSingle(),
+    sb.from("app_settings").select("id,value").eq("owner_id",currentUserId),
+    sb.from("payment_details").select("owner_id,show_to_pupils,account_name,sort_code,account_number,reference_note").eq("owner_id",currentUserId).maybeSingle()
+  ]);
+  const has = {}; (settings.data||[]).forEach(r=>{ has[r.id]=r.value||{}; });
+  const pr = prof.data || {};
+
+  const steps = [];
+  if(!pr.full_name || !pr.phone || !pr.adi_badge_number || !pr.address_line1 || !pr.city || !pr.postcode) steps.push("details");
+  if(!has.enquiry_gearbox) steps.push("car");
+  if(!has.working_hours) steps.push("hours");
+  if(!has.media_channels) steps.push("photos");
+  if(!pay.data) steps.push("pay");
+
+  // Worth doing, never in the way.
+  const later = [];
+  if(!has.terms_and_conditions) later.push(["terms","Your terms and conditions","What pupils accept when they first log in"]);
+  if(!has.cancellation_policy) later.push(["terms","Your cancellation policy","How much notice you want, and what you charge if it is short"]);
+  if(!has.business_type) later.push(["finance","Your tax year and vehicle costs","What the tax summary in Money is worked out from"]);
+  if(!has.lesson_types) later.push(["lessontypes","Lesson types","Only if the standard list does not suit you"]);
+  if(!has.test_booking_help) later.push(["testbooking","Booking your driving test","What pupils see when they book on GOV.UK"]);
+
+  const setUpAt = sub.data.mandate_set_up_at || null;
+  return { steps, later, prof: pr, pay: pay.data || null,
+           gate: !!(setUpAt && setUpAt >= SETUP_GATE_FROM) };
+}
+
+async function maybeShowSetup(){
+  let st = null;
+  try{ st = await setupGather(); }catch(e){ return; }   // never block sign-in over this
+  if(!st) return;
+  if(!st.steps.length){ await setupMarkDone(); return; }
+  setupState = st; setupIdx = 0; setupGate = st.gate;
+  setupRender();
+}
+
+async function setupMarkDone(){
+  try{ await sb.from("app_settings").upsert({id:"setup_done",owner_id:currentUserId,
+    value:{done_at:new Date().toISOString()},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"}); }catch(e){}
+}
+
+/* Dismissing is remembered for the session only: somebody who is not gated gets asked again next time
+   they sign in, because "not now" is not "never". Finishing is what stops it for good. */
+function setupDismiss(){ setupState = null; modalGuard = null; closeModal(); }
+
+function setupRender(){
+  const st = setupState; if(!st) return;
+  const key = st.steps[setupIdx];
+  const n = st.steps.length, at = setupIdx + 1;
+  const head = setupGate
+    ? '<h2 style="margin-bottom:.2rem">Nearly there</h2><p class="muted" style="margin-bottom:1rem">Thanks for setting your Direct Debit up. ' + (n===1?"One thing":"A few things") + ' to fill in and you are away. Step ' + at + ' of ' + n + '.</p>'
+    : '<h2 style="margin-bottom:.2rem">We recommend you do this</h2><p class="muted" style="margin-bottom:1rem">' + (n===1?"One setting":"A few settings") + ' your pupils get the most out of. Step ' + at + ' of ' + n + '. You can leave it for now.</p>';
+  const later = setupGate ? "" : '<button class="btn-outline" onclick="setupDismiss()">Not now</button>';
+  const back = setupIdx > 0 ? '<button class="btn-outline" onclick="setupBack()">Back</button>' : "";
+  const next = '<button class="btn btn-navy btn-sm" id="setup-next" onclick="setupNext()">' + (at===n?"Finish":"Next") + '</button>';
+  openModal(head + setupStepHtml(key) +
+    '<div class="err" id="setup-err" style="display:block;text-align:left"></div>' +
+    '<div class="actions" style="margin-top:.9rem">' + next + back + later + '</div>');
+  if(setupGate){ const x=document.getElementById("modal-x"); if(x) x.remove(); modalGuard=()=>{}; }
+}
+
+function setupStepHtml(key){
+  const p = setupState.prof || {}, pay = setupState.pay || {};
+  const f = (id,label,val,extra) => '<div class="field"><label>' + label + '</label><input id="' + id + '" value="' + esc(val||"") + '" ' + (extra||"") + '></div>';
+  if(key==="details") return '' +
+    '<p class="muted" style="font-size:.85rem;margin-bottom:.6rem">Your pupils see your name and number, and your address goes on anything you send them.</p>' +
+    f("su-name","Your name",p.full_name) +
+    f("su-phone","Phone number",p.phone,'type="tel"') +
+    f("su-adi","ADI or PDI badge number",p.adi_badge_number) +
+    f("su-a1","Address line 1",p.address_line1) +
+    f("su-a2","Address line 2 (optional)",p.address_line2) +
+    '<div class="two">' + f("su-city","Town or city",p.city) + f("su-pc","Postcode",p.postcode) + '</div>';
+  if(key==="car") return '' +
+    '<p class="muted" style="font-size:.85rem;margin-bottom:.6rem">This is what your enquiry form asks new pupils, and it decides which cars you are offered everywhere else.</p>' +
+    '<div class="tb-travel-grid" role="radiogroup">' +
+      [["manual","Manual"],["auto","Automatic"],["both","Both"]].map(function(o){
+        return '<label class="tb-travel-opt"><input type="radio" name="su-car" value="' + o[0] + '"><span>' + o[1] + '</span></label>'; }).join("") +
+    '</div>';
+  if(key==="hours") return '' +
+    '<p class="muted" style="font-size:.85rem;margin-bottom:.6rem">The days you teach, so your enquiry form and your pupils know when to ask. The detail, like different times on a Tuesday, is in Settings afterwards.</p>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.7rem">' +
+      ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(function(d){
+        return '<label class="le-tick" style="margin:0"><input type="checkbox" id="su-d-' + d + '" ' + (d==="Saturday"||d==="Sunday"?"":"checked") + '><span>' + d.slice(0,3) + '</span></label>'; }).join("") +
+    '</div>' +
+    '<div class="two">' +
+      '<div class="field"><label>From</label><input type="time" id="su-start" value="09:00"></div>' +
+      '<div class="field"><label>Until</label><input type="time" id="su-end" value="18:00"></div>' +
+    '</div>';
+  if(key==="photos") return '' +
+    '<p class="muted" style="font-size:.85rem;margin-bottom:.6rem">Where you put pass photos. Your pupils agree to these by name, so "Facebook" means something to them in a way that "online" does not. Nowhere? Leave them all unticked.</p>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.7rem">' +
+      ["Facebook","Instagram","Google","TikTok","My website"].map(function(c){
+        return '<label class="le-tick" style="margin:0"><input type="checkbox" class="su-ch" value="' + c + '"><span>' + c + '</span></label>'; }).join("") +
+    '</div>' +
+    '<div class="field"><label>How can a pupil ask you to take one down?</label>' +
+      '<input id="su-optout" placeholder="e.g. Message me on 07700 900000, or just tell me at a lesson">' +
+      '<div class="muted" style="font-size:.75rem;margin-top:.3rem">Somewhere to post with no way to ask for it to come down is the half that gets an instructor in trouble.</div></div>';
+  if(key==="pay") return '' +
+    '<p class="muted" style="font-size:.85rem;margin-bottom:.6rem">Would you like your bank details on the Payments screen in your pupils\' app, so they can pay you by transfer?</p>' +
+    '<div class="tb-travel-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="radiogroup">' +
+      '<label class="tb-travel-opt"><input type="radio" name="su-pay" value="yes" onchange="setupPayToggle()"><span>Yes, show them</span></label>' +
+      '<label class="tb-travel-opt"><input type="radio" name="su-pay" value="no" onchange="setupPayToggle()" checked><span>No thanks</span></label>' +
+    '</div>' +
+    '<div id="su-pay-fields" style="display:none;margin-top:.7rem">' +
+      f("su-acc-name","Account name",pay.account_name) +
+      '<div class="two">' + f("su-sort","Sort code",pay.sort_code,'placeholder="00-00-00"') + f("su-acc","Account number",pay.account_number) + '</div>' +
+      f("su-ref","What they should put as the reference (optional)",pay.reference_note,'placeholder="Their first name"') +
+    '</div>';
+  return "";
+}
+
+function setupPayToggle(){
+  const yes=(document.querySelector('input[name="su-pay"]:checked')||{}).value==="yes";
+  const box=document.getElementById("su-pay-fields");
+  if(box) box.style.display=yes?"":"none";
+}
+function setupBack(){ if(setupIdx>0){ setupIdx--; setupRender(); } }
+
+async function setupNext(){
+  const err=document.getElementById("setup-err"), btn=document.getElementById("setup-next");
+  err.textContent=""; btn.disabled=true;
+  const fail=function(m){ err.textContent=m; btn.disabled=false; return false; };
+  const key=setupState.steps[setupIdx];
+  const g=function(id){ const el=document.getElementById(id); return el?(el.value||"").trim():""; };
+  try{
+    if(key==="details"){
+      const name=g("su-name"), phone=g("su-phone"), adi=g("su-adi"), a1=g("su-a1"), city=g("su-city"), pc=g("su-pc");
+      if(!name||!phone||!adi||!a1||!city||!pc) return fail("Everything except address line 2 is needed.");
+      const r=await sb.rpc("instructor_update_own_profile",{p_full_name:name,p_phone:phone,
+        p_adi_badge_number:adi,p_address_line1:a1,p_address_line2:g("su-a2"),p_city:city,p_postcode:pc});
+      if(r.error) return fail(r.error.message);
+      const who=document.getElementById("who"); if(who) who.textContent=name;
+    } else if(key==="car"){
+      const mode=(document.querySelector('input[name="su-car"]:checked')||{}).value;
+      if(!mode) return fail("Pick the car you teach in.");
+      const r=await sb.from("app_settings").upsert({id:"enquiry_gearbox",owner_id:currentUserId,
+        value:{mode},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+      if(r.error) return fail(r.error.message);
+      gearOffered=null;   // the gearbox dropdowns read this
+    } else if(key==="hours"){
+      const days={}; let any=false;
+      ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].forEach(function(d){
+        const el=document.getElementById("su-d-"+d); const on=!!(el&&el.checked); days[d]=on; if(on) any=true; });
+      if(!any) return fail("Pick at least one day you teach.");
+      const start=g("su-start")||"09:00", end=g("su-end")||"18:00";
+      if(end<=start) return fail("The finish time has to be after the start.");
+      const r=await sb.from("app_settings").upsert({id:"working_hours",owner_id:currentUserId,
+        value:{days:days,start:start,end:end},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+      if(r.error) return fail(r.error.message);
+    } else if(key==="photos"){
+      const channels=[].slice.call(document.querySelectorAll(".su-ch:checked")).map(function(el){ return el.value; });
+      const how=g("su-optout");
+      if(channels.length&&!how) return fail("Tell your pupils how to ask you to take a photo down.");
+      const r=await sb.from("app_settings").upsert({id:"media_channels",owner_id:currentUserId,
+        value:{channels:channels,opt_out_how:how},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+      if(r.error) return fail(r.error.message);
+    } else if(key==="pay"){
+      const yes=(document.querySelector('input[name="su-pay"]:checked')||{}).value==="yes";
+      if(yes && (!g("su-acc-name")||!g("su-sort")||!g("su-acc"))) return fail("Name, sort code and account number, or choose No thanks.");
+      const r=await sb.from("payment_details").upsert({owner_id:currentUserId,
+        show_to_pupils:yes, account_name:yes?g("su-acc-name"):null, sort_code:yes?g("su-sort"):null,
+        account_number:yes?g("su-acc"):null, reference_note:yes?g("su-ref"):null,
+        updated_at:new Date().toISOString()},{onConflict:"owner_id"});
+      if(r.error) return fail(r.error.message);
+    }
+  }catch(e){ return fail((e&&e.message)||"Could not save that"); }
+
+  setupIdx++;
+  if(setupIdx < setupState.steps.length){ setupRender(); return true; }
+  await setupMarkDone();
+  setupFinished();
+  return true;
+}
+
+/* The last screen: everything they still have not set, as a list they can walk away from. */
+function setupFinished(){
+  const later=(setupState&&setupState.later)||[];
+  setupState=null; modalGuard=null;
+  const rows=later.map(function(r){
+    return '<button type="button" class="dash-setting" style="width:100%;text-align:left" onclick="closeModal();goTab(\'settings\');openSettings(\'' + r[0] + '\')">' +
+      '<div><strong>' + esc(r[1]) + '</strong><span>' + esc(r[2]) + '</span></div></button>'; }).join("");
+  openModal('<h2 style="margin-bottom:.2rem">That is you set up</h2>' +
+    '<p class="muted" style="margin-bottom:' + (rows?".9rem":"0") + '">Everything your pupils need is in place.</p>' +
+    (rows ? '<p style="font-weight:600;margin:0 0 .5rem">Worth doing when you get a minute</p>' +
+      '<div style="display:grid;gap:.4rem">' + rows + '</div>' +
+      '<p class="muted" style="font-size:.78rem;margin-top:.6rem">None of these stop anything working. They are all in Settings whenever you want them.</p>' : "") +
+    '<div class="actions" style="margin-top:.9rem"><button class="btn btn-navy btn-sm" onclick="closeModal()">Done</button></div>');
+}
+
 async function maybeShowWelcomeTour(){
   if(isSuperAdminUser){ checkProfileCompletion(); return; }
   let seen=true;
@@ -12709,7 +12938,7 @@ async function maybeShowWelcomeTour(){
     const {data,error}=await sb.from("app_settings").select("id").eq("owner_id",currentUserId).eq("id","cc_welcome_tour").maybeSingle();
     seen = !!data || !!error;
   }catch(e){ seen=true; }
-  if(seen){ checkProfileCompletion(); return; }
+  if(seen){ checkProfileCompletion(); maybeShowSetup(); return; }
   try{ await sb.from("app_settings").upsert({id:"cc_welcome_tour",owner_id:currentUserId,value:{seen_at:new Date().toISOString()},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"}); }catch(e){}
   goTab("help");
   tourFirst=true;

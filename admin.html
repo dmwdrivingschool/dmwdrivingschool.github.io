@@ -8182,7 +8182,7 @@ async function openPdiTraining(opts){
       </div>
       <div class="muted" id="pt-repeat-summary" style="font-size:.78rem;margin-top:.3rem"></div></div>`}
     <div class="field"><label>Notes (optional)</label><textarea id="pt-notes" rows="2" placeholder="What you are covering…">${editing?esc(l.notes||""):""}</textarea></div>
-    ${done?`<div class="muted" style="font-size:.82rem;margin:-.3rem 0 .8rem">Already delivered, so the hours are on their record. Changing the length here will not move them.</div>`
+    ${done?`<div class="muted" style="font-size:.82rem;margin:-.3rem 0 .8rem">Delivered, so these hours are on their record. Change anything here and the hours move with it.</div>`
       :past?`<div class="muted" style="font-size:.82rem;margin:-.3rem 0 .8rem">This one has already been and gone. Mark it delivered to put the hours on their record.</div>`:""}
     <div class="actions">
       <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
@@ -18118,7 +18118,9 @@ function renderTraineeRecord(){
       // Only a BOOKED training session can be changed. lesson_makes_trainee_hours writes the hours
       // on the move to delivered and never rewrites them, so editing a delivered one would move the
       // diary and leave 21S saying something else.
-      const canEdit=l.lesson_type==="pdi_training"&&l.status==="booked";
+      // Delivered is editable now: the hours follow the session (trg_lesson_edits_trainee_hours), so
+      // wrong times can be put right instead of being set in stone 15 minutes after the fact.
+      const canEdit=l.lesson_type==="pdi_training"&&l.status!=="cancelled";
       const name=l.lesson_type==="pdi_training"?"Training session"
         :l.lesson_type==="part3_test"?"Part 3 test"
         :l.pupil?esc(l.pupil.first_name+" "+l.pupil.last_name):esc(l.title||"Lesson");

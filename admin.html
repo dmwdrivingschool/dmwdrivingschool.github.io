@@ -17996,7 +17996,13 @@ async function showTrainee(id, toggle){
   // A different trainee starts on Details, as the app does; the same one keeps the tab you were on.
   if(pdiRecordId!==id){ pdiTab="summary"; pdiRecordId=id; }
   try{
-    const [{data:hrs},{data:tr},{data:everyone},{data:objs},{data:comps},{data:school},{data:topics},{data:p3rows},{data:paired},{data:logs},{data:person},{data:lic},{data:les}]=await Promise.all([
+    const [{data:fresh},{data:hrs},{data:tr},{data:everyone},{data:objs},{data:comps},{data:school},{data:topics},{data:p3rows},{data:paired},{data:logs},{data:person},{data:lic},{data:les}]=await Promise.all([
+      // The headline ("37 hours of training still needed") used to come off the cached list row,
+      // which is only refilled when the PDIs tab is loaded. So after changing a session's part the
+      // tabs below showed the new hours and the headline still showed the old ones. It cost an hour
+      // on 2 Oct 2026 chasing a database fault that was not there: the hours had moved, the sentence
+      // above them had not. Ask for it fresh, every time the record is opened or redrawn.
+      sb.rpc("trainee_progress",{p_trainee_id:id}),
       sb.from("trainee_training_hours").select("session_date,hours,kind,on_road,confirmed_at,supervisor_id,objective_id").eq("trainee_id",id).order("session_date"),
       sb.from("profiles").select("id,full_name,adi_badge_number").eq("school_id",currentSchoolId).eq("is_trainer",true).order("full_name"),
       // Names for the day-by-day view: 21S has room for four different ADIs, so a week can carry
@@ -18048,6 +18054,8 @@ async function showTrainee(id, toggle){
     pdiHours=hrs||[]; pdiTrainerList=tr||[];
     pdiPaired=new Set((paired||[]).map(x=>x.trainer_id));
     pdiPart3Booking=(p3rows||[])[0]||null;
+    // Put the fresh figures on the cached row, so the headline and the tabs can never disagree.
+    if(fresh) r.progress=fresh;
     pdiPerson=person||null; pdiLicence=lic||null; pdiLessons=les||[]; pdiCompetencies=comps||[];
     const schoolSyl=(school && Array.isArray(school.syllabus) && school.syllabus.length) ? school.syllabus : syllabusItems;
     pdiDriving=schoolSyl.map(t=>{

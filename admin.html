@@ -13947,6 +13947,10 @@ function diaryBlockColour(l,saved){
 function diaryBlockFooter(l,saved){
   if(l.lesson_type==="lesson_offer") return {bg:l.offer_status==="declined"?"#7f1d1d":"rgba(255,255,255,0.25)", text:l.offer_status==="offered"?"Awaiting reply":l.offer_status==="declined"?"Declined":"Lesson offer"};
   if(l.status==="cancelled") return l.charged?{bg:"#b91c1c",text:"Cancelled – Charged"}:{bg:"rgba(255,255,255,0.25)",text:"Cancelled"};
+  // A training session has no money on it: nobody is being charged for it and there is no pupil to
+  // charge (Dale, 2 Oct 2026). Marked delivered it shows that instead, which is the thing that
+  // matters, because delivered is what puts the hours on their record.
+  if(l.lesson_type==="pdi_training") return l.status==="delivered"?{bg:"rgba(255,255,255,0.25)",text:"Delivered"}:null;
   if(l.lesson_type==="gap"||l.title==="Away"||l.title==="Appointment"||l.lesson_type==="private") return null;
   const hex=(v,fallback)=>typeof v==="string"&&/^#[0-9a-fA-F]{3,8}$/.test(v)?v:fallback;
   const p=saved&&saved.payment, pay=p&&typeof p==="object"&&!Array.isArray(p)?p:{};
@@ -14029,7 +14033,7 @@ function diaryBlockHtml(l,day,layout,startH,endH,hourH){
   const {top,height}=diaryBlockBox(l,day,startH,endH,hourH);
   const pos=layout.get(l.id)||{col:0,cols:1,zIndex:0}, w=100/pos.cols, left=w*pos.col;
   const colours=diaryColoursShown(), cancelled=l.status==="cancelled", appt=l.title==="Appointment", foot=diaryBlockFooter(l,colours);
-  const hasFooter=cancelled||!(l.lesson_type==="gap"||l.title==="Away"||appt||l.lesson_type==="private");
+  const hasFooter=!!foot;
   const name=diaryShortName(l,true);
   const full=l.pupil&&l.pupil.first_name?`${l.pupil.first_name} ${l.pupil.last_name||""}`.trim():name;
   const times=`${dLocalTime(new Date(l.start_time))}–${dLocalTime(new Date(l.end_time))}`;

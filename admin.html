@@ -17574,7 +17574,7 @@ async function setTrainer(instructorId, on){
 // Every figure comes from school_trainee_summary(), the same call the dashboard panel uses, so the
 // two cannot drift apart. Nothing here recomputes a threshold.
 let pdiObjectivesCache=[], pdiPart3Booking=null;
-let pdiTrainingRows=[], pdiPartBy={}, pdiNames={}, pdiWeeks=[], pdiBadges={}, pdiHours=[], pdiPaired=new Set(), pdiTrainerList=[], pdiTrainingLoad=null;
+let pdiTrainingRows=[], pdiNames={}, pdiWeeks=[], pdiBadges={}, pdiHours=[], pdiPaired=new Set(), pdiTrainerList=[], pdiTrainingLoad=null;
 
 // The same 0-5 scale instructors already grade pupils on (PUPIL_COMP_TO_LEVEL), so a trainer reads
 // a trainee's chart exactly as they read a pupil's.
@@ -17766,15 +17766,6 @@ async function loadPdiTraining(){
     const {data,error}=await sb.rpc("school_trainee_summary");
     if(error) throw error;
     pdiTrainingRows=data||[];
-    // Which part each of them is on, from their most recent training session, so the list says at a
-    // glance who is working towards what (Dale, 2 Oct 2026).
-    pdiPartBy={};
-    const ids=pdiTrainingRows.map(r=>r.trainee_id);
-    if(ids.length){
-      const {data:sess}=await sb.from("lessons").select("trainee_id,pdi_part,start_time")
-        .eq("lesson_type","pdi_training").in("trainee_id",ids).order("start_time",{ascending:false});
-      (sess||[]).forEach(x=>{ if(!(x.trainee_id in pdiPartBy)) pdiPartBy[x.trainee_id]=x.pdi_part===3?3:2; });
-    }
   }catch(e){ list.innerHTML='<p class="muted">Could not load your trainees: '+esc(e.message||e)+'</p>'; return; }
   if(!pdiTrainingRows.length){ list.innerHTML='<p class="muted">Nobody is paired with you yet, and nobody in your school is on a trainee licence.</p>'; return; }
   const live=pdiTrainingRows.filter(r=>!r.ended_on), finished=pdiTrainingRows.filter(r=>r.ended_on);
@@ -17802,15 +17793,12 @@ async function loadPdiTraining(){
 }
 // The app's row, said the same way (src/pages/Pdis.tsx): what is still owed, then the hours the
 // fifth is worked out from.
-// Which part they are training for, beside their name. A passed part 2 settles it; otherwise it is
-// whatever their last session was, and nothing shows until they have had one.
+// Which part they are on, beside their name. One rule: they are on part 3 once part 2 is marked
+// passed, and on part 2 until then (Dale, 2 Oct 2026). Deliberately not guessed from their sessions
+// or from holding a licence - both of those can disagree with the record, and did.
 function partChip(r){
-  const lic=(r.progress||{}).licence||{};
-  // Holding a trainee licence means part 2 is behind them: DVSA will not issue one until it is
-  // passed. So a licence settles it even where nobody has typed the date in yet.
-  const n = (lic.part2_passed_on||lic.issued_on) ? 3 : pdiPartBy[r.trainee_id];
-  if(!n) return "";
-  return `<span class="chip ${n===3?"chip-info":"chip-wait"}">Part ${n}</span>`;
+  const passed=((r.progress||{}).licence||{}).part2_passed_on;
+  return `<span class="chip ${passed?"chip-info":"chip-wait"}">Part ${passed?3:2}</span>`;
 }
 function pdiRowHtml(r){
   const h=traineeHrs, sup=(r.progress||{}).supervision||{};

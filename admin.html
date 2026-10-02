@@ -8270,7 +8270,7 @@ async function savePdiTrainingNow(id){
 async function deliverPdiTraining(id){
   const btn=document.getElementById("pt-done"); if(btn){ btn.disabled=true; btn.textContent="Marking"+"\u2026"; }
   const {error}=await sb.from("lessons").update({status:"delivered"}).eq("id",id);
-  if(error){ if(btn){ btn.disabled=false; btn.textContent="Mark delivered"; } return ptErr(error.message); }
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Mark delivered"; return ptErr(error.message); } alert(error.message); return; }
   closeModal();
   if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
   if(pdiRecordId) showTrainee(pdiRecordId);
@@ -18125,12 +18125,19 @@ function renderTraineeRecord(){
       // Writing up a session that has been is what makes the next one's plan appear, the same way a
       // pupil's lesson plan comes from the last reflective log (Dale, 2 Oct 2026).
       const written=(pdiLogs||[]).some(x=>x.lesson_id===l.id);
-      const canLog=l.lesson_type==="pdi_training"&&l.status!=="cancelled"&&new Date(l.start_time)<new Date();
+      // Once it has finished, not once it has started: a session half way through is not written up
+      // yet (Dale, 2 Oct 2026).
+      const over=new Date(l.end_time)<new Date();
+      const canLog=l.lesson_type==="pdi_training"&&l.status!=="cancelled"&&over;
+      // Delivered is what writes the hours, and nothing does it automatically for up to 15 minutes,
+      // so a session moved to a past date sits saying "booked" with no way to act on it.
+      const canDeliver=l.lesson_type==="pdi_training"&&l.status==="booked"&&over;
       return `<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0">
         <strong>${name}</strong>${l.supervised_by?' <span class="chip chip-info">supervised</span>':""}
         ${written?' <span class="chip chip-info">written up</span>':""}
         <div class="muted" style="font-size:.85rem">${when}${l.lesson_type==="pdi_training"&&mins>0?" &middot; "+h(mins/60)+"h":""}</div>
       </div><div class="actions"><span class="muted" style="font-size:.8rem">${esc(l.status)}</span>
+        ${canDeliver?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="deliverPdiTraining('${esc(l.id)}')">Mark delivered</button>`:""}
         ${canLog?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiLog('${esc(l.id)}')">${written?"Write-up":"Write up"}</button>`:""}
         ${canEdit?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiTrainingEdit('${esc(l.id)}')">Edit</button>`:""}</div></div>`;
     };

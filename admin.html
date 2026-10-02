@@ -6120,7 +6120,18 @@ let websiteEditorAppend = false;
 
 async function loadWebsiteEditor(append){
   websiteEditorAppend = !!append;
-  const {data} = await sb.from("instructor_sites").select("*").eq("instructor_id", currentUserId).maybeSingle();
+  let {data} = await sb.from("instructor_sites").select("*").eq("instructor_id", currentUserId).maybeSingle();
+  /* Buying a website never created the site itself. Only the founding five had a row, because those
+     were made by hand, so the first person to buy through the normal route opened this tab, found
+     nothing to edit and emailed to ask what they were missing (Colin Dormer, 2 Oct 2026). Nothing
+     anywhere inserted into instructor_sites - every other call in this file is an update.
+     Made here rather than on the purchase so it also repairs anyone already in that position, and
+     only for somebody the entitlement already says owns a website. The row is empty either way:
+     the defaults below fill the form and they pick their own design. */
+  if (!data && websiteEnt && websiteEnt.website){
+    const made = await sb.rpc("instructor_site_ensure");
+    if (!made.error && made.data) data = made.data;
+  }
   siteRow = data || null;
   if (siteRow && (!siteRow.content || Object.keys(siteRow.content).length === 0)){
     const {data: def} = await sb.rpc("instructor_site_defaults", {p_instructor: currentUserId});

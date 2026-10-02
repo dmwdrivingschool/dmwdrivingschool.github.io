@@ -18578,8 +18578,18 @@ async function savePart3(traineeId){
 // Details tab - one note per objective, latest wins, and you can always see whose it is and when
 // (Dale, 30 Sep 2026: "if a pdi is being trained by multiple adis it will help know who entered the
 // late note and when").
+// The 17 competencies live in pdiCompetencies; the 20 objectives of form 21T live in
+// pdiObjectivesCache. Both are graded through this one note box, and it used to look only in the
+// objectives, so a part 3 competency was never found: the box opened empty over an existing note,
+// and saving wrote its grade back as "No evidence" because that is what a missing row reads as
+// (found 2 Oct 2026 while filming it happening).
+function traineeGradedItem(objectiveId){
+  return (pdiCompetencies||[]).find(x=>x.objective_id===objectiveId)
+      || (pdiObjectivesCache||[]).find(x=>x.objective_id===objectiveId)
+      || null;
+}
 function editTraineeObjectiveNote(traineeId, objectiveId){
-  const o = (pdiObjectivesCache||[]).find(x=>x.objective_id===objectiveId) || {};
+  const o = traineeGradedItem(objectiveId) || {};
   openModal(`<h3 style="margin:0 0 .5rem">${esc(o.name||"Note")}</h3>
     <p class="muted" style="margin-bottom:.6rem">What they did, and what to pick up next time. Whoever trains them next sees this.</p>
     <div class="field"><textarea id="tr-obj-note" rows="4" placeholder="e.g. Good on approach, still talking over the pupil at junctions">${esc(o.level_note||"")}</textarea></div>
@@ -18590,7 +18600,9 @@ function editTraineeObjectiveNote(traineeId, objectiveId){
 async function saveTraineeObjectiveNote(traineeId, objectiveId){
   const err=document.getElementById("tr-obj-err");
   const note=(document.getElementById("tr-obj-note").value||"").trim();
-  const o=(pdiObjectivesCache||[]).find(x=>x.objective_id===objectiveId)||{};
+  const o=traineeGradedItem(objectiveId);
+  // No row to read a grade from means something is wrong, and writing 0 would silently clear one.
+  if(!o){ if(err) err.textContent="Could not find that one to save the note against. Reopen the record and try again."; return; }
   const {error}=await sb.rpc("set_trainee_objective_level",
     {p_trainee:traineeId, p_objective:objectiveId, p_level:Number(o.level||0), p_note:note||null});
   if(error){ if(err) err.textContent=error.message; return; }

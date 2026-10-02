@@ -16898,6 +16898,12 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
         emailItem,
         copyItem,
         manageItem("Edit", `editInstructor('${i.id}')`),
+        /* The way past the setup gate. A gated instructor who hits a problem on one of those screens
+           cannot reach their own diary, and they will ring rather than email, so there has to be
+           something Dale can press without going near the database (Dale, 2 Oct 2026: "yes an escape
+           hatch"). Marking it done is exactly what finishing it does, so nothing is special-cased and
+           there is no second state to get wrong. */
+        manageItem("Let them past setup", `letPastSetup('${i.id}','${nameEsc}')`),
         // On the Account bar rather than a group of its own (Dale, 30 Sep 2026). Hidden for a solo
         // instructor, who can never be paired with a trainee, and for a PDI, who cannot train one.
         // Holding a trainee licence is what disqualifies somebody, not their billing. Deciding this
@@ -21832,6 +21838,18 @@ async function applyGearOpts(id,current){
   const want=current||sel.value||"";
   sel.innerHTML=gearOptsHtml(want);
   if(want&&sel.querySelector('option[value="'+want+'"]')) sel.value=want;
+}
+
+/* Mark an instructor's setup as finished, as if they had done it. The only way through the gate from
+   the outside; the wizard writes the same row when somebody completes it normally. Asked first,
+   because it is not reversible from here and it leaves their account half set up. */
+async function letPastSetup(id, name){
+  if(!confirm("Let " + (name||"this instructor") + " past the setup screens?\n\nThey will get into the Control Centre straight away, with whatever they have not filled in still missing. Only do this if something is stopping them finishing it.")) return;
+  const {error}=await sb.from("app_settings").upsert({id:"setup_done",owner_id:id,
+    value:{done_at:new Date().toISOString(), let_past_by:currentUserId},
+    updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+  if(error) return alert(error.message);
+  alert((name||"They") + " can get in now. They will not be asked again.");
 }
 
 async function whLoadGearMode(){

@@ -245,8 +245,10 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .d-free .d-free-x{margin-left:auto;background:none;border:0;color:var(--muted);cursor:pointer;font-size:.9rem;line-height:1;padding:0 .1rem}
 .d-free li{display:flex;gap:.45rem;align-items:flex-start}
 /* modal */
-.modal{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
-.modal-box{background:#fff;border-radius:20px 20px 0 0;padding:1.4rem;width:100%;max-width:540px;max-height:90vh;overflow:auto;box-shadow:0 -8px 40px rgba(15,23,42,.2)}
+/* Centred at every width. It used to sit on the bottom edge like a phone sheet below 600px, which
+   on a narrow Control Centre window put every dialog at the foot of the screen (Dale, 2 Oct 2026). */
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(2px)}
+.modal-box{background:#fff;border-radius:20px;padding:1.4rem;width:100%;max-width:540px;max-height:88vh;overflow:auto;box-shadow:0 24px 70px -20px rgba(15,23,42,.35)}
 /* An always-reachable way out of every dialog (Jason Tinkler, 1 Oct 2026: "there is no way to back
    out of things in the control centre"). The sheet is 90vh with its own scroll, so the only backdrop
    left to tap was a thin strip at the top - behind the status bar on an iPhone. Opening Add Lesson by
@@ -258,7 +260,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 #modal-x:hover{background:rgba(15,23,42,.2)}
 body.dark #modal-x,.dark #modal-x{background:rgba(255,255,255,.22);color:#fff}
 body.dark #modal-x:hover,.dark #modal-x:hover{background:rgba(255,255,255,.32)}
-@media(min-width:600px){.modal{align-items:center}.modal-box{border-radius:20px;box-shadow:0 24px 70px -20px rgba(15,23,42,.35)}}
+
 /* The choice dialog floats clear of the edges at every width (Dale, 25 Sep 2026), matching the app's
    ChoiceDialog. Its Cancel used to sit against the bottom of the screen, next to the phone's own buttons -
    a mis-tap there locks a pupil out of their app. Only this one; every other modal keeps its sheet. */
@@ -15958,6 +15960,10 @@ async function loadTeamsPanel(){
       </div>
       <p class="muted" style="margin:.35rem 0 .75rem">Lock an instructor's access, edit their details, or remove them from your school. Removed instructors are locked until Drive My Way sets them up on their own, and their pupils go with them. Accounts are never deleted from here.</p>
       <div class="panel" id="franchise-default-panel" style="margin-bottom:1rem;border-left:4px solid #d97706">Loading franchise fees…</div>
+      <div class="d-views" role="group" aria-label="Who to show" id="teams-kind" style="margin-bottom:.6rem;flex-wrap:wrap">
+        <button type="button" class="on" data-kind="adi" onclick="setTeamsKind('adi')">ADIs</button>
+        <button type="button" data-kind="pdi" onclick="setTeamsKind('pdi')">PDIs</button>
+      </div>
       <div id="instructors-list">Loading…</div>
 
       <div class="panel" style="margin-top:1.25rem;border-left:4px solid #0ea5e9">
@@ -15998,6 +16004,17 @@ async function loadTeamsPanel(){
     renderFranchiseDefaultPanel(instrRows);
     const instrList=document.getElementById("instructors-list");
     instrList.innerHTML = instrRows.length ? instrRows.map(i=>renderInstructorRow(i, [], false)).join("") : '<p class="muted">No instructors yet.</p>';
+    // Counts on the switch, and it only earns its place once there is something of both.
+    const pdis=instrRows.filter(i=>schoolPdiIds.has(i.id)).length, adis=instrRows.length-pdis;
+    const kindBar=document.getElementById("teams-kind");
+    if(kindBar){
+      const both=!!(pdis && adis);
+      kindBar.classList.toggle("hidden", !both);
+      const set=(k,label)=>{ const b=kindBar.querySelector(`[data-kind="${k}"]`); if(b) b.textContent=label; };
+      set("adi",`ADIs (${adis})`); set("pdi",`PDIs (${pdis})`);
+      // With only one kind in the school there is nothing to switch between, so show the lot.
+      setTeamsKind(both?"adi":"all");
+    } else filterTeams();
   } else {
     content.innerHTML = '<p class="muted">Nothing to show here.</p>';
   }
@@ -16071,13 +16088,13 @@ let manageMenuSeq=0;
 function manageItem(label, onclick, kind){
   return `<button type="button" class="manage-item${kind?" "+kind:""}" onclick="${onclick}">${label}</button>`;
 }
-function manageRowHtml({info, buttons, groups, extraStyle, hidden}){
+function manageRowHtml({info, buttons, groups, extraStyle, hidden, kind}){
   const id="mm"+(++manageMenuSeq);
   const body=(groups||[]).map(g=>({label:g.label, items:(g.items||[]).filter(Boolean)})).filter(g=>g.items.length)
     .map(g=>`<div class="manage-group"><div class="manage-group-label">${g.label}</div>${g.items.join("")}</div>`).join("");
   // What the search box matches: the row's name, email and labels.
   const searchText=String(info||"").replace(/<[^>]*>/g," ").replace(/&amp;/g,"&").replace(/\s+/g," ").trim().toLowerCase();
-  return `<div class="list-row manage-row" data-search="${esc(searchText)}"${hidden?' data-hidden="1"':""}${extraStyle?` style="${extraStyle}"`:""}>
+  return `<div class="list-row manage-row"${kind?` data-kind="${kind}"`:""} data-search="${esc(searchText)}"${hidden?' data-hidden="1"':""}${extraStyle?` style="${extraStyle}"`:""}>
     <div class="manage-top">
       <div class="manage-info">${info}</div>
       <div class="manage-actions">${buttons||""}${body?`<button type="button" class="btn-outline" aria-expanded="false" aria-controls="${id}" onclick="toggleManageMenu('${id}',this)">Manage ▾</button>`:""}</div>
@@ -16292,13 +16309,22 @@ function setAllSchoolsOpen(open){
     setSchoolMembersOpen(id, open);
   });
 }
+let teamsKindFilter="all";
+function setTeamsKind(kind){
+  teamsKindFilter=kind;
+  document.querySelectorAll("#teams-kind [data-kind]").forEach(b=>b.classList.toggle("on",b.dataset.kind===kind));
+  filterTeams();
+}
 function filterTeams(){
   const input=document.getElementById("teams-search");
   if(input) teamsSearchQuery=input.value;
   const q=teamsSearchQuery.trim().toLowerCase();
   const matches=el=>!!el && (el.dataset.search||"").includes(q);
   // A hidden account (access ended 30 or more days ago) only shows with Show hidden, or when a search finds it.
-  const allowed=el=>el.dataset.hidden!=="1" || showHiddenAccounts || !!q;
+  // Who they are as well as whether they match the search: with 35 ADIs and 15 PDIs, finding one
+  // meant scrolling past the other kind (Dale, 2 Oct 2026).
+  const kindOk=el=>teamsKindFilter==="all" || !el.dataset.kind || el.dataset.kind===teamsKindFilter;
+  const allowed=el=>kindOk(el) && (el.dataset.hidden!=="1" || showHiddenAccounts || !!q);
   let shown=0, hiddenCount=0;
   document.querySelectorAll("#schools-list .school-block").forEach(block=>{
     const id=block.dataset.schoolId;
@@ -16389,7 +16415,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
     // A school admin looking at their own instructors: day-to-day buttons stay on the row.
     const buttons = `<button class="btn-outline" onclick="showInstructorDetail('${i.id}')">Details</button>`
       + (!isMe ? `<button class="btn-outline" onclick="openInstructorDiary('${i.id}')">Diary</button><button class="btn-outline" onclick="openStaffThread('${i.id}')">Message</button>` : "");
-    return manageRowHtml({ info, buttons, groups: [
+    return manageRowHtml({ info, buttons, kind: schoolPdiIds.has(i.id)?"pdi":"adi", groups: [
       { label: "Money", items: isMe ? [] : [
         manageItem("Pay them", `openPayInstructor('${i.id}')`),
         manageItem("Fee received", `franchiseQuickReceived('${i.id}')`),
@@ -16446,6 +16472,7 @@ function renderInstructorRow(i, schoolRows, fullControls, opts){
   billing.push(...accountBillingItems(sub, 'instructor', i.id, nameEsc));
 
   return manageRowHtml({
+    kind: schoolPdiIds.has(i.id)?"pdi":"adi",
     info,
     hidden: !school && accountHidden('instructor', i.id),
     buttons: `<button class="btn-outline" onclick="showInstructorDetail('${i.id}')">Details</button>`,
@@ -16627,6 +16654,24 @@ async function addSchool(){
   teamsMessage(message, ok);
 }
 
+// A second badge is a different badge: its own number, its own six months. Changing which badge it
+// is used to leave the first one's number and dates sitting in the boxes, so you could save a 2nd
+// badge carrying the 1st badge's dates and never notice (Dale, 2 Oct 2026).
+function licSeqChanged(){
+  const sel=document.getElementById("edit-lic-seq"); if(!sel) return;
+  const was=sel.dataset.was||"", now=sel.value;
+  const note=document.getElementById("edit-lic-seq-note");
+  if(now===was){ if(note) note.classList.add("hidden"); return; }
+  ["edit-lic-no","edit-lic-from","edit-lic-to","edit-lic-applied","edit-lic-granted"].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value="";
+  });
+  if(note){
+    note.classList.remove("hidden");
+    note.textContent = now
+      ? "A different badge has its own number and its own dates, so those boxes have been cleared. Fill in the new ones."
+      : "Marked as having no badge, so the number and dates have been cleared.";
+  }
+}
 async function editInstructor(instructorId){
   // A single form in the existing modal, not three sequential prompt()
   // dialogs — browsers throttle/suppress rapid repeated native prompts
@@ -16665,7 +16710,9 @@ async function editInstructor(instructorId){
       <p class="muted" style="margin:.2rem 0 .5rem;font-size:.85rem">${lic&&lic.licence_number?"Their pink badge.":"Leave blank until they actually have one."}</p>
       <div class="field"><label>Licence number</label><input id="edit-lic-no" value="${esc(lic?lic.licence_number||"":"")}" placeholder="PL/000000"></div>
       <div class="field"><label>Which badge</label>
-        <select id="edit-lic-seq">${[1,2,3].map(n=>`<option value="${n}"${lic&&Number(lic.licence_sequence)===n?" selected":""}>${({1:"1st",2:"2nd",3:"3rd"})[n]} badge</option>`).join("")}</select></div>
+        <select id="edit-lic-seq" data-was="${lic&&lic.licence_sequence?lic.licence_sequence:""}" onchange="licSeqChanged()"><option value=""${lic&&lic.licence_sequence?"":" selected"}>No badge yet</option>${[1,2,3].map(n=>`<option value="${n}"${lic&&Number(lic.licence_sequence)===n?" selected":""}>${({1:"1st",2:"2nd",3:"3rd"})[n]} badge</option>`).join("")}</select>
+        <div class="muted" style="font-size:.8rem;margin-top:.25rem">Most PDIs have no badge yet: it comes after part 2 and the 40 hours of training.</div>
+        <div class="muted hidden" id="edit-lic-seq-note" style="font-size:.8rem;margin-top:.25rem;color:#b45309"></div></div>
       <div class="field"><label>Issued</label><input id="edit-lic-from" type="date" value="${dval(lic&&lic.issued_on)}"></div>
       <div class="field"><label>Expires</label><input id="edit-lic-to" type="date" value="${dval(lic&&lic.expires_on)}"></div>
       <div class="field"><label>Route</label>
@@ -16724,7 +16771,7 @@ async function confirmEditInstructor(instructorId, originalEmail){
     const training=!!(document.getElementById("edit-lic-training")||{}).checked;
     if(licNo||from||to||training){
       const row={ trainee_id:instructorId, licence_number:licNo||null,
-        licence_sequence:Number(val("edit-lic-seq"))||1,
+        licence_sequence:val("edit-lic-seq")?Number(val("edit-lic-seq")):null,
         issued_on:from||null, expires_on:to||null,
         extension_applied_on:applied||null, extension_granted_on:granted||null };
       if(route) row.route=route;
@@ -17505,7 +17552,8 @@ function traineeNeed(r){
 function traineeLicenceChip(instructorId){
   const l = schoolLicenceBy && schoolLicenceBy[instructorId];
   if(!l) return "";
-  const ord={1:"1st",2:"2nd",3:"3rd"}[Number(l.licence_sequence)||1];
+  // No badge yet is a real state, so it must not read as a first badge.
+  const ord={1:"1st",2:"2nd",3:"3rd"}[Number(l.licence_sequence)]||"";
   const days = l.expires_on ? Math.round((new Date(l.expires_on)-new Date())/86400000) : null;
   const dealtWith = !!(l.extension_applied_on || l.extension_granted_on);
   const cls = (days!=null && days<=30 && !dealtWith) ? "chip-bad" : (days!=null && days<=60 && !dealtWith) ? "chip-wait" : "chip-info";
@@ -17513,7 +17561,11 @@ function traineeLicenceChip(instructorId){
   const tail = l.extension_granted_on ? ", next granted" : l.extension_applied_on ? ", next applied for" : "";
   // Clickable: it opens the licence box itself, so the whole record is one press away from the row
   // rather than Manage - Edit - scroll (Dale, 30 Sep 2026).
-  return ` <span class="chip ${cls}" style="cursor:pointer" title="Open their trainee licence" onclick="event.stopPropagation();editInstructor('${instructorId}')">${ord} badge${when?` &middot; ${when}`:""}${days!=null?` (${days}d)`:""}${tail}</span>`;
+  // Every PDI has a licence row from the moment the account is made, so most of them have no badge
+  // and no dates yet. That reads as "No badge yet" rather than a blank badge with nothing after it.
+  const label = ord ? `${ord} badge` : "No badge yet";
+  const cls2 = ord ? cls : "chip-info";
+  return ` <span class="chip ${cls2}" style="cursor:pointer" title="Open their trainee licence" onclick="event.stopPropagation();editInstructor('${instructorId}')">${label}${when?` &middot; ${when}`:""}${ord&&days!=null?` (${days}d)`:""}${tail}</span>`;
 }
 
 // Ticked on the Instructors tab because being a trainer is an attribute of the PERSON; pairing a
@@ -19022,10 +19074,10 @@ async function showInstructorDetail(instructorId){
       .eq("trainee_id",instructorId).is("ended_on",null).maybeSingle();
     instrLic=data||null;
   }catch(e){}
-  const ord=n=>({1:"1st",2:"2nd",3:"3rd"}[Number(n)||1]);
+  const ord=n=>({1:"1st",2:"2nd",3:"3rd"}[Number(n)]||"");
   const dmy=d=>d?new Date(d).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"";
   const daysLeft=instrLic&&instrLic.expires_on?Math.round((new Date(instrLic.expires_on)-new Date())/86400000):null;
-  const instrLicenceBlock = instrLic ? `<div class="field"><label>Trainee licence (${ord(instrLic.licence_sequence)} badge)</label>
+  const instrLicenceBlock = instrLic ? `<div class="field"><label>Trainee licence${ord(instrLic.licence_sequence)?` (${ord(instrLic.licence_sequence)} badge)`:" (no badge yet)"}</label>
       <p>${instrLic.licence_number?esc(instrLic.licence_number):'<span class="muted">no number recorded</span>'}
         &middot; issued ${dmy(instrLic.issued_on)||"&mdash;"}
         &middot; expires <strong style="${daysLeft!=null&&daysLeft<=30&&!instrLic.extension_applied_on?"color:var(--bad)":""}">${dmy(instrLic.expires_on)||"&mdash;"}</strong>${daysLeft!=null?` <span class="muted">(${daysLeft} days)</span>`:""}</p>

@@ -17986,7 +17986,7 @@ async function showTrainee(id, toggle){
   // A different trainee starts on Details, as the app does; the same one keeps the tab you were on.
   if(pdiRecordId!==id){ pdiTab="summary"; pdiRecordId=id; }
   try{
-    const [{data:hrs},{data:tr},{data:everyone},{data:objs},{data:comps},{data:syl},{data:topics},{data:p3rows},{data:paired},{data:logs},{data:person},{data:lic},{data:les}]=await Promise.all([
+    const [{data:hrs},{data:tr},{data:everyone},{data:objs},{data:comps},{data:school},{data:topics},{data:p3rows},{data:paired},{data:logs},{data:person},{data:lic},{data:les}]=await Promise.all([
       sb.from("trainee_training_hours").select("session_date,hours,kind,on_road,confirmed_at,supervisor_id,objective_id").eq("trainee_id",id).order("session_date"),
       sb.from("profiles").select("id,full_name,adi_badge_number").eq("school_id",currentSchoolId).eq("is_trainer",true).order("full_name"),
       // Names for the day-by-day view: 21S has room for four different ADIs, so a week can carry
@@ -17998,10 +17998,14 @@ async function showTrainee(id, toggle){
       sb.rpc("trainee_objectives",{p_trainee:id,p_list:"competencies"}),
       // Part 2 is an enhanced driving test, so it grades against the driving syllabus, not the 20
       // instructional objectives from 21T (Dale, 2 Oct 2026).
-      // Part 2 grades against the school's own pupil syllabus, live rather than a copy: the school
-      // writes schools.syllabus and a trigger fans it out to every instructor's row, this one
-      // included (Dale, 2 Oct 2026).
-      sb.from("app_settings").select("value").eq("id","syllabus").eq("owner_id",id).maybeSingle(),
+      // Part 2 grades against the DRIVING SCHOOL's pupil syllabus, read from the school's own row
+      // rather than the copy the fan-out trigger leaves on each instructor (Dale, 2 Oct 2026). The
+      // The school's and nobody else's (Dale, 2 Oct 2026: "just set it as the school only"). A PDI
+      // does not set the chart they are marked against, and neither does whoever happens to train
+      // them this month. With no school chart set it falls back to the stock list.
+      currentSchoolId
+        ? sb.from("schools").select("syllabus").eq("id",currentSchoolId).maybeSingle()
+        : Promise.resolve({data:null}),
       sb.from("trainee_topic_progress").select("topic_id,level,note,updated_at").eq("trainee_id",id),
       // Their part 3, if one is in the diary. A trainee may BOOK it; only a trainer or the school
       // may confirm it, because the three-month rule keys off that date (Dale, 30 Sep 2026).
@@ -18035,7 +18039,8 @@ async function showTrainee(id, toggle){
     pdiPaired=new Set((paired||[]).map(x=>x.trainer_id));
     pdiPart3Booking=(p3rows||[])[0]||null;
     pdiPerson=person||null; pdiLicence=lic||null; pdiLessons=les||[]; pdiCompetencies=comps||[];
-    pdiDriving=((syl && Array.isArray(syl.value) && syl.value.length) ? syl.value : syllabusItems).map(t=>{
+    const schoolSyl=(school && Array.isArray(school.syllabus) && school.syllabus.length) ? school.syllabus : syllabusItems;
+    pdiDriving=schoolSyl.map(t=>{
       const g=(topics||[]).find(x=>x.topic_id===t.id)||{};
       return {objective_id:t.id, name:t.name, category:t.group, is_dvsa:true, level:g.level||0,
               level_note:g.note||null, level_at:g.updated_at||null, level_by:null, hours:0, in_car_hours:0};

@@ -17562,7 +17562,7 @@ async function setTrainer(instructorId, on){
 // Every figure comes from school_trainee_summary(), the same call the dashboard panel uses, so the
 // two cannot drift apart. Nothing here recomputes a threshold.
 let pdiObjectivesCache=[], pdiPart3Booking=null;
-let pdiTrainingRows=[], pdiNames={}, pdiWeeks=[], pdiBadges={}, pdiHours=[], pdiPaired=new Set(), pdiTrainerList=[], pdiTrainingLoad=null;
+let pdiTrainingRows=[], pdiPartBy={}, pdiNames={}, pdiWeeks=[], pdiBadges={}, pdiHours=[], pdiPaired=new Set(), pdiTrainerList=[], pdiTrainingLoad=null;
 
 // The same 0-5 scale instructors already grade pupils on (PUPIL_COMP_TO_LEVEL), so a trainer reads
 // a trainee's chart exactly as they read a pupil's.
@@ -17744,6 +17744,7 @@ async function loadPdiTraining(){
   const list=document.getElementById("pdi-training-list");
   const detail=document.getElementById("pdi-training-detail");
   if(!list) return;
+  list.classList.remove("hidden");
   detail.innerHTML="";
   list.innerHTML='<p class="muted">Loading\u2026</p>';
   let mine=new Set();
@@ -17753,6 +17754,15 @@ async function loadPdiTraining(){
     const {data,error}=await sb.rpc("school_trainee_summary");
     if(error) throw error;
     pdiTrainingRows=data||[];
+    // Which part each of them is on, from their most recent training session, so the list says at a
+    // glance who is working towards what (Dale, 2 Oct 2026).
+    pdiPartBy={};
+    const ids=pdiTrainingRows.map(r=>r.trainee_id);
+    if(ids.length){
+      const {data:sess}=await sb.from("lessons").select("trainee_id,pdi_part,start_time")
+        .eq("lesson_type","pdi_training").in("trainee_id",ids).order("start_time",{ascending:false});
+      (sess||[]).forEach(x=>{ if(!(x.trainee_id in pdiPartBy)) pdiPartBy[x.trainee_id]=x.pdi_part===3?3:2; });
+    }
   }catch(e){ list.innerHTML='<p class="muted">Could not load your trainees: '+esc(e.message||e)+'</p>'; return; }
   if(!pdiTrainingRows.length){ list.innerHTML='<p class="muted">Nobody is paired with you yet, and nobody in your school is on a trainee licence.</p>'; return; }
   const live=pdiTrainingRows.filter(r=>!r.ended_on), finished=pdiTrainingRows.filter(r=>r.ended_on);
@@ -17780,6 +17790,16 @@ async function loadPdiTraining(){
 }
 // The app's row, said the same way (src/pages/Pdis.tsx): what is still owed, then the hours the
 // fifth is worked out from.
+// Which part they are training for, beside their name. A passed part 2 settles it; otherwise it is
+// whatever their last session was, and nothing shows until they have had one.
+function partChip(r){
+  const lic=(r.progress||{}).licence||{};
+  // Holding a trainee licence means part 2 is behind them: DVSA will not issue one until it is
+  // passed. So a licence settles it even where nobody has typed the date in yet.
+  const n = (lic.part2_passed_on||lic.issued_on) ? 3 : pdiPartBy[r.trainee_id];
+  if(!n) return "";
+  return ` <span class="chip ${n===3?"chip-info":"chip-wait"}">Part ${n}</span>`;
+}
 function pdiRowHtml(r){
   const h=traineeHrs, sup=(r.progress||{}).supervision||{};
   // The same words as the record, so a row and the screen it opens never say different things. It
@@ -17791,7 +17811,7 @@ function pdiRowHtml(r){
   const foot=[taught?`${h(taught)} hours taught`:"", days].filter(Boolean).join(" &middot; ");
   return `<div class="list-row" style="align-items:flex-start;cursor:pointer" onclick="showTrainee('${r.trainee_id}',true)">
     <div style="flex:1;min-width:0">
-      <strong>${esc(r.trainee_name||"Trainee")}</strong>
+      <strong>${esc(r.trainee_name||"Trainee")}</strong>${partChip(r)}
       <div style="font-size:.85rem;color:${col}">${head}</div>
       <div class="muted" style="font-size:.85rem">${detail}</div>
       ${foot?`<div class="muted" style="font-size:.85rem">${foot}</div>`:""}
@@ -17813,6 +17833,13 @@ const PDI_COMPETENCY_LEVELS=["No evidence","Demonstrated in a few elements","Dem
 let pdiTab="summary", pdiRecordId=null, pdiPerson=null, pdiLicence=null, pdiLessons=[], pdiPart=2, pdiCompetencies=[], pdiLogs=[];
 // Switching tab redraws from what is already loaded, so it never goes back to the database.
 function setPdiTab(t){ pdiTab=t; renderTraineeRecord(); }
+// Back to the list.
+function closeTrainee(){
+  pdiRecordId=null;
+  const el=document.getElementById("pdi-training-detail"); if(el) el.innerHTML="";
+  const list=document.getElementById("pdi-training-list"); if(list) list.classList.remove("hidden");
+  try{ window.scrollTo({top:0,behavior:"smooth"}); }catch(e){}
+}
 // One switch for the whole record, above the tabs. Not inside Details, where it would silently
 // change what Progress shows two tabs away.
 function setPdiPart(n){ pdiPart=Number(n)===3?3:2; renderTraineeRecord(); }
@@ -17823,7 +17850,10 @@ async function showTrainee(id, toggle){
   const el=document.getElementById("pdi-training-detail"); if(!el) return;
   // Clicking the one that is already open closes it, the way a row that opens should (Dale, 2 Oct
   // 2026). Clicking the PDIs tab itself does the same, by clearing pdiRecordId first.
-  if(toggle && pdiRecordId===id && el.innerHTML.trim()){ pdiRecordId=null; el.innerHTML=""; return; }
+  if(toggle && pdiRecordId===id && el.innerHTML.trim()){ closeTrainee(); return; }
+  // The record takes the screen rather than sitting under the list: with fifteen trainees the two
+  // together are an enormous scroll (Dale, 2 Oct 2026).
+  const list=document.getElementById("pdi-training-list"); if(list) list.classList.add("hidden");
   const r=pdiTrainingRows.find(x=>x.trainee_id===id); if(!r) return;
   el.innerHTML='<div class="panel"><p class="muted">Loading&hellip;</p></div>';
   // A different trainee starts on Details, as the app does; the same one keeps the tab you were on.
@@ -18137,6 +18167,7 @@ function renderTraineeRecord(){
   }
 
   el.innerHTML=`<div class="panel" style="margin-top:1rem;padding-bottom:.4rem">
+    <button class="btn-outline btn-sm" style="margin-bottom:.7rem" onclick="closeTrainee()">&lsaquo; All PDIs</button>
     <div style="display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap">
       <div style="flex:1;min-width:14rem">
         <strong style="font-size:1.05rem">${esc(r.trainee_name||"Trainee")}</strong>

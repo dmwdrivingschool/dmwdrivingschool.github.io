@@ -133,6 +133,9 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 /* The part on a training block, a shade bigger than an appointment's note and not faded, because it
    is a label rather than an aside (Dale, 2 Oct 2026: "bigger NOT by alot but just abit"). */
 .d-block .nt.part{font-size:clamp(9px,18cqw,13px);opacity:1;font-weight:600}
+/* A tag on the block for the thing that is unusual about it. In the car is the normal case, so only
+   the exception earns one (Dale, 2 Oct 2026). */
+.d-block .blk-tag{display:inline-block;margin-top:2px;padding:0 .3rem;border-radius:4px;background:rgba(255,255,255,.28);font-size:clamp(8px,15cqw,11px);font-weight:700;line-height:1.5;white-space:nowrap}
 .d-block .tm{flex-shrink:0;font-size:clamp(8px,15cqw,11px);line-height:1.3;margin-top:1px;opacity:.8;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;font-family:var(--fm)}
 .d-foot{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:9px;font-weight:600;line-height:14px;color:#fff;white-space:nowrap;overflow:hidden}
 .d-allday{position:absolute;left:2px;right:2px;height:24px;line-height:18px;border-radius:6px;background:#e2e8f0;border:1px dashed #94a3b8;color:#334155;font-size:.68rem;font-weight:700;padding:2px 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;z-index:2}
@@ -8097,7 +8100,7 @@ function diaryDayHtml(list){
       ? `<button class="btn-outline btn-sm" onclick="event.stopPropagation();openPdiTrainingEdit('${esc(l.id)}')">Edit</button>` : "";
     return `<div class="dv-card" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="dv-time">${dLocalTime(new Date(l.start_time))}</div>
       <div class="dv-main"><div class="dv-name">${esc(diaryShortName(l,false))}</div>${l.title==="Appointment"&&l.notes?`<div class="dv-notes">${esc(l.notes)}</div>`:""}
-      <div class="dv-chips"><span class="dv-chip dv-type">${esc(type)}</span>${second}</div></div>${editBtn?`<div class="actions">${editBtn}</div>`:""}</div>`;
+      <div class="dv-chips"><span class="dv-chip dv-type">${esc(type)}</span>${l.lesson_type==="pdi_training"&&l.pdi_in_car===false?'<span class="dv-chip">No car</span>':""}${second}</div></div>${editBtn?`<div class="actions">${editBtn}</div>`:""}</div>`;
   };
   return `<div class="dv-wrap">${diaryHoldTipHtml()}<div class="dv-list">${items.length?items.map(card).join(""):'<div class="dv-empty">No lessons on this day</div>'}</div></div>`;
 }
@@ -14070,7 +14073,7 @@ function diaryBlockHtml(l,day,layout,startH,endH,hourH){
   const full=l.pupil&&l.pupil.first_name?`${l.pupil.first_name} ${l.pupil.last_name||""}`.trim():name;
   const times=`${dLocalTime(new Date(l.start_time))}–${dLocalTime(new Date(l.end_time))}`;
   const tip=[full,times,foot?foot.text:"",appt&&l.notes?l.notes:""].filter(Boolean).join(" · ");
-  return `<div class="d-block${appt?" appt":""}" style="top:${top}px;height:${height}px;left:calc(${left}% + 1px);width:calc(${w}% - 2px);z-index:${pos.zIndex+1};background:${diaryBlockColour(l,colours)};padding-bottom:${hasFooter?15:2}px${cancelled?";opacity:.95":""}" title="${esc(tip)}" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="d-bname"><div class="nm"${cancelled?' style="text-decoration:line-through"':""}>${esc(name)}</div>${l.lesson_type==="pdi_training"?`<div class="nt part">Part ${l.pdi_part===3?3:2}</div>`:""}${appt&&l.notes?`<div class="nt">${esc(l.notes)}</div>`:""}</div><div class="tm">${times}</div>${foot?`<div class="d-foot" style="background:${foot.bg}">${foot.text}</div>`:""}</div>`;
+  return `<div class="d-block${appt?" appt":""}" style="top:${top}px;height:${height}px;left:calc(${left}% + 1px);width:calc(${w}% - 2px);z-index:${pos.zIndex+1};background:${diaryBlockColour(l,colours)};padding-bottom:${hasFooter?15:2}px${cancelled?";opacity:.95":""}" title="${esc(tip)}" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="d-bname"><div class="nm"${cancelled?' style="text-decoration:line-through"':""}>${esc(name)}</div>${l.lesson_type==="pdi_training"?`<div class="nt part">Part ${l.pdi_part===3?3:2}</div>${l.pdi_in_car===false?'<div><span class="blk-tag">No car</span></div>':""}`:""}${appt&&l.notes?`<div class="nt">${esc(l.notes)}</div>`:""}</div><div class="tm">${times}</div>${foot?`<div class="d-foot" style="background:${foot.bg}">${foot.text}</div>`:""}</div>`;
 }
 
 // --- Unfinished add forms (the app's lib/formDraft.ts, Dale 13 Sep 2026) -----------------------------------------------------
@@ -17953,7 +17956,7 @@ const PDI_TABS=[["summary","Summary"],["details","Details"],["lessons","Lessons"
 // DVSA's four, off the part 3 marking sheet, not the pupil syllabus's six (Dale, 2 Oct 2026).
 const PDI_COMPETENCY_LEVELS=["No evidence","Demonstrated in a few elements","Demonstrated in most elements","Demonstrated in all elements"];
 let pdiCameFromDiary=false, pdiSelfView=false;
-let pdiTab="summary", pdiRecordId=null, pdiPerson=null, pdiLicence=null, pdiLessons=[], pdiPart=2, pdiCompetencies=[], pdiLogs=[];
+let pdiTab="summary", pdiRecordId=null, pdiPerson=null, pdiLicence=null, pdiLessons=[], pdiPart=2, pdiCompetencies=[], pdiDriving=[], pdiLogs=[];
 // Switching tab redraws from what is already loaded, so it never goes back to the database.
 function setPdiTab(t){ pdiTab=t; renderTraineeRecord(); }
 function backToDiaryFromRecord(){ pdiCameFromDiary=false; pdiRecordId=null; goTab("diary"); }
@@ -17983,7 +17986,7 @@ async function showTrainee(id, toggle){
   // A different trainee starts on Details, as the app does; the same one keeps the tab you were on.
   if(pdiRecordId!==id){ pdiTab="summary"; pdiRecordId=id; }
   try{
-    const [{data:hrs},{data:tr},{data:everyone},{data:objs},{data:comps},{data:p3rows},{data:paired},{data:logs},{data:person},{data:lic},{data:les}]=await Promise.all([
+    const [{data:hrs},{data:tr},{data:everyone},{data:objs},{data:comps},{data:syl},{data:topics},{data:p3rows},{data:paired},{data:logs},{data:person},{data:lic},{data:les}]=await Promise.all([
       sb.from("trainee_training_hours").select("session_date,hours,kind,on_road,confirmed_at,supervisor_id,objective_id").eq("trainee_id",id).order("session_date"),
       sb.from("profiles").select("id,full_name,adi_badge_number").eq("school_id",currentSchoolId).eq("is_trainer",true).order("full_name"),
       // Names for the day-by-day view: 21S has room for four different ADIs, so a week can carry
@@ -17993,6 +17996,13 @@ async function showTrainee(id, toggle){
       // The 17 from the part 3 marking sheet, which is what a trainer grades week to week. The 20
       // stay loaded above because they are the rows of form ADI 21T.
       sb.rpc("trainee_objectives",{p_trainee:id,p_list:"competencies"}),
+      // Part 2 is an enhanced driving test, so it grades against the driving syllabus, not the 20
+      // instructional objectives from 21T (Dale, 2 Oct 2026).
+      // Part 2 grades against the school's own pupil syllabus, live rather than a copy: the school
+      // writes schools.syllabus and a trigger fans it out to every instructor's row, this one
+      // included (Dale, 2 Oct 2026).
+      sb.from("app_settings").select("value").eq("id","syllabus").eq("owner_id",id).maybeSingle(),
+      sb.from("trainee_topic_progress").select("topic_id,level,note,updated_at").eq("trainee_id",id),
       // Their part 3, if one is in the diary. A trainee may BOOK it; only a trainer or the school
       // may confirm it, because the three-month rule keys off that date (Dale, 30 Sep 2026).
       sb.from("lessons").select("id,start_time,end_time,pupil_id,test_start_time,no_charge,notes,pupil:pupils(first_name,last_name)")
@@ -18024,7 +18034,13 @@ async function showTrainee(id, toggle){
     pdiHours=hrs||[]; pdiTrainerList=tr||[];
     pdiPaired=new Set((paired||[]).map(x=>x.trainer_id));
     pdiPart3Booking=(p3rows||[])[0]||null;
-    pdiPerson=person||null; pdiLicence=lic||null; pdiLessons=les||[]; pdiCompetencies=comps||[]; pdiLogs=logs||[];
+    pdiPerson=person||null; pdiLicence=lic||null; pdiLessons=les||[]; pdiCompetencies=comps||[];
+    pdiDriving=((syl && Array.isArray(syl.value) && syl.value.length) ? syl.value : syllabusItems).map(t=>{
+      const g=(topics||[]).find(x=>x.topic_id===t.id)||{};
+      return {objective_id:t.id, name:t.name, category:t.group, is_dvsa:true, level:g.level||0,
+              level_note:g.note||null, level_at:g.updated_at||null, level_by:null, hours:0, in_car_hours:0};
+    });
+    pdiLogs=logs||[];
     // Open on the part they are actually doing: part 3 once any of it is booked, part 2 before that.
     pdiPart=(pdiLessons||[]).some(x=>x.lesson_type==="pdi_training"&&x.pdi_part===3)?3:2;
   }catch(e){ el.innerHTML='<div class="panel"><p class="muted">Could not load the record.</p></div>'; return; }
@@ -18296,15 +18312,15 @@ function renderTraineeRecord(){
     // Jason Tinkler, 1 Oct 2026: "progress for PDI should be with the 17 competences from the ADI1
     // not subjects". The 20 are still loaded, because they are the rows of form ADI 21T, but this is
     // what a trainer grades. Graded like a pupil, scored 0 to 3 in DVSA's own words.
-    const list=pdiPart===3?pdiCompetencies:objectives;
+    const list=pdiPart===3?pdiCompetencies:pdiDriving;
     const top=pdiPart===3?3:5;
     const levels=pdiPart===3?PDI_COMPETENCY_LEVELS:PDI_LEVELS;
     const head=pdiPart===3
       ? `The 17 competencies &mdash; ${list.filter(o=>Number(o.level)>0).length} of ${list.length} graded, ${list.filter(o=>Number(o.level)===3).length} in all elements`
-      : `Syllabus &mdash; ${list.filter(o=>Number(o.level)>0||Number(o.hours)>0).length} of ${list.length} started, ${list.filter(o=>Number(o.level)===5).length} independent`;
+      : `Driving syllabus &mdash; ${list.filter(o=>Number(o.level)>0).length} of ${list.length} started, ${list.filter(o=>Number(o.level)===5).length} independent`;
     const blurb=pdiPart===3
       ? `The 17 competencies the ADI part 3 and the standards check are marked on, scored the way an examiner scores them. ${pdiSelfView?"Your trainer grades these; you cannot change them.":"Whoever trains them next picks up where the last one left off."}`
-      : "Part 2 is an enhanced driving test, so this is the driving syllabus, graded the same way you grade a pupil.";
+      : "Part 2 is an enhanced driving test, so this is the driving syllabus, the same topics and the same grades you use with a pupil.";
     pane=`<div class="panel" style="margin-top:.6rem">
       <strong style="font-size:.9rem">${head}</strong>
       <p class="muted" style="margin:.2rem 0 .4rem;font-size:.85rem">${blurb}</p>
@@ -18337,7 +18353,7 @@ function renderTraineeRecord(){
               </div></span>
             ${pdiSelfView
               ? `<span style="flex:none;max-width:14rem;font-size:.8rem" class="${lvl?"":"muted"}">${esc(levels[lvl]||levels[0])}</span>`
-              : `<select onchange="setObjectiveLevel('${id}','${o.objective_id}',this.value)" style="flex:none;max-width:14rem;font-size:.8rem">
+              : `<select onchange="${pdiPart===3?`setObjectiveLevel('${id}','${o.objective_id}',this.value)`:`setTopicLevel('${id}','${o.objective_id}',this.value)`}" style="flex:none;max-width:14rem;font-size:.8rem">
               ${levels.map((lab,n)=>`<option value="${n}"${n===lvl?" selected":""}>${lab}</option>`).join("")}
             </select>`}
             <span style="flex:none;width:6.5rem;text-align:right;font-size:.8rem" class="${done?"":"muted"}">${done?h(o.hours)+"h"+(Number(o.in_car_hours)>0?" ("+h(o.in_car_hours)+" car)":""):"no hours"}</span>
@@ -18812,6 +18828,13 @@ async function signTraineeWeek(traineeId, from, to){
   if(!data) alert("Nothing left to sign in that week.");
   await loadPdiTraining();
   await showTrainee(traineeId);
+}
+// Grading a driving topic. Keyed by the topic's own id, like a pupil's, so the list can be the
+// school's and can change without stranding anything.
+async function setTopicLevel(traineeId, topicId, level){
+  const {error}=await sb.rpc("set_trainee_topic_level",{p_trainee:traineeId,p_topic:topicId,p_level:Number(level)||0});
+  if(error){ alert(error.message); return; }
+  showTrainee(traineeId);
 }
 // Recording a part 2 pass. The trainee tells, the trainer records, same as everything else here.
 function openPart2Passed(traineeId){

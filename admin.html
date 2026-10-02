@@ -19516,6 +19516,8 @@ async function openPdiSession(lessonId){
   const got={}; mine.forEach(x=>{ got[x.objective_id]=(got[x.objective_id]||0)+Number(x.hours||0); });
   const objs=(pdiObjectivesCache||[]).slice();
   const cover=delivered&&part===3;
+  // Shown but not fillable: the hours only exist once the session has happened.
+  const coverSoon=!delivered&&part===3;
   openModal(`<h2 style="margin-bottom:.1rem">${esc(pdiNames[l.trainee_id]||"Training session")}</h2>
     <p class="muted" style="margin:0 0 .9rem;font-size:.88rem">
       ${from.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})} &middot;
@@ -19530,18 +19532,23 @@ async function openPdiSession(lessonId){
     <div class="field"><label>Aim for next session</label>
       <textarea id="ps-next" rows="3" placeholder="What the next session is for">${log?esc(log.next_session||""):""}</textarea>
       <div class="muted" style="font-size:.8rem;margin-top:.25rem">This shows as the lesson plan on their Summary, and they can read it.</div></div>`:""}
-    ${cover?`<div class="field"><label>Hours against the 21T</label>
-      <div class="muted" style="font-size:.8rem;margin:-.2rem 0 .4rem">DVSA want hours in every section. Anything you leave stays on the session as training time, it is only left off the form.</div>
-      <div style="max-height:15rem;overflow:auto;border:1px solid var(--line);border-radius:10px">
+    ${cover||coverSoon?`<div class="field"><label>Hours against the 21T</label>
+      <div class="muted" style="font-size:.8rem;margin:-.2rem 0 .4rem">${coverSoon
+        ? "Mark the session delivered and these boxes open up. Until then the 21T prints with the dates and hours blank."
+        : "DVSA want hours in every section. Anything you leave stays on the session as training time, it is only left off the form."}</div>
+      <div style="max-height:15rem;overflow:auto;border:1px solid var(--line);border-radius:10px${coverSoon?";opacity:.55":""}">
         ${objs.map(o=>`<label style="display:flex;gap:.6rem;align-items:center;padding:.4rem .6rem;border-bottom:1px solid var(--line)">
           <span style="flex:1;font-size:.84rem">${esc(o.name)}</span>
           <input type="number" class="cov-h" data-obj="${esc(o.objective_id)}" min="0" step="0.25" style="width:5rem"
+                 ${coverSoon?"disabled":""}
                  value="${got[o.objective_id]?traineeHrs(got[o.objective_id]):""}" oninput="covTotal(${hoursT})" placeholder="0">
         </label>`).join("")}
       </div>
-      <p class="muted" id="cov-sum" style="margin:.4rem 0 0;font-size:.84rem"></p>
-      <button type="button" class="btn-outline btn-sm" style="margin-top:.4rem" onclick="spreadCovered(${hoursT})">Spread it evenly</button>
-    </div>`:""}
+      ${coverSoon?"":`<p class="muted" id="cov-sum" style="margin:.4rem 0 0;font-size:.84rem"></p>
+      <button type="button" class="btn-outline btn-sm" style="margin-top:.4rem" onclick="spreadCovered(${hoursT})">Spread it evenly</button>`}
+    </div>`:`<div class="field"><label>Hours against the 21T</label>
+      <div class="muted" style="font-size:.8rem;margin:-.2rem 0 0">Part 2 training is their own driving, so it does not go on the 21T and there is nothing to split here. The hours are still kept on their record. Change this session to Part 3 if you were teaching them how to instruct.</div>
+    </div>`}
     <div class="actions" style="flex-wrap:wrap;gap:.4rem">
       <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
       <button type="button" class="btn-outline btn-sm" onclick="closeModal();showTrainee('${esc(l.trainee_id)}')">Their whole record</button>

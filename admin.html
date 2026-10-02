@@ -17576,7 +17576,7 @@ function traineeLicenceChip(instructorId){
   // and no dates yet. That reads as "No badge yet" rather than a blank badge with nothing after it.
   const label = ord ? `${ord} badge` : "No badge yet";
   const cls2 = ord ? cls : "chip-info";
-  return ` <span class="chip ${cls2}" style="cursor:pointer" title="Open their trainee licence" onclick="event.stopPropagation();editInstructor('${instructorId}')">${label}${when?` &middot; ${when}`:""}${ord&&days!=null?` (${days}d)`:""}${tail}</span>`;
+  return ` <span class="chip ${cls2}" style="cursor:pointer" title="Open their trainee licence" onclick="event.stopPropagation();editInstructor('${instructorId}')">${label}${when?` &middot; ${when}`:""}${ord&&days!=null?(days<0?" &middot; expired":` (${days}d)`):""}${tail}</span>`;
 }
 
 // Ticked on the Instructors tab because being a trainer is an attribute of the PERSON; pairing a
@@ -17869,7 +17869,9 @@ function pdiRowHtml(r){
   // used to say supervision on everybody, which means nothing to a trainee with no licence yet.
   const [tone,head,,brief]=traineeNeed(r);
   const col=tone==="bad"?"var(--bad)":tone==="warn"?"#b45309":"var(--ok)";
-  const days=r.days_left==null||r.ended_on?"":`${r.days_left} days left on their licence`;
+  const days=r.days_left==null||r.ended_on?""
+    :r.days_left<0?`Their licence expired ${Math.abs(r.days_left)} day${Math.abs(r.days_left)===1?"":"s"} ago`
+    :`${r.days_left} day${r.days_left===1?"":"s"} left on their licence`;
   const foot=[brief,days].filter(Boolean).join(" &middot; ");
   return `<div class="list-row" style="align-items:flex-start;cursor:pointer" onclick="showTrainee('${r.trainee_id}',true)">
     <div style="flex:1;min-width:0">
@@ -18165,7 +18167,7 @@ function renderTraineeRecord(){
     const received=(hours||[]).filter(x=>TRAIN_LABEL[x.kind]&&(pdiPart===2)===(x.kind==="part2_training")).sort((a,b)=>a.session_date<b.session_date?-1:1);
     pane=`<div class="panel" style="margin-top:.6rem">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem">
-        <strong style="font-size:.9rem">Part ${pdiPart} hours</strong>
+        <strong style="font-size:.9rem">Where they stand</strong>
         <button class="btn-outline btn-sm" onclick="openPdiPastTraining('${id}')">Add past training</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.6rem">
@@ -18264,7 +18266,9 @@ function renderTraineeRecord(){
     <div style="display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap">
       <div style="flex:1;min-width:14rem">
         <strong style="font-size:1.05rem">${esc(r.trainee_name||"Trainee")}</strong>
-        <div class="muted" style="font-size:.85rem">${lic.licence_number?esc(lic.licence_number)+" &middot; ":""}${r.ended_on?"Their trainee licence ended on "+longDate(r.ended_on):(lic.expires_on?"Their trainee licence runs out on "+longDate(lic.expires_on):"They do not have a trainee licence yet")}</div>
+        <div class="muted" style="font-size:.85rem">${lic.licence_number?esc(lic.licence_number)+" &middot; ":""}${r.ended_on?"Their trainee licence ended on "+longDate(r.ended_on)
+  :lic.expires_on?((new Date(lic.expires_on)<new Date()?"Their trainee licence expired on ":"Their trainee licence runs out on ")+longDate(lic.expires_on))
+  :"They do not have a trainee licence yet"}</div>
       </div>
       <div style="max-width:16rem">${traineePill(tone,head)}
         <div class="muted" style="font-size:.78rem;margin-top:.25rem">${detail}</div></div>
@@ -18773,7 +18777,7 @@ async function savePdiLogNow(lessonId){
   plErr("");
   const l=(pdiLessons||[]).find(x=>x.id===lessonId); if(!l) return;
   const done=fieldVal("pl-done").trim(), next=fieldVal("pl-next").trim();
-  if(!done && !next) return plErr("Write something in one of the boxes");
+  if(done.length<3 && next.length<3) return plErr("Write a sentence in one of the boxes");
   const existing=(pdiLogs||[]).find(x=>x.lesson_id===lessonId)||null;
   const btn=document.getElementById("pl-save"); if(btn){ btn.disabled=true; btn.textContent="Saving\u2026"; }
   const row={trainee_id:l.trainee_id, pupil_id:null, lesson_id:lessonId,

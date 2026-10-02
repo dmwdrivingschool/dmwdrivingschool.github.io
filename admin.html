@@ -17982,12 +17982,6 @@ function renderTraineeRecord(){
       </div>
       ${pdiPart===3?`<p class="muted" style="margin:.4rem 0 0;font-size:.85rem">${detail}</p>`:""}
       ${p3b?`<div style="margin-top:1rem"><strong style="font-size:.9rem">Part 3 test</strong>${p3b}</div>`:""}
-      <div style="margin-top:1rem"><strong style="font-size:.9rem">Part 2 test</strong>
-        ${lic.part2_passed_on
-          ? `<div style="font-size:.88rem;color:var(--ok);margin-top:.2rem">Passed on ${longDate(lic.part2_passed_on)}.</div>
-             <button class="btn-outline btn-sm" style="margin-top:.4rem" onclick="openPart2Passed('${id}')">Change</button>`
-          : `<p class="muted" style="margin:.2rem 0 .4rem;font-size:.88rem">Once they pass it, record it here and part 2 comes off their record for good.</p>
-             <button class="btn-outline btn-sm" onclick="openPart2Passed('${id}')">Mark part 2 passed</button>`}</div>
     </div>`;
   }
 
@@ -18176,6 +18170,7 @@ function renderTraineeRecord(){
       <div style="max-width:16rem">${traineePill(tone,head)}
         <div class="muted" style="font-size:.78rem;margin-top:.25rem">${detail}</div></div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        <button class="btn-outline btn-sm" onclick="openPart2Passed('${id}')" title="${lic.part2_passed_on?"Change the date they passed":"Record the day they passed their part 2, which takes part 2 off their record"}">${lic.part2_passed_on?`Part 2 passed ${longDate(lic.part2_passed_on)}`:"Mark part 2 passed"}</button>
         <button class="btn-outline btn-sm" onclick="printTrainee21T('${id}')" title="The declaration that gets them their trainee licence">Print 21T</button>
         <button class="btn-outline btn-sm" onclick="printTrainee21S('${id}')" title="The supervision record for while they hold the licence">Print 21S</button></div>
     </div>

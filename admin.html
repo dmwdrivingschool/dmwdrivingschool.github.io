@@ -8401,7 +8401,7 @@ async function onDiaryBlockClick(el){
   if(diaryHold.fired){ diaryHold.fired=false; return; }
   const l=diaryEntryFromEl(el); if(!l) return;
   if(l.lesson_type==="lesson_offer"){ openLessonOfferEdit(l.id); return; }
-  if(l.lesson_type==="pdi_training"&&l.trainee_id&&pdiTabAvailable()){ openTraineeRecordFrom(l.trainee_id); return; }
+  if(l.lesson_type==="pdi_training"&&l.trainee_id&&pdiTabAvailable()){ await openTraineeRecordFrom(l.trainee_id); await openPdiSession(l.id); return; }
   if(l.pupil_id){
     let p=allPupils().find(x=>x.id===l.pupil_id);
     if(!p){ const {data}=await sb.from("pupils").select("*").eq("id",l.pupil_id).maybeSingle(); p=data; }
@@ -8488,6 +8488,7 @@ async function openDiaryAddLesson(prefill){
       <div class="field"><label>Hours</label><input type="number" min="0" step="0.25" id="dl-hours" placeholder="e.g. 1 or 1.5" oninput="durHoursInput('dl-hours','dl-mins');avAddFormChanged()"></div>
       <div class="field"><label>Minutes</label><input type="number" min="0" step="15" id="dl-mins" placeholder="e.g. 60 or 90" oninput="durMinsInput('dl-hours','dl-mins');avAddFormChanged()"></div>
     </div>
+    ${testTravelFieldHtml("dl")}
     ${pickupFieldHtml("dl")}
     ${dropoffFieldHtml("dl")}
     <div class="field" id="dl-repeat-wrap"><label>Repeat</label>
@@ -8541,6 +8542,7 @@ function dlTypeChanged(){
   if(sw) sw.classList.toggle("hidden", dlSupervisors.length===0);
   const test=fieldVal("dl-type")==="driving_test";
   const t=document.getElementById("dl-test"); if(t) t.classList.toggle("hidden",!test);
+  const tt=document.getElementById("dl-test-travel"); if(tt) tt.classList.toggle("hidden",!test);
   const r=document.getElementById("dl-repeat-wrap"); if(r) r.classList.toggle("hidden",test);
   if(test){ diarySetVal("dl-repeat-unit","week"); diarySetVal("dl-repeat-count","0"); }
   dlRepeatChanged();
@@ -14421,11 +14423,46 @@ function loStartDraft(prefill,pick){
 }
 
 // --- Test centre and pick-up fields, shared by Add and Edit lesson ---------------------------------------------------------
+/**
+ * A filled form, on screen, with a Print button on it.
+ *
+ * It used to open a second window. That reads fine on a desktop, but the button said Print so
+ * nobody would guess they could just look at it, and on a phone the pop-up is blocked, so it fell
+ * back to printing blind with nothing to read (Dale, 2 Oct 2026: "how can they see the 21T and 21S
+ * without printing"). The form is the same HTML either way; this just shows it first.
+ */
+function showFormOnScreen(html, printInPlace){
+  openModal(`<div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;margin-bottom:.6rem">
+      <h2 style="margin:0">The form</h2>
+      <button class="btn btn-navy btn-sm" id="form-print">Print it</button>
+    </div>
+    <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff">
+      <iframe id="form-view" style="width:100%;height:62vh;border:0;background:#fff"></iframe>
+    </div>
+    <p class="muted" style="margin:.5rem 0 0;font-size:.82rem">Read it here, or print it and sign it. Nothing is sent anywhere.</p>
+    <div class="actions"><button type="button" class="btn-outline" onclick="closeModal()">Close</button></div>`);
+  const f=document.getElementById("form-view");
+  const d=f.contentWindow.document; d.open(); d.write(html); d.close();
+  const btn=document.getElementById("form-print");
+  if(btn) btn.onclick=()=>{
+    // Print the frame that is already on screen, so what comes out is what was read. If the browser
+    // will not print a frame, fall back to the hidden one rather than doing nothing.
+    try{ f.contentWindow.focus(); f.contentWindow.print(); }
+    catch(e){ if(typeof printInPlace==="function") printInPlace(html); }
+  };
+}
 function testCentreFieldsHtml(p){
   return `<div id="${p}-test" class="hidden">
       <div class="field"><label>Test centre</label><input type="text" id="${p}-centre" placeholder="Test centre name"></div>
       <div class="field"><label>Driving test start time</label><input type="time" id="${p}-centre-time">
         <div class="muted" style="font-size:.75rem;margin-top:.25rem">When the test is booked at the centre (can differ from lesson start)</div></div>
+    </div>`;
+}
+// Travel sits BELOW the length, as it does in the app's AddLessonModal (Dale, 2 Oct 2026: "hours
+// should be above travel time"). Its own block so it can be placed after Hours and Minutes, shown
+// and hidden by the same rule as the rest of the test fields.
+function testTravelFieldHtml(p){
+  return `<div id="${p}-test-travel" class="hidden">
       <div class="field"><label>Travel time either side of the Test Slot</label><select id="${p}-travel">${testTravelOptionsHtml(60)}</select>
         <div class="muted" style="font-size:.75rem;margin-top:.25rem">Added before the start and after the end of the whole Test Slot, not just the test itself.</div></div>
     </div>`;
@@ -14666,6 +14703,7 @@ function leRenderEdit(fields){
       <div class="field"><label>Hours</label><input type="number" min="0" step="0.25" id="le-hours" placeholder="e.g. 1 or 1.5" oninput="durHoursInput('le-hours','le-mins')"></div>
       <div class="field"><label>Minutes</label><input type="number" min="0" step="15" id="le-mins" placeholder="e.g. 60 or 90" oninput="durMinsInput('le-hours','le-mins')"></div>
     </div>
+    ${testTravelFieldHtml("le")}
     <div class="field"><label>Gearbox</label><select id="le-gearbox"><option value="manual">Manual</option><option value="automatic">Automatic</option></select></div>
     ${pickupFieldHtml("le")}
     ${dropoffFieldHtml("le")}
@@ -14701,7 +14739,7 @@ function leRenderEdit(fields){
 function leTypeChanged(){
   const t=fieldVal("le-type"), noPupil=t==="private"||t==="gap";
   const hide=(id,h)=>{ const el=document.getElementById(id); if(el) el.classList.toggle("hidden",h); };
-  hide("le-pupil-wrap",noPupil); hide("le-title-wrap",t!=="private"); hide("le-test",t!=="driving_test"); hide("le-pickup-wrap",noPupil); hide("le-dropoff-wrap",noPupil);
+  hide("le-pupil-wrap",noPupil); hide("le-title-wrap",t!=="private"); hide("le-test",t!=="driving_test"); hide("le-test-travel",t!=="driving_test"); hide("le-pickup-wrap",noPupil); hide("le-dropoff-wrap",noPupil);
 }
 function leCancelledChanged(){
   const on=fieldChecked("le-cancelled"), charged=document.getElementById("le-charged"), wrap=document.getElementById("le-charged-wrap");
@@ -18301,8 +18339,7 @@ function renderTraineeRecord(){
         <div class="muted" style="font-size:.85rem">${when}${l.lesson_type==="pdi_training"&&mins>0?" &middot; "+h(mins/60)+"h":""}</div>
       </div><div class="actions"><span class="muted" style="font-size:.8rem">${esc(l.status)}</span>
         ${canDeliver&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="deliverPdiTraining('${esc(l.id)}')">Mark delivered</button>`:""}
-        ${canCover&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiCovered('${esc(l.id)}')">${tagged?"Covered":"What did you cover"}</button>`:""}
-        ${canLog&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiLog('${esc(l.id)}')">${written?"Write-up":"Write up"}</button>`:""}
+        ${l.lesson_type==="pdi_training"&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiSession('${esc(l.id)}')">Open</button>`:""}
         ${canEdit&&!pdiSelfView?`<button class="btn-outline btn-sm" style="margin-left:.4rem" onclick="openPdiTrainingEdit('${esc(l.id)}')">Edit</button>`:""}</div></div>`;
     };
     pane=`<div class="panel" style="margin-top:.6rem">
@@ -18478,8 +18515,8 @@ function renderTraineeRecord(){
         ${pdiSelfView?"":`<span style="display:inline-flex;align-items:center;gap:.4rem;margin-right:.4rem"><span class="muted" style="font-size:.8rem">Working towards</span><span class="d-views" role="group" aria-label="Working towards">${[1,2,3].map(n=>`<button type="button" class="${Number(lic.working_towards||2)===n?"on":""}" onclick="setWorkingTowards('${id}',${n})" title="What they are working towards now. Not the same as which training you are looking at below.">Part ${n}</button>`).join("")}</span></span>`}
         ${pdiSelfView?"":`<button class="btn-outline btn-sm" onclick="openPart1Passed('${id}')" title="${lic.part1_passed_on?"Change the date they passed":"Record the day they passed their part 1 theory, which is what lets them book part 2 and part 3"}">${lic.part1_passed_on?`Part 1 passed ${longDate(lic.part1_passed_on)}`:"Mark part 1 passed"}</button>`}
         ${pdiSelfView?"":`<button class="btn-outline btn-sm" onclick="openPart2Passed('${id}')" title="${lic.part2_passed_on?"Change the date they passed":"Record the day they passed their part 2, which takes part 2 off their record"}">${lic.part2_passed_on?`Part 2 passed ${longDate(lic.part2_passed_on)}`:"Mark part 2 passed"}</button>`}
-        <button class="btn-outline btn-sm" onclick="printTrainee21T('${id}')" title="The declaration that gets them their trainee licence">Print 21T</button>
-        <button class="btn-outline btn-sm" onclick="printTrainee21S('${id}')" title="The supervision record for while they hold the licence">Print 21S</button></div>
+        <button class="btn-outline btn-sm" onclick="printTrainee21T('${id}')" title="The declaration that gets them their trainee licence">21T form</button>
+        <button class="btn-outline btn-sm" onclick="printTrainee21S('${id}')" title="The supervision record for while they hold the licence">21S form</button></div>
     </div>
     ${partBar}
     ${tabBar}
@@ -19165,6 +19202,95 @@ async function clearPart2Passed(traineeId){
 // after a lesson: what was covered, and what next time is for. The second becomes the lesson plan on
 // their Summary, which is how a pupil's works - the trainer writes it once and it carries forward,
 // rather than anybody typing a plan into a box (Dale, 2 Oct 2026).
+/**
+ * One session, everything about it, in one place.
+ *
+ * Tapping a training block on the diary used to open the whole trainee record, leaving you to find
+ * the session again among eight identical rows (Dale, 2 Oct 2026). Notes, the write-up and what it
+ * covered were three separate buttons on the Lessons tab; they are all here now, and so is the way
+ * through to the record itself.
+ *
+ * Long press and right click still do edit, cancel and delete, the same as every other diary block.
+ */
+async function openPdiSession(lessonId){
+  const l=(pdiLessons||[]).find(x=>x.id===lessonId); if(!l) return;
+  const from=new Date(l.start_time), to=new Date(l.end_time);
+  const mins=Math.max(0,Math.round((to-from)/60000)), hoursT=Math.round((mins/60)*100)/100;
+  const over=to<new Date(), delivered=l.status==="delivered", part=l.pdi_part===3?3:2;
+  const log=(pdiLogs||[]).find(x=>x.lesson_id===lessonId)||null;
+  const mine=(pdiHours||[]).filter(x=>x.lesson_id===lessonId&&x.objective_id);
+  const got={}; mine.forEach(x=>{ got[x.objective_id]=(got[x.objective_id]||0)+Number(x.hours||0); });
+  const objs=(pdiObjectivesCache||[]).slice();
+  const cover=delivered&&part===3;
+  openModal(`<h2 style="margin-bottom:.1rem">${esc(pdiNames[l.trainee_id]||"Training session")}</h2>
+    <p class="muted" style="margin:0 0 .9rem;font-size:.88rem">
+      ${from.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})} &middot;
+      ${dLocalTime(from)}&ndash;${dLocalTime(to)} &middot; ${traineeHrs(hoursT)}h &middot; Part ${part}
+      ${l.pdi_in_car===false?" &middot; away from the car":""}${l.pickup_address?" &middot; meeting at "+esc(l.pickup_address):""}
+      &middot; ${esc(l.status)}</p>
+    <div id="ps-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+    <div class="field"><label>Notes</label>
+      <textarea id="ps-notes" rows="4" placeholder="Your report for this session">${esc(l.notes||"")}</textarea></div>
+    ${over?`<div class="field"><label>What you covered</label>
+      <textarea id="ps-done" rows="3" placeholder="What you worked on and how it went">${log?esc(log.achieved||""):""}</textarea></div>
+    <div class="field"><label>Aim for next session</label>
+      <textarea id="ps-next" rows="3" placeholder="What the next session is for">${log?esc(log.next_session||""):""}</textarea>
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">This shows as the lesson plan on their Summary, and they can read it.</div></div>`:""}
+    ${cover?`<div class="field"><label>Hours against the 21T</label>
+      <div class="muted" style="font-size:.8rem;margin:-.2rem 0 .4rem">DVSA want hours in every section. Anything you leave stays on the session as training time, it is only left off the form.</div>
+      <div style="max-height:15rem;overflow:auto;border:1px solid var(--line);border-radius:10px">
+        ${objs.map(o=>`<label style="display:flex;gap:.6rem;align-items:center;padding:.4rem .6rem;border-bottom:1px solid var(--line)">
+          <span style="flex:1;font-size:.84rem">${esc(o.name)}</span>
+          <input type="number" class="cov-h" data-obj="${esc(o.objective_id)}" min="0" step="0.25" style="width:5rem"
+                 value="${got[o.objective_id]?traineeHrs(got[o.objective_id]):""}" oninput="covTotal(${hoursT})" placeholder="0">
+        </label>`).join("")}
+      </div>
+      <p class="muted" id="cov-sum" style="margin:.4rem 0 0;font-size:.84rem"></p>
+      <button type="button" class="btn-outline btn-sm" style="margin-top:.4rem" onclick="spreadCovered(${hoursT})">Spread it evenly</button>
+    </div>`:""}
+    <div class="actions" style="flex-wrap:wrap;gap:.4rem">
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      <button type="button" class="btn-outline btn-sm" onclick="closeModal();showTrainee('${esc(l.trainee_id)}')">Their whole record</button>
+      <button type="button" class="btn-outline btn-sm" onclick="closeModal();openPdiTrainingEdit('${esc(lessonId)}')">Change the time</button>
+      ${over&&l.status==="booked"?`<button type="button" class="btn-outline btn-sm" onclick="deliverPdiTraining('${esc(lessonId)}')">Mark delivered</button>`:""}
+      <button type="button" class="btn btn-navy btn-sm" id="ps-save" onclick="savePdiSession('${esc(lessonId)}',${hoursT},${cover})">Save</button>
+    </div>`);
+  if(cover) covTotal(hoursT);
+}
+async function savePdiSession(lessonId, total, withCover){
+  const err=document.getElementById("ps-err");
+  const say=m=>{ if(err){ err.textContent=m; err.style.display="block"; } };
+  const l=(pdiLessons||[]).find(x=>x.id===lessonId); if(!l) return;
+  const btn=document.getElementById("ps-save"); if(btn){ btn.disabled=true; btn.textContent="Saving\u2026"; }
+  const undo=()=>{ if(btn){ btn.disabled=false; btn.textContent="Save"; } };
+  const notes=(document.getElementById("ps-notes")||{}).value||"";
+  const {error:e1}=await sb.from("lessons").update({notes:notes.trim()||null}).eq("id",lessonId);
+  if(e1){ undo(); return say(e1.message); }
+  const doneEl=document.getElementById("ps-done");
+  if(doneEl){
+    const done=doneEl.value.trim(), next=((document.getElementById("ps-next")||{}).value||"").trim();
+    const existing=(pdiLogs||[]).find(x=>x.lesson_id===lessonId)||null;
+    if(done||next||existing){
+      const row={trainee_id:l.trainee_id, pupil_id:null, lesson_id:lessonId,
+        log_date:dLocalDate(new Date(l.start_time)), achieved:done||null, next_session:next||null};
+      const {error:e2}= existing
+        ? await sb.from("reflective_logs").update(row).eq("id",existing.id)
+        : await sb.from("reflective_logs").insert(row);
+      if(e2){ undo(); return say(e2.message); }
+    }
+  }
+  if(withCover){
+    const split=[...document.querySelectorAll(".cov-h")]
+      .map(el=>({objective_id:el.dataset.obj,hours:Number(el.value)||0})).filter(x=>x.hours>0);
+    const used=split.reduce((n,x)=>n+x.hours,0);
+    if(used>total+0.001){ undo(); return say(`That is ${traineeHrs(used)} hours against a ${traineeHrs(total)} hour session.`); }
+    const {error:e3}=await sb.rpc("set_training_objectives",{p_lesson:lessonId,p_split:split});
+    if(e3){ undo(); return say(e3.message); }
+  }
+  closeModal();
+  await loadPdiTraining();
+  if(pdiRecordId) showTrainee(pdiRecordId);
+}
 function openPdiLog(lessonId){
   const l=(pdiLessons||[]).find(x=>x.id===lessonId); if(!l) return;
   const existing=(pdiLogs||[]).find(x=>x.lesson_id===lessonId)||null;
@@ -19248,7 +19374,6 @@ async function printTrainee21T(id){
   const rows=(objs||[]).map(o=>"<tr><td>"+esc(o.name)+"</td><td>"+dmy(o.last_on)+"</td><td>"+hrs(o.hours)
     +"</td><td class=\"sigbox\"></td><td class=\"sigbox\"></td></tr>").join("");
 
-  const win=window.open("","_blank","width=900,height=1000");
   const printInPlace=(html)=>{
     const f=document.createElement("iframe");
     f.setAttribute("aria-hidden","true");
@@ -19309,8 +19434,7 @@ async function printTrainee21T(id){
     + "<strong>Where to send your form.</strong> Send this completed declaration to the Registrar at the same time as the"
     + " application for a trainee licence. A first application is made at www.gov.uk/apply-for-a-trainee-driving-instructor-licence</div>"
     + "</body></html>";
-  if(win){ win.document.write(printHtml); win.document.close(); win.focus(); }
-  else { printInPlace(printHtml); }
+  showFormOnScreen(printHtml, printInPlace);
 }
 async function printTrainee21S(id){
   const r=pdiTrainingRows.find(x=>x.trainee_id===id); if(!r) return;
@@ -19389,7 +19513,6 @@ async function printTrainee21S(id){
 
   // A blocked popup used to mean the button did nothing at all, with no message - the worst
   // possible outcome for a form somebody is trying to send to DVSA.
-  const win=window.open("","_blank","width=900,height=1000");
   const printInPlace=(html)=>{
     const f=document.createElement("iframe");
     f.setAttribute("aria-hidden","true");
@@ -19451,8 +19574,7 @@ async function printTrainee21S(id){
     + " Driving Instructors, DVSA, 1 Unity Square, Nottingham, NG2 1AY. Alternatively send a scanned copy to PADI@dvsa.gov.uk</div>"
     + "</body></html>";
 
-  if(win){ win.document.write(printHtml); win.document.close(); win.focus(); }
-  else { printInPlace(printHtml); }
+  showFormOnScreen(printHtml, printInPlace);
 }
 
 async function respondPdiUpgrade(id, approve){

@@ -18222,8 +18222,8 @@ function pdiPlanSource(){
 function openPdiPlan(){
   const l=pdiPlanSource();
   if(!l) return alert("Book a training session first. The plan is what you set at the end of one.");
-  openPdiLog(l.id);
-  setTimeout(()=>{ const el=document.getElementById("pl-next"); if(el) el.focus(); },150);
+  openPdiSession(l.id);
+  setTimeout(()=>{ const el=document.getElementById("ps-next"); if(el) el.focus(); },250);
 }
 // Their own record and a trainer's are the same screen, so it is drawn into whichever is open.
 function pdiDetailEl(){
@@ -18376,15 +18376,12 @@ function renderTraineeRecord(){
       // Once it has finished, not once it has started: a session half way through is not written up
       // yet (Dale, 2 Oct 2026).
       const over=new Date(l.end_time)<new Date();
-      const canLog=l.lesson_type==="pdi_training"&&l.status!=="cancelled"&&over;
       // Delivered is what writes the hours, and nothing does it automatically for up to 15 minutes,
       // so a session moved to a past date sits saying "booked" with no way to act on it.
       const canDeliver=l.lesson_type==="pdi_training"&&l.status==="booked"&&over;
       // The 21T wants hours in all twenty of its sections or DVSA refuse it, and until now there was
       // nowhere to say which a session counted towards (Jason Tinkler, 2 Oct 2026). Only part 3
       // training goes on that form, so only part 3 is asked.
-      const canCover=l.lesson_type==="pdi_training"&&l.status==="delivered"&&l.pdi_part===3;
-      const tagged=(pdiHours||[]).some(x=>x.lesson_id===l.id&&x.objective_id);
       return `<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0">
         <strong>${name}</strong>${l.supervised_by?' <span class="chip chip-info">supervised</span>':""}
         ${written?' <span class="chip chip-info">written up</span>':""}
@@ -19043,39 +19040,6 @@ async function setTopicLevel(traineeId, topicId, clicked, current){
   if(error){ alert(error.message); return; }
   showTrainee(traineeId);
 }
-// Recording a part 2 pass. The trainee tells, the trainer records, same as everything else here.
-/**
- * What a session covered, against the twenty training objectives of form ADI 21T.
- *
- * Hours, not ticks: the form has a column for them and DVSA reject a form with an empty section, so
- * Jason has been writing two hours in every box for ten years for want of anywhere to put the truth.
- * Anything left over stays on the session as untagged time, so the 40 can never shrink because
- * somebody tagged half of it.
- */
-async function openPdiCovered(lessonId){
-  const l=(pdiLessons||[]).find(x=>x.id===lessonId); if(!l) return;
-  const total=Math.round(((new Date(l.end_time)-new Date(l.start_time))/3600000)*100)/100;
-  const mine=(pdiHours||[]).filter(x=>x.lesson_id===lessonId&&x.objective_id);
-  const got={}; mine.forEach(x=>{ got[x.objective_id]=(got[x.objective_id]||0)+Number(x.hours||0); });
-  const objs=(pdiObjectivesCache||[]).slice();
-  openModal(`<h2 style="margin-bottom:.25rem">What did you cover</h2>
-    <p class="muted" style="margin:0 0 .8rem;font-size:.88rem">${traineeHrs(total)} hours on ${new Date(l.start_time).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}. Put the hours against what you actually did. Anything you leave stays on the session as training time, it is only left off the form.</p>
-    <div id="cov-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
-    <div style="max-height:22rem;overflow:auto;border:1px solid var(--line);border-radius:10px">
-      ${objs.map(o=>`<label style="display:flex;gap:.6rem;align-items:center;padding:.45rem .6rem;border-bottom:1px solid var(--line)">
-        <span style="flex:1;font-size:.85rem">${esc(o.name)}</span>
-        <input type="number" class="cov-h" data-obj="${esc(o.objective_id)}" min="0" step="0.25" style="width:5rem"
-               value="${got[o.objective_id]?traineeHrs(got[o.objective_id]):""}" oninput="covTotal(${total})" placeholder="0">
-      </label>`).join("")}
-    </div>
-    <p class="muted" id="cov-sum" style="margin:.5rem 0 0;font-size:.85rem"></p>
-    <div class="actions">
-      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
-      <button type="button" class="btn-outline" onclick="spreadCovered(${total})">Spread it evenly</button>
-      <button type="button" class="btn btn-navy btn-sm" id="cov-save" onclick="savePdiCovered('${esc(lessonId)}',${total})">Save</button>
-    </div>`);
-  covTotal(total);
-}
 function covRows(){ return [...document.querySelectorAll(".cov-h")]; }
 function covTotal(total){
   const used=covRows().reduce((n,el)=>n+(Number(el.value)||0),0);
@@ -19094,21 +19058,6 @@ function spreadCovered(total){
   rows.forEach(el=>{ el.value=each>0?each:""; });
   covTotal(total);
 }
-async function savePdiCovered(lessonId,total){
-  const split=covRows().map(el=>({objective_id:el.dataset.obj,hours:Number(el.value)||0})).filter(x=>x.hours>0);
-  const used=split.reduce((n,x)=>n+x.hours,0);
-  const err=document.getElementById("cov-err");
-  if(used>total+0.001){ if(err){ err.textContent=`That is ${traineeHrs(used)} hours against a ${traineeHrs(total)} hour session.`; err.style.display="block"; } return; }
-  const btn=document.getElementById("cov-save"); if(btn){ btn.disabled=true; btn.textContent="Saving…"; }
-  const {error}=await sb.rpc("set_training_objectives",{p_lesson:lessonId,p_split:split});
-  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save"; } if(err){ err.textContent=error.message; err.style.display="block"; } return; }
-  closeModal(); await loadPdiTraining(); showTrainee(pdiRecordId);
-}
-/**
- * How long a test has been on hold, said the way you would say it. Jason Tinkler, 2 Oct 2026: there
- * are never any part 2 dates, so a PDI goes on hold straight after part 1 and again after part 2,
- * and he wants to see at a glance how long they have been waiting.
- */
 function heldFor(from){
   if(!from) return "";
   const d0=new Date(from+"T12:00:00"), now=new Date();
@@ -19343,51 +19292,6 @@ async function savePdiSession(lessonId, total, withCover){
   await loadPdiTraining();
   if(pdiRecordId) showTrainee(pdiRecordId);
 }
-function openPdiLog(lessonId){
-  const l=(pdiLessons||[]).find(x=>x.id===lessonId); if(!l) return;
-  const existing=(pdiLogs||[]).find(x=>x.lesson_id===lessonId)||null;
-  const when=new Date(l.start_time);
-  openModal(`<h2 style="margin-bottom:.25rem">Write up this session</h2>
-    <p class="muted" style="margin:0 0 1rem;font-size:.88rem">${when.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})} &middot; Part ${l.pdi_part===3?3:2}</p>
-    <form id="pl-form" onsubmit="savePdiLog('${esc(lessonId)}');return false">
-    <div id="pl-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
-    <div class="field"><label>What you covered</label>
-      <textarea id="pl-done" rows="3" placeholder="What you worked on and how it went">${existing?esc(existing.achieved||""):""}</textarea></div>
-    <div class="field"><label>Aim for next session</label>
-      <textarea id="pl-next" rows="3" placeholder="What the next session is for">${existing?esc(existing.next_session||""):""}</textarea>
-      <div class="muted" style="font-size:.8rem;margin-top:.25rem">This shows as the lesson plan on their Summary, and they can read it.</div></div>
-    <div class="actions">
-      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
-      <button type="submit" class="btn btn-navy btn-sm" id="pl-save">Save</button>
-    </div>
-    </form>`);
-}
-function plErr(msg){ const el=document.getElementById("pl-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
-function savePdiLog(lessonId){ return runOnce("pdiLog",()=>savePdiLogNow(lessonId)); }
-async function savePdiLogNow(lessonId){
-  plErr("");
-  const l=(pdiLessons||[]).find(x=>x.id===lessonId); if(!l) return;
-  const done=fieldVal("pl-done").trim(), next=fieldVal("pl-next").trim();
-  if(done.length<3 && next.length<3) return plErr("Write a sentence in one of the boxes");
-  const existing=(pdiLogs||[]).find(x=>x.lesson_id===lessonId)||null;
-  const btn=document.getElementById("pl-save"); if(btn){ btn.disabled=true; btn.textContent="Saving\u2026"; }
-  const row={trainee_id:l.trainee_id, pupil_id:null, lesson_id:lessonId,
-    log_date:dLocalDate(new Date(l.start_time)), achieved:done||null, next_session:next||null};
-  const {error}= existing
-    ? await sb.from("reflective_logs").update(row).eq("id",existing.id)
-    : await sb.from("reflective_logs").insert(row);
-  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save"; } return plErr(error.message); }
-  closeModal();
-  if(pdiRecordId) showTrainee(pdiRecordId);
-}
-// Form ADI 21T, the Instructor Training Declaration, which is what gets a PDI their pink licence.
-// We printed the 21S first, which is the form for AFTER the licence, so until now the one Jason
-// Tinkler needs first did not exist (Dale, 2 Oct 2026). Page 3 of the real form is a table with one
-// row per training objective and columns for date, hours and both signatures, which is exactly the
-// 20 objectives we already hold.
-//
-// Only part 3 training counts. The declaration says "40 hours training in the giving of driving
-// instruction", in those words, so part 2 work is left off this form entirely.
 async function printTrainee21T(id){
   const r=pdiTrainingRows.find(x=>x.trainee_id===id); if(!r) return;
   const lic=(r.progress||{}).licence||{};

@@ -15561,7 +15561,7 @@ async function renderNewsTab(content){
   const items=error
     ? `<p class="muted">${esc(error.message)}</p>`
     : (data||[]).length
-    ? (data||[]).map(a=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><strong>📣 ${esc(a.title)}</strong><span class="chip chip-info">${a.school_id?"Your driving school":"Drive My Way"}</span></div><div class="muted" style="font-size:.75rem;margin:.1rem 0 .35rem">${when(a.created_at)}</div><div style="white-space:pre-wrap;font-size:.9rem;overflow-wrap:anywhere">${esc(a.body)}</div>${canPost?`<div class="muted" id="news-seen-${a.id}" style="font-size:.75rem;margin-top:.45rem">Counting who has read it…</div>`:""}</div></div>`).join("")
+    ? (data||[]).map(a=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><strong>📣 ${esc(a.title)}</strong><span class="chip chip-info">${a.school_id?"Your driving school":"Drive My Way"}</span></div><div class="muted" style="font-size:.75rem;margin:.1rem 0 .35rem">${when(a.created_at)}</div><div style="white-space:pre-wrap;font-size:.9rem;overflow-wrap:anywhere">${esc(a.body)}</div>${canPost?`<div class="muted" id="news-seen-${a.id}" style="font-size:.75rem;margin-top:.45rem">Counting who has read it…</div>`:""}${(isSuperAdminUser||(a.school_id&&a.school_id===currentSchoolId))?`<div style="margin-top:.45rem"><a href="#" onclick="event.preventDefault();deleteNewsCC('${a.id}')" style="color:#e11d48;font-weight:600;font-size:.78rem">Take it down</a></div>`:""}</div></div>`).join("")
     : '<p class="muted">No news yet.</p>';
   content.innerHTML=`<h2>Messages</h2>${msgTabsHtml()}
     <p class="muted" style="margin:0 0 .75rem">${intro}</p>
@@ -15605,6 +15605,15 @@ async function loadNewsSeenCC(rows){
         ${notNames?`<div><strong>Not yet:</strong> ${esc(notNames)}</div>`:""}
       </div>`;
   }
+}
+// Taking a post back down. There was no way to at all, so one posted by mistake stayed up for good
+// and the only way out was the database (Dale, 2 Oct 2026). RLS decides who may: a super admin
+// anything, a school admin only their own school's.
+async function deleteNewsCC(id){
+  if(!confirm("Take this news post down? It goes for everyone who can see it.")) return;
+  const {error}=await sb.from("platform_announcements").delete().eq("id",id);
+  if(error){ alert(error.message); return; }
+  await loadMessagesPanel();
 }
 async function postNewsCC(){
   return runOnce("post-news", async()=>{

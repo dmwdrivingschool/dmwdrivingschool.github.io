@@ -18313,7 +18313,41 @@ function renderTraineeRecord(){
       </div></div>`;
   }
 
-  if(pdiTab==="progress"){
+  if(pdiTab==="progress" && pdiPart===2){
+    // The same chart a pupil gets, because it is the same syllabus and the same grades (Dale,
+    // 2 Oct 2026). Dots rather than a dropdown, a bar per group, and the tap-to-step-down rule.
+    const topics=pdiDriving||[];
+    const groups=[]; topics.forEach(t=>{ if(!groups.includes(t.category)) groups.push(t.category); });
+    const score=topics.reduce((n,t)=>n+Number(t.level||0),0);
+    const pct=topics.length?Math.round((score/(topics.length*5))*100):0;
+    const noteHidden=(()=>{ try{ return localStorage.getItem("dmw_pdi_syllabus_note")==="hidden"; }catch(e){ return false; } })();
+    pane=`<div class="panel" style="margin-top:.6rem">
+      ${noteHidden?"":`<div id="pdi-syllabus-note" style="display:flex;gap:.6rem;align-items:flex-start;background:rgba(37,99,235,.10);border-radius:8px;padding:.55rem .7rem;margin-bottom:.9rem">
+        <div style="flex:1;font-size:.85rem">These are your driving school's own progress topics, the same ones you track with a pupil. Change them in Settings and this changes with them.</div>
+        <button class="btn-outline btn-sm" onclick="dismissPdiSyllabusNote()">Got it</button></div>`}
+      <div style="margin-bottom:1rem"><div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.3rem"><strong>Driving syllabus</strong><span class="muted">${pct}% Completed</span></div>
+        <div style="height:8px;background:var(--line);border-radius:99px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#10b981"></div></div></div>
+      ${pdiSelfView?'<p class="muted" style="margin-bottom:1rem">Your trainer sets these.</p>'
+        :'<p class="muted" style="margin-bottom:1rem">Tap a level dot to set it. Tap the filled dot again to clear back to "Not started".</p>'}
+      ${groups.map(g=>{
+        const inG=topics.filter(t=>t.category===g);
+        const gScore=inG.reduce((n,t)=>n+Number(t.level||0),0);
+        const gPct=inG.length?Math.round((gScore/(inG.length*5))*100):0;
+        return `<div style="margin-bottom:1rem">
+          <div style="display:flex;justify-content:space-between;margin-bottom:.5rem"><h3 style="font-size:.85rem;font-weight:700">${esc(g||"Topics")}</h3><span class="muted" style="font-size:.78rem">${gPct}%</span></div>
+          ${inG.map(t=>{
+            const lvl=Number(t.level||0);
+            return `<div style="margin-bottom:.6rem">
+              <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.25rem"><span>${esc(t.name)}</span><span class="muted">${esc(PDI_LEVELS[lvl]||PDI_LEVELS[0])}</span></div>
+              <div style="display:flex;gap:3px">${[1,2,3,4,5].map(n=>`<button type="button" ${pdiSelfView?"disabled":`onclick="setTopicLevel('${id}','${esc(t.objective_id)}',${n},${lvl})"`} style="flex:1;height:16px;border:none;border-radius:99px;cursor:${pdiSelfView?"default":"pointer"};padding:0;background:${n<=lvl?"#10b981":"#e2e8f0"}"></button>`).join("")}</div>
+            </div>`;
+          }).join("")}
+        </div>`;
+      }).join("")}
+    </div>`;
+  }
+
+  if(pdiTab==="progress" && pdiPart===3){
     // Jason Tinkler, 1 Oct 2026: "progress for PDI should be with the 17 competences from the ADI1
     // not subjects". The 20 are still loaded, because they are the rows of form ADI 21T, but this is
     // what a trainer grades. Graded like a pupil, scored 0 to 3 in DVSA's own words.
@@ -18834,10 +18868,16 @@ async function signTraineeWeek(traineeId, from, to){
   await loadPdiTraining();
   await showTrainee(traineeId);
 }
+function dismissPdiSyllabusNote(){
+  try{ localStorage.setItem("dmw_pdi_syllabus_note","hidden"); }catch(e){}
+  const el=document.getElementById("pdi-syllabus-note"); if(el) el.remove();
+}
 // Grading a driving topic. Keyed by the topic's own id, like a pupil's, so the list can be the
 // school's and can change without stranding anything.
-async function setTopicLevel(traineeId, topicId, level){
-  const {error}=await sb.rpc("set_trainee_topic_level",{p_trainee:traineeId,p_topic:topicId,p_level:Number(level)||0});
+async function setTopicLevel(traineeId, topicId, clicked, current){
+  // Tap the current top dot again to step back down, the same rule a pupil's chart uses.
+  const level=(Number(clicked)===Number(current))?Number(clicked)-1:Number(clicked);
+  const {error}=await sb.rpc("set_trainee_topic_level",{p_trainee:traineeId,p_topic:topicId,p_level:Math.max(0,level)});
   if(error){ alert(error.message); return; }
   showTrainee(traineeId);
 }

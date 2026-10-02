@@ -8199,6 +8199,7 @@ async function openPdiTraining(opts){
     <div class="actions">
       <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
       ${editing&&l.status!=="cancelled"?`<button type="button" class="btn-outline" id="pt-off" onclick="cancelPdiTraining('${esc(l.id)}')">Call it off</button>`:""}
+      ${editing?`<button type="button" class="btn-outline" id="pt-del" onclick="deletePdiTraining('${esc(l.id)}')">Delete</button>`:""}
       ${past&&!done&&l.status!=="cancelled"?`<button type="button" class="btn-outline" id="pt-done" onclick="deliverPdiTraining('${esc(l.id)}')">Mark delivered</button>`:""}
       <button type="submit" class="btn btn-navy btn-sm" id="pt-save">${editing?"Save changes":"Save"}</button>
     </div>
@@ -8288,6 +8289,18 @@ async function deliverPdiTraining(id){
   if(pdiRecordId) showTrainee(pdiRecordId);
 }
 
+// Deleted outright, for one booked by mistake. Different from calling it off: a cancelled session
+// stays on both diaries crossed out, which is the right record when it was real and did not happen.
+// Any hours it wrote go with it, the hours row being keyed on the lesson.
+async function deletePdiTraining(id){
+  if(!confirm("Delete this training session? It disappears from both diaries, and any hours it put on their record go with it. Call it off instead if it was booked and did not happen.")) return;
+  const btn=document.getElementById("pt-del"); if(btn){ btn.disabled=true; btn.textContent="Deleting…"; }
+  const {error}=await sb.from("lessons").delete().eq("id",id);
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Delete"; } return ptErr(error.message); }
+  closeModal();
+  if(!document.getElementById("tab-diary").classList.contains("hidden")) renderDiary();
+  if(pdiRecordId) showTrainee(pdiRecordId);
+}
 // Called off rather than deleted, exactly like a lesson: both diaries keep a crossed-out record and
 // "Hide cancellations" tidies it away. No hours are written either way, because the trigger writes
 // those on DELIVERED.
@@ -18245,7 +18258,7 @@ function renderTraineeRecord(){
         <div class="metric"><div class="l">DVSA want</div><div class="v">${h(sup.required_hours)}h</div></div>
         <div class="metric"><div class="l">Before the licence</div><div class="v ${pre.met?"good":"bad"}">${h(pre.hours)}h</div></div>
       </div>
-      <p class="muted" style="margin:.4rem 0 0;font-size:.85rem">${detail}. Pre-licence training was ${h(pre.hours)} hours with ${h(pre.in_car_hours)} in a car; DVSA want 40 and 10.</p>
+      <p class="muted" style="margin:.4rem 0 0;font-size:.85rem">${detail} Pre-licence training was ${h(pre.hours)} hours with ${h(pre.in_car_hours)} in a car; DVSA want 40 and 10.</p>
 
       <div style="margin-top:1rem"><strong style="font-size:.9rem">Week by week</strong>
         <p class="muted" style="margin:.2rem 0 .4rem;font-size:.85rem">This is form 21S: each week, the hours taught, the hours supervised, and whether it has been signed. ${pdiSelfView?"Your trainer signs these off.":"Signing off records that you have checked the hours are right. The printed form still has blank signature boxes for a wet signature."}</p>

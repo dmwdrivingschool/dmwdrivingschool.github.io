@@ -632,10 +632,25 @@
    * there is one, because a Google review anybody can go and read is stronger evidence than words on
    * the instructor's own website. Words written IN the app carry no note: those are the verified ones
    * and 'app' arrives here as null. Never dress a quoted review up as an app one (Dale, 28 Sep 2026). */
+
+  /* The site a review came from, worked out from its link: "yell.com" becomes Yell, "uk.trustpilot.com"
+   * becomes Trustpilot. Only Google and Facebook have their own setting, and every other review site
+   * would otherwise read "a review they left elsewhere", which tells a reader nothing and is worth
+   * less than naming the place (Dale, 2 Oct 2026: "what if its another place like yell"). */
+  function reviewHost(url){
+    try {
+      var h = new URL(url).hostname.replace(/^www[.]/, '').replace(/[.](co[.]uk|com|uk|net|org)$/, '');
+      h = h.split('.').pop();
+      return h ? h.charAt(0).toUpperCase() + h.slice(1) : '';
+    } catch (e) { return ''; }
+  }
+
   function reviewSource(p){
     if (!p.words || !p.words_source) return '';
+    var named = p.words_url ? reviewHost(p.words_url) : '';
     var what = p.words_source === 'google' ? 'their Google review'
              : p.words_source === 'facebook' ? 'their Facebook review'
+             : named ? 'their ' + named + ' review'
              : 'a review they left elsewhere';
     var txt = 'From ' + what;
     return p.words_url

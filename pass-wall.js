@@ -169,8 +169,10 @@
         // instructor's own site. Words written IN the app carry no note: those are the verified ones and
         // 'app' arrives here as null (Dale, 28 Sep 2026).
         if (c.words && c.words_source) {
+          var named = c.words_url ? reviewHost(c.words_url) : "";
           var whatFrom = c.words_source === "google" ? "their Google review"
                        : c.words_source === "facebook" ? "their Facebook review"
+                       : named ? "their " + named + " review"
                        : "a review they left elsewhere";
           bits += '<p class="src">' + (c.words_url
             ? '<a href="' + esc(c.words_url) + '" target="_blank" rel="noopener nofollow">From ' + esc(whatFrom) + "</a>"
@@ -179,6 +181,19 @@
         bits += "</div>";
       }
       return bits + "</li>";
+    }
+
+
+    /* The site a review came from, worked out from its link: "yell.com" becomes Yell, "uk.trustpilot.com"
+     * becomes Trustpilot. Only Google and Facebook have their own setting, and every other review site
+     * would otherwise read "a review they left elsewhere", which tells a reader nothing and is worth
+     * less than naming the place (Dale, 2 Oct 2026: "what if its another place like yell"). */
+    function reviewHost(url){
+      try {
+        var h = new URL(url).hostname.replace(/^www[.]/, '').replace(/[.](co[.]uk|com|uk|net|org)$/, '');
+        h = h.split('.').pop();
+        return h ? h.charAt(0).toUpperCase() + h.slice(1) : '';
+      } catch (e) { return ''; }
     }
 
     /* Every card, in one go. It used to draw twelve and offer "Show more pass photos", to keep a wall

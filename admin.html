@@ -23675,9 +23675,9 @@ async function openQuoteReview(id){
     ${item.wordsSource === "app" && item.words ? '<div class="err" style="display:block;text-align:left">These words were written by the pupil in the app. Changing them here replaces what they wrote.</div>' : ""}
     <div class="field"><label>First name</label><input id="qr-name" value="${esc(item.firstName||"")}" placeholder="As it should show on the card"></div>
     <div class="field"><label>What they wrote</label><textarea id="qr-words" rows="4" placeholder="Their review, word for word">${esc(item.words||"")}</textarea></div>
-    <div class="field"><label>Where from</label><select id="qr-src">${opt("google","Google")}${opt("facebook","Facebook")}${opt("other","Somewhere else")}</select></div>
+    <div class="field"><label>Where from</label><select id="qr-src">${opt("google","Google")}${opt("facebook","Facebook")}${opt("other","Somewhere else (Yell, Trustpilot, anywhere)")}</select></div>
     <div class="field"><label>Link to the review</label><input id="qr-url" value="${esc(item.wordsUrl||"")}" placeholder="https://">
-      <div class="muted" style="font-size:.78rem;margin-top:.3rem">Either the review itself or your reviews page will do. On Facebook the date above a review is a link to it, and Embed shows the same address; a single review does not always open for somebody who is not logged in, so your own reviews page is the safer one. Whichever you use, a reader can go and check it, and that is the difference between a review and an unlabelled quote on your own website. Somewhere else is the one that needs no link.</div></div>
+      <div class="muted" style="font-size:.78rem;margin-top:.3rem">Either the review itself or your reviews page on that site will do. On Facebook the date above a review is a link to it, and Embed shows the same address; a single review does not always open for somebody who is not logged in, so your own reviews page is the safer one. Any review site works: put a Yell or Trustpilot link in under Somewhere else and the card names the site for you. Only a review with no link at all, a text message or a card, can be left without one.</div></div>
     <div class="err" id="qr-err" style="display:block;text-align:left"></div>
     <div class="actions">
       <button class="btn btn-navy btn-sm" onclick="saveQuoteReview('${id}')">Save</button>

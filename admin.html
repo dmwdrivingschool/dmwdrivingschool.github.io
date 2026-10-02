@@ -2275,7 +2275,7 @@ function goTab(tab, pupilFilter){
   if(tab==="theory"){ loadTheoryProgress(); }
   if(tab==="teams"){ loadTeamsPanel(); loadMockTestUsageCC(); }
   if(tab==="school"){ loadDrivingSchoolTab(); }
-  if(tab==="pditraining"){ pdiTrainingLoad = loadPdiTraining(); }
+  if(tab==="pditraining"){ pdiRecordId=null; pdiTrainingLoad = loadPdiTraining(); }
   if(tab==="messages"){ loadMessagesPanel(); }
   if(tab==="help"){ renderHelp(); }
   if(tab==="billing"){ loadBillingPanel(); }
@@ -8145,12 +8145,13 @@ async function openPdiTraining(opts){
     <form id="pt-form" onsubmit="savePdiTraining(${editing?`'${esc(l.id)}'`:"null"});return false">
     <div id="pt-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
     <div class="field"><label>Trainee</label>
-      <select id="pt-trainee" required>${list.map(t=>`<option value="${esc(t.id)}"${editing&&t.id===l.trainee_id?" selected":""}>${esc(t.full_name||"")}</option>`).join("")}</select>
+      <select id="pt-trainee" required onchange="ptTraineeChanged()">${list.map(t=>`<option value="${esc(t.id)}"${editing&&t.id===l.trainee_id?" selected":""}>${esc(t.full_name||"")}</option>`).join("")}</select>
       <div class="muted" style="font-size:.8rem;margin-top:.25rem">It shows in their diary too, and the hours go on their record.</div></div>
     <div class="field"><label>Type</label>
       <select id="pt-part">
         <option value="2"${part==="2"?" selected":""}>Part 2</option>
         <option value="3"${part==="3"?" selected":""}>Part 3</option></select>
+      <div class="muted hidden" id="pt-part2-done" style="font-size:.8rem;margin-top:.25rem"></div>
       <div class="muted" style="font-size:.8rem;margin-top:.25rem">Part 2 is their own driving. Part 3 is learning to instruct, and only part 3 counts towards the 40 hours on their ADI 21T.</div></div>
     <div class="field"><label>Date</label><input type="date" id="pt-date" required value="${editing?dLocalDate(s):(o.date||dLocalDate(new Date()))}"></div>
     <div class="field"><label>Lesson start time</label><input type="time" id="pt-start" required value="${editing?dLocalTime(s):(o.time||"09:00")}"></div>
@@ -8158,6 +8159,11 @@ async function openPdiTraining(opts){
       <div class="field"><label>Hours</label><input type="number" min="0" step="0.25" id="pt-hours" value="${durHoursFromMins(String(mins))}" oninput="durHoursInput('pt-hours','pt-mins')"></div>
       <div class="field"><label>Minutes</label><input type="number" min="0" step="15" id="pt-mins" value="${mins}" oninput="durMinsInput('pt-hours','pt-mins')"></div>
     </div>
+    <div class="field"><label>In a car</label>
+      <select id="pt-incar">
+        <option value="yes"${editing&&l.pdi_in_car===false?"":" selected"}>Yes, in the car</option>
+        <option value="no"${editing&&l.pdi_in_car===false?" selected":""}>No, away from the car</option></select>
+      <div class="muted" style="font-size:.8rem;margin-top:.25rem">Of the 40 hours, at least 10 have to be in a car. The rest can be anywhere.</div></div>
     <div class="field"><label>Pick up</label><input type="text" id="pt-pickup" value="${editing?esc(l.pickup_address||""):""}" placeholder="Where you are meeting them"></div>
     ${editing?"":`<div class="field"><label>Repeat</label>
       <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
@@ -8177,6 +8183,23 @@ async function openPdiTraining(opts){
     </div>
     </form>`);
   if(!editing) ptRepeatChanged();
+  ptTraineeChanged(editing?part:null);
+}
+// Part 2 comes off the form once they have passed it: there is nothing left to train for, and
+// booking it would file hours against a test they already hold (Dale, 2 Oct 2026).
+function ptTraineeChanged(keep){
+  const sel=document.getElementById("pt-part"), note=document.getElementById("pt-part2-done");
+  if(!sel) return;
+  const t=dlTrainees.find(x=>x.id===fieldVal("pt-trainee"));
+  const passed=t&&t.part2_passed_on;
+  const opt2=sel.querySelector('option[value="2"]');
+  if(opt2) opt2.disabled=!!passed;
+  if(passed && sel.value==="2") sel.value="3";
+  if(keep && !passed) sel.value=keep;
+  if(note){
+    note.classList.toggle("hidden", !passed);
+    if(passed) note.textContent="They passed their part 2 on "+new Date(passed).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})+", so there is no more part 2 training to book.";
+  }
 }
 function ptRepeatUnitValue(){ const v=fieldVal("pt-repeat-unit"); return v==="day"?"day":v==="fortnight"?"fortnight":"week"; }
 function ptRepeatUnit(u){ diarySetVal("pt-repeat-unit",u==="day"?"day":u==="fortnight"?"fortnight":"week"); ptRepeatChanged(); }
@@ -8204,6 +8227,7 @@ async function savePdiTrainingNow(id){
   // pupil_id stays null and the trainee stays set: the shape constraint refuses anything else.
   const base={lesson_type:"pdi_training", trainee_id:traineeId, pupil_id:null, title:"PDI training",
     pdi_part:Number(fieldVal("pt-part"))===3?3:2,
+    pdi_in_car:fieldVal("pt-incar")!=="no",
     notes:fieldVal("pt-notes").trim()||null,
     pickup_label:pickup?"Other":null, pickup_address:pickup||null};
   const btn=document.getElementById("pt-save"); if(btn){ btn.disabled=true; btn.textContent="Saving"+"\u2026"; }
@@ -8276,6 +8300,8 @@ function pdiPastRowHtml(i){
     <div class="field" style="margin-bottom:.5rem"><label>Date</label><input type="date" id="pp-date-${i}"></div>
     <div class="field" style="margin-bottom:.5rem"><label>Start time</label><input type="time" id="pp-time-${i}" value="09:00"></div>
     <div class="field" style="margin-bottom:.5rem"><label>Hours</label><input type="number" min="0" step="0.25" id="pp-hours-${i}" placeholder="e.g. 2"></div>
+    <div class="field" style="margin-bottom:.5rem"><label>In a car</label>
+      <select id="pp-incar-${i}"><option value="yes" selected>Yes</option><option value="no">No</option></select></div>
   </div>`;
 }
 function pdiPastAddRow(){
@@ -8295,14 +8321,14 @@ async function savePdiPastTrainingNow(traineeId){
     const start=dLocalDateTime(d,t);
     if(!start) return ppErr("That date does not look right");
     if(start>new Date()) return ppErr("This is for training that has already happened");
-    rows.push({start, mins:Math.round(hrs*60)});
+    rows.push({start, mins:Math.round(hrs*60), inCar:fieldVal("pp-incar-"+i)!=="no"});
   }
   if(!rows.length) return ppErr("Fill in at least one line");
   const owner=diaryOwnerId||currentUserId;
   const btn=document.getElementById("pp-save"); if(btn){ btn.disabled=true; btn.textContent="Saving\u2026"; }
   try{
     const payload=rows.map(r=>({lesson_type:"pdi_training", trainee_id:traineeId, pupil_id:null,
-      title:"PDI training", pdi_part:pdiPart, instructor_id:owner, status:"booked", payment_status:"unpaid",
+      title:"PDI training", pdi_part:pdiPart, pdi_in_car:r.inCar, instructor_id:owner, status:"booked", payment_status:"unpaid",
       start_time:r.start.toISOString(), end_time:new Date(r.start.getTime()+r.mins*60000).toISOString()}));
     const {data:made,error}=await sb.from("lessons").insert(payload).select("id");
     if(error) return ppErr(error.message);
@@ -8367,7 +8393,10 @@ async function dlLoadPdiContext(ownerId){
     const ids=[...new Set((pairs||[]).map(x=>x.trainee_id))];
     if(ids.length){
       const {data:people}=await sb.from("profiles").select("id,full_name").in("id",ids).order("full_name");
-      dlTrainees=people||[];
+      // Whether each of them has passed part 2 yet, so the booking form can stop offering it.
+      const {data:lics}=await sb.from("trainee_licences").select("trainee_id,part2_passed_on").in("trainee_id",ids);
+      const passed={}; (lics||[]).forEach(x=>{ if(x.part2_passed_on) passed[x.trainee_id]=x.part2_passed_on; });
+      dlTrainees=(people||[]).map(x=>({...x, part2_passed_on:passed[x.id]||null}));
     }
     // The owner may themselves be on a licence, in which case a lesson they teach can be supervised.
     const {data:lic}=await sb.from("trainee_licences").select("id").eq("trainee_id",ownerId).is("ended_on",null).maybeSingle();
@@ -17760,7 +17789,7 @@ function pdiRowHtml(r){
   const days=r.days_left==null||r.ended_on?"":`${r.days_left} day${r.days_left===1?"":"s"} left on their trainee licence`;
   const taught=Number(sup.instruction_hours||0);
   const foot=[taught?`${h(taught)} hours taught`:"", days].filter(Boolean).join(" &middot; ");
-  return `<div class="list-row" style="align-items:flex-start;cursor:pointer" onclick="showTrainee('${r.trainee_id}')">
+  return `<div class="list-row" style="align-items:flex-start;cursor:pointer" onclick="showTrainee('${r.trainee_id}',true)">
     <div style="flex:1;min-width:0">
       <strong>${esc(r.trainee_name||"Trainee")}</strong>
       <div style="font-size:.85rem;color:${col}">${head}</div>
@@ -17788,8 +17817,13 @@ function setPdiTab(t){ pdiTab=t; renderTraineeRecord(); }
 // change what Progress shows two tabs away.
 function setPdiPart(n){ pdiPart=Number(n)===3?3:2; renderTraineeRecord(); }
 
-async function showTrainee(id){
+// toggle is passed only by a row click. Everything else that calls this - saving a session,
+// writing up a log, recording a part 2 - wants a refresh and must never close the record instead.
+async function showTrainee(id, toggle){
   const el=document.getElementById("pdi-training-detail"); if(!el) return;
+  // Clicking the one that is already open closes it, the way a row that opens should (Dale, 2 Oct
+  // 2026). Clicking the PDIs tab itself does the same, by clearing pdiRecordId first.
+  if(toggle && pdiRecordId===id && el.innerHTML.trim()){ pdiRecordId=null; el.innerHTML=""; return; }
   const r=pdiTrainingRows.find(x=>x.trainee_id===id); if(!r) return;
   el.innerHTML='<div class="panel"><p class="muted">Loading&hellip;</p></div>';
   // A different trainee starts on Details, as the app does; the same one keeps the tab you were on.
@@ -17870,7 +17904,10 @@ function renderTraineeRecord(){
   const row=(label,value)=>value?`<div style="display:flex;justify-content:space-between;gap:.75rem;padding:.45rem 0;border-bottom:1px solid var(--line);font-size:.88rem">
       <span class="muted">${label}</span><span style="text-align:right">${value}</span></div>`:"";
 
-  const partBar=`<div style="margin:.9rem 0 .2rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+  // Once part 2 is passed there is no part 2 side to the record any more.
+  const p2done=lic.part2_passed_on||null;
+  if(p2done) pdiPart=3;
+  const partBar=p2done?"":`<div style="margin:.9rem 0 .2rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
     <span class="d-views" role="group" aria-label="Which part">
       <button type="button" class="${pdiPart===2?"on":""}" onclick="setPdiPart(2)">Part 2</button>
       <button type="button" class="${pdiPart===3?"on":""}" onclick="setPdiPart(3)">Part 3</button></span>
@@ -17912,12 +17949,17 @@ function renderTraineeRecord(){
       <strong style="font-size:.9rem">Training they have had</strong>
       <div style="margin-top:.3rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.6rem">
         <div class="metric"><div class="l">Part ${pdiPart} hours</div><div class="v">${h(total)}h</div></div>
-        <div class="metric"><div class="l">Of those, in a car</div><div class="v">${h(inCar)}h</div></div>
+        ${pdiPart===3?`<div class="metric"><div class="l">Of those, in a car</div><div class="v">${h(inCar)}h</div></div>`:""}
         ${pdiPart===3?`<div class="metric"><div class="l">DVSA want (21T)</div><div class="v ${pre.met?"good":"bad"}">40h, 10 in a car</div></div>`:""}
       </div>
-      ${pdiPart===3?`<p class="muted" style="margin:.4rem 0 0;font-size:.85rem">${detail}.</p>`:
-        `<p class="muted" style="margin:.4rem 0 0;font-size:.85rem">Part 2 is an enhanced driving test, so these hours are recorded but count towards neither the 40 nor the 10 in a car.</p>`}
+      ${pdiPart===3?`<p class="muted" style="margin:.4rem 0 0;font-size:.85rem">${detail}</p>`:""}
       ${p3b?`<div style="margin-top:1rem"><strong style="font-size:.9rem">Part 3 test</strong>${p3b}</div>`:""}
+      <div style="margin-top:1rem"><strong style="font-size:.9rem">Part 2 test</strong>
+        ${lic.part2_passed_on
+          ? `<div style="font-size:.88rem;color:var(--ok);margin-top:.2rem">Passed on ${longDate(lic.part2_passed_on)}.</div>
+             <button class="btn-outline btn-sm" style="margin-top:.4rem" onclick="openPart2Passed('${id}')">Change</button>`
+          : `<p class="muted" style="margin:.2rem 0 .4rem;font-size:.88rem">Once they pass it, record it here and part 2 comes off their record for good.</p>
+             <button class="btn-outline btn-sm" onclick="openPart2Passed('${id}')">Mark part 2 passed</button>`}</div>
     </div>`;
   }
 
@@ -17984,8 +18026,8 @@ function renderTraineeRecord(){
     pane=`<div class="panel" style="margin-top:.6rem">
       <strong style="font-size:.9rem">Training they were given</strong>
       <div style="margin:.3rem 0 1rem">${received.length?received.map(card).join(""):'<p class="muted" style="font-size:.88rem">None recorded.</p>'}</div>
-      <strong style="font-size:.9rem">Lessons they taught</strong>
-      <div style="margin-top:.3rem">${taught.length?taught.map(card).join(""):'<p class="muted" style="font-size:.88rem">None recorded.</p>'}</div>
+      ${pdiPart===3?`<strong style="font-size:.9rem">Lessons they taught</strong>
+      <div style="margin-top:.3rem">${taught.length?taught.map(card).join(""):'<p class="muted" style="font-size:.88rem">None recorded.</p>'}</div>`:""}
       <p class="muted" style="margin:.8rem 0 0;font-size:.8rem">Holidays, gaps and appointments are their own time and are not shown here.</p></div>`;
   }
 
@@ -18468,6 +18510,38 @@ async function saveTrainerPicker(traineeId){
 // It is THE RECORD (Dale, 30 Sep 2026), printed so it can be signed in wet ink and scanned - which
 // is what the form itself invites: "Alternatively send a scanned copy to PADI@dvsa.gov.uk". Every
 // signature box is therefore left EMPTY on purpose, however much we happen to know.
+// Recording a part 2 pass. The trainee tells, the trainer records, same as everything else here.
+function openPart2Passed(traineeId){
+  const r=pdiTrainingRows.find(x=>x.trainee_id===traineeId);
+  const cur=((r&&r.progress&&r.progress.licence)||{}).part2_passed_on||"";
+  openModal(`<h2 style="margin-bottom:.25rem">Part 2 passed</h2>
+    <p class="muted" style="margin:0 0 1rem;font-size:.88rem">The date ${esc((r&&r.trainee_name)||"they")} passed their part 2 driving ability test. Part 2 then comes off their record, and you will not be offered part 2 training for them again.</p>
+    <form id="p2-form" onsubmit="savePart2Passed('${esc(traineeId)}');return false">
+    <div id="p2-err" class="err" style="text-align:left;margin:0 0 .8rem"></div>
+    <div class="field"><label>Date passed</label><input type="date" id="p2-date" required value="${esc(cur||"")}"></div>
+    <div class="actions">
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      ${cur?`<button type="button" class="btn-outline" onclick="clearPart2Passed('${esc(traineeId)}')">They have not passed it</button>`:""}
+      <button type="submit" class="btn btn-navy btn-sm" id="p2-save">Save</button>
+    </div>
+    </form>`);
+}
+function p2Err(msg){ const el=document.getElementById("p2-err"); if(el){ el.textContent=msg; el.style.display=msg?"block":"none"; } }
+async function savePart2Passed(traineeId){
+  const d=fieldVal("p2-date");
+  if(!d) return p2Err("Give the date they passed");
+  if(dLocalDateTime(d,"12:00")>new Date()) return p2Err("A part 2 pass cannot be in the future");
+  const btn=document.getElementById("p2-save"); if(btn){ btn.disabled=true; btn.textContent="Saving\u2026"; }
+  const {error}=await sb.rpc("set_part2_passed",{p_trainee:traineeId,p_passed_on:d});
+  if(error){ if(btn){ btn.disabled=false; btn.textContent="Save"; } return p2Err(error.message); }
+  closeModal(); await loadPdiTraining(); showTrainee(traineeId);
+}
+async function clearPart2Passed(traineeId){
+  if(!confirm("Take the part 2 pass off their record?")) return;
+  const {error}=await sb.rpc("set_part2_passed",{p_trainee:traineeId,p_passed_on:null});
+  if(error) return p2Err(error.message);
+  closeModal(); await loadPdiTraining(); showTrainee(traineeId);
+}
 // Writing up a training session. Two questions, because that is all a trainer will actually fill in
 // after a lesson: what was covered, and what next time is for. The second becomes the lesson plan on
 // their Summary, which is how a pupil's works - the trainer writes it once and it carries forward,

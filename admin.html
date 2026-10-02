@@ -8861,6 +8861,7 @@ function openDiaryGap(prefill){
     return !!d;
   };
   draftOpen({key, what:"gap", collect:gpCollect, isBlank:f=>draftSameAsOpening(f,defaults,fromTap?["gp-date","gp-start-time"]:[]), reset:()=>gpApply(defaults), restore});
+  applyGearOpts("gp-gearbox");
 }
 const GP_IDS=["gp-date","gp-start-time","gp-duration","gp-gearbox","gp-notify","gp-sendto"];
 function gpCollect(){ const f=formCollect(GP_IDS); f["gp-selected"]=[...document.querySelectorAll(".gp-pupil-cb:checked")].map(el=>el.value); return f; }
@@ -13587,6 +13588,9 @@ function openLessonOfferEdit(id){
   openLessonOfferForm(l,{});
 }
 function openLessonOfferForm(editing,prefill){
+  // After the markup is on the page: the form is built as one string, and the cars they teach are
+  // read from the database, so the dropdown is corrected the moment the answer arrives.
+  setTimeout(()=>applyGearOpts("lo-gearbox"),0);
   const two=n=>String(n).padStart(2,"0"), now=new Date();
   const pupils=avPupils();
   let pupilId="", type="lesson", date=`${now.getFullYear()}-${two(now.getMonth()+1)}-${two(now.getDate())}`, start="09:00",
@@ -14747,6 +14751,7 @@ function lePupilOptions(l){
   return opts;
 }
 function leRenderEdit(fields){
+  setTimeout(()=>applyGearOpts("le-gearbox",(fields&&fields["le-gearbox"])||""),0);
   const st=leState; if(!st) return;
   const l=st.lesson;
   st.view="edit";
@@ -21449,6 +21454,46 @@ const WH_GEAR_LABEL={m:"Manual",a:"Automatic",b:"Both"};
 const WH_GEAR_SHORT={m:"M",a:"A",b:"M+A"};
 const WH_GEAR_BG={m:"#0A4CA1",a:"#0f766e",b:"#7c3aed"};
 
+/* Which cars this instructor teaches, from the enquiry_gearbox row the enquiry form already uses.
+   Read once and kept, because four separate dialogs ask and none of them should wait on a lookup.
+
+   Dale, 2 Oct 2026: "if during setup the instructor marks auto or manual the other shouldnt be
+   offered anywhere". A manual-only instructor had Automatic in every gearbox dropdown, and picking it
+   put a lesson in a car that does not exist.
+
+   Unreadable for any reason means BOTH, never fewer: somebody who cannot reach the setting must not
+   find half their options missing. */
+let gearOffered=null;
+async function loadGearOffered(){
+  if(gearOffered) return gearOffered;
+  try{
+    const r=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","enquiry_gearbox").maybeSingle();
+    const m=String((r.data&&r.data.value&&r.data.value.mode)||"");
+    gearOffered = m==="manual" ? {manual:true,automatic:false}
+                : (m==="auto"||m==="automatic") ? {manual:false,automatic:true}
+                : {manual:true,automatic:true};
+  }catch(e){ gearOffered={manual:true,automatic:true}; }
+  return gearOffered;
+}
+/* The options for a gearbox dropdown. Whatever it is already set to is always offered, so opening an
+   old lesson and saving it can never quietly move it into the other car. */
+function gearOptsHtml(current){
+  const g=gearOffered||{manual:true,automatic:true}, out=[];
+  if(g.manual||current==="manual") out.push('<option value="manual">Manual</option>');
+  if(g.automatic||current==="automatic") out.push('<option value="automatic">Automatic</option>');
+  return out.length?out.join(""):'<option value="manual">Manual</option>';
+}
+/* Rewrite a dropdown that is already on the page. The four that ask are built as static markup at
+   different times, so they are fixed up when their dialog opens rather than at build time. */
+async function applyGearOpts(id,current){
+  await loadGearOffered();
+  const sel=document.getElementById(id);
+  if(!sel) return;
+  const want=current||sel.value||"";
+  sel.innerHTML=gearOptsHtml(want);
+  if(want&&sel.querySelector('option[value="'+want+'"]')) sel.value=want;
+}
+
 async function whLoadGearMode(){
   try{
     const r=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","enquiry_gearbox").maybeSingle();
@@ -24160,6 +24205,7 @@ function pupilOwnerFields(selectId){
 }
 
 async function openAddPupilForm(){
+  setTimeout(()=>applyGearOpts("ap-gearbox"),0);
   const picker = await instructorPickerHtml("ap-instr");
   openModal(`<h3>Add Pupil</h3>
     <div style="margin:0 0 .9rem;padding:.7rem .85rem;background:#eef4ff;border:1px solid #bfd3f5;border-radius:.5rem;color:#0f172a;font-size:.9rem"><strong>Tip:</strong> for a new pupil, you can text or WhatsApp them your <a href="#" onclick="closeModal();goTab('settings');openSettings('enquiryWidget');return false" style="color:#0A4CA1;font-weight:700">enquiry form link</a> instead. They fill in their own details and set up their app login.</div>

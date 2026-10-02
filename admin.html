@@ -130,6 +130,9 @@ footer{position:fixed;bottom:0;left:0;right:0;background:#fff;color:#94a3b8;text
 .d-block.appt .d-bname{overflow:visible;text-align:center}
 .d-block .nm{font-weight:500;font-size:clamp(10px,26cqw,16px);line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:break-word;word-break:normal;font-family:var(--fb)}
 .d-block .nt{font-size:clamp(8px,16cqw,11px);line-height:1.2;opacity:.9;margin-top:2px;white-space:pre-wrap;overflow-wrap:break-word;word-break:break-word;font-family:var(--fb)}
+/* The part on a training block, a shade bigger than an appointment's note and not faded, because it
+   is a label rather than an aside (Dale, 2 Oct 2026: "bigger NOT by alot but just abit"). */
+.d-block .nt.part{font-size:clamp(9px,18cqw,13px);opacity:1;font-weight:600}
 .d-block .tm{flex-shrink:0;font-size:clamp(8px,15cqw,11px);line-height:1.3;margin-top:1px;opacity:.8;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;font-family:var(--fm)}
 .d-foot{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:9px;font-weight:600;line-height:14px;color:#fff;white-space:nowrap;overflow:hidden}
 .d-allday{position:absolute;left:2px;right:2px;height:24px;line-height:18px;border-radius:6px;background:#e2e8f0;border:1px dashed #94a3b8;color:#334155;font-size:.68rem;font-weight:700;padding:2px 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;z-index:2}
@@ -14038,7 +14041,7 @@ function diaryBlockHtml(l,day,layout,startH,endH,hourH){
   const full=l.pupil&&l.pupil.first_name?`${l.pupil.first_name} ${l.pupil.last_name||""}`.trim():name;
   const times=`${dLocalTime(new Date(l.start_time))}–${dLocalTime(new Date(l.end_time))}`;
   const tip=[full,times,foot?foot.text:"",appt&&l.notes?l.notes:""].filter(Boolean).join(" · ");
-  return `<div class="d-block${appt?" appt":""}" style="top:${top}px;height:${height}px;left:calc(${left}% + 1px);width:calc(${w}% - 2px);z-index:${pos.zIndex+1};background:${diaryBlockColour(l,colours)};padding-bottom:${hasFooter?15:2}px${cancelled?";opacity:.95":""}" title="${esc(tip)}" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="d-bname"><div class="nm"${cancelled?' style="text-decoration:line-through"':""}>${esc(name)}</div>${l.lesson_type==="pdi_training"?`<div class="nt">Part ${l.pdi_part===3?3:2}</div>`:""}${appt&&l.notes?`<div class="nt">${esc(l.notes)}</div>`:""}</div><div class="tm">${times}</div>${foot?`<div class="d-foot" style="background:${foot.bg}">${foot.text}</div>`:""}</div>`;
+  return `<div class="d-block${appt?" appt":""}" style="top:${top}px;height:${height}px;left:calc(${left}% + 1px);width:calc(${w}% - 2px);z-index:${pos.zIndex+1};background:${diaryBlockColour(l,colours)};padding-bottom:${hasFooter?15:2}px${cancelled?";opacity:.95":""}" title="${esc(tip)}" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="d-bname"><div class="nm"${cancelled?' style="text-decoration:line-through"':""}>${esc(name)}</div>${l.lesson_type==="pdi_training"?`<div class="nt part">Part ${l.pdi_part===3?3:2}</div>`:""}${appt&&l.notes?`<div class="nt">${esc(l.notes)}</div>`:""}</div><div class="tm">${times}</div>${foot?`<div class="d-foot" style="background:${foot.bg}">${foot.text}</div>`:""}</div>`;
 }
 
 // --- Unfinished add forms (the app's lib/formDraft.ts, Dale 13 Sep 2026) -----------------------------------------------------

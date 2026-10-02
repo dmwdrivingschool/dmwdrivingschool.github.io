@@ -2281,6 +2281,7 @@ function goTab(tab, pupilFilter){
   if(tab==="teams"){ loadTeamsPanel(); loadMockTestUsageCC(); }
   if(tab==="school"){ loadDrivingSchoolTab(); }
   if(tab==="pditraining"){ pdiRecordId=null; pdiTrainingLoad = loadPdiTraining(); }
+  if(tab==="diary") pdiCameFromDiary=false;
   if(tab==="messages"){ loadMessagesPanel(); }
   if(tab==="help"){ renderHelp(); }
   if(tab==="billing"){ loadBillingPanel(); }
@@ -8116,6 +8117,9 @@ function pdiTabAvailable(){
 // and as the app's diary goes to /instructor/pdis/:id (Dale, 1 Oct 2026). Press and hold still edits
 // the booking itself, so both ways in are kept. Anybody without the tab keeps the lesson editor.
 async function openTraineeRecordFrom(traineeId){
+  // Where we came from, so the record can offer the way back rather than leaving you to find the
+  // Diary tab again (Dale, 2 Oct 2026).
+  pdiCameFromDiary = true;
   goTab("pditraining");
   // goTab has already started the load; wait for THAT one, as openTrainerPickerFor does.
   try{ await pdiTrainingLoad; }catch(e){}
@@ -17887,9 +17891,11 @@ function pdiRowHtml(r){
 const PDI_TABS=[["summary","Summary"],["details","Details"],["lessons","Lessons"],["training","Training"],["progress","Progress"]];
 // DVSA's four, off the part 3 marking sheet, not the pupil syllabus's six (Dale, 2 Oct 2026).
 const PDI_COMPETENCY_LEVELS=["No evidence","Demonstrated in a few elements","Demonstrated in most elements","Demonstrated in all elements"];
+let pdiCameFromDiary=false;
 let pdiTab="summary", pdiRecordId=null, pdiPerson=null, pdiLicence=null, pdiLessons=[], pdiPart=2, pdiCompetencies=[], pdiLogs=[];
 // Switching tab redraws from what is already loaded, so it never goes back to the database.
 function setPdiTab(t){ pdiTab=t; renderTraineeRecord(); }
+function backToDiaryFromRecord(){ pdiCameFromDiary=false; pdiRecordId=null; goTab("diary"); }
 // Back to the list.
 function closeTrainee(){
   pdiRecordId=null;
@@ -17980,6 +17986,23 @@ function pdiPlanHtml(next){
     <div style="font-size:.88rem;white-space:pre-wrap">${esc(last.next_session||last.session_goal)}</div>
     ${when?`<div class="muted" style="font-size:.78rem;margin-top:.25rem">Set on ${when}</div>`:""}</div>`;
 }
+// The session whose write-up carries the plan: the last one that has been, or failing that the next
+// one, so a plan can be set before any training has happened at all.
+function pdiPlanSource(){
+  const mine=(pdiLessons||[]).filter(x=>x.lesson_type==="pdi_training"&&x.status!=="cancelled");
+  const now=new Date();
+  const past=mine.filter(x=>new Date(x.start_time)<now).sort((a,b)=>a.start_time<b.start_time?1:-1)[0];
+  if(past) return past;
+  return mine.filter(x=>new Date(x.start_time)>=now).sort((a,b)=>a.start_time<b.start_time?-1:1)[0]||null;
+}
+// Straight to the write-up that sets it, rather than making somebody find the session it came from
+// (Dale, 2 Oct 2026: "theres no quick way to edit that").
+function openPdiPlan(){
+  const l=pdiPlanSource();
+  if(!l) return alert("Book a training session first. The plan is what you set at the end of one.");
+  openPdiLog(l.id);
+  setTimeout(()=>{ const el=document.getElementById("pl-next"); if(el) el.focus(); },150);
+}
 function renderTraineeRecord(){
   const el=document.getElementById("pdi-training-detail"); if(!el) return;
   const id=pdiRecordId, r=pdiTrainingRows.find(x=>x.trainee_id===id); if(!r) return;
@@ -18031,7 +18054,10 @@ function renderTraineeRecord(){
     pane=`<div class="panel" style="margin-top:.6rem">
       <strong style="font-size:.9rem">Next training session</strong>
       <div style="margin:.3rem 0 1rem">${nextCard}</div>
-      <strong style="font-size:.9rem">Lesson plan</strong>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap">
+        <strong style="font-size:.9rem">Lesson plan</strong>
+        <button class="btn-outline btn-sm" onclick="openPdiPlan()">${pdiPlanSource()?"Edit the plan":"Set a plan"}</button>
+      </div>
       <div style="margin:.3rem 0 1rem" id="pdi-plan">${pdiPlanHtml(next)}</div>
       <strong style="font-size:.9rem">Training they have had</strong>
       <div style="margin-top:.3rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.6rem">
@@ -18222,7 +18248,10 @@ function renderTraineeRecord(){
   }
 
   el.innerHTML=`<div class="panel" style="margin-top:1rem;padding-bottom:.4rem">
-    <button class="btn-outline btn-sm" style="margin-bottom:.7rem" onclick="closeTrainee()">&lsaquo; All PDIs</button>
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.7rem">
+      <button class="btn-outline btn-sm" onclick="closeTrainee()">&lsaquo; All PDIs</button>
+      ${pdiCameFromDiary?`<button class="btn-outline btn-sm" onclick="backToDiaryFromRecord()">&lsaquo; Back to the diary</button>`:""}
+    </div>
     <div style="display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap">
       <div style="flex:1;min-width:14rem">
         <strong style="font-size:1.05rem">${esc(r.trainee_name||"Trainee")}</strong>

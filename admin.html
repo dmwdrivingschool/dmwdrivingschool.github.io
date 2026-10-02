@@ -20020,6 +20020,9 @@ const SEAT_PRICE_PENCE = 999; // £9.99 — kept in sync manually with the GoCar
 // business of its own. Subscription revenue and GoCardless fees are added by the GoCardless webhook.
 const PLATFORM_INCOME_DEFS=[
   {name:"Subscription revenue",label:"Subscription payments",heading:"turnover"},
+  // Websites and pass walls are bought once, so they are their own line. Counted in with the monthly
+  // money they made a month look better than it was (Dale, 2 Oct 2026).
+  {name:"Website revenue",label:"Websites & pass walls",heading:"turnover"},
   {name:"Other income",heading:"otherIncome"}
 ];
 const PLATFORM_EXPENSE_DEFS=[

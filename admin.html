@@ -11677,6 +11677,9 @@ ${esc(myFirst||"you")}</blockquote>
           <div class="field" style="max-width:380px"><label id="tb-travel-label">Standard Travel Time Either Side of the Test Slot</label>
             <div class="tb-travel-grid" role="radiogroup" aria-labelledby="tb-travel-label">${testTravelSettingChoices(v.travelMinutes).map(m=>`<label class="tb-travel-opt"><input type="radio" name="tb-travel" value="${m}" ${v.travelMinutes===m?"checked":""}><span>${esc(testTravelLabel(m))}</span></label>`).join("")}</div>
             <div class="muted" style="font-size:.75rem;margin-top:.35rem">Added before the start and after the end of the whole Test Slot, not just the test itself: 1 hour = 1 hour before the slot starts and 1 hour after it ends. All day = pupils avoid the whole day of the test. You can change it for one test in Add Lesson or Edit Lesson.</div></div>
+          <div class="field" style="max-width:380px"><label id="tb-lesson-label">Lesson Length Before a Test, on Test Day</label>
+            <div class="tb-travel-grid" role="radiogroup" aria-labelledby="tb-lesson-label">${[0,30,45,60,90,120].map(m=>`<label class="tb-travel-opt"><input type="radio" name="tb-lesson" value="${m}" ${v.lessonBeforeMinutes===m?"checked":""}><span>${esc(m===0?"None":testTravelLabel(m))}</span></label>`).join("")}</div>
+            <div class="muted" style="font-size:.75rem;margin-top:.35rem">If you like a lesson immediately before a test, pupils are told to leave this much room in front of the test time when they book it. It does not block anything out, it just tells them. None leaves the line off.</div></div>
           ${tick("tb-away",v.showAway,"Show My Holidays")}
           <div class="muted" style="font-size:.8rem;margin:0 0 .6rem 1.5rem">Each day of a holiday shows as a whole day to avoid.</div>
           ${tick("tb-appts",v.showAppointments,"Show My Appointments")}
@@ -14541,7 +14544,10 @@ function testTravelEachSide(m){ return (Number(m)===1440||Number(m)===0)?testTra
 function testTravelSettingChoices(current){ const n=testTravelValid(current); return n!=null&&!TEST_TRAVEL_CHOICES.includes(n)?[...TEST_TRAVEL_CHOICES,n]:TEST_TRAVEL_CHOICES.slice(); }
 function testBookingNormalise(v){
   const o=v&&typeof v==="object"?v:{}, m=testTravelValid(o.travelMinutes);
-  return {showReferenceNumber:o.showReferenceNumber===true, showTestTimes:o.showTestTimes===true, travelMinutes:m==null?60:m, showAway:o.showAway===true,
+  // How long a lesson they want on test day, immediately before the test. 0 to 240, 0 = say nothing.
+  const lb=Number(o.lessonBeforeMinutes);
+  return {lessonBeforeMinutes:Number.isInteger(lb)&&lb>=0&&lb<=240?lb:0,
+    showReferenceNumber:o.showReferenceNumber===true, showTestTimes:o.showTestTimes===true, travelMinutes:m==null?60:m, showAway:o.showAway===true,
     showAppointments:o.showAppointments===true};
 }
 // {ok, value}. ok is false only when the row couldn't be read; value is then the defaults.
@@ -14561,7 +14567,9 @@ async function saveTestBookingHelpNow(){
   if(!btn) return false;
   err.textContent=""; btn.disabled=true; btn.textContent="Saving…";
   const value=testBookingNormalise({showReferenceNumber:fieldChecked("tb-ref"), showTestTimes:fieldChecked("tb-times"),
-    travelMinutes:testTravelValid((document.querySelector('input[name="tb-travel"]:checked')||{}).value), showAway:fieldChecked("tb-away"), showAppointments:fieldChecked("tb-appts")});
+    travelMinutes:testTravelValid((document.querySelector('input[name="tb-travel"]:checked')||{}).value),
+    lessonBeforeMinutes:Number((document.querySelector('input[name="tb-lesson"]:checked')||{}).value)||0,
+    showAway:fieldChecked("tb-away"), showAppointments:fieldChecked("tb-appts")});
   let saved=false;
   try{
     const {error}=await sb.from("app_settings").upsert({id:"test_booking_help",owner_id:currentUserId,value,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
@@ -23668,7 +23676,8 @@ async function openQuoteReview(id){
     <div class="field"><label>First name</label><input id="qr-name" value="${esc(item.firstName||"")}" placeholder="As it should show on the card"></div>
     <div class="field"><label>What they wrote</label><textarea id="qr-words" rows="4" placeholder="Their review, word for word">${esc(item.words||"")}</textarea></div>
     <div class="field"><label>Where from</label><select id="qr-src">${opt("google","Google")}${opt("facebook","Facebook")}${opt("other","Somewhere else")}</select></div>
-    <div class="field"><label>Link to the review <span class="muted">(optional)</span></label><input id="qr-url" value="${esc(item.wordsUrl||"")}" placeholder="https://"></div>
+    <div class="field"><label>Link to the review</label><input id="qr-url" value="${esc(item.wordsUrl||"")}" placeholder="https://">
+      <div class="muted" style="font-size:.78rem;margin-top:.3rem">A Google or Facebook review is public, so it can be linked to. Anyone reading it can then go and check it, which is the difference between a review and an unlabelled quote on your own website. Somewhere else is the one that does not need a link.</div></div>
     <div class="err" id="qr-err" style="display:block;text-align:left"></div>
     <div class="actions">
       <button class="btn btn-navy btn-sm" onclick="saveQuoteReview('${id}')">Save</button>
@@ -23684,6 +23693,10 @@ async function saveQuoteReview(id){
   const source = document.getElementById("qr-src").value;
   const url = (document.getElementById("qr-url").value || "").trim();
   if (!words){ err.textContent = "Put in what they wrote, or use Remove the words."; return; }
+  if (!url && source !== "other"){
+    err.textContent = "Put the link to the review in. A Google or Facebook review is public, so it can always be linked to - and a quote nobody can check is not a review.";
+    return;
+  }
   if (url && !/^https?:\/\//i.test(url)){ err.textContent = "A link has to start with http:// or https://"; return; }
   err.textContent = "Saving…";
   const patch = {
@@ -23751,7 +23764,10 @@ function renderWebsiteGrid(){
           onclick="websiteMove('${item.id}',-1)" ${idx===0?"disabled":""}>↑</button>
         <button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem" title="Move down"
           onclick="websiteMove('${item.id}',1)" ${idx===websiteItems.length-1?"disabled":""}>↓</button>
-        ${isSuperAdminUser && websiteIsWall() ? `<button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem"
+        <!-- Was super admin only, so the one customer who bought a website could not use the thing he
+             had bought. The cards are already his own and the policy already says so, which is the
+             part that matters (Damian Ashton, 2 Oct 2026). -->
+        ${websiteIsWall() ? `<button type="button" class="btn-outline" style="padding:2px 8px;font-size:.75rem"
           title="Quote a review they left on Google or Facebook"
           onclick="openQuoteReview('${item.id}')">${item.words ? "Review" : "+ Review"}</button>` : ""}
         <button type="button" class="btn-danger" style="padding:2px 8px;font-size:.75rem"

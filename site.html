@@ -958,9 +958,25 @@
     // thing an instructor has, so they get a page of their own with the lot on it.
     if (page === "passes") {
       document.title = passLabel + " · " + name;
+      /* The way back for somebody whose photo went up outside the app.
+       *
+       * A pupil asked through the app gets their own withdraw link in an email. A photo an instructor
+       * uploaded themselves of somebody who passed years ago has no link and no email, so the only
+       * place the request can start is the page the person is looking at. It sits above the photos
+       * rather than in the footer, because somebody who has just found their own face is not going to
+       * go hunting (Dale, 2 Oct 2026, copying what his own passes page has always said).
+       *
+       * With no email set it points at the contact page. Nobody is left with photos up and no way to
+       * ask for them to come down. */
+      var takeDown = c.email
+        ? 'email <a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>'
+        : '<a href="' + urlFor("contact") + '">get in touch</a>';
       root.innerHTML = header +
         '<div class="wrap"><section class="page-head"><h1>' + esc(passLabel) + '</h1>' +
-        '<p class="sub">Every photo and every review, added the day they passed.</p></section>' +
+        '<p class="sub">Every photo and every review, added the day they passed.</p>' +
+        '<p class="sub" style="font-size:.9rem">Passed with us a while ago and would rather your photo was not here? ' +
+        'Just ' + takeDown + ' and I will take it down. No need to explain why, and it makes no ' +
+        'difference to anything else.</p></section>' +
         '<section class="band" style="border-top:0;padding-top:0"><div class="passes">' +
           passes.map(passCard).join("") +
         '</div><div class="more-passes"><a class="btn btn-quiet" href="' + urlFor("") + '">← Back to the main page</a></div>' +

@@ -23677,7 +23677,7 @@ async function openQuoteReview(id){
     <div class="field"><label>What they wrote</label><textarea id="qr-words" rows="4" placeholder="Their review, word for word">${esc(item.words||"")}</textarea></div>
     <div class="field"><label>Where from</label><select id="qr-src">${opt("google","Google")}${opt("facebook","Facebook")}${opt("other","Somewhere else")}</select></div>
     <div class="field"><label>Link to the review</label><input id="qr-url" value="${esc(item.wordsUrl||"")}" placeholder="https://">
-      <div class="muted" style="font-size:.78rem;margin-top:.3rem">A Google or Facebook review is public, so it can be linked to. Anyone reading it can then go and check it, which is the difference between a review and an unlabelled quote on your own website. Somewhere else is the one that does not need a link.</div></div>
+      <div class="muted" style="font-size:.78rem;margin-top:.3rem">Either the review itself or your reviews page will do. On Facebook the date above a review is a link to it, and Embed shows the same address; a single review does not always open for somebody who is not logged in, so your own reviews page is the safer one. Whichever you use, a reader can go and check it, and that is the difference between a review and an unlabelled quote on your own website. Somewhere else is the one that needs no link.</div></div>
     <div class="err" id="qr-err" style="display:block;text-align:left"></div>
     <div class="actions">
       <button class="btn btn-navy btn-sm" onclick="saveQuoteReview('${id}')">Save</button>
@@ -23694,7 +23694,7 @@ async function saveQuoteReview(id){
   const url = (document.getElementById("qr-url").value || "").trim();
   if (!words){ err.textContent = "Put in what they wrote, or use Remove the words."; return; }
   if (!url && source !== "other"){
-    err.textContent = "Put the link to the review in. A Google or Facebook review is public, so it can always be linked to - and a quote nobody can check is not a review.";
+    err.textContent = "Put a link in. Either the review itself or your Google or Facebook reviews page, so a reader can go and check it.";
     return;
   }
   if (url && !/^https?:\/\//i.test(url)){ err.textContent = "A link has to start with http:// or https://"; return; }

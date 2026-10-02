@@ -11615,6 +11615,10 @@ ${esc(myFirst||"you")}</blockquote>
       ${!termsSet && !readOnly ? notSetBox("Your Terms Aren't Set Yet", currentSchoolId
         ? "Your pupils, and every instructor's pupils, aren't asked to accept any terms until your driving school's terms are set. Below is a starting point. It isn't legal advice, so check it matches how you run your lessons, change anything that doesn't, then press Use These Terms."
         : "Your pupils aren't asked to accept any terms until you've set them. Below is a starting point. It isn't legal advice, so check it matches how you run your lessons, change anything that doesn't, then press Use These Terms.") : ""}
+      ${readOnly ? "" : `<div style="margin:0 0 .75rem;font-size:.85rem;background:#eef2ff;color:#1e293b;border-radius:8px;padding:.6rem .8rem">
+        <strong style="display:block;margin-bottom:.2rem">These are your terms</strong>
+        The text below is a starting point, not legal advice. The moment you save it, it is your terms and conditions in your name, and you are responsible for what is in it. Read it properly and change anything that is not how you work.</div>`}
+      ${readOnly ? "" : termsNewerHtml(termsSet ? body : "")}
       <p class="muted" style="margin-bottom:.5rem">${readOnly
         ? `These are ${esc(who)}'s terms and conditions. Every instructor in the driving school shows the same terms, so only your driving school admin can change them.`
         : (currentSchoolId ? `Shown to every pupil of every instructor in ${esc(who)} at their first login. Instructors can't change them.` : "Shown to your pupils at their first login. Write <code>{{HOURS}}</code> wherever your cancellation notice period should appear.")}</p>
@@ -12754,11 +12758,13 @@ async function setupGather(){
   if(!has.enquiry_gearbox) steps.push("car");
   if(!has.working_hours) steps.push("hours");
   if(!has.media_channels) steps.push("photos");
+  /* Terms, but only for somebody who can actually set them. An instructor inside a driving school
+     shows the school's, and only the school admin can change them. */
+  if(!has.terms_and_conditions && (!currentSchoolId || isSchoolAdminUser)) steps.push("terms");
   if(!pay.data) steps.push("pay");
 
   // Worth doing, never in the way.
   const later = [];
-  if(!has.terms_and_conditions) later.push(["terms","Your terms and conditions","What pupils accept when they first log in"]);
   if(!has.cancellation_policy) later.push(["terms","Your cancellation policy","How much notice you want, and what you charge if it is short"]);
   if(!has.business_type) later.push(["finance","Your tax year and vehicle costs","What the tax summary in Money is worked out from"]);
   if(!has.lesson_types) later.push(["lessontypes","Lesson types","Only if the standard list does not suit you"]);
@@ -12839,6 +12845,12 @@ function setupStepHtml(key){
     '<div class="field"><label>How can a pupil ask you to take one down?</label>' +
       '<input id="su-optout" placeholder="e.g. Message me on 07700 900000, or just tell me at a lesson">' +
       '<div class="muted" style="font-size:.75rem;margin-top:.3rem">Somewhere to post with no way to ask for it to come down is the half that gets an instructor in trouble.</div></div>';
+  if(key==="terms") return '' +
+    '<p class="muted" style="font-size:.85rem;margin-bottom:.6rem">Your pupils accept these when they first log in. Below is a starting point, not legal advice. The moment you use it, it is <strong>your</strong> terms in your name and you are responsible for what is in it, so read it and change anything that is not how you work.</p>' +
+    '<div class="field" style="max-width:260px"><label>Cancellation notice period (hours)</label><input id="su-hours" type="number" min="0" step="1" value="48"></div>' +
+    '<div class="muted" style="font-size:.75rem;margin:-.4rem 0 .6rem">Wherever the terms say {{HOURS}}, your pupils see this number. Pupils who cancel with less notice than this are flagged for a charge decision.</div>' +
+    '<textarea id="su-terms" rows="12" style="width:100%;padding:.6rem;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit;font-size:.8rem;line-height:1.45">' + esc(DEFAULT_TERMS_BODY) + '</textarea>' +
+    '<label class="le-tick" style="margin:.6rem 0 0;align-items:flex-start"><input type="checkbox" id="su-terms-ok" style="margin-top:.2rem"><span>I have read these and I am happy to use them as my terms</span></label>';
   if(key==="pay") return '' +
     '<p class="muted" style="font-size:.85rem;margin-bottom:.6rem">Would you like your bank details on the Payments screen in your pupils\' app, so they can pay you by transfer?</p>' +
     '<div class="tb-travel-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))" role="radiogroup">' +
@@ -12898,6 +12910,30 @@ async function setupNext(){
       const r=await sb.from("app_settings").upsert({id:"media_channels",owner_id:currentUserId,
         value:{channels:channels,opt_out_how:how},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
       if(r.error) return fail(r.error.message);
+    } else if(key==="terms"){
+      /* The tick is the whole point of this step. Pressing Save on a screenful of text you have not
+         read is how three of the first four ended up showing pupils terms they had never seen, so
+         taking them on is a separate, recorded act (Dale, 2 Oct 2026). */
+      const body=(document.getElementById("su-terms").value||"").trim();
+      if(!body) return fail("Your terms cannot be empty.");
+      if(!document.getElementById("su-terms-ok").checked) return fail("Read them through, then tick to say you are happy to use them.");
+      const hours=Math.max(0,Math.round(Number(g("su-hours"))||0));
+      if(body.indexOf("{{HOURS}}")!==-1 && !hours) return fail("With the notice set to 0, your terms would tell pupils they can cancel at any time. Put a number in, or take {{HOURS}} out of the text.");
+      const stamp={body, version:TERMS_VERSION, adopted_at:new Date().toISOString(), adopted_by:currentUserId,
+        source: body===DEFAULT_TERMS_BODY.trim() ? "standard" : "edited"};
+      if(currentSchoolId && isSchoolAdminUser){
+        const r=await sb.from("schools").update({terms_body:body, cancellation_notice_hours:hours}).eq("id",currentSchoolId);
+        if(r.error) return fail(r.error.message);
+      } else {
+        const r=await sb.from("app_settings").upsert({id:"terms_and_conditions",owner_id:currentUserId,
+          value:stamp,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+        if(r.error) return fail(r.error.message);
+        const r2=await sb.from("app_settings").upsert({id:"cancellation_policy",owner_id:currentUserId,
+          value:{noticeHours:hours},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+        if(r2.error) return fail(r2.error.message);
+      }
+      termsSetCache={key:currentUserId+"|"+(currentSchoolId||""),set:true};
+      try{ renderTermsBanner(); }catch(e){}
     } else if(key==="pay"){
       const yes=(document.querySelector('input[name="su-pay"]:checked')||{}).value==="yes";
       if(yes && (!g("su-acc-name")||!g("su-sort")||!g("su-acc"))) return fail("Name, sort code and account number, or choose No thanks.");
@@ -21422,7 +21458,68 @@ function saveReminders(){
   }));
   alert("Saved");
 }
+/* The version of the standard terms. Bump it whenever DEFAULT_TERMS_BODY changes, and add what was
+   added to TERMS_ADDITIONS so people already on an older copy are offered it.
+
+   Saving terms takes a FROZEN COPY, so every improvement to the wording reached nobody who had
+   already saved. On 2 Oct 2026 three of the four paying instructors were on a copy that predates the
+   photo consent section entirely, and the only way they would ever have got it was retyping it
+   (Dale: "im more worried they dont even know they exist and there pupils are accepting my terms"). */
+const TERMS_VERSION = 2;
+
+/* Each entry: how to tell whether a body already has it, and the text to offer. Nothing is ever
+   written without the instructor pressing the button and then Save: their edits are their own and a
+   silent rewrite of a legal document is the last thing anybody wants. */
+const TERMS_ADDITIONS = [{
+  version: 2,
+  marker: "PHOTOS OF YOU",
+  title: "A section about pass photos",
+  why: "What a photo can be used for, that agreeing to one place is not agreeing to another, and how a pupil changes their mind.",
+  text: "9. PHOTOS OF YOU\n9.1. Your instructor may ask to use a photo of you after you pass. You choose whether they can, and where - their website, social media, or nowhere at all - and you are asked about each place separately.\n9.2. You do not have to agree to any of it. It is not a condition of your lessons and it makes no difference to them.\n9.3. A photo only goes somewhere you have ticked. Agreeing to one place is not agreeing to another.\n9.4. You can change your mind at any time in your profile, and your instructor is told. A photo on your instructor's Drive My Way website comes down straight away and the picture itself is deleted.\n9.5. A photo your instructor has already posted somewhere else can only be taken down by them, so please ask them directly. They will tell you how to reach them.\n9.6. If you write a few words to go with your photo, your instructor decides whether to show them, and you can ask for them to be removed at any time."
+}];
+
+/** What this body is missing. Matched on the text, not a version number: the three who needed it most had no version stamp at all, and two had edited their copy. */
+function termsMissingSections(body){
+  const t = String(body||"");
+  return TERMS_ADDITIONS.filter(function(a){ return t.indexOf(a.marker) === -1; });
+}
+
+/* Put a section in above the closing line, which is where it belongs, or on the end if they have
+   written their own and there is no closing line to find. Never saved for them. */
+function termsAddSection(i){
+  const add = TERMS_ADDITIONS[i]; if(!add) return;
+  const box = document.getElementById("terms-body"); if(!box) return;
+  const body = box.value || "";
+  if(body.indexOf(add.marker) !== -1) return;
+  const closing = "By booking lessons, you agree to these terms.";
+  const at = body.lastIndexOf(closing);
+  box.value = at === -1
+    ? body.replace(/\s*$/, "") + "\n\n" + add.text + "\n"
+    : body.slice(0, at).replace(/\s*$/, "") + "\n\n" + add.text + "\n\n" + body.slice(at);
+  const note = document.getElementById("terms-newer"); if(note) note.remove();
+  box.focus();
+  box.setSelectionRange(Math.max(0, at === -1 ? box.value.length : at), Math.max(0, at === -1 ? box.value.length : at));
+  const err = document.getElementById("terms-err");
+  if(err){ err.style.color="#0a7a3d"; err.textContent="Added. Read it, change anything you want, then press Save."; }
+}
+
 const DEFAULT_TERMS_BODY = "Terms and Conditions\nDriving Lessons Agreement\n\nThese terms are between you (the pupil) and your driving instructor or driving school. Please read them before booking lessons.\n\n1. BEFORE YOUR FIRST LESSON\n1.1. You must hold a valid provisional driving licence and be able to meet the DVSA eyesight requirement.\n1.2. Please tell your instructor about any medical condition or medication that could affect your driving.\n\n2. INSURANCE\n2.1. Lessons in your instructor's car are covered by their insurance while they are supervising you.\n\n3. PAYMENTS AND REFUNDS\n3.1. Lessons are paid for in the way your instructor tells you, usually in advance.\n3.2. You have a 14-day cooling-off period to cancel and get a full refund, as long as no lessons have taken place. If you have lessons during those 14 days, you pay for the lessons you've had.\n3.3. If you have paid in advance for lessons you haven't had, ask your instructor about a refund.\n\n4. CANCELLING OR MOVING A LESSON\n4.1. Please give at least {{HOURS}} hours' notice to cancel or move a lesson. Lessons cancelled with less notice, or missed, may be charged in full.\n4.2. Your instructor will give you as much notice as they can if they need to cancel, apart from emergencies, bad weather or the car breaking down.\n\n5. DRIVING TESTS\n5.1. You are responsible for booking your driving test and for following DVSA's rules on changing or cancelling it.\n5.2. Your instructor may decline to take you to a test in their car if they don't think you are ready or safe to drive.\n\n6. SAFETY\n6.1. You must not drive under the influence of alcohol or drugs. Your instructor will stop or refuse a lesson if they think you are unfit to drive.\n6.2. If your test is ended early by the examiner, you must not drive the car away.\n\n7. YOUR BELONGINGS\n7.1. Your instructor is not responsible for personal belongings left in the car.\n\n8. YOUR INFORMATION\n8.1. Your details are only used to arrange and run your lessons, and are kept securely in line with UK data protection law.\n\n9. PHOTOS OF YOU\n9.1. Your instructor may ask to use a photo of you after you pass. You choose whether they can, and where - their website, social media, or nowhere at all - and you are asked about each place separately.\n9.2. You do not have to agree to any of it. It is not a condition of your lessons and it makes no difference to them.\n9.3. A photo only goes somewhere you have ticked. Agreeing to one place is not agreeing to another.\n9.4. You can change your mind at any time in your profile, and your instructor is told. A photo on your instructor's Drive My Way website comes down straight away and the picture itself is deleted.\n9.5. A photo your instructor has already posted somewhere else can only be taken down by them, so please ask them directly. They will tell you how to reach them.\n9.6. If you write a few words to go with your photo, your instructor decides whether to show them, and you can ask for them to be removed at any time.\n\nBy booking lessons, you agree to these terms.";
+/* The offer. Only ever shown over terms that are already saved: somebody still looking at the
+   starting template has the newest wording in front of them already. */
+function termsNewerHtml(savedBody){
+  if(!savedBody || !savedBody.trim()) return "";
+  const missing = termsMissingSections(savedBody);
+  if(!missing.length) return "";
+  const rows = missing.map(function(a){
+    const i = TERMS_ADDITIONS.indexOf(a);
+    return '<div style="margin-top:.5rem"><strong>' + esc(a.title) + '</strong><div class="muted" style="font-size:.82rem">' + esc(a.why) + '</div>' +
+      '<button class="btn-outline btn-sm" style="margin-top:.35rem" onclick="termsAddSection(' + i + ')">Add this to my terms</button></div>'; }).join("");
+  return '<div id="terms-newer" style="margin:0 0 .75rem;font-size:.85rem;background:#ecfdf5;color:#065f46;border-radius:8px;padding:.6rem .8rem">' +
+    '<strong style="display:block">The standard terms have been added to since you saved yours</strong>' +
+    '<span class="muted" style="font-size:.82rem">Nothing is changed unless you press the button, and your own wording is left alone.</span>' +
+    rows + '</div>';
+}
+
 async function saveTerms(wasSet){
   const body=(document.getElementById("terms-body").value||"").trim();
   const err=document.getElementById("terms-err"); err.textContent="";
@@ -21433,7 +21530,12 @@ async function saveTerms(wasSet){
     const {error}=await sb.from("schools").update({terms_body:body, cancellation_notice_hours:hours}).eq("id",currentSchoolId);
     if(error){ err.textContent=error.message; return; }
   } else if(!currentSchoolId){
-    const {error}=await sb.from("app_settings").upsert({id:"terms_and_conditions",owner_id:currentUserId,value:{body},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
+    /* Stamped so a later improvement to the standard wording can find whoever is behind, and so
+       there is a record of who took these on and when. "Pressed Save" is not the same as "read it",
+       but it is the difference between a decision and something that happened to them. */
+    const stamp={body, version:TERMS_VERSION, adopted_at:new Date().toISOString(), adopted_by:currentUserId,
+      source: body.trim()===DEFAULT_TERMS_BODY.trim() ? "standard" : "edited"};
+    const {error}=await sb.from("app_settings").upsert({id:"terms_and_conditions",owner_id:currentUserId,value:stamp,updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
     if(error){ err.textContent=error.message; return; }
     const {error:e2}=await sb.from("app_settings").upsert({id:"cancellation_policy",owner_id:currentUserId,value:{noticeHours:hours},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"});
     if(e2){ err.textContent=e2.message; return; }

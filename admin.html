@@ -6299,6 +6299,11 @@ function renderWebsiteEditor(){
 
   <div class="panel">
     <h3 style="margin-top:0">Your web address</h3>
+    ${siteRow.published ? "" : `<div style="margin:0 0 .9rem;font-size:.85rem;background:#fef3c7;color:#78350f;border-radius:8px;padding:.6rem .8rem">
+      <strong style="display:block;margin-bottom:.2rem">Your site is not live yet</strong>
+      An address only takes somebody to a site that has been published. Until you press
+      <strong>Put it live</strong> above, anyone typing ${siteRow.domain ? esc(siteRow.domain) : "your address"} gets
+      "this page isn't available".</div>`}
     <p class="muted">Every site comes with a free drivemyway address. Change it to whatever you like —
       it is yours the moment you save it, and it keeps working even if you buy your own later.</p>
     <div class="sf-addr">

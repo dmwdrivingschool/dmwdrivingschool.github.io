@@ -646,6 +646,23 @@ tbody tr:hover td{background:#334263}
 .nav-billing:hover{background:rgba(16,185,129,.12)}
 .nav-help{color:var(--bad);border-color:var(--bad)}
 .nav-help:hover{background:rgba(220,38,38,.12)}
+.wf-day{position:relative;border:1px solid var(--line);border-radius:.5rem;overflow:hidden}
+.wf-gutter{width:3.6rem;flex:none;border-right:1px solid var(--line)}
+.wf-gutter div{font-size:.72rem;color:var(--muted);padding-right:.35rem;text-align:right;box-sizing:border-box}
+.wf-cols{flex:1;display:flex}
+.wf-col{flex:1;position:relative;border-left:1px solid var(--line);cursor:pointer}
+.wf-col:first-child{border-left:0}
+.wf-hr{position:absolute;left:0;right:0;border-top:1px solid var(--line);pointer-events:none}
+.wf-half{border-top-style:dotted;opacity:.55}
+.wf-les{position:absolute;left:2px;right:2px;border-radius:.35rem;padding:.15rem .3rem;font-size:.72rem;line-height:1.15;
+  background:rgba(217,119,6,.25);border:1px solid rgba(217,119,6,.65);color:var(--ink);overflow:hidden;cursor:pointer;z-index:3}
+.wf-les b{display:block;font-size:.74rem}
+.wf-pick{position:absolute;left:2px;right:2px;border-radius:.35rem;background:rgba(37,99,235,.35);border:1px solid var(--navy);z-index:2;pointer-events:none}
+.wf-headrow{display:flex;background:var(--soft);border-bottom:1px solid var(--line)}
+.wf-headrow .sp{width:3.6rem;flex:none;border-right:1px solid var(--line)}
+.wf-headrow .h{flex:1;text-align:center;font-size:.75rem;font-weight:700;padding:.3rem 0;border-left:1px solid var(--line)}
+.wf-headrow .h:first-of-type{border-left:0}
+.wf-headrow .h.today{color:var(--navy)}
 </style>
 
 </head>
@@ -1134,6 +1151,8 @@ tbody tr:hover td{background:#334263}
       <!-- One row per instructor, shut. Open it for everything the school knows about them
            (Dale, 30 Sep 2026: "minimied initially press it expands to show the full table of
            everything"). -->
+      <div style="margin:0 0 1rem"><button type="button" class="btn btn-navy btn-sm" onclick="wfToggle()">Who is free?</button>
+        <span class="muted" style="font-size:.82rem;margin-left:.5rem">Find somebody to take a lesson, or cover one.</span></div>
       <div class="panel" id="school-instructors-panel">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;flex-wrap:wrap">
           <h2 style="margin-bottom:.35rem">Instructors at a glance</h2>
@@ -1142,6 +1161,25 @@ tbody tr:hover td{background:#334263}
         <p class="muted" style="margin-bottom:.75rem">Tap an instructor to open their full record. Test figures are completed tests in the last 12 months, the same ones your Snapshot is built from.</p>
         <div id="school-instructors-list">Loading…</div>
       </div>
+      <!-- Hand an unassigned pupil to whoever can actually take them (Dale, 3 Oct 2026). A blank day:
+           click the time you want, say who it is for and how long, and it says who is free, nearest
+           to that pupil first. -->
+      <div class="panel hidden" id="school-whofree-panel">
+        <h2 style="margin-bottom:.35rem">Who is free?</h2>
+        <p class="muted" style="margin-bottom:.75rem">Pick a day, click the time you want, and it works out which of your instructors can take it.</p>
+        <div style="display:flex;gap:.6rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:.7rem">
+          <div class="field" style="margin:0"><label>Day</label><input type="date" id="wf-date" onchange="wfRenderSlots()"></div>
+          <button type="button" class="btn-outline btn-sm" onclick="wfToday()">Today</button>
+          <span class="d-views" id="wf-views"><button type="button" data-view="day" onclick="wfSetView('day')">Day</button><button type="button" data-view="week" class="on" onclick="wfSetView('week')">Week</button></span>
+          <button type="button" class="btn-outline d-nav" onclick="wfStep(-1)">&lsaquo;</button>
+          <button type="button" class="btn-outline d-nav" onclick="wfStep(1)">&rsaquo;</button>
+          <div class="field" style="margin:0;min-width:13rem"><label>Show whose diary</label>
+            <select id="wf-whose" onchange="wfRenderSlots()"><option value="">Nobody, just a blank day</option></select>
+          </div>
+        </div>
+        <div id="wf-slots" class="wf-day"></div>
+      </div>
+
 
     </section>
 
@@ -18118,6 +18156,7 @@ async function loadDrivingSchoolTab(){
   if(!schoolInstructorsCache.length) await loadSchoolInstructors();
   schoolLast12=testsCache.filter(t=>(t.result==="pass"||t.result==="fail")&&new Date(t.test_date)>=yearAgo);
   await renderSchoolInstructors(schoolLast12);
+  await wfRenderSlots();
 }
 
 // Everything the school knows about each instructor, one shut row at a time.
@@ -18135,6 +18174,410 @@ function sortSchoolInstructors(key){
 }
 let schoolInstructorData=null;
 let schoolLast12=[], schoolAheadCache=null;
+function wfToggle(){
+  const el=document.getElementById("school-whofree-panel"); if(!el) return;
+  const showing=el.classList.toggle("hidden")===false;
+  if(showing){ wfRenderSlots(); el.scrollIntoView({behavior:"smooth",block:"start"}); }
+}
+
+// --- Who is free? ---------------------------------------------------------------------------------
+//
+// Hand a pupil to whoever can actually take them (Dale, 3 Oct 2026). A blank day rather than four
+// diaries overlaid: click the time you want, say who it is for, and it tells you which instructors
+// are free, nearest to that pupil first.
+//
+// Nearest is real miles, not a postcode guess. Each postcode is looked up once against postcodes.io
+// (Ordnance Survey and ONS open data, no key, no cost) and the coordinates kept in postcode_points,
+// so a pupil's postcode leaves the building once and never again.
+let wfSlot=null, wfPupils=[], wfResult=null, wfBusy=false;
+
+function wfToday(){
+  const el=document.getElementById("wf-date");
+  if(el){ el.value=new Date().toISOString().slice(0,10); wfRenderSlots(); }
+}
+
+// A day, drawn like a diary rather than a row of buttons. Empty by default; pick an instructor and
+// their lessons are drawn on it, greyed and read only, so you can see what needs covering. Click one
+// of theirs and it fills in that pupil, that time and that length ready to hand on (Dale, 3 Oct 2026).
+let wfWhoseLessons=[], wfView="week";   // a week by default: covering somebody is rarely about one day
+
+function wfSetView(v){
+  wfView=v;
+  document.querySelectorAll("#wf-views button").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
+  wfRenderSlots();
+}
+function wfStep(n){
+  const d=document.getElementById("wf-date"); if(!d||!d.value) return;
+  const t=new Date(d.value+"T12:00:00");
+  t.setDate(t.getDate()+n*(wfView==="week"?7:1));
+  d.value=t.toISOString().slice(0,10);
+  wfRenderSlots();
+}
+// Monday first, same as the diary.
+function wfWeekDays(dateStr){
+  const d=new Date(dateStr+"T12:00:00");
+  const back=(d.getDay()+6)%7;
+  d.setDate(d.getDate()-back);
+  return Array.from({length:7},(_,i)=>{ const x=new Date(d); x.setDate(d.getDate()+i); return x.toISOString().slice(0,10); });
+}
+
+const WF_START=7, WF_END=21, WF_HOURH=34;   // 7am to 9pm. Tight enough to see a whole day at once.
+
+async function wfRenderSlots(){
+  const grid=document.getElementById("wf-slots"); if(!grid) return;
+  const d=document.getElementById("wf-date");
+  if(d && !d.value) d.value=new Date().toISOString().slice(0,10);
+  const anchor=d?d.value:null; if(!anchor) return;
+  const days = wfView==="week" ? wfWeekDays(anchor) : [anchor];
+
+  if(!(schoolInstructorsCache||[]).length) await loadSchoolInstructors();
+  const whose=document.getElementById("wf-whose");
+  if(whose && whose.options.length<=1){
+    whose.innerHTML='<option value="">Nobody, just a blank day</option>'
+      + (schoolInstructorsCache||[]).map(i=>`<option value="${i.id}">${esc(i.full_name||i.email)}</option>`).join("");
+  }
+  const whoseId=whose?whose.value:"";
+
+  wfWhoseLessons=[];
+  if(whoseId){
+    const from=new Date(days[0]+"T00:00:00"), to=new Date(days[days.length-1]+"T23:59:59");
+    const {data}=await sb.from("lessons")
+      .select("id,pupil_id,start_time,end_time,lesson_type,status")
+      .eq("instructor_id",whoseId)
+      .gte("start_time",from.toISOString()).lte("start_time",to.toISOString());
+    wfWhoseLessons=(data||[]).filter(l=>l.status!=="cancelled");
+  }
+
+  const hours=WF_END-WF_START, gridH=hours*WF_HOURH;
+  const top=mins=>(mins-WF_START*60)/60*WF_HOURH;
+  const today=new Date().toISOString().slice(0,10);
+  const dayOf=l=>new Date(l.start_time).toISOString().slice(0,10);
+  const mins=iso=>{ const t=new Date(iso); return t.getHours()*60+t.getMinutes(); };
+
+  const head = days.length>1
+    ? `<div class="wf-headrow"><div class="sp"></div>${days.map(day=>{
+        const dt=new Date(day+"T12:00:00");
+        return `<div class="h${day===today?" today":""}">${dt.toLocaleDateString("en-GB",{weekday:"short"})} ${dt.getDate()}</div>`;
+      }).join("")}</div>` : "";
+
+  const gutter=`<div class="wf-gutter" style="height:${gridH}px;position:relative">${
+    Array.from({length:hours+1},(_,i)=>`<div style="position:absolute;top:${i*WF_HOURH-6}px;right:0">${String(WF_START+i).padStart(2,"0")}:00</div>`).join("")
+  }</div>`;
+
+  const lines=Array.from({length:hours*2+1},(_,i)=>
+    `<div class="wf-hr${i%2?" wf-half":""}" style="top:${i*WF_HOURH/2}px"></div>`).join("");
+
+  const cols=days.map(day=>{
+    // Two lessons over the same time share the width rather than hiding each other. Same idea as the
+    // diary: work out how many overlap, then give each one its slice (Dale, 3 Oct 2026).
+    const mine=wfWhoseLessons.filter(l=>dayOf(l)===day)
+      .sort((x,y)=>mins(x.start_time)-mins(y.start_time));
+    const lanes=[];
+    mine.forEach(l=>{
+      const s0=mins(l.start_time), e0=mins(l.end_time);
+      let lane=lanes.findIndex(end=>end<=s0);
+      if(lane<0){ lane=lanes.length; }
+      lanes[lane]=e0;
+      l._lane=lane;
+    });
+    const wide=Math.max(1,lanes.length);
+    const les=mine.map(l=>{
+      const a=top(mins(l.start_time)), b=top(mins(l.end_time));
+      const p=wfPupilName(l.pupil_id);
+      const hm=iso=>{const t=new Date(iso);return String(t.getHours()).padStart(2,"0")+":"+String(t.getMinutes()).padStart(2,"0");};
+      const w=100/wide, left=l._lane*w;
+      return `<div class="wf-les" style="top:${Math.max(0,a)}px;height:${Math.max(16,b-a-2)}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px);right:auto"
+        onclick="event.stopPropagation();wfTakeOver('${l.id}')"><b>${esc(p)}</b>${hm(l.start_time)}–${hm(l.end_time)}</div>`;
+    }).join("");
+    const pick = (wfSlot&&wfSlot.date===day)
+      ? `<div class="wf-pick" style="top:${top(Number(wfSlot.time.slice(0,2))*60+Number(wfSlot.time.slice(3)))}px;height:${wfSlot.minutes/60*WF_HOURH}px"></div>` : "";
+    return `<div class="wf-col" style="height:${gridH}px" onclick="wfClickCol(event,'${day}')">${lines}${pick}${les}</div>`;
+  }).join("");
+
+  grid.innerHTML=head+`<div style="display:flex">${gutter}<div class="wf-cols">${cols}</div></div>`;
+}
+
+// Where you clicked, to the nearest half hour.
+function wfClickCol(ev,day){
+  const col=ev.currentTarget, r=col.getBoundingClientRect();
+  const m=WF_START*60 + Math.round(((ev.clientY-r.top)/WF_HOURH*60)/30)*30;
+  const hh=String(Math.floor(m/60)).padStart(2,"0"), mm=String(m%60).padStart(2,"0");
+  wfPick(hh+":"+mm, day);
+}
+
+// Any pupil in the school, whatever their status. Naming somebody is not booking them, and filtering
+// to active meant every other lesson read "Private" (Dale, 3 Oct 2026).
+function wfPupilName(id){
+  if(!id) return "Private";
+  const all=[...(pupilsCache||[]),...(schoolPupilsCache||[]),...(unassignedCache||[])];
+  const p=all.find(x=>x.id===id);
+  return p ? [p.first_name,p.last_name].filter(Boolean).join(" ") : "Private";
+}
+
+
+// Clicking one of their lessons: take that pupil, that time and that length straight into the box.
+async function wfTakeOver(lessonId){
+  const l=wfWhoseLessons.find(x=>x.id===lessonId); if(!l) return;
+  if(new Date(l.start_time) < new Date()){ showBanner("That lesson has already been."); return; }
+  const st=new Date(l.start_time);
+  const time=String(st.getHours()).padStart(2,"0")+":"+String(st.getMinutes()).padStart(2,"0");
+  const mins=Math.round((new Date(l.end_time)-st)/60000);
+  wfSlot={date:new Date(l.start_time).toISOString().slice(0,10), time, minutes:mins,
+          lessonType:l.lesson_type||"lesson", pupilId:l.pupil_id, movingLessonId:l.id};
+  wfResult=null;
+  await wfRenderSlots();
+  wfWhoIsFree();
+}
+
+async function wfPick(time, day){
+  const date=day||(document.getElementById("wf-date")||{}).value;
+  if(!date) return;
+  // There is no reason to book backwards, and doing it by accident puts a lesson in a diary nobody
+  // will ever look at again (Dale, 3 Oct 2026).
+  if(new Date(date+"T"+time+":00") < new Date()){
+    showBanner("That time has already been.");
+    return;
+  }
+  // The names come from here. The school tab usually has it already; a direct link might not.
+  if(!(schoolInstructorsCache||[]).length) await loadSchoolInstructors();
+  wfSlot={date,time,minutes:60,lessonType:"lesson",pupilId:null};
+  wfResult=null;
+  await wfRenderSlots();
+  // Clicking a time IS the question. Making somebody press a second button to get the answer was
+  // one step too many (Dale, 3 Oct 2026).
+  wfWhoIsFree();
+}
+
+// Every pupil in the school, not just the unassigned ones: the same question comes up when somebody
+// is off sick and a dozen booked pupils need covering (Dale, 3 Oct 2026).
+function wfPupilList(){
+  const all=[...(pupilsCache||[]),...(schoolPupilsCache||[]),...(unassignedCache||[])];
+  const seen=new Set();
+  return all.filter(p=>{
+    if(seen.has(p.id)) return false; seen.add(p.id);
+    return p.status==="active"||p.status==="waiting";
+  }).map(p=>({
+    id:p.id,
+    name:[p.first_name,p.last_name].filter(Boolean).join(" "),
+    postcode:p.postcode||"",
+    instructorId:p.instructor_id||null,
+    // instrName() off schoolInstructorsCache, not staffNames: staffNames is only built when the
+    // Messages tab is opened and it leaves out whoever is signed in, so every pupil read "another
+    // instructor" (Dale, 3 Oct 2026).
+    instructor:p.instructor_id?instrName(p.instructor_id):"",
+  })).sort((a,b)=>(a.instructorId?1:0)-(b.instructorId?1:0) || a.name.localeCompare(b.name));
+}
+
+// The answer goes in a popup over the diary rather than below it: the grid is a screenful on its
+// own, and having to scroll between the time you clicked and who could take it made it useless
+// (Dale, 3 Oct 2026).
+function wfRenderResult(){
+  if(!wfSlot) return;
+  const q=((document.getElementById("wf-search")||{}).value||"").trim().toLowerCase();
+  const pupils=wfPupilList().filter(p=>!q||p.name.toLowerCase().includes(q)||(p.instructor||"").toLowerCase().includes(q));
+  const chosen=pupils.find(p=>p.id===wfSlot.pupilId)||null;
+  const when=new Date(wfSlot.date+"T12:00:00");
+  openModal(`
+    <h2 style="margin-bottom:.15rem">Who is free?</h2>
+    <p class="muted" style="margin-bottom:.8rem">${esc(when.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"}))} at ${esc(wfSlot.time)}</p>
+    <div class="field" style="margin:0 0 .5rem"><label>Find a pupil</label>
+      <input id="wf-search" value="${esc(q)}" placeholder="Pupil name, or their instructor's name" oninput="wfRenderResult()">
+    </div>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+      <div class="field" style="margin:0;flex:1;min-width:13rem"><label>Pupil</label>
+        <select id="wf-pupil" onchange="wfSlot.pupilId=this.value||null;wfWhoIsFree()">
+          <option value="">Choose a pupil</option>
+          ${pupils.map(p=>`<option value="${p.id}" ${wfSlot.pupilId===p.id?"selected":""}>${esc(p.name)}${p.instructorId?" — "+esc(p.instructor||"another instructor"):" — unassigned"}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field" style="margin:0"><label>How long</label>
+        <select id="wf-mins" onchange="wfSlot.minutes=Number(this.value);wfWhoIsFree()">
+          ${[30,60,90,120,180].map(m=>`<option value="${m}" ${wfSlot.minutes===m?"selected":""}>${m<60?m+" mins":(m/60)+(m===60?" hour":" hours")}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field" style="margin:0"><label>Type</label>
+        <select id="wf-type" onchange="wfSlot.lessonType=this.value">${lessonTypeOptions(wfSlot.lessonType,[])}</select>
+      </div>
+    </div>
+    ${chosen&&!chosen.postcode?'<p class="muted" style="font-size:.8rem;margin:.4rem 0 0">This pupil has no postcode, so nobody can be put in order of how near they are.</p>':""}
+    <div id="wf-list" style="margin-top:.8rem;max-height:46vh;overflow-y:auto">${wfBusy?'<p class="muted">Looking…</p>':(wfResult?wfListHtml(chosen):"")}</div>
+    <div style="margin-top:.9rem"><button class="btn-outline" onclick="closeModal()">Close</button></div>`);
+}
+
+// Coordinates for a list of postcodes: ours first, then whatever is missing from postcodes.io in one
+// request, and anything new is kept so it is never asked for again.
+async function wfPoints(postcodes){
+  const want=[...new Set((postcodes||[]).map(wfNormPc).filter(Boolean))];
+  if(!want.length) return {};
+  const out={};
+  const {data:known}=await sb.from("postcode_points").select("postcode,latitude,longitude").in("postcode",want);
+  (known||[]).forEach(r=>{ out[r.postcode]={lat:r.latitude,lng:r.longitude}; });
+  const missing=want.filter(pc=>!out[pc]);
+  if(missing.length){
+    try{
+      const res=await fetch("https://api.postcodes.io/postcodes",{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({postcodes:missing})
+      });
+      const body=await res.json();
+      const rows=[];
+      (body.result||[]).forEach(r=>{
+        const g=r&&r.result; if(!g) return;
+        const key=wfNormPc(g.postcode);
+        out[key]={lat:g.latitude,lng:g.longitude};
+        rows.push({postcode:key,latitude:g.latitude,longitude:g.longitude});
+      });
+      // Best effort. A postcode we could not keep just gets looked up again next time.
+      if(rows.length) await sb.from("postcode_points").insert(rows);
+    }catch(e){ /* offline, or postcodes.io having a bad day: everything still works, just unsorted */ }
+  }
+  return out;
+}
+function wfNormPc(pc){ return String(pc||"").toUpperCase().replace(/[^A-Z0-9]/g,"") || null; }
+function wfMiles(a,b){
+  if(!a||!b) return null;
+  const R=3958.8, rad=d=>d*Math.PI/180;
+  const dLat=rad(b.lat-a.lat), dLng=rad(b.lng-a.lng);
+  const h=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;
+  return Math.round(2*R*Math.asin(Math.sqrt(h))*10)/10;
+}
+
+async function wfWhoIsFree(){
+  if(!wfSlot||wfBusy) return;
+  wfBusy=true; wfRenderResult();
+  try{
+    const startIso=new Date(wfSlot.date+"T"+wfSlot.time+":00").toISOString();
+    const {data,error}=await sb.rpc("school_who_is_free",{
+      p_start:startIso, p_minutes:wfSlot.minutes, p_pupil:wfSlot.pupilId||null
+    });
+    if(error) throw error;
+    const rows=(data||[]).map(r=>({...r}));
+    // Put the free ones in order of how near they already are. A pupil with no postcode, or an
+    // instructor with nothing else on that day, simply has no distance - they go after the ones
+    // that do rather than being guessed at.
+    const pupil=wfPupilList().find(p=>p.id===wfSlot.pupilId);
+    if(pupil&&pupil.postcode){
+      const pts=await wfPoints([pupil.postcode,...rows.map(r=>r.near_postcode)]);
+      const home=pts[wfNormPc(pupil.postcode)];
+      rows.forEach(r=>{ r.miles=wfMiles(home,pts[wfNormPc(r.near_postcode)]); });
+    }
+    rows.sort((a,b)=>
+      (b.is_free?1:0)-(a.is_free?1:0)
+      || ((a.miles===null||a.miles===undefined?1:0)-(b.miles===null||b.miles===undefined?1:0))
+      || ((a.miles??0)-(b.miles??0))
+      || String(a.full_name).localeCompare(String(b.full_name)));
+    wfResult=rows;
+  }catch(e){
+    wfResult=null;
+    alert((e&&e.message)||"Could not work out who is free.");
+  }
+  wfBusy=false; wfRenderResult();
+}
+
+function wfListHtml(pupil){
+  const rows=wfResult||[];
+  const free=rows.filter(r=>r.is_free), busy=rows.filter(r=>!r.is_free);
+  const near=r=>r.miles===null||r.miles===undefined ? "" :
+    `<span class="muted" style="font-size:.8rem"> · ${r.miles} mile${r.miles===1?"":"s"} from their ${new Date(r.near_when).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span>`;
+  const row=r=>`<div style="display:flex;justify-content:space-between;gap:.6rem;align-items:center;padding:.45rem 0;border-top:1px solid var(--line);flex-wrap:wrap">
+      <div><strong>${esc(r.full_name)}</strong>${near(r)}
+        ${r.diary_locked?'<div style="font-size:.78rem;color:var(--warn)">Diary locked, ask them yourself</div>':""}
+        ${r.is_free?"":`<div class="muted" style="font-size:.78rem">${esc(r.reason)}</div>`}
+      </div>
+      ${r.is_free&&!r.diary_locked&&pupil?`<button type="button" class="btn btn-navy btn-sm" onclick="wfBook('${r.instructor_id}')">Book</button>`:""}
+    </div>`;
+  if(!rows.length) return '<p class="muted">Nobody found.</p>';
+  return `${free.length?`<strong style="color:var(--ok)">Free (${free.length})</strong>${free.map(row).join("")}`:'<p class="muted">Nobody is free at that time.</p>'}
+    ${busy.length?`<div style="margin-top:.8rem"><strong class="muted">Not available (${busy.length})</strong>${busy.map(row).join("")}</div>`:""}
+    ${pupil?"":'<p class="muted" style="font-size:.8rem;margin-top:.6rem">Choose a pupil to book one of them.</p>'}`;
+}
+
+// Booking it. Two different things wear the same button: giving an unassigned pupil to somebody, and
+// covering a lesson for an instructor who cannot do it. The second one owes the pupil an explanation
+// (Dale, 3 Oct 2026), so it asks for a reason and tells them. The first does not, because nothing has
+// changed from the pupil's point of view.
+async function wfBook(instructorId){
+  if(!wfSlot||!wfSlot.pupilId) return;
+  const pupil=wfPupilList().find(p=>p.id===wfSlot.pupilId); if(!pupil) return;
+  const inst=(wfResult||[]).find(r=>r.instructor_id===instructorId); if(!inst) return;
+  const isCover = !!pupil.instructorId && pupil.instructorId!==instructorId;
+  const when=new Date(wfSlot.date+"T"+wfSlot.time+":00");
+  const whenText=when.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})+" at "+wfSlot.time;
+
+  if(isCover){
+    openModal(`<h2 style="margin-bottom:.3rem">Cover this lesson</h2>
+      <p class="muted" style="margin-bottom:.8rem">${esc(pupil.name)} is ${esc(pupil.instructor||"another instructor")}'s pupil. ${esc(inst.full_name)} will take this one lesson on ${esc(whenText)}, and ${esc(pupil.name)} stays where they are.</p>
+      <div class="field"><label>What should we tell them?</label>
+        <input id="wf-reason" placeholder="e.g. Owen is off sick" maxlength="140">
+        <p class="muted" style="font-size:.78rem;margin:.3rem 0 0">They are sent: "${esc(pupil.instructor||"Your instructor")} isn't available on ${esc(whenText)}. Don't worry, ${esc(inst.full_name)} is covering your lesson." followed by whatever you put here.</p>
+      </div>
+      <div class="err" id="wf-err" style="margin-top:.4rem"></div>
+      <div style="display:flex;gap:.5rem;margin-top:.9rem">
+        <button class="btn btn-navy" onclick="wfDoBook('${instructorId}',true)">Book and tell them</button>
+        <button class="btn-outline" onclick="closeModal()">Cancel</button>
+      </div>`);
+    return;
+  }
+  if(!confirm(`Book ${pupil.name} in with ${inst.full_name} on ${whenText}?`)) return;
+  wfDoBook(instructorId,false);
+}
+
+async function wfDoBook(instructorId, isCover){
+  const pupil=wfPupilList().find(p=>p.id===wfSlot.pupilId);
+  const inst=(wfResult||[]).find(r=>r.instructor_id===instructorId);
+  const err=document.getElementById("wf-err");
+  const reason=((document.getElementById("wf-reason")||{}).value||"").trim();
+  const start=new Date(wfSlot.date+"T"+wfSlot.time+":00");
+  const end=new Date(start.getTime()+wfSlot.minutes*60000);
+  try{
+    // Clicked one of their existing lessons? MOVE it. Inserting a second one left the pupil booked
+    // twice, once with each instructor (Dale, 3 Oct 2026 - "lesson still showing on ruby").
+    if(wfSlot.movingLessonId){
+      const {error}=await sb.from("lessons").update({
+        instructor_id:instructorId,
+        start_time:start.toISOString(), end_time:end.toISOString(),
+      }).eq("id",wfSlot.movingLessonId);
+      if(error) throw error;
+    }else{
+      const {error}=await sb.from("lessons").insert({
+        instructor_id:instructorId, pupil_id:pupil.id,
+        start_time:start.toISOString(), end_time:end.toISOString(),
+        lesson_type:wfSlot.lessonType, status:"booked",
+      });
+      if(error) throw error;
+    }
+
+    // An unassigned pupil has just been given to somebody. A covered pupil has not.
+    if(!pupil.instructorId){
+      await sb.from("pupils").update({instructor_id:instructorId}).eq("id",pupil.id);
+    }
+
+    if(isCover){
+      const whenText=start.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})+" at "+wfSlot.time;
+      const body=`${pupil.instructor||"Your instructor"} isn't available on ${whenText}. Don't worry, ${inst.full_name} is covering your lesson.`
+        + (reason?` ${reason.charAt(0).toUpperCase()+reason.slice(1)}`:"");
+      // requires_read, so it opens in front of them rather than sitting in the feed. Turning up to a
+      // different instructor having missed the message is the one outcome this whole thing exists to
+      // prevent (Dale, 3 Oct 2026).
+      await sb.from("messages").insert({
+        pupil_id:pupil.id, instructor_id:instructorId, direction:"outbound",
+        subject:"A change to your lesson", body, requires_read:true,
+        delivered_at:new Date().toISOString(),
+      });
+    }
+  }catch(e){
+    if(err){ err.textContent=(e&&e.message)||"Could not book that."; return; }
+    return alert((e&&e.message)||"Could not book that.");
+  }
+  closeModal();
+  wfResult=null; wfSlot=null;
+  await refresh();
+  // Redraw the grid too, or the lesson you just booked is not on it and the slot you picked is still
+  // sat there in blue (Dale, 3 Oct 2026).
+  await wfRenderSlots();
+  showBanner(`Booked with ${inst.full_name}.`);
+}
+
 // --- Needs attention: a RAG grid over the figures already worked out above -----------------------
 //
 // Chris Bensted, 3 Oct 2026: "not because we want to micromanage people, but because we want to know

@@ -19340,7 +19340,9 @@ const RAG_COLUMNS = [
   ["avgD",     "Driving faults",  r => r.avgD],
   ["avgS",     "Serious faults",  r => r.avgS],
   ["examPct",  "Examiner action", r => r.examPct, v => v===null?null:v+"%"],
-  ["syllabus", "Graded",          r => r.active?Math.round(100*r.syllabusUsed/r.active):null, v=>v===null?null:v+"%"],
+  // "Graded" meant nothing to anyone glancing at it and read like a school report (Dale, 4 Oct 2026).
+  // "Syllabus" is what the drop-down already calls it and what Chris Bensted asked for.
+  ["syllabus", "Syllabus",        r => r.active?Math.round(100*r.syllabusUsed/r.active):null, v=>v===null?null:v+"%"],
   ["terms",    "Terms signed",    r => r.active?Math.round(100*r.termsSigned/r.active):null, v=>v===null?null:v+"%"],
   ["owing",    "Pupils owing",    r => r.owing],
   ["lostPct",  "Lost pupils",     r => r.lostPct, v=>v===null?null:v+"%"],

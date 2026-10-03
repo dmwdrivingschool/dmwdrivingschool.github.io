@@ -15,7 +15,7 @@
 <script src="enquiry-widget.js"></script>
 <script src="app-showcase.js"></script>
 <style>
-:root{--ink:#0f172a;--navy:#2563eb;--deep:#1d4ed8;--signal:#2563eb;--bg:#f4f6fb;--card:#fff;--text:#0f172a;--muted:#64748b;--link:#1d4ed8;--line:#e2e8f0;--ok:#059669;--bad:#e11d48;--soft:#eff4ff;--shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px -12px rgba(15,23,42,.10);--fd:'Inter',system-ui,sans-serif;--fb:'Inter',system-ui,sans-serif;--fm:'Inter',system-ui,sans-serif}
+:root{--ink:#0f172a;--navy:#2563eb;--deep:#1d4ed8;--signal:#2563eb;--bg:#f4f6fb;--card:#fff;--text:#0f172a;--muted:#64748b;--link:#1d4ed8;--line:#e2e8f0;--ok:#059669;--warn:#b45309;--bad:#e11d48;--soft:#eff4ff;--shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px -12px rgba(15,23,42,.10);--fd:'Inter',system-ui,sans-serif;--fb:'Inter',system-ui,sans-serif;--fm:'Inter',system-ui,sans-serif}
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-tap-highlight-color:transparent}
 body{font-family:var(--fb);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
@@ -527,7 +527,7 @@ textarea.sf-in{resize:vertical;overflow:hidden;min-height:2.6rem}
     .st-100 { background: #22c55e; }
 
 /* ---- dark theme (the only theme) ---- */
-:root{--surface-2:#293754;--ink:#e2e8f0;--navy:#3b82f6;--deep:#2563eb;--bg:#1e2a47;--card:#2a3859;--text:#e2e8f0;--muted:#b8c6da;--link:#93c5fd;--line:#44557a;--ok:#34d399;--bad:#fb7185;--soft:#2a527c;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.5)}
+:root{--surface-2:#293754;--ink:#e2e8f0;--navy:#3b82f6;--deep:#2563eb;--bg:#1e2a47;--card:#2a3859;--text:#e2e8f0;--muted:#b8c6da;--link:#93c5fd;--line:#44557a;--ok:#34d399;--warn:#fbbf24;--bad:#fb7185;--soft:#2a527c;--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.5)}
 /* Link text on a dark card. --navy (#3b82f6) is about 3:1 against --card, which is fine
    behind white button text and poor as text itself - Dale could not read the address link
    on the Website tab. #8ab4ff is about 6:1. Kept separate from --navy so buttons that use
@@ -639,7 +639,15 @@ tbody tr:hover td{background:#334263}
 .web-promo.wp-flash{animation:wpFlash 1.6s ease-out 1}
 @keyframes wpFlash{0%{box-shadow:0 0 0 0 rgba(10,76,161,.55)}70%{box-shadow:0 0 0 10px rgba(10,76,161,0)}100%{box-shadow:0 0 0 0 rgba(10,76,161,0)}}
 @media(prefers-reduced-motion:reduce){.web-promo.wp-flash{animation:none}}
+.si-sort{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;font-weight:700}
+.si-sort:hover{color:var(--link)}
+.nav-aside{font-weight:700}
+.nav-billing{color:var(--ok);border-color:var(--ok)}
+.nav-billing:hover{background:rgba(16,185,129,.12)}
+.nav-help{color:var(--bad);border-color:var(--bad)}
+.nav-help:hover{background:rgba(220,38,38,.12)}
 </style>
+
 </head>
 <body>
 <div id="gate">
@@ -723,6 +731,10 @@ tbody tr:hover td{background:#334263}
     <div class="brand"><img src="/drive-my-way-logo.png" alt="Drive My Way" onerror="this.remove()"><span>Drive My Way Control Centre</span></div>
     <div style="display:flex;gap:.5rem;align-items:center">
       <span id="who" style="color:#64748b;font-size:.8rem"></span>
+      <!-- Up here with Profile rather than in the tab bar: neither is somewhere you go to do the
+           job, and the tab bar was running to three lines (Dale, 3 Oct 2026). -->
+      <button class="btn-outline btn-sm nav-aside nav-billing" data-tab="billing" onclick="goTab('billing')">Billing</button>
+      <button class="btn-outline btn-sm nav-aside nav-help" data-tab="help" onclick="goTab('help')">Help</button>
       <button class="btn-outline btn-sm" id="profile-btn" onclick="goTab('settings');openSettings('profile')">Profile</button>
       <button class="btn btn-gold btn-sm" onclick="lock()">Sign out</button>
     </div>
@@ -744,9 +756,7 @@ tbody tr:hover td{background:#334263}
     <button data-tab="portal">Learning Videos</button>
     <button data-tab="theory" id="nav-theory-btn" class="hidden">Theory &amp; Hazard Perception</button>
     <button data-tab="messages" id="nav-messages-btn" class="hidden">Messages</button>
-    <button data-tab="billing" id="nav-billing-btn" class="hidden">Billing</button>
     <button data-tab="website" id="nav-website-btn" class="hidden">Website</button>
-    <button data-tab="help">Help</button>
 
   </nav>
   <div class="main">
@@ -1119,21 +1129,20 @@ tbody tr:hover td{background:#334263}
          instructor is the first thing in it. -->
     <section id="tab-school" class="hidden">
       <h2>Driving School</h2>
+      <div id="school-badge-banner"></div>
       <p class="muted" style="margin:.2rem 0 1rem">Your school as a whole. The Dashboard shows your own figures; everything here is across every instructor in the school.</p>
       <!-- One row per instructor, shut. Open it for everything the school knows about them
            (Dale, 30 Sep 2026: "minimied initially press it expands to show the full table of
            everything"). -->
       <div class="panel" id="school-instructors-panel">
-        <h2 style="margin-bottom:.35rem">Instructors at a glance</h2>
-        <p class="muted" style="margin-bottom:.75rem">Tap an instructor to open their full record.</p>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;flex-wrap:wrap">
+          <h2 style="margin-bottom:.35rem">Instructors at a glance</h2>
+          <button type="button" class="btn-outline btn-sm" onclick="openRagThresholds()">Set the levels</button>
+        </div>
+        <p class="muted" style="margin-bottom:.75rem">Tap an instructor to open their full record. Test figures are completed tests in the last 12 months, the same ones your Snapshot is built from.</p>
         <div id="school-instructors-list">Loading…</div>
       </div>
 
-      <div class="panel" id="per-instructor-panel">
-        <h2 style="margin-bottom:.35rem">Test results by instructor</h2>
-        <p class="muted" id="per-instructor-note" style="margin-bottom:.75rem"></p>
-        <div id="per-instructor-table">Loading…</div>
-      </div>
     </section>
 
     <!-- A trainee's own record (Dale, 2 Oct 2026). The same five tabs their trainer sees, so when a
@@ -2924,6 +2933,11 @@ async function saveProfilePanel(){
     p_address_line1:address1, p_address_line2:address2, p_city:city, p_postcode:postcode
   });
   if(rpcError) return fail(rpcError.message);
+  // Its own call: adding an argument to the function above would have made every existing
+  // seven-argument call ambiguous. Blank clears it.
+  { const exp=document.getElementById("pf-adi-exp");
+    if(exp){ const {error:expError}=await sb.rpc("instructor_set_badge_expiry",{p_expires_on: exp.value||null});
+      if(expError) return fail(expError.message); } }
   document.getElementById("who").textContent=name;
   return true;
 }
@@ -7144,7 +7158,7 @@ async function loadEnquiries(){
   // should actually take it, not just accept/decline.
   let assignRow = () => "";
   if(isSchoolAdminUser && currentSchoolId){
-    const {data:instrs} = await sb.from("profiles").select("id,full_name,email").in("role",["instructor","super_admin"]).eq("school_id",currentSchoolId).order("full_name");
+    const {data:instrs} = await sb.from("profiles").select("id,full_name,email,adi_badge_number,adi_badge_expires_on").in("role",["instructor","super_admin"]).eq("school_id",currentSchoolId).order("full_name");
     schoolInstructorsCache = instrs||[];
     assignRow = (p) => `<div class="field" style="margin:.5rem 0 0"><label>Assign to instructor</label>
       <select onchange="assignEnquiryInstructor('${p.id}',this.value)">
@@ -11317,7 +11331,7 @@ async function openSettings(which){
     // Everything the "Complete your profile" popup asks for, editable any
     // time (Dale: after the popup there was nowhere to change it). Saves
     // through the same RPC as the popup; null = leave that field alone.
-    const {data:prof}=await sb.from("profiles").select("full_name,email,phone,adi_badge_number,address_line1,address_line2,city,postcode").eq("id",currentUserId).maybeSingle();
+    const {data:prof}=await sb.from("profiles").select("full_name,email,phone,adi_badge_number,adi_badge_expires_on,address_line1,address_line2,city,postcode").eq("id",currentUserId).maybeSingle();
     const addr = prof||{};
     let schoolAddr = null;
     if(currentSchoolId && isSchoolAdminUser){
@@ -11331,6 +11345,9 @@ async function openSettings(which){
       <div class="field"><label>Your Name</label><input id="pf-name" value="${esc(prof?.full_name||"")}"></div>
       <div class="field"><label>Phone</label><input id="pf-phone" value="${esc(prof?.phone||"")}"></div>
       <div class="field"><label>ADI/PDI Badge Number (Optional)</label><input id="pf-adi" value="${esc(prof?.adi_badge_number||"")}"></div>
+      <!-- Next to the number it belongs to. A school can then see at a glance that one of their
+           instructors is about to come off the register (Chris Bensted, 3 Oct 2026). -->
+      <div class="field"><label>Badge expiry date (Optional)</label><input id="pf-adi-exp" type="date" value="${esc(prof?.adi_badge_expires_on||"")}"><p class="muted" style="font-size:.78rem;margin:.25rem 0 0">Your school sees this, and you are reminded before it runs out.</p></div>
       <h4 style="margin:1rem 0 .5rem">Your Address</h4>
       ${currentSchoolId && !isSchoolAdminUser ? '<p class="muted" style="margin-bottom:.5rem">Your school can see these details.</p>' : ""}
       ${addrField("pf-address1","Address Line 1",addr.address_line1)}
@@ -18100,7 +18117,6 @@ async function loadDrivingSchoolTab(){
   if(!pupilsCache.length && !schoolPupilsCache.length) await loadPupils();
   if(!schoolInstructorsCache.length) await loadSchoolInstructors();
   schoolLast12=testsCache.filter(t=>(t.result==="pass"||t.result==="fail")&&new Date(t.test_date)>=yearAgo);
-  await renderTestsByInstructor(schoolLast12);
   await renderSchoolInstructors(schoolLast12);
 }
 
@@ -18110,8 +18126,200 @@ async function loadDrivingSchoolTab(){
 // caches the Pupils tab uses - plus one query for what is still to come. Nothing is worked out
 // twice, so this panel cannot disagree with the one under it.
 let schoolInstructorOpen=null;
+// Which column the table is sorted by. Default is most pupils first, which is what it has always
+// done; clicking a heading sorts by that figure, clicking it again turns it round.
+let schoolSort={key:"active",desc:true};
+function sortSchoolInstructors(key){
+  schoolSort = (schoolSort.key===key) ? {key,desc:!schoolSort.desc} : {key,desc:key!=="name"};
+  renderSchoolInstructors(schoolLast12);
+}
 let schoolInstructorData=null;
 let schoolLast12=[], schoolAheadCache=null;
+// --- Needs attention: a RAG grid over the figures already worked out above -----------------------
+//
+// Chris Bensted, 3 Oct 2026: "not because we want to micromanage people, but because we want to know
+// where something needs attention before it becomes a problem". So it is one row per instructor and
+// one column per measure, and nothing here is a league table - the point is the red cells.
+//
+// Every value comes from schoolInstructorData, which the panel below already built. Add a measure
+// here and it has to exist there first, so the two can never disagree.
+//
+// Thresholds live in app_settings under the school, because what counts as a worrying pass rate is
+// the school's judgement and not ours. The defaults below are a starting point, not a standard.
+const RAG_DEFAULTS = {
+  // DVSA's own published Standards Check indicators, the same four the Snapshot uses: driving faults
+  // under 6, serious faults under 0.55, examiner action under 10%, pass rate above 55%. Three or more
+  // red and an instructor can be asked to book a standards check. Green here means they are the right
+  // side of DVSA's line, red means they are the wrong side, amber is the warning band in between -
+  // which is ours, not DVSA's, because DVSA only publish the one line.
+  passRate: { green: 55,   amber: 50,   dir: "high", dvsa: "DVSA: above 55%" },
+  avgD:     { green: 6,    amber: 7,    dir: "low",  dvsa: "DVSA: under 6" },
+  avgS:     { green: 0.55, amber: 0.7,  dir: "low",  dvsa: "DVSA: under 0.55" },
+  examPct:  { green: 10,   amber: 15,   dir: "low",  dvsa: "DVSA: under 10%" },
+  // Ours, not DVSA's. Nobody publishes a right number for these.
+  active:   { green: 15,   amber: 8,    dir: "high" },
+  terms:    { green: 80,   amber: 50,   dir: "high" },
+  syllabus: { green: 60,   amber: 30,   dir: "high" },
+  income:   { green: 12000, amber: 6000, dir: "high" },
+  owing:    { green: 1,    amber: 3,    dir: "low"  },
+  lostPct:  { green: 15,   amber: 30,   dir: "low"  },
+  // Days left on an ADI badge. More is better, so green above the first number, red below the
+  // second, amber in between. Expired is always red whatever the levels say.
+  badgeDays:{ green: 90,   amber: 30,   dir: "high" },
+};
+const RAG_COLUMNS = [
+  ["active",   "Pupils",          r => r.active],
+  ["passRate", "Pass rate",       r => r.passRate, v => v===null?null:v+"%"],
+  ["avgD",     "Driving faults",  r => r.avgD],
+  ["avgS",     "Serious faults",  r => r.avgS],
+  ["examPct",  "Examiner action", r => r.examPct, v => v===null?null:v+"%"],
+  ["syllabus", "Graded",          r => r.active?Math.round(100*r.syllabusUsed/r.active):null, v=>v===null?null:v+"%"],
+  ["terms",    "Terms signed",    r => r.active?Math.round(100*r.termsSigned/r.active):null, v=>v===null?null:v+"%"],
+  ["income",   "Pupil income, 12 mths", r => r.income, v => v===null?null:"£"+Number(v).toLocaleString("en-GB")],
+  ["owing",    "Pupils owing",    r => r.owing],
+  ["lostPct",  "Lost pupils",     r => r.lostPct, v=>v===null?null:v+"%"],
+];
+// How many of DVSA's four an instructor is the wrong side of. Three is the number that matters.
+const DVSA_KEYS = ["passRate","avgD","avgS","examPct"];
+function dvsaRedCount(r){
+  return DVSA_KEYS.filter(k=>{
+    const col=RAG_COLUMNS.find(c=>c[0]===k); if(!col) return false;
+    const v=col[2](r); if(v===null||v===undefined) return false;
+    const t=(ragThresholds||RAG_DEFAULTS)[k];
+    return t.dir==="low" ? v>=t.green : v<t.green;
+  }).length;
+}
+let ragThresholds = null;
+
+function ragBand(key, value){
+  if(value===null||value===undefined) return "none";
+  const t=(ragThresholds||RAG_DEFAULTS)[key]; if(!t) return "none";
+  // "high" means a bigger number is better (pass rate). "low" means smaller is better (faults).
+  if(t.dir==="low")  return value<=t.green?"green":(value<=t.amber?"amber":"red");
+  return value>=t.green?"green":(value>=t.amber?"amber":"red");
+}
+
+// On the school, not in app_settings. app_settings is keyed to a PERSON - its write policy takes a
+// profile id and would reject a school id - and two admins of the same school must not see different
+// colours against the same instructor. A solo instructor has no school, so they keep their own.
+async function loadRagThresholds(){
+  if(ragThresholds) return ragThresholds;
+  try{
+    if(currentSchoolId){
+      const {data}=await sb.from("schools").select("rag_thresholds").eq("id",currentSchoolId).maybeSingle();
+      ragThresholds = (data&&data.rag_thresholds) ? {...RAG_DEFAULTS, ...data.rag_thresholds} : {...RAG_DEFAULTS};
+    }else{
+      const {data}=await sb.from("app_settings").select("value").eq("owner_id",currentUserId).eq("id","rag_thresholds").maybeSingle();
+      ragThresholds = (data&&data.value) ? {...RAG_DEFAULTS, ...data.value} : {...RAG_DEFAULTS};
+    }
+  }catch(e){ ragThresholds = {...RAG_DEFAULTS}; }
+  return ragThresholds;
+}
+
+// A coloured pill for a figure that has a level set against it, and a plain one for everything else.
+// Colours are tinted backgrounds rather than solid blocks so a row of five does not look like a
+// fairground, and they read on the dark theme as well as the light one.
+function ragChip(key, value, label){
+  const band=ragBand(key,value);
+  if(band==="none") return plainChip(label);
+  const colour={green:"var(--ok)",amber:"var(--warn)",red:"var(--bad)"}[band];
+  return `<span style="font-size:.85rem;font-weight:600;color:${colour}">${label}</span>`;
+}
+// Their badge, under their name. Quiet until it is within 60 days, amber then, red once it has gone:
+// an instructor whose badge has run out is not registered to teach, which is the school's problem as
+// much as theirs.
+// One banner, above everything, listing whoever is inside the school's first warning. It stays until
+// it is dismissed, and it comes back if somebody else's badge starts running out, because the
+// dismissal is keyed on who is on it (Dale, 3 Oct 2026).
+function renderBadgeBanner(){
+  const el=document.getElementById("school-badge-banner");
+  if(!el) return;
+  const due=(schoolInstructorData||[]).filter(r=>{
+    const d=badgeDaysLeft(r);
+    return d!==null && (d<0 || ragBand("badgeDays",d)!=="green");
+  }).sort((a,b)=>badgeDaysLeft(a)-badgeDaysLeft(b));
+  if(!due.length){ el.innerHTML=""; return; }
+  const key="dmw_badge_banner_"+(currentSchoolId||currentUserId)+"_"+due.map(r=>r.id+":"+r.badgeExp).join("|");
+  if(localStorage.getItem(key)){ el.innerHTML=""; return; }
+  const expired=due.filter(r=>badgeDaysLeft(r)<0);
+  const line=due.map(r=>{
+    const d=badgeDaysLeft(r);
+    return `${esc(r.name.replace(" (you)",""))} ${d<0?"expired":"in "+d+" day"+(d===1?"":"s")}`;
+  }).join(", ");
+  el.innerHTML=`<div class="panel" style="border-left:4px solid ${expired.length?"var(--bad)":"var(--warn)"};margin-bottom:1rem">
+    <div style="display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start;flex-wrap:wrap">
+      <div>
+        <strong style="color:${expired.length?"var(--bad)":"var(--warn)"}">${expired.length?"A badge has expired":"Badges running out"}</strong>
+        <div class="muted" style="font-size:.85rem;margin-top:.2rem">${line}.</div>
+        <div class="muted" style="font-size:.78rem;margin-top:.3rem">An instructor whose badge has run out is not registered to teach. Change when you are warned under Set the levels.</div>
+      </div>
+      <button type="button" class="btn-outline btn-sm" onclick="localStorage.setItem('${key}','1');renderBadgeBanner()">Dismiss</button>
+    </div>
+  </div>`;
+}
+
+function badgeDaysLeft(r){
+  if(!r.badgeExp) return null;
+  return Math.round((new Date(r.badgeExp)-new Date())/864e5);
+}
+// Nothing under the name while a badge is in date. A pill once it is inside the school's first
+// warning, and it changes colour as it gets closer (Dale, 3 Oct 2026). An instructor whose badge has
+// run out is not registered to teach, which is the school's problem as much as theirs.
+function badgeNote(r){
+  const days=badgeDaysLeft(r);
+  if(days===null) return "";
+  const band=days<0 ? "red" : ragBand("badgeDays", days);
+  if(band==="green") return "";
+  const colour={amber:"var(--warn)",red:"var(--bad)"}[band]||"var(--muted)";
+  const when=new Date(r.badgeExp).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  const text=days<0 ? `Badge expired ${when}` : `Badge expires ${when}`;
+  return `<div style="font-size:.75rem;margin-top:.15rem"><span style="display:inline-block;padding:.1rem .4rem;border-radius:.35rem;font-weight:600;color:${colour};background:${band==="red"?"rgba(220,38,38,.14)":"rgba(217,119,6,.16)"}">${text}</span></div>`;
+}
+function plainChip(label){
+  return `<span class="muted" style="font-size:.85rem">${label}</span>`;
+}
+
+function openRagThresholds(){
+  const t=ragThresholds||RAG_DEFAULTS;
+  openModal(`<h2 style="margin-bottom:.3rem">Set the levels</h2>
+    <p class="muted" style="margin-bottom:.9rem">Green is anything at or better than the first number. Red is anything worse than the second. In between is amber. Change them to whatever your school thinks is worth looking at.<br><br>Pass rate, driving faults, serious faults and examiner action start on DVSA's own published Standards Check indicators: pass rate above 55%, driving faults under 6, serious faults under 0.55, examiner action under 10%. Three or more the wrong side and an instructor can be asked to book a standards check.</p>
+    ${RAG_COLUMNS.map(([key,label])=>`<div class="field">
+      <label>${label}${(t[key]||{}).dir==="low"?" (lower is better)":""}</label>
+      ${(RAG_DEFAULTS[key]||{}).dvsa?`<p class="muted" style="font-size:.78rem;margin:-.2rem 0 .3rem">${RAG_DEFAULTS[key].dvsa}. Three or more indicators the wrong side and you can be asked to book a standards check.</p>`:""}
+      <div style="display:flex;gap:.5rem">
+        <input id="rag-${key}-g" type="number" step="any" value="${(t[key]||{}).green}" placeholder="Green at or above">
+        <input id="rag-${key}-a" type="number" step="any" value="${(t[key]||{}).amber}" placeholder="Amber at or above">
+      </div>
+    </div>`).join("")}
+    <div class="err" id="rag-err" style="margin-top:.4rem"></div>
+    <div style="display:flex;gap:.5rem;margin-top:.9rem">
+      <button class="btn" onclick="saveRagThresholds()">Save</button>
+      <button class="btn-outline" onclick="resetRagThresholds()">Back to the suggested levels</button>
+    </div>`);
+}
+
+async function saveRagThresholds(){
+  const err=document.getElementById("rag-err");
+  const next={};
+  for(const [key] of RAG_COLUMNS){
+    const g=Number(document.getElementById("rag-"+key+"-g").value);
+    const a=Number(document.getElementById("rag-"+key+"-a").value);
+    if(!isFinite(g)||!isFinite(a)){ if(err) err.textContent="Both levels need a number."; return; }
+    next[key]={green:g, amber:a, dir:(RAG_DEFAULTS[key]||{}).dir||"high"};
+  }
+  const {error} = currentSchoolId
+    ? await sb.from("schools").update({rag_thresholds:next}).eq("id",currentSchoolId)
+    : await sb.from("app_settings").upsert({owner_id:currentUserId,id:"rag_thresholds",value:next},{onConflict:"owner_id,id"});
+  if(error){ if(err) err.textContent=error.message; return; }
+  ragThresholds=next; closeModal(); renderSchoolInstructors(schoolLast12);
+}
+
+async function resetRagThresholds(){
+  if(currentSchoolId) await sb.from("schools").update({rag_thresholds:null}).eq("id",currentSchoolId);
+  else await sb.from("app_settings").delete().eq("owner_id",currentUserId).eq("id","rag_thresholds");
+  ragThresholds={...RAG_DEFAULTS}; closeModal(); renderSchoolInstructors(schoolLast12);
+}
+
 async function renderSchoolInstructors(last12){
   const el=document.getElementById("school-instructors-list");
   if(!el) return;
@@ -18121,7 +18329,7 @@ async function renderSchoolInstructors(last12){
   // opened and kept - opening a row is not a reason to go back to the database.
   if(!schoolAheadCache){
     const now=new Date().toISOString();
-    const [{data:futureTests},{data:part3s},{data:pairs},{data:theory},{data:hazard},{data:clips}] = await Promise.all([
+    const [{data:futureTests},{data:part3s},{data:pairs},{data:theory},{data:hazard},{data:clips},{data:progress},{data:income}] = await Promise.all([
       sb.from("practical_tests").select("pupil_id,test_date,instructor_id").gt("test_date",now),
       sb.from("lessons").select("instructor_id,start_time,test_start_time").eq("lesson_type","part3_test").gt("start_time",now),
       sb.from("trainee_trainers").select("trainer_id,trainee_id"),
@@ -18130,13 +18338,23 @@ async function renderSchoolInstructors(last12){
       sb.from("theory_attempts").select("pupil_id,mode,passed"),
       sb.from("hazard_attempts").select("pupil_id,clip_id"),
       sb.from("hazard_clips").select("id").eq("active",true),
+      // Who is actually grading. A school sets the syllabus centrally and then has no way of knowing
+      // whether an instructor uses it, which is the thing an owner asks for first (Chris Bensted,
+      // 3 Oct 2026). One row per pupil who has ANY progress recorded is all this needs.
+      sb.from("pupil_progress").select("pupil_id"),
+      // A year of income, per instructor. Expenses are the instructor's own business and none of the
+      // school's, so this is what came in and nothing else.
+      sb.from("transactions").select("instructor_id,amount,type,transaction_date")
+        .eq("type","income").gte("transaction_date", new Date(Date.now()-365*864e5).toISOString().slice(0,10)),
     ]);
     schoolAheadCache={
       futureTests:futureTests||[],part3s:part3s||[],pairs:pairs||[],
       theory:theory||[],hazard:hazard||[],clipTotal:(clips||[]).length,
+      graded:new Set((progress||[]).map(x=>x.pupil_id)),
+      income:income||[],
     };
   }
-  const {futureTests,part3s,pairs,theory,hazard,clipTotal}=schoolAheadCache;
+  const {futureTests,part3s,pairs,theory,hazard,clipTotal,graded,income}=schoolAheadCache;
 
   const ids=new Set((schoolInstructorsCache||[]).map(i=>i.id));
   if(currentUserId) ids.add(currentUserId);
@@ -18175,24 +18393,58 @@ async function renderSchoolInstructors(last12){
       examPct: n?Math.round((mine.filter(t=>t.examiner_action).length/n)*10000)/100:null,
       upcoming: (futureTests||[]).filter(t=>t.instructor_id===id).length,
       startedTheory, passedMock, startedHazard, clipsSeen, clipTotal,
+      // Of their ACTIVE pupils: how many have been graded against the syllabus at all, and how many
+      // have accepted terms. Both are "is this instructor using the thing the school set up", and
+      // terms is the one the new DVSA code of practice has something to say about.
+      syllabusUsed: [...theirIds].filter(id=>(graded||new Set()).has(id)).length,
+      termsSigned: theirs.filter(p=>p.status==="active" && p.terms_accepted_at).length,
+      // Money in from pupils over the last 12 months. Deliberately not "income": the RLS policy on
+      // transactions lets a school admin see rows tied to a pupil in their school, and nothing else,
+      // so an instructor's own non-pupil income is invisible here and always will be. Labelling this
+      // "income" would understate it silently, which is the worst thing a money figure can do.
+      // Expenses are not here either - what an instructor spends is their own business, not the
+      // school's.
+      income: Math.round((income||[]).filter(t=>t.instructor_id===id).reduce((sum,t)=>sum+Number(t.amount||0),0)),
+      // Pupils sitting in debit. A pupil who owes for one lesson is normal; a column full of them is not.
+      owing: theirs.filter(p=>p.status==="active" && Number(p.credit_hours||0) < 0).length,
+      // Pupils who stopped in the last 12 months, against everyone they had. The window is not
+      // arbitrary: dmw_purge_inactive_pupils_1yr deletes an inactive pupil after a year, so anything
+      // older is on its way out anyway. Without the window this measured how somebody IMPORTED their
+      // list rather than how many pupils they lose - every migrated pupil arrives inactive, which put
+      // instructors who came across from another system at 60-74% on day one (Dale, 3 Oct 2026).
+      lostPct: (()=>{
+        const yearAgo=Date.now()-365*864e5;
+        const recent=p=>p.status==="inactive" && p.status_changed_at && new Date(p.status_changed_at).getTime()>=yearAgo;
+        const lost=theirs.filter(recent).length;
+        const ever=theirs.filter(p=>["active","passed"].includes(p.status)).length + lost;
+        return ever ? Math.round(100*lost/ever) : null;
+      })(),
       part3: p3,
       trains: (pairs||[]).filter(x=>x.trainer_id===id).length,
+      badgeNo: ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).adi_badge_number||null,
+      badgeExp: ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).adi_badge_expires_on||null,
     };
-  }).sort((a,b)=> b.active-a.active || String(a.name).localeCompare(String(b.name)));
+  }).sort((a,b)=>{
+    if(schoolSort.key==="name"){
+      const c=String(a.name).localeCompare(String(b.name));
+      return schoolSort.desc ? -c : c;
+    }
+    const col=RAG_COLUMNS.find(c=>c[0]===schoolSort.key);
+    const get=col?col[2]:(r=>r.active);
+    const av=get(a), bv=get(b);
+    // Nothing recorded sorts to the bottom whichever way round it is: an instructor with no tests is
+    // not the best performer, and they are not the worst either.
+    if(av===null||av===undefined) return 1;
+    if(bv===null||bv===undefined) return -1;
+    return (schoolSort.desc ? bv-av : av-bv) || String(a.name).localeCompare(String(b.name));
+  });
 
-  el.innerHTML = schoolInstructorData.map(r=>{
+  const body = schoolInstructorData.map(r=>{
     const open = schoolInstructorOpen===r.id;
     const p3when = r.part3
       ? new Date(r.part3.start_time).toLocaleDateString("en-GB",{day:"numeric",month:"short"})
       : null;
     // The shut line: the three things Dale asked to see without opening anything.
-    const quick = [
-      `${r.active} pupil${r.active===1?"":"s"}`,
-      r.passRate===null?"no tests yet":`${r.passRate}% pass rate`,
-      r.upcoming?`${r.upcoming} test${r.upcoming===1?"":"s"} booked`:null,
-      r.active?`${r.startedTheory}/${r.active} on theory`:null,
-      p3when?`part 3 ${p3when}`:null,
-    ].filter(Boolean).join(" &middot; ");
     const rows = [
       ["Active pupils", r.active],
       ["Waiting", r.waiting],
@@ -18200,33 +18452,48 @@ async function renderSchoolInstructors(last12){
       ["Tests in the last 12 months", r.tests],
       ["Passes", r.passes],
       ["Fails", r.fails],
-      ["Pass rate", r.passRate===null?"&ndash;":r.passRate+"%"],
-      ["Average driving faults", r.avgD===null?"&ndash;":r.avgD],
-      ["Average serious faults", r.avgS===null?"&ndash;":r.avgS],
-      ["Examiner action taken", r.examPct===null?"&ndash;":r.examPct+"%"],
       ["Tests still to come", r.upcoming],
       ["Pupils who have started theory", r.active?`${r.startedTheory} of ${r.active}`:"&ndash;"],
       ["Pupils who have passed a mock theory", r.active?`${r.passedMock} of ${r.active}`:"&ndash;"],
       ["Pupils who have started hazard perception", r.active?`${r.startedHazard} of ${r.active}`:"&ndash;"],
       ["Different hazard clips their pupils have watched", r.clipTotal?`${r.clipsSeen} of ${r.clipTotal}`:"&ndash;"],
+      ["Pupils graded against the syllabus", r.active?`${r.syllabusUsed} of ${r.active}`:"&ndash;"],
+      ["Pupils who have accepted terms", r.active?`${r.termsSigned} of ${r.active}`:"&ndash;"],
       ["Their own part 3", r.part3
         ? new Date(r.part3.start_time).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})
           + (r.part3.test_start_time?` at ${String(r.part3.test_start_time).slice(0,5)}`:"")
         : "&ndash;"],
       ["Trainees they train", r.trains||"&ndash;"],
+      ["ADI badge number", r.badgeNo?esc(r.badgeNo):"&ndash;"],
+      ["Badge expires", r.badgeExp
+        ? new Date(r.badgeExp).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})
+          + (badgeDaysLeft(r)<0 ? " (expired)" : ` (${badgeDaysLeft(r)} days)`)
+        : "&ndash;"],
     ];
-    return `<div style="border-bottom:1px solid var(--line)">
-      <button type="button" class="si-row" onclick="toggleSchoolInstructor('${r.id}')">
-        <div style="display:flex;justify-content:space-between;gap:.5rem;align-items:baseline">
-          <strong>${esc(r.name)}</strong><span class="muted" style="font-size:.8rem">${open?"Close":"Open"}</span>
-        </div>
-        <div class="muted" style="font-size:.85rem;margin-top:.15rem">${quick}</div>
-      </button>
-      ${open?`<div style="padding:0 .2rem .85rem"><table><tbody>${
+    const reds = dvsaRedCount(r);
+    // The dot, not a colour on the name: three or more of DVSA's four the wrong side of the line is
+    // the point at which an instructor can be asked to book a standards check.
+    return `<tr onclick="toggleSchoolInstructor('${r.id}')" style="cursor:pointer">
+        <td><strong>${esc(r.name)}</strong>${reds>=3?' <span style="color:var(--bad);font-weight:700" title="Three or more DVSA indicators the wrong side of the line">&#9679;</span>':""}${badgeNote(r)}</td>
+        ${RAG_COLUMNS.map(([key,,get,fmt])=>{
+          const v=get(r), shown=(fmt?fmt(v):v);
+          return `<td style="text-align:center">${v===null||v===undefined?'<span class="muted">&ndash;</span>':ragChip(key,v,shown)}</td>`;
+        }).join("")}
+      </tr>
+      ${open?`<tr><td colspan="${RAG_COLUMNS.length+1}" style="padding:0 .2rem .85rem"><table><tbody>${
         rows.map(([k,v])=>`<tr><td>${k}</td><td style="text-align:right">${v}</td></tr>`).join("")
-      }</tbody></table></div>`:""}
-    </div>`;
-  }).join("") || '<p class="muted">No instructors yet.</p>';
+      }</tbody></table></td></tr>`:""}`;
+  }).join("");
+
+  renderBadgeBanner();
+
+  el.innerHTML = schoolInstructorData.length
+    ? `<div style="overflow-x:auto"><table style="min-width:40rem"><thead><tr>
+        <th style="text-align:left"><button type="button" class="si-sort" onclick="sortSchoolInstructors('name')">Instructor${schoolSort.key==="name"?(schoolSort.desc?" ▼":" ▲"):""}</button></th>
+        ${RAG_COLUMNS.map(([key,label])=>`<th style="text-align:center;font-size:.78rem"><button type="button" class="si-sort" onclick="sortSchoolInstructors('${key}')">${label}${schoolSort.key===key?(schoolSort.desc?" ▼":" ▲"):""}</button></th>`).join("")}
+      </tr></thead><tbody>${body}</tbody></table></div>`
+    : '<p class="muted">No instructors yet.</p>';
+
 }
 function toggleSchoolInstructor(id){
   schoolInstructorOpen = schoolInstructorOpen===id ? null : id;
@@ -19118,63 +19385,6 @@ function ccLessonShowsMoney(l){
 //
 // Anybody named on a test gets a row whatever their role says - that is how a school owner who
 // teaches sees their own results, which was the whole point (Dale, 30 Sep 2026).
-async function renderTestsByInstructor(last12){
-  const panel=document.getElementById("per-instructor-panel");
-  if(!panel) return;
-  // Sign-in fills this before the dashboard, but every other caller in this file guards it the
-  // same way rather than trusting the order - without a list, the table would quietly show one row.
-  if(!schoolInstructorsCache.length) await loadSchoolInstructors();
-
-  const ids=new Set((schoolInstructorsCache||[]).map(i=>i.id));
-  if(currentUserId) ids.add(currentUserId);
-  (last12||[]).forEach(t=>{ if(t.instructor_id) ids.add(t.instructor_id); });
-
-  const nameOf=id=>{
-    const i=(schoolInstructorsCache||[]).find(x=>x.id===id);
-    const n=i?(i.full_name||i.email):null;
-    return n || (id===currentUserId ? "You" : "Instructor");
-  };
-
-  const rows=[...ids].map(id=>{
-    const mine=(last12||[]).filter(t=>t.instructor_id===id);
-    const n=mine.length;
-    const passes=mine.filter(t=>t.result==="pass").length;
-    const sumD=mine.reduce((s,t)=>s+Number(t.driving_faults||0),0);
-    const sumS=mine.reduce((s,t)=>s+Number(t.serious_faults||0),0);
-    const examN=mine.filter(t=>t.examiner_action).length;
-    return {
-      id, name: nameOf(id) + (id===currentUserId ? " (you)" : ""), n, passes,
-      // Zeros rather than invented percentages when somebody has sat none - the same rule the
-      // Snapshot uses, and the reason a blank column is not shown as 0% red.
-      passRate: n?Math.round((passes/n)*100):null,
-      avgD: n?Math.round((sumD/n)*100)/100:null,
-      avgS: n?Math.round((sumS/n)*100)/100:null,
-      examPct: n?Math.round((examN/n)*10000)/100:null,
-    };
-  }).sort((a,b)=> b.n-a.n || String(a.name).localeCompare(String(b.name)));
-
-  const cell=v=>v===null?'<td class="muted">–</td>':`<td>${v}</td>`;
-  const body=rows.map(r=>`<tr>
-    <td>${esc(r.name)}</td>
-    <td>${r.n}</td>
-    <td>${r.passes}</td>
-    ${r.passRate===null?'<td class="muted">–</td>':`<td style="${r.passRate>55?"":"color:var(--bad);font-weight:600"}">${r.passRate}%</td>`}
-    ${cell(r.avgD)}${cell(r.avgS)}
-    ${r.examPct===null?'<td class="muted">–</td>':`<td>${r.examPct}%</td>`}
-  </tr>`).join("");
-
-  document.getElementById("per-instructor-table").innerHTML =
-    `<div style="max-height:60vh;overflow-y:auto"><table><thead><tr>
-      <th>Instructor</th><th>Tests</th><th>Passes</th><th>Pass rate</th>
-      <th>Avg driving</th><th>Avg serious</th><th>Examiner action</th>
-    </tr></thead><tbody>${body}</tbody></table></div>`;
-
-  const withAny=rows.filter(r=>r.n>0).length;
-  document.getElementById("per-instructor-note").textContent =
-    (last12||[]).length
-      ? `Completed tests in the last 12 months, the same ones the Snapshot above is built from. ${withAny} of ${rows.length} instructor${rows.length===1?"":"s"} ${withAny===1?"has":"have"} brought a pupil for a test in that time.`
-      : "No completed tests in the last 12 months yet.";
-}
 
 // Who trains a trainee, chosen by the school. Several ADIs to one trainee is normal - 21S has four
 // slots for exactly that reason - and ticking somebody as a trainer only gives them the capability:

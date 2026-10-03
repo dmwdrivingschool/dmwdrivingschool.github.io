@@ -13141,17 +13141,57 @@ function setupFinished(){
 }
 
 async function maybeShowWelcomeTour(){
-  if(isSuperAdminUser){ checkProfileCompletion(); return; }
+  if(isSuperAdminUser){ checkProfileCompletion(); maybeShowWhatsNew(); return; }
   let seen=true;
   try{
     const {data,error}=await sb.from("app_settings").select("id").eq("owner_id",currentUserId).eq("id","cc_welcome_tour").maybeSingle();
     seen = !!data || !!error;
   }catch(e){ seen=true; }
-  if(seen){ checkProfileCompletion(); maybeShowSetup(); return; }
+  if(seen){ checkProfileCompletion(); maybeShowSetup(); maybeShowWhatsNew(); return; }
   try{ await sb.from("app_settings").upsert({id:"cc_welcome_tour",owner_id:currentUserId,value:{seen_at:new Date().toISOString()},updated_at:new Date().toISOString()},{onConflict:"owner_id,id"}); }catch(e){}
   goTab("help");
   tourFirst=true;
   openWelcomeTour();
+}
+
+// "What's new" on the next sign-in, or things quietly appear and people wonder what happened (Dale,
+// 3 Oct 2026). The wording lives in cc_release_notes, so it can be written, corrected or withdrawn
+// without a deploy, and each item says who it is for: a school owner and a solo instructor care about
+// different halves of the same release. cc_whats_new() does the choosing, so this screen only draws.
+//
+// Never shown to somebody who joined after it was published. A change that shipped before you arrived
+// is not news, it is just how the thing works.
+let whatsNewSlug=null;
+async function maybeShowWhatsNew(){
+  // Behind anything already on screen: the tour, "complete your profile" and the setup prompt all
+  // matter more to somebody who has just arrived.
+  if(document.querySelector(".modal")) return;
+  try{
+    const {data,error}=await sb.rpc("cc_whats_new");
+    if(error) return;
+    const r=Array.isArray(data)?data[0]:data;
+    if(!r||!r.slug) return;
+    const items=Array.isArray(r.items)?r.items:[];
+    // Everything in this release was for somebody else: mark it seen rather than show an empty box.
+    if(!items.length){ whatsNewSeen(r.slug, true); return; }
+    whatsNewSlug=r.slug;
+    const when=new Date(r.published_at).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+    openModal(`
+      <h2 style="margin-bottom:.15rem">${esc(r.title||"What's new")}</h2>
+      <p class="muted" style="margin-bottom:.9rem">${esc(when)}</p>
+      <ul style="margin:0 0 1rem;padding-left:1.1rem;line-height:1.55">
+        ${items.map(i=>`<li style="margin-bottom:.5rem">${esc(i&&i.text||"")}</li>`).join("")}
+      </ul>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button type="button" class="btn btn-navy" onclick="whatsNewSeen()">Got it</button>
+      </div>`);
+  }catch(e){ /* never let a changelog stop somebody getting to their diary */ }
+}
+async function whatsNewSeen(slug, quiet){
+  const use=slug||whatsNewSlug;
+  if(use){ try{ await sb.rpc("cc_whats_new_seen",{p_slug:use}); }catch(e){} }
+  whatsNewSlug=null;
+  if(!quiet) closeModal();
 }
 
 /* renderHelp() redraws the whole panel with innerHTML, so the box you are typing in is destroyed and

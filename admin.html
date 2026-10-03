@@ -18499,7 +18499,7 @@ function wfRenderResult(){
   const eventBox = !isEvent ? "" : `
     <div class="field" style="margin:0 0 .5rem"><label>What is it?</label>
       <input id="wf-title" value="${esc(wfSlot.title||"")}" placeholder="Team meeting, training day, expo" maxlength="60" oninput="wfSlot.title=this.value">
-      <p class="muted" style="font-size:.78rem;margin:.3rem 0 0">Goes in the diary of everybody you tick, as an appointment. Pupils see nothing.</p>
+      <p class="muted" style="font-size:.78rem;margin:.3rem 0 0">Goes in the diary of everybody you tick, as an appointment, and they are told in the app. Pupils see nothing.</p>
     </div>`;
 
   // Clicking the grid fills these in, and they stay editable: getting the time slightly wrong meant
@@ -18669,10 +18669,14 @@ async function wfBookEvent(){
     if(btn){ btn.disabled=false; btn.textContent="Try again"; }
     return;
   }
+  const told=[...wfTicked];
   closeModal();
   wfResult=null; wfSlot=null; wfTicked=new Set();
   await refresh();
   await wfRenderSlots();
+  await schoolEventTell(told,
+    "Added to your diary",
+    `"${name}" has been put in your diary for ${schoolEventWhen(start,end)}.`);
   await wfRenderEvents();
   showBanner(outside.length
     ? `"${name}" added to ${rows.length} diar${rows.length===1?"y":"ies"}. ${outside.join(" and ")} ${outside.length===1?"is":"are"} not down as working then.`
@@ -18684,6 +18688,27 @@ async function wfBookEvent(){
 // the school change/delete/cancel that?"). Everything from here on only ever touches rows carrying a
 // school_event_id, which is how an instructor's own appointments stay out of the school's reach.
 let wfEvents=[];
+
+// Putting something in somebody's diary without telling them is how a meeting gets missed (Dale,
+// 3 Oct 2026). The same channel a school admin already uses to message an instructor: a message with
+// no pupil on it, which the app shows in their own feed and pushes to their phone. No app build.
+// Sent on booking, on a change, and when it is called off, because all three are news to them.
+async function schoolEventTell(instructorIds, subject, body){
+  const ids=[...new Set((instructorIds||[]).filter(Boolean))];
+  if(!ids.length) return;
+  try{
+    const {data}=await sb.from("messages")
+      .insert(ids.map(id=>({pupil_id:null, sender_id:currentUserId, recipient_id:id, subject, body})))
+      .select("id");
+    (data||[]).forEach(m=>{ try{ triggerMsgPush(m.id); }catch(e){} });
+  }catch(e){ /* the diary entry is the thing that matters; a failed message must not undo it */ }
+}
+
+// "Wednesday 15 October, 13:30 to 15:30"
+function schoolEventWhen(start, end){
+  return start.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})
+    + ", " + wfHhmm(start) + " to " + wfHhmm(end);
+}
 
 async function wfLoadEvents(){
   wfEvents=[];
@@ -18790,6 +18815,9 @@ async function schoolEventSave(eventId){
   // Moving it can land on top of something booked since. The school is told who rather than being
   // stopped: it is their event and their call (Dale, 3 Oct 2026).
   const clash=await schoolEventClashes(eventId, e.rows.map(r=>r.instructor_id), start, end);
+  await schoolEventTell(e.rows.map(r=>r.instructor_id),
+    "Changed in your diary",
+    `"${name}" in your diary has changed. It is now ${schoolEventWhen(start,end)}.`);
   closeModal();
   await wfRenderEvents();
   await wfRenderSlots();
@@ -18817,8 +18845,13 @@ async function schoolEventClashes(eventId, instructorIds, start, end){
 }
 
 async function schoolEventDropOne(eventId, lessonId){
+  const e=wfEvents.find(x=>x.id===eventId);
+  const row=e&&e.rows.find(r=>r.id===lessonId);
   const {error}=await sb.from("lessons").delete().eq("id",lessonId).eq("school_event_id",eventId);
   if(error) return seFail(error.message);
+  if(row) await schoolEventTell([row.instructor_id],
+    "Taken out of your diary",
+    `"${e.name}" on ${schoolEventWhen(new Date(e.start), new Date(e.end))} has been taken out of your diary. You are no longer needed for it.`);
   await wfLoadEvents();
   if(wfEvents.find(x=>x.id===eventId)) openSchoolEvent(eventId); else closeModal();
   await wfRenderEvents();
@@ -18838,6 +18871,9 @@ async function schoolEventCancel(eventId){
   }
   const {error}=await sb.from("lessons").delete().eq("school_event_id",eventId);
   if(error) return seFail(error.message);
+  await schoolEventTell(e.rows.map(r=>r.instructor_id),
+    "Taken out of your diary",
+    `"${e.name}" on ${schoolEventWhen(new Date(e.start), new Date(e.end))} is off, and has been taken out of your diary.`);
   closeModal();
   await wfRenderEvents();
   await wfRenderSlots();

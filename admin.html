@@ -8071,9 +8071,10 @@ async function renderDiary(){
   const coloursJob=diaryColoursRefresh();
   const {data:lessons}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name), trainee:profiles!lessons_trainee_id_fkey(id,full_name)").or(`instructor_id.eq.${owner},trainee_id.eq.${owner},supervised_by.eq.${owner}`)
     .lt("start_time",end.toISOString()).gt("end_time",ws.toISOString()).gte("start_time",diaryPastFloorIso()).order("start_time");
+  const privateBlocks=await diaryPrivateBlocks(owner, ws.toISOString(), end.toISOString());
   await coloursJob;
   if(seq!==diaryRenderSeq) return;
-  diaryLessonsCache=lessons||[];
+  diaryLessonsCache=[...(lessons||[]), ...privateBlocks];
   // Availability overlay (Dale, 15 Sep 2026): worked out from everything in the diary (Hide cancelled doesn't matter)
   avWeekCache={}; avShown={key:owner+"|"+ws.getTime(), lessons:diaryLessonsCache};
   // Pupils' holidays aren't drawn, as in the app; the availability overlay still counts them (Dale, 15 Sep 2026).
@@ -8157,8 +8158,9 @@ async function renderDiaryDayOrMonth(seq,owner){
   const floor=diaryPastFloorIso(), fromIso=from.toISOString();
   const {data}=await sb.from("lessons").select("*, pupil:pupils(first_name,last_name), trainee:profiles!lessons_trainee_id_fkey(id,full_name)").or(`instructor_id.eq.${owner},trainee_id.eq.${owner},supervised_by.eq.${owner}`)
     .gte("start_time",fromIso>floor?fromIso:floor).lt("start_time",to.toISOString()).order("start_time");
+  const privateBlocks=await diaryPrivateBlocks(owner, (fromIso>floor?fromIso:floor), to.toISOString());
   if(seq!==diaryRenderSeq) return;
-  diaryLessonsCache=data||[];
+  diaryLessonsCache=[...(data||[]), ...privateBlocks];
   avWeekCache={}; avShown=null;
   // Pupils' free times are drawn on the week only, as in the app; the chosen pupils stay on for when Week is back.
   const bar=document.getElementById("diary-avail-bar"); if(bar) bar.innerHTML="";
@@ -8888,11 +8890,19 @@ async function saveAwayModalNow(editingId){
   const visibleToPupil = kind==="appointment" ? !!document.getElementById("am-visible").checked : true;
   const doNotDelete = kind==="appointment" ? !!document.getElementById("am-donotdelete").checked : false;
   const session=(await sb.auth.getSession()).data.session;
+  // Putting one on somebody else's diary makes it the school's, not theirs: it carries a
+  // school_event_id, which is both what the policy now requires and what lets the school take it
+  // back out again (Dale, 3 Oct 2026).
+  const onSomeoneElse = diaryOwnerId && currentUserId && diaryOwnerId!==currentUserId;
   const payload={
     lesson_type:"private", title, start_time:start.toISOString(), end_time:end.toISOString(),
     status:"booked", payment_status:"unpaid", pupil_id:null, instructor_id:diaryOwnerId||session?.user?.id||null,
-    notes, gearbox:"manual", visible_to_pupil:visibleToPupil, do_not_delete:doNotDelete
+    notes, gearbox:"manual", visible_to_pupil:visibleToPupil, do_not_delete:doNotDelete,
+    school_event_id: onSomeoneElse && !editingId
+      ? (crypto.randomUUID?crypto.randomUUID():String(Date.now())+"-"+Math.random().toString(16).slice(2))
+      : undefined
   };
+  if(payload.school_event_id===undefined) delete payload.school_event_id;
   // Repeating only ever applies to a new one: each occurrence is its own diary block,
   // keeping this one's length (Dale, 18 Sep 2026).
   const starts = editingId ? [start] : blockRepeatStarts(start, fieldVal("am-repeat-unit")||"week", fieldVal("am-repeat-count"));
@@ -14427,6 +14437,26 @@ function diaryTheirOwnTime(l){
   return l && !l.school_event_id && (l.title==="Appointment" || l.title==="Away");
 }
 
+// Their own appointments and holidays, which a school admin can no longer read out of the lessons
+// table at all: the policy stops the row, not just the page. This brings back the times and the one
+// word, so the school can see the afternoon has gone without being told it is a funeral, the same
+// way pupil_visible_appointments has always worked for pupils (Dale, 3 Oct 2026: "lets not do half
+// a job then"). Shaped like a lesson row so everything that draws the diary can stay as it is.
+async function diaryPrivateBlocks(owner, fromIso, toIso){
+  if(!owner || !currentUserId || owner===currentUserId) return [];
+  try{
+    const {data,error}=await sb.rpc("school_instructor_private_blocks",
+      {p_instructor:owner, p_from:fromIso, p_to:toIso});
+    if(error) return [];
+    return (data||[]).map(b=>({
+      id:b.id, instructor_id:owner, pupil_id:null, trainee_id:null, supervised_by:null,
+      lesson_type:"private", title:b.title, notes:null, shared_summary:null,
+      start_time:b.start_time, end_time:b.end_time, status:b.status,
+      payment_status:"unpaid", school_event_id:null, gearbox:"manual",
+    }));
+  }catch(e){ return []; }
+}
+
 // The app's shortName: the week grid shows the full name, lists "Sam S."; a holiday says Holiday.
 function diaryBlockBaseName(l,compact){
   const p=l&&l.pupil; let fallback=(l&&l.title)||"Private"; if(fallback==="Away") fallback="Holiday";
@@ -18314,7 +18344,8 @@ async function wfRenderSlots(){
       .select("id,pupil_id,start_time,end_time,lesson_type,status,school_event_id,notes")
       .eq("instructor_id",whoseId)
       .gte("start_time",from.toISOString()).lte("start_time",to.toISOString());
-    wfWhoseLessons=(data||[]).filter(l=>l.status!=="cancelled");
+    const theirOwn=await diaryPrivateBlocks(whoseId, from.toISOString(), to.toISOString());
+    wfWhoseLessons=[...(data||[]), ...theirOwn].filter(l=>l.status!=="cancelled");
   }
 
   const hours=WF_END-WF_START, gridH=hours*WF_HOURH;
@@ -18840,6 +18871,10 @@ async function schoolEventClashes(eventId, instructorIds, start, end){
       if(r.status==="cancelled"||r.lesson_type==="gap"||r.lesson_type==="lesson_offer") return;
       names.add(wfInstructorName(r.instructor_id));
     });
+    // Their own appointments are no longer in that answer, so they are asked for separately. A
+    // clash with somebody's dentist still counts, even though the school is never told what it is.
+    const own=await Promise.all(instructorIds.map(id=>diaryPrivateBlocks(id, start.toISOString(), end.toISOString())));
+    own.forEach((blocks,i)=>{ if(blocks.some(b=>b.status!=="cancelled")) names.add(wfInstructorName(instructorIds[i])); });
     return [...names];
   }catch(err){ return []; }
 }

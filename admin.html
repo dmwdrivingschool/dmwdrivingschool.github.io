@@ -2976,6 +2976,22 @@ async function saveProfilePanel(){
   { const exp=document.getElementById("pf-adi-exp");
     if(exp){ const {error:expError}=await sb.rpc("instructor_set_badge_expiry",{p_expires_on: exp.value||null});
       if(expError) return fail(expError.message); } }
+  // Same reasoning again: one small function per group of fields rather than one that keeps growing.
+  if(document.getElementById("pf-ins-exp")){
+    const {error:credError}=await sb.rpc("instructor_set_credentials",{
+      p_insurance_provider:v("pf-ins"), p_insurance_expires_on:document.getElementById("pf-ins-exp").value||null,
+      p_ico_number:v("pf-ico"), p_ico_expires_on:document.getElementById("pf-ico-exp").value||null});
+    if(credError) return fail(credError.message);
+  }
+  if(document.getElementById("pf-ec-name")){
+    const ecName=v("pf-ec-name"), ecPhone=v("pf-ec-phone");
+    // A name with nobody to ring is no use to anybody in an emergency.
+    if(ecName && !ecPhone) return fail("An emergency contact needs a phone number.","pf-ec-phone");
+    if(ecPhone && !ecName) return fail("An emergency contact needs a name.","pf-ec-name");
+    const {error:ecError}=await sb.rpc("instructor_set_emergency_contact",{
+      p_name:ecName, p_relationship:v("pf-ec-rel"), p_phone:ecPhone});
+    if(ecError) return fail(ecError.message);
+  }
   document.getElementById("who").textContent=name;
   return true;
 }
@@ -7196,7 +7212,7 @@ async function loadEnquiries(){
   // should actually take it, not just accept/decline.
   let assignRow = () => "";
   if(isSchoolAdminUser && currentSchoolId){
-    const {data:instrs} = await sb.from("profiles").select("id,full_name,email,adi_badge_number,adi_badge_expires_on").in("role",["instructor","super_admin"]).eq("school_id",currentSchoolId).order("full_name");
+    const {data:instrs} = await sb.from("profiles").select("id,full_name,email,adi_badge_number,adi_badge_expires_on,insurance_provider,insurance_expires_on,ico_registration_number,ico_expires_on,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone").in("role",["instructor","super_admin"]).eq("school_id",currentSchoolId).order("full_name");
     schoolInstructorsCache = instrs||[];
     assignRow = (p) => `<div class="field" style="margin:.5rem 0 0"><label>Assign to instructor</label>
       <select onchange="assignEnquiryInstructor('${p.id}',this.value)">
@@ -11369,7 +11385,7 @@ async function openSettings(which){
     // Everything the "Complete your profile" popup asks for, editable any
     // time (Dale: after the popup there was nowhere to change it). Saves
     // through the same RPC as the popup; null = leave that field alone.
-    const {data:prof}=await sb.from("profiles").select("full_name,email,phone,adi_badge_number,adi_badge_expires_on,address_line1,address_line2,city,postcode").eq("id",currentUserId).maybeSingle();
+    const {data:prof}=await sb.from("profiles").select("full_name,email,phone,adi_badge_number,adi_badge_expires_on,insurance_provider,insurance_expires_on,ico_registration_number,ico_expires_on,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,address_line1,address_line2,city,postcode").eq("id",currentUserId).maybeSingle();
     const addr = prof||{};
     let schoolAddr = null;
     if(currentSchoolId && isSchoolAdminUser){
@@ -11386,6 +11402,21 @@ async function openSettings(which){
       <!-- Next to the number it belongs to. A school can then see at a glance that one of their
            instructors is about to come off the register (Chris Bensted, 3 Oct 2026). -->
       <div class="field"><label>Badge expiry date (Optional)</label><input id="pf-adi-exp" type="date" value="${esc(prof?.adi_badge_expires_on||"")}"><p class="muted" style="font-size:.78rem;margin:.25rem 0 0">Your school sees this, and you are reminded before it runs out.</p></div>
+      <!-- The other two things a school is expected to hold on an instructor, warned about by the
+           same thresholds as the badge (Chris Bensted, 3 Oct 2026). Both optional: a solo instructor
+           keeps them for their own reminder. -->
+      <h4 style="margin:1.25rem 0 .5rem">Insurance &amp; ICO</h4>
+      <div class="field"><label>Insurer (Optional)</label><input id="pf-ins" value="${esc(prof?.insurance_provider||"")}"></div>
+      <div class="field"><label>PI/PL insurance expires (Optional)</label><input id="pf-ins-exp" type="date" value="${esc(prof?.insurance_expires_on||"")}"></div>
+      <div class="field"><label>ICO registration number (Optional)</label><input id="pf-ico" value="${esc(prof?.ico_registration_number||"")}"></div>
+      <div class="field"><label>ICO registration expires (Optional)</label><input id="pf-ico-exp" type="date" value="${esc(prof?.ico_expires_on||"")}"><p class="muted" style="font-size:.78rem;margin:.25rem 0 0">You are reminded before each of these runs out${currentSchoolId?", and your school sees the dates":""}.</p></div>
+      <!-- Who to ring if something happens to them out on a lesson. The school sees it; nobody else
+           does, and it is never shown to a pupil (Chris Bensted, 3 Oct 2026). -->
+      <h4 style="margin:1.25rem 0 .5rem">Emergency Contact</h4>
+      <p class="muted" style="margin-bottom:.5rem">${currentSchoolId?"Who your school should ring if something happens to you while you are working. Pupils never see this.":"Kept on your record. Pupils never see this."}</p>
+      <div class="field"><label>Their Name</label><input id="pf-ec-name" value="${esc(prof?.emergency_contact_name||"")}"></div>
+      <div class="field"><label>Relationship to you</label><input id="pf-ec-rel" placeholder="Wife, son, friend…" value="${esc(prof?.emergency_contact_relationship||"")}"></div>
+      <div class="field"><label>Their Phone</label><input id="pf-ec-phone" type="tel" value="${esc(prof?.emergency_contact_phone||"")}"></div>
       <h4 style="margin:1rem 0 .5rem">Your Address</h4>
       ${currentSchoolId && !isSchoolAdminUser ? '<p class="muted" style="margin-bottom:.5rem">Your school can see these details.</p>' : ""}
       ${addrField("pf-address1","Address Line 1",addr.address_line1)}
@@ -18742,49 +18773,74 @@ function ragChip(key, value, label){
 // One banner, above everything, listing whoever is inside the school's first warning. It stays until
 // it is dismissed, and it comes back if somebody else's badge starts running out, because the
 // dismissal is keyed on who is on it (Dale, 3 Oct 2026).
+// The three dated credentials a school is expected to hold on an instructor: the ADI badge, PI/PL
+// insurance and an ICO registration (Chris Bensted, 3 Oct 2026). One set of thresholds covers all
+// three, because three separate levels would be three things to keep in step for no gain.
+const CREDENTIALS=[
+  ["badgeExp","ADI badge","Badge"],
+  ["insExp","PI/PL insurance","Insurance"],
+  ["icoExp","ICO registration","ICO registration"],
+];
+function credDaysLeft(r,field){
+  if(!r||!r[field]) return null;
+  return Math.round((new Date(r[field])-new Date())/864e5);
+}
+// Every credential of theirs that is inside the school's first warning or already gone, soonest first.
+function credDue(r){
+  return CREDENTIALS.map(([field,long,short])=>({field,long,short,days:credDaysLeft(r,field)}))
+    .filter(c=>c.days!==null && (c.days<0 || ragBand("badgeDays",c.days)!=="green"))
+    .sort((a,b)=>a.days-b.days);
+}
 function renderBadgeBanner(){
   const el=document.getElementById("school-badge-banner");
   if(!el) return;
-  const due=(schoolInstructorData||[]).filter(r=>{
-    const d=badgeDaysLeft(r);
-    return d!==null && (d<0 || ragBand("badgeDays",d)!=="green");
-  }).sort((a,b)=>badgeDaysLeft(a)-badgeDaysLeft(b));
+  const due=[];
+  (schoolInstructorData||[]).forEach(r=>credDue(r).forEach(c=>due.push({r,c})));
+  due.sort((a,b)=>a.c.days-b.c.days);
   if(!due.length){ el.innerHTML=""; return; }
-  const key="dmw_badge_banner_"+(currentSchoolId||currentUserId)+"_"+due.map(r=>r.id+":"+r.badgeExp).join("|");
+  const key="dmw_badge_banner_"+(currentSchoolId||currentUserId)+"_"+due.map(d=>d.r.id+":"+d.c.field+":"+d.r[d.c.field]).join("|");
   if(localStorage.getItem(key)){ el.innerHTML=""; return; }
-  const expired=due.filter(r=>badgeDaysLeft(r)<0);
-  const line=due.map(r=>{
-    const d=badgeDaysLeft(r);
-    return `${esc(r.name.replace(" (you)",""))} ${d<0?"expired":"in "+d+" day"+(d===1?"":"s")}`;
-  }).join(", ");
+  const expired=due.filter(d=>d.c.days<0);
+  const line=due.map(d=>
+    `${esc(d.r.name.replace(" (you)",""))} &ndash; ${d.c.long} ${d.c.days<0?"expired":"in "+d.c.days+" day"+(d.c.days===1?"":"s")}`
+  ).join(", ");
   el.innerHTML=`<div class="panel" style="border-left:4px solid ${expired.length?"var(--bad)":"var(--warn)"};margin-bottom:1rem">
     <div style="display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start;flex-wrap:wrap">
       <div>
-        <strong style="color:${expired.length?"var(--bad)":"var(--warn)"}">${expired.length?"A badge has expired":"Badges running out"}</strong>
+        <strong style="color:${expired.length?"var(--bad)":"var(--warn)"}">${expired.length?"Something has expired":"Running out"}</strong>
         <div class="muted" style="font-size:.85rem;margin-top:.2rem">${line}.</div>
-        <div class="muted" style="font-size:.78rem;margin-top:.3rem">An instructor whose badge has run out is not registered to teach. Change when you are warned under Set the levels.</div>
+        <div class="muted" style="font-size:.78rem;margin-top:.3rem">An instructor whose badge has run out is not registered to teach, and one without insurance or an ICO registration should not be out with a pupil either. Change when you are warned under Set the levels.</div>
       </div>
       <button type="button" class="btn-outline btn-sm" onclick="localStorage.setItem('${key}','1');renderBadgeBanner()">Dismiss</button>
     </div>
   </div>`;
 }
 
+// Kept by name: the badge is the one of the three that has its own RAG column.
 function badgeDaysLeft(r){
-  if(!r.badgeExp) return null;
-  return Math.round((new Date(r.badgeExp)-new Date())/864e5);
+  return credDaysLeft(r,"badgeExp");
+}
+// A credential's date as the drop-down panel spells it out, with how long is left on it.
+function credWhen(r,field){
+  if(!r[field]) return "&ndash;";
+  const d=credDaysLeft(r,field);
+  return new Date(r[field]).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})
+    + (d<0 ? " (expired)" : ` (${d} day${d===1?"":"s"})`);
 }
 // Nothing under the name while a badge is in date. A pill once it is inside the school's first
 // warning, and it changes colour as it gets closer (Dale, 3 Oct 2026). An instructor whose badge has
 // run out is not registered to teach, which is the school's problem as much as theirs.
 function badgeNote(r){
-  const days=badgeDaysLeft(r);
-  if(days===null) return "";
-  const band=days<0 ? "red" : ragBand("badgeDays", days);
-  if(band==="green") return "";
-  const colour={amber:"var(--warn)",red:"var(--bad)"}[band]||"var(--muted)";
-  const when=new Date(r.badgeExp).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
-  const text=days<0 ? `Badge expired ${when}` : `Badge expires ${when}`;
-  return `<div style="font-size:.75rem;margin-top:.15rem"><span style="display:inline-block;padding:.1rem .4rem;border-radius:.35rem;font-weight:600;color:${colour};background:${band==="red"?"rgba(220,38,38,.14)":"rgba(217,119,6,.16)"}">${text}</span></div>`;
+  const due=credDue(r);
+  if(!due.length) return "";
+  const pills=due.map(c=>{
+    const band=c.days<0 ? "red" : ragBand("badgeDays", c.days);
+    const colour={amber:"var(--warn)",red:"var(--bad)"}[band]||"var(--muted)";
+    const when=new Date(r[c.field]).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+    const text=`${c.short} ${c.days<0?"expired":"expires"} ${when}`;
+    return `<span style="display:inline-block;padding:.1rem .4rem;border-radius:.35rem;font-weight:600;color:${colour};background:${band==="red"?"rgba(220,38,38,.14)":"rgba(217,119,6,.16)"}">${text}</span>`;
+  }).join(" ");
+  return `<div style="font-size:.75rem;margin-top:.15rem;display:flex;gap:.25rem;flex-wrap:wrap">${pills}</div>`;
 }
 function plainChip(label){
   return `<span class="muted" style="font-size:.85rem">${label}</span>`;
@@ -18934,6 +18990,13 @@ async function renderSchoolInstructors(last12){
       trains: (pairs||[]).filter(x=>x.trainer_id===id).length,
       badgeNo: ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).adi_badge_number||null,
       badgeExp: ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).adi_badge_expires_on||null,
+      insurer:  ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).insurance_provider||null,
+      insExp:   ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).insurance_expires_on||null,
+      icoNo:    ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).ico_registration_number||null,
+      icoExp:   ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).ico_expires_on||null,
+      ecName:   ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).emergency_contact_name||null,
+      ecRel:    ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).emergency_contact_relationship||null,
+      ecPhone:  ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).emergency_contact_phone||null,
     };
   }).sort((a,b)=>{
     if(schoolSort.key==="name"){
@@ -18976,10 +19039,16 @@ async function renderSchoolInstructors(last12){
         : "&ndash;"],
       ["Trainees they train", r.trains||"&ndash;"],
       ["ADI badge number", r.badgeNo?esc(r.badgeNo):"&ndash;"],
-      ["Badge expires", r.badgeExp
-        ? new Date(r.badgeExp).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})
-          + (badgeDaysLeft(r)<0 ? " (expired)" : ` (${badgeDaysLeft(r)} days)`)
-        : "&ndash;"],
+      ["Badge expires", credWhen(r,"badgeExp")],
+      ["Insurer", r.insurer?esc(r.insurer):"&ndash;"],
+      ["Insurance expires", credWhen(r,"insExp")],
+      ["ICO registration number", r.icoNo?esc(r.icoNo):"&ndash;"],
+      ["ICO registration expires", credWhen(r,"icoExp")],
+      // Not a figure, but it is the one thing on this panel somebody might need in a hurry, so the
+      // number is a link they can press rather than something to copy out (Chris Bensted, 3 Oct 2026).
+      ["Emergency contact", r.ecName
+        ? `${esc(r.ecName)}${r.ecRel?` <span class="muted">(${esc(r.ecRel)})</span>`:""}${r.ecPhone?` &middot; <a href="tel:${esc(String(r.ecPhone).replace(/[^0-9+]/g,""))}" style="color:var(--navy);font-weight:600">${esc(r.ecPhone)}</a>`:""}`
+        : '<span class="muted">Not given</span>'],
     ];
     const reds = dvsaRedCount(r);
     // The dot, not a colour on the name: three or more of DVSA's four the wrong side of the line is

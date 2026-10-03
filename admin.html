@@ -1159,6 +1159,7 @@ tbody tr:hover td{background:#334263}
           <button type="button" class="btn-outline btn-sm" onclick="openRagThresholds()">Set the levels</button>
         </div>
         <p class="muted" style="margin-bottom:.75rem">Tap an instructor to open their full record. Test figures are completed tests in the last 12 months, the same ones your Snapshot is built from.</p>
+        <p class="muted" style="margin-bottom:.75rem;font-size:.82rem"><strong>Slots free</strong> is how many more lessons each instructor could take in the next 7 days, worked out from their working hours, their diary and their own usual lesson length. It counts whole lessons, not spare hours: a short gap between two bookings is travel, not a lesson you could sell. Drive My Way does not record travel time, so a margin is left either side of anything already booked instead of guessing a journey. Change it under Set the levels. An instructor who has never set their working hours shows a dash, because that means we do not know, not that they are full.</p>
         <div id="school-instructors-list">Loading…</div>
       </div>
       <!-- Hand an unassigned pupil to whoever can actually take them (Dale, 3 Oct 2026). A blank day:
@@ -19067,6 +19068,9 @@ const RAG_DEFAULTS = {
   income:   { green: 12000, amber: 6000, dir: "high" },
   owing:    { green: 1,    amber: 3,    dir: "low"  },
   lostPct:  { green: 15,   amber: 30,   dir: "low"  },
+  // Whole lesson-sized slots they could still take in the next 7 days. Green means room for a new
+  // pupil, red means they are full. Not free hours: see school_slots_free for why.
+  slots:    { green: 6,    amber: 2,    dir: "high" },
   // Days left on an ADI badge. More is better, so green above the first number, red below the
   // second, amber in between. Expired is always red whatever the levels say.
   badgeDays:{ green: 90,   amber: 30,   dir: "high" },
@@ -19082,6 +19086,7 @@ const RAG_COLUMNS = [
   ["income",   "Pupil income, 12 mths", r => r.income, v => v===null?null:"£"+Number(v).toLocaleString("en-GB")],
   ["owing",    "Pupils owing",    r => r.owing],
   ["lostPct",  "Lost pupils",     r => r.lostPct, v=>v===null?null:v+"%"],
+  ["slots",    "Slots free",      r => r.slots, v=>v===null?null:String(v)],
 ];
 // How many of DVSA's four an instructor is the wrong side of. Three is the number that matters.
 const DVSA_KEYS = ["passRate","avgD","avgS","examPct"];
@@ -19094,6 +19099,17 @@ function dvsaRedCount(r){
   }).length;
 }
 let ragThresholds = null;
+// Minutes left either side of anything already booked before a gap counts as a free slot. It stands
+// in for travel, which Drive My Way does not record anywhere: a 30 minute hole between two lessons
+// across town is travel, not capacity (Dale, 3 Oct 2026). A city school can push it up, a rural one
+// can leave it. Kept with the levels because it is the same screen and the same jsonb.
+const SLOT_MARGIN_DEFAULT = 15;
+const SLOT_DAYS = 7;
+function slotMargin(){
+  const t=ragThresholds||{};
+  const m=Number(t._slotMargin);
+  return isFinite(m)&&m>=0 ? m : SLOT_MARGIN_DEFAULT;
+}
 
 function ragBand(key, value){
   if(value===null||value===undefined) return "none";
@@ -19220,6 +19236,10 @@ function openRagThresholds(){
         <input id="rag-${key}-a" type="number" step="any" value="${(t[key]||{}).amber}" placeholder="Amber at or above">
       </div>
     </div>`).join("")}
+    <div class="field" style="margin-top:.6rem"><label>Minutes to leave either side of a booking</label>
+      <input id="rag-slotmargin" type="number" min="0" max="120" step="5" value="${slotMargin()}" style="max-width:8rem">
+      <p class="muted" style="font-size:.78rem;margin:.3rem 0 0">Used by Slots free. Drive My Way does not record travel time, so this stands in for it: a gap only counts as a free lesson if there is still this long spare either side of whatever is already booked. Raise it if your instructors cover a wide area.</p>
+    </div>
     <div class="err" id="rag-err" style="margin-top:.4rem"></div>
     <div style="display:flex;gap:.5rem;margin-top:.9rem">
       <button class="btn" onclick="saveRagThresholds()">Save</button>
@@ -19236,29 +19256,38 @@ async function saveRagThresholds(){
     if(!isFinite(g)||!isFinite(a)){ if(err) err.textContent="Both levels need a number."; return; }
     next[key]={green:g, amber:a, dir:(RAG_DEFAULTS[key]||{}).dir||"high"};
   }
+  // Carried in the same jsonb as the levels, so it is saved and reset with them.
+  { const m=Number((document.getElementById("rag-slotmargin")||{}).value);
+    next._slotMargin = isFinite(m)&&m>=0 ? Math.min(m,120) : SLOT_MARGIN_DEFAULT; }
   const {error} = currentSchoolId
     ? await sb.from("schools").update({rag_thresholds:next}).eq("id",currentSchoolId)
     : await sb.from("app_settings").upsert({owner_id:currentUserId,id:"rag_thresholds",value:next},{onConflict:"owner_id,id"});
   if(error){ if(err) err.textContent=error.message; return; }
-  ragThresholds=next; closeModal(); renderSchoolInstructors(schoolLast12);
+  ragThresholds=next; schoolAheadCache=null; closeModal(); renderSchoolInstructors(schoolLast12);
 }
 
 async function resetRagThresholds(){
   if(currentSchoolId) await sb.from("schools").update({rag_thresholds:null}).eq("id",currentSchoolId);
   else await sb.from("app_settings").delete().eq("owner_id",currentUserId).eq("id","rag_thresholds");
-  ragThresholds={...RAG_DEFAULTS}; closeModal(); renderSchoolInstructors(schoolLast12);
+  ragThresholds={...RAG_DEFAULTS}; schoolAheadCache=null; closeModal(); renderSchoolInstructors(schoolLast12);
 }
 
 async function renderSchoolInstructors(last12){
   const el=document.getElementById("school-instructors-list");
   if(!el) return;
 
+  // loadRagThresholds existed but nothing ever called it, so a school's own levels only applied in
+  // the session they were set in and quietly went back to the suggested ones at the next sign-in
+  // (found 3 Oct 2026). It also has to run before the fetch below, which asks the database for the
+  // slot counts using the school's own margin.
+  await loadRagThresholds();
+
   const allPupils=[...pupilsCache,...schoolPupilsCache];
   // What is still to come: booked tests, and any part 3 in the diary. Fetched once when the tab is
   // opened and kept - opening a row is not a reason to go back to the database.
   if(!schoolAheadCache){
     const now=new Date().toISOString();
-    const [{data:futureTests},{data:part3s},{data:pairs},{data:theory},{data:hazard},{data:clips},{data:progress},{data:income}] = await Promise.all([
+    const [{data:futureTests},{data:part3s},{data:pairs},{data:theory},{data:hazard},{data:clips},{data:progress},{data:income},{data:freeSlots}] = await Promise.all([
       sb.from("practical_tests").select("pupil_id,test_date,instructor_id").gt("test_date",now),
       sb.from("lessons").select("instructor_id,start_time,test_start_time").eq("lesson_type","part3_test").gt("start_time",now),
       sb.from("trainee_trainers").select("trainer_id,trainee_id"),
@@ -19275,12 +19304,17 @@ async function renderSchoolInstructors(last12){
       // school's, so this is what came in and nothing else.
       sb.from("transactions").select("instructor_id,amount,type,transaction_date")
         .eq("type","income").gte("transaction_date", new Date(Date.now()-365*864e5).toISOString().slice(0,10)),
+      // How many more lessons each of them could actually take. Worked out in the database, because
+      // it has to count an instructor's own appointments, which a school admin can no longer read -
+      // and a dentist appointment really does block a slot.
+      sb.rpc("school_slots_free", {p_days:SLOT_DAYS, p_margin:slotMargin()}),
     ]);
     schoolAheadCache={
       futureTests:futureTests||[],part3s:part3s||[],pairs:pairs||[],
       theory:theory||[],hazard:hazard||[],clipTotal:(clips||[]).length,
       graded:new Set((progress||[]).map(x=>x.pupil_id)),
       income:income||[],
+      slots:new Map((freeSlots||[]).map(x=>[x.instructor_id,x])),
     };
   }
   const {futureTests,part3s,pairs,theory,hazard,clipTotal,graded,income}=schoolAheadCache;
@@ -19350,6 +19384,11 @@ async function renderSchoolInstructors(last12){
       })(),
       part3: p3,
       trains: (pairs||[]).filter(x=>x.trainer_id===id).length,
+      // Null, not zero, when they have never set their working hours: "we do not know" is not the
+      // same as "no room", and a zero there would send a school chasing the wrong instructor.
+      slots: ((schoolAheadCache.slots||new Map()).get(id)||{has_hours:false}).has_hours
+        ? ((schoolAheadCache.slots||new Map()).get(id)||{}).slots : null,
+      slotLen: (((schoolAheadCache.slots||new Map()).get(id))||{}).lesson_minutes||null,
       badgeNo: ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).adi_badge_number||null,
       badgeExp: ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).adi_badge_expires_on||null,
       insurer:  ((schoolInstructorsCache||[]).find(x=>x.id===id)||{}).insurance_provider||null,
@@ -19399,6 +19438,9 @@ async function renderSchoolInstructors(last12){
         ? new Date(r.part3.start_time).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})
           + (r.part3.test_start_time?` at ${String(r.part3.test_start_time).slice(0,5)}`:"")
         : "&ndash;"],
+      ["Lessons they could still take, next 7 days", r.slots===null||r.slots===undefined
+        ? '<span class="muted">They have not set their working hours</span>'
+        : `${r.slots}${r.slotLen?` <span class="muted">(at their usual ${r.slotLen>=60&&r.slotLen%60===0?(r.slotLen/60)+(r.slotLen===60?" hour":" hours"):r.slotLen+" mins"})</span>`:""}`],
       ["Trainees they train", r.trains||"&ndash;"],
       ["ADI badge number", r.badgeNo?esc(r.badgeNo):"&ndash;"],
       ["Badge expires", credWhen(r,"badgeExp")],

@@ -19325,7 +19325,6 @@ const RAG_DEFAULTS = {
   active:   { green: 15,   amber: 8,    dir: "high" },
   terms:    { green: 80,   amber: 50,   dir: "high" },
   syllabus: { green: 60,   amber: 30,   dir: "high" },
-  income:   { green: 12000, amber: 6000, dir: "high" },
   owing:    { green: 1,    amber: 3,    dir: "low"  },
   lostPct:  { green: 15,   amber: 30,   dir: "low"  },
   // Whole lesson-sized slots they could still take in the next 7 days. Green means room for a new
@@ -19343,7 +19342,6 @@ const RAG_COLUMNS = [
   ["examPct",  "Examiner action", r => r.examPct, v => v===null?null:v+"%"],
   ["syllabus", "Graded",          r => r.active?Math.round(100*r.syllabusUsed/r.active):null, v=>v===null?null:v+"%"],
   ["terms",    "Terms signed",    r => r.active?Math.round(100*r.termsSigned/r.active):null, v=>v===null?null:v+"%"],
-  ["income",   "Pupil income, 12 mths", r => r.income, v => v===null?null:"£"+Number(v).toLocaleString("en-GB")],
   ["owing",    "Pupils owing",    r => r.owing],
   ["lostPct",  "Lost pupils",     r => r.lostPct, v=>v===null?null:v+"%"],
   ["slots",    "Slots free",      r => r.slots, v=>v===null?null:String(v)],
@@ -19547,7 +19545,7 @@ async function renderSchoolInstructors(last12){
   // opened and kept - opening a row is not a reason to go back to the database.
   if(!schoolAheadCache){
     const now=new Date().toISOString();
-    const [{data:futureTests},{data:part3s},{data:pairs},{data:theory},{data:hazard},{data:clips},{data:progress},{data:income},{data:freeSlots}] = await Promise.all([
+    const [{data:futureTests},{data:part3s},{data:pairs},{data:theory},{data:hazard},{data:clips},{data:progress},{data:freeSlots}] = await Promise.all([
       sb.from("practical_tests").select("pupil_id,test_date,instructor_id").gt("test_date",now),
       sb.from("lessons").select("instructor_id,start_time,test_start_time").eq("lesson_type","part3_test").gt("start_time",now),
       sb.from("trainee_trainers").select("trainer_id,trainee_id"),
@@ -19560,10 +19558,6 @@ async function renderSchoolInstructors(last12){
       // whether an instructor uses it, which is the thing an owner asks for first (Chris Bensted,
       // 3 Oct 2026). One row per pupil who has ANY progress recorded is all this needs.
       sb.from("pupil_progress").select("pupil_id"),
-      // A year of income, per instructor. Expenses are the instructor's own business and none of the
-      // school's, so this is what came in and nothing else.
-      sb.from("transactions").select("instructor_id,amount,type,transaction_date")
-        .eq("type","income").gte("transaction_date", new Date(Date.now()-365*864e5).toISOString().slice(0,10)),
       // How many more lessons each of them could actually take. Worked out in the database, because
       // it has to count an instructor's own appointments, which a school admin can no longer read -
       // and a dentist appointment really does block a slot.
@@ -19573,11 +19567,10 @@ async function renderSchoolInstructors(last12){
       futureTests:futureTests||[],part3s:part3s||[],pairs:pairs||[],
       theory:theory||[],hazard:hazard||[],clipTotal:(clips||[]).length,
       graded:new Set((progress||[]).map(x=>x.pupil_id)),
-      income:income||[],
       slots:new Map((freeSlots||[]).map(x=>[x.instructor_id,x])),
     };
   }
-  const {futureTests,part3s,pairs,theory,hazard,clipTotal,graded,income}=schoolAheadCache;
+  const {futureTests,part3s,pairs,theory,hazard,clipTotal,graded}=schoolAheadCache;
 
   const ids=new Set((schoolInstructorsCache||[]).map(i=>i.id));
   if(currentUserId) ids.add(currentUserId);
@@ -19621,13 +19614,14 @@ async function renderSchoolInstructors(last12){
       // terms is the one the new DVSA code of practice has something to say about.
       syllabusUsed: [...theirIds].filter(id=>(graded||new Set()).has(id)).length,
       termsSigned: theirs.filter(p=>p.status==="active" && p.terms_accepted_at).length,
-      // Money in from pupils over the last 12 months. Deliberately not "income": the RLS policy on
-      // transactions lets a school admin see rows tied to a pupil in their school, and nothing else,
-      // so an instructor's own non-pupil income is invisible here and always will be. Labelling this
-      // "income" would understate it silently, which is the worst thing a money figure can do.
-      // Expenses are not here either - what an instructor spends is their own business, not the
-      // school's.
-      income: Math.round((income||[]).filter(t=>t.instructor_id===id).reduce((sum,t)=>sum+Number(t.amount||0),0)),
+      // There is deliberately NO income figure here. There was one, for a day, and it came out again
+      // (Dale, 4 Oct 2026: "should we share that, is that not private?"). A school admin can read
+      // payments made by their own pupils, which is fair enough, but what a self-employed instructor
+      // turns over is not the school's business: franchise fees are a fixed weekly amount, not a
+      // percentage, so the school has no billing reason to know it. "Pupils owing" below covers the
+      // thing a school legitimately needs, which is whether those pupils are actually paying. It also
+      // read differently on different rows, because a school admin can see their own non-pupil income
+      // in full and nobody else's. Do not put it back without asking.
       // Pupils sitting in debit. A pupil who owes for one lesson is normal; a column full of them is not.
       owing: theirs.filter(p=>p.status==="active" && Number(p.credit_hours||0) < 0).length,
       // Pupils who stopped in the last 12 months, against everyone they had. The window is not

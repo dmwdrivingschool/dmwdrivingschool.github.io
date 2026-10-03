@@ -8186,7 +8186,7 @@ function diaryDayHtml(list){
     const editBtn = l.lesson_type==="pdi_training"
       ? `<button class="btn-outline btn-sm" onclick="event.stopPropagation();openPdiTrainingEdit('${esc(l.id)}')">Edit</button>` : "";
     return `<div class="dv-card" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="dv-time">${dLocalTime(new Date(l.start_time))}</div>
-      <div class="dv-main"><div class="dv-name">${esc(diaryShortName(l,false))}</div>${l.title==="Appointment"&&l.notes?`<div class="dv-notes">${esc(l.notes)}</div>`:""}
+      <div class="dv-main"><div class="dv-name">${esc(diaryShortName(l,false))}</div>${l.title==="Appointment"&&l.notes&&!(diaryIsSomeoneElses()&&diaryTheirOwnTime(l))?`<div class="dv-notes">${esc(l.notes)}</div>`:""}
       <div class="dv-chips"><span class="dv-chip dv-type">${esc(type)}</span>${l.lesson_type==="pdi_training"&&l.pdi_in_car===false?'<span class="dv-chip">No car</span>':""}${second}</div></div>${editBtn?`<div class="actions">${editBtn}</div>`:""}</div>`;
   };
   return `<div class="dv-wrap">${diaryHoldTipHtml()}<div class="dv-list">${items.length?items.map(card).join(""):'<div class="dv-empty">No lessons on this day</div>'}</div></div>`;
@@ -8494,7 +8494,18 @@ async function onDiaryBlockClick(el){
     if(!p){ const {data}=await sb.from("pupils").select("*").eq("id",l.pupil_id).maybeSingle(); p=data; }
     if(p){ showPupil(p,l.status==="cancelled"?"lessons":undefined); return; }
   }
-  if(l.title==="Away"||l.title==="Appointment"){ openAwayModal(l.id); return; }
+  if(l.title==="Away"||l.title==="Appointment"){
+    // The school booked it, so the school changes it, as one thing across every diary it is in.
+    if(l.school_event_id && diaryIsSomeoneElses()){
+      await wfLoadEvents();
+      if(wfEvents.find(x=>x.id===l.school_event_id)){ openSchoolEvent(l.school_event_id); return; }
+    }
+    if(diaryIsSomeoneElses() && diaryTheirOwnTime(l)){
+      showBanner(l.title==="Away" ? "That is their own time off." : "That is their own appointment, so it is not yours to change.");
+      return;
+    }
+    openAwayModal(l.id); return;
+  }
   openLessonEditor(l.id,"diary");
 }
 
@@ -14402,6 +14413,20 @@ function diaryShortName(l,compact){
   const name=diaryBlockBaseName(l,compact);
   return l&&l.lesson_type==="part3_test"?`Part 3 · ${name}`:name;
 }
+// Somebody else's diary, opened by a school admin. A pupil in it is the school's business; what the
+// instructor is doing with their own time is not. A pupil is already shown an appointment as a block
+// called "Appointment" with no notes (pupil_visible_appointments returns id, times and title only),
+// and the school gets exactly the same (Dale, 3 Oct 2026: "i thought it could see it as an
+// appointment but not the notes - just like a pupil would").
+function diaryIsSomeoneElses(){
+  return !!(diaryOwnerId && currentUserId && diaryOwnerId !== currentUserId);
+}
+// Their own time, as opposed to something the school booked into their diary, which the school may
+// read and change because the school put it there.
+function diaryTheirOwnTime(l){
+  return l && !l.school_event_id && (l.title==="Appointment" || l.title==="Away");
+}
+
 // The app's shortName: the week grid shows the full name, lists "Sam S."; a holiday says Holiday.
 function diaryBlockBaseName(l,compact){
   const p=l&&l.pupil; let fallback=(l&&l.title)||"Private"; if(fallback==="Away") fallback="Holiday";
@@ -14452,8 +14477,11 @@ function diaryBlockHtml(l,day,layout,startH,endH,hourH){
   const name=diaryShortName(l,true);
   const full=l.pupil&&l.pupil.first_name?`${l.pupil.first_name} ${l.pupil.last_name||""}`.trim():name;
   const times=`${dLocalTime(new Date(l.start_time))}–${dLocalTime(new Date(l.end_time))}`;
-  const tip=[full,times,foot?foot.text:"",appt&&l.notes?l.notes:""].filter(Boolean).join(" · ");
-  return `<div class="d-block${appt?" appt":""}" style="top:${top}px;height:${height}px;left:calc(${left}% + 1px);width:calc(${w}% - 2px);z-index:${pos.zIndex+1};background:${diaryBlockColour(l,colours)};padding-bottom:${hasFooter?15:2}px${cancelled?";opacity:.95":""}" title="${esc(tip)}" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="d-bname"><div class="nm"${cancelled?' style="text-decoration:line-through"':""}>${esc(name)}</div>${l.lesson_type==="pdi_training"?`<div class="nt part">Part ${l.pdi_part===3?3:2}</div>${l.pdi_in_car===false?'<div><span class="blk-tag">No car</span></div>':""}`:""}${appt&&l.notes?`<div class="nt">${esc(l.notes)}</div>`:""}</div><div class="tm">${times}</div>${foot?`<div class="d-foot" style="background:${foot.bg}">${foot.text}</div>`:""}</div>`;
+  // Their own appointment keeps its words to itself on somebody else's diary, in the tooltip as
+  // well as on the block (Dale, 3 Oct 2026).
+  const showNote=appt&&l.notes&&!(diaryIsSomeoneElses()&&diaryTheirOwnTime(l));
+  const tip=[full,times,foot?foot.text:"",showNote?l.notes:""].filter(Boolean).join(" · ");
+  return `<div class="d-block${appt?" appt":""}" style="top:${top}px;height:${height}px;left:calc(${left}% + 1px);width:calc(${w}% - 2px);z-index:${pos.zIndex+1};background:${diaryBlockColour(l,colours)};padding-bottom:${hasFooter?15:2}px${cancelled?";opacity:.95":""}" title="${esc(tip)}" data-lesson-id="${esc(l.id)}" onclick="onDiaryBlockClick(this)"><div class="d-bname"><div class="nm"${cancelled?' style="text-decoration:line-through"':""}>${esc(name)}</div>${l.lesson_type==="pdi_training"?`<div class="nt part">Part ${l.pdi_part===3?3:2}</div>${l.pdi_in_car===false?'<div><span class="blk-tag">No car</span></div>':""}`:""}${showNote?`<div class="nt">${esc(l.notes)}</div>`:""}</div><div class="tm">${times}</div>${foot?`<div class="d-foot" style="background:${foot.bg}">${foot.text}</div>`:""}</div>`;
 }
 
 // --- Unfinished add forms (the app's lib/formDraft.ts, Dale 13 Sep 2026) -----------------------------------------------------

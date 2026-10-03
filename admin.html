@@ -16167,7 +16167,18 @@ async function checkNewsUnread(){
   return newsUnreadCC;
 }
 async function renderNewsTab(content){
-  const {data,error}=await sb.from("platform_announcements").select("id,title,body,created_at,school_id,recipient_ids").order("created_at",{ascending:false}).limit(200);
+  // A super admin can read every row in the table, which is right for support but wrong for this
+  // screen: another school's rota notice is private between them and their instructors, and seeing it
+  // scroll past in your own News reads like a leak even though it is not (Dale, 4 Oct 2026). So this
+  // asks only for what anybody else in your position would get. Everyone else is already held to it
+  // by the read policy.
+  let newsQ=sb.from("platform_announcements").select("id,title,body,created_at,school_id,recipient_ids").order("created_at",{ascending:false}).limit(200);
+  if(isSuperAdminUser){
+    newsQ = currentSchoolId
+      ? newsQ.or(`school_id.is.null,school_id.eq.${currentSchoolId}`)
+      : newsQ.is("school_id",null);
+  }
+  const {data,error}=await newsQ;
   try{ localStorage.setItem(newsSeenKey(), new Date().toISOString()); }catch(e){}
   newsUnreadCC=false;
   const everyone=isSuperAdminUser, canPost=isSuperAdminUser||!!(isSchoolAdminUser&&currentSchoolId);

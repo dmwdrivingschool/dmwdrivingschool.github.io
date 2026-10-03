@@ -18547,22 +18547,31 @@ async function wfWhoIsFree(){
 
 function wfListHtml(pupil){
   const rows=wfResult||[];
-  const free=rows.filter(r=>r.is_free), busy=rows.filter(r=>!r.is_free);
+  const free=rows.filter(r=>r.is_free);
+  // Not working then, but nothing in the diary either. Its own group, because "a school meeting is
+  // likely to happen when people aren't working" (Dale, 3 Oct 2026), and buried under "Not available"
+  // with everybody genuinely booked they were impossible to pick out. Tickable for an event, never
+  // for a lesson, and never silently.
+  const offDuty=rows.filter(r=>!r.is_free&&r.off_duty);
+  const busy=rows.filter(r=>!r.is_free&&!r.off_duty);
   const near=r=>r.miles===null||r.miles===undefined ? "" :
     `<span class="muted" style="font-size:.8rem"> · ${r.miles} mile${r.miles===1?"":"s"} from their ${new Date(r.near_when).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span>`;
   const row=r=>`<div style="display:flex;justify-content:space-between;gap:.6rem;align-items:center;padding:.45rem 0;border-top:1px solid var(--line);flex-wrap:wrap">
       <div><strong>${esc(r.full_name)}</strong>${near(r)}
         ${r.diary_locked?'<div style="font-size:.78rem;color:var(--warn)">Diary locked, ask them yourself</div>':""}
-        ${r.is_free?"":`<div class="muted" style="font-size:.78rem">${esc(r.reason)}</div>`}
+        ${r.is_free?"":`<div class="${r.off_duty?"":"muted"}" style="font-size:.78rem${r.off_duty?";color:var(--warn)":""}">${esc(r.reason)}</div>`}
       </div>
       ${wfMode==="event"
-        ? (r.is_free&&!r.diary_locked
-            ? `<label style="display:flex;gap:.35rem;align-items:center;font-size:.85rem"><input type="checkbox" ${wfTicked.has(r.instructor_id)?"checked":""} onchange="wfTick('${r.instructor_id}',this.checked)"> Include</label>`
+        ? ((r.is_free||r.off_duty)&&!r.diary_locked
+            ? `<label style="display:flex;gap:.35rem;align-items:center;font-size:.85rem${r.off_duty?";color:var(--warn)":""}"><input type="checkbox" ${wfTicked.has(r.instructor_id)?"checked":""} onchange="wfTick('${r.instructor_id}',this.checked)"> ${r.off_duty?"Include anyway":"Include"}</label>`
             : "")
         : (r.is_free&&!r.diary_locked&&pupil?`<button type="button" class="btn btn-navy btn-sm" onclick="wfBook('${r.instructor_id}')">Book</button>`:"")}
     </div>`;
   if(!rows.length) return '<p class="muted">Nobody found.</p>';
   return `${free.length?`<strong style="color:var(--ok)">Free (${free.length})</strong>${free.map(row).join("")}`:'<p class="muted">Nobody is free at that time.</p>'}
+    ${offDuty.length?`<div style="margin-top:.8rem"><strong style="color:var(--warn)">Not working then (${offDuty.length})</strong>
+      <div class="muted" style="font-size:.78rem">Nothing booked, they are just not down as working. ${wfMode==="event"?"You can put the event in anyway and it will show in their diary.":"Only a school event can go in over this."}</div>
+      ${offDuty.map(row).join("")}</div>`:""}
     ${busy.length?`<div style="margin-top:.8rem"><strong class="muted">Not available (${busy.length})</strong>${busy.map(row).join("")}</div>`:""}
     ${wfMode==="event"?"":(pupil?"":'<p class="muted" style="font-size:.8rem;margin-top:.6rem">Choose a pupil to book one of them.</p>')}`;
 }
@@ -18586,6 +18595,9 @@ async function wfBookEvent(){
     start_time:start.toISOString(), end_time:end.toISOString(),
     lesson_type:"private", title:"Appointment", notes:name, status:"booked",
   }));
+  // Said again afterwards, not only on the tick box: putting a meeting in somebody's day off is a
+  // decision worth seeing twice (Dale, 3 Oct 2026).
+  const outside=(wfResult||[]).filter(r=>wfTicked.has(r.instructor_id)&&r.off_duty).map(r=>r.full_name);
   const btn=document.querySelector('[onclick="wfBookEvent()"]');
   if(btn){ btn.disabled=true; btn.textContent="Adding…"; }
   const {error}=await sb.from("lessons").insert(rows);
@@ -18600,7 +18612,9 @@ async function wfBookEvent(){
   await refresh();
   await wfRenderSlots();
   await wfRenderEvents();
-  showBanner(`"${name}" added to ${rows.length} diar${rows.length===1?"y":"ies"}.`);
+  showBanner(outside.length
+    ? `"${name}" added to ${rows.length} diar${rows.length===1?"y":"ies"}. ${outside.join(" and ")} ${outside.length===1?"is":"are"} not down as working then.`
+    : `"${name}" added to ${rows.length} diar${rows.length===1?"y":"ies"}.`);
 }
 
 // ---- School events: one thing in several diaries ----------------------------------------------

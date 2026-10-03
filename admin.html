@@ -1178,6 +1178,9 @@ tbody tr:hover td{background:#334263}
           </div>
         </div>
         <div id="wf-slots" class="wf-day"></div>
+        <!-- An event booked across several diaries is one thing, so it is changed and cancelled as
+             one thing rather than hunted down diary by diary (Dale, 3 Oct 2026). -->
+        <div id="wf-events" style="margin-top:1rem"></div>
       </div>
 
 
@@ -18208,7 +18211,7 @@ let schoolLast12=[], schoolAheadCache=null;
 function wfToggle(){
   const el=document.getElementById("school-whofree-panel"); if(!el) return;
   const showing=el.classList.toggle("hidden")===false;
-  if(showing){ wfRenderSlots(); el.scrollIntoView({behavior:"smooth",block:"start"}); }
+  if(showing){ wfRenderSlots(); wfRenderEvents(); el.scrollIntoView({behavior:"smooth",block:"start"}); }
 }
 
 // --- Who is free? ---------------------------------------------------------------------------------
@@ -18280,7 +18283,7 @@ async function wfRenderSlots(){
   if(whoseId){
     const from=new Date(days[0]+"T00:00:00"), to=new Date(days[days.length-1]+"T23:59:59");
     const {data}=await sb.from("lessons")
-      .select("id,pupil_id,start_time,end_time,lesson_type,status")
+      .select("id,pupil_id,start_time,end_time,lesson_type,status,school_event_id,notes")
       .eq("instructor_id",whoseId)
       .gte("start_time",from.toISOString()).lte("start_time",to.toISOString());
     wfWhoseLessons=(data||[]).filter(l=>l.status!=="cancelled");
@@ -18321,7 +18324,7 @@ async function wfRenderSlots(){
     const wide=Math.max(1,lanes.length);
     const les=mine.map(l=>{
       const a=top(mins(l.start_time)), b=top(mins(l.end_time));
-      const p=wfPupilName(l.pupil_id);
+      const p=wfBlockName(l);
       const hm=iso=>{const t=new Date(iso);return String(t.getHours()).padStart(2,"0")+":"+String(t.getMinutes()).padStart(2,"0");};
       const w=100/wide, left=l._lane*w;
       return `<div class="wf-les" style="top:${Math.max(0,a)}px;height:${Math.max(16,b-a-2)}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px);right:auto"
@@ -18343,14 +18346,17 @@ function wfClickCol(ev,day){
   wfPick(hh+":"+mm, day);
 }
 
-// Any pupil in the school, whatever their status. Naming somebody is not booking them, and filtering
-// to active meant every other lesson read "Private" (Dale, 3 Oct 2026).
 // What a school may be told about a block in somebody else's diary. A pupil of theirs is their
 // business and is named. Anything without one - an appointment, a gap, a holiday, whatever the
 // instructor called it - is not: "none of school business what they are doing, all school needs
 // to know is they are not available" (Dale, 3 Oct 2026). So the title and the notes are never
 // drawn here, only the fact that the time has gone.
-function wfPupilName(id,l){
+// The school's own event is named, because the school booked it and has to be able to find it again.
+function wfBlockName(l){
+  if(l&&l.school_event_id) return l.notes||"School event";
+  return wfPupilName(l&&l.pupil_id);
+}
+function wfPupilName(id){
   if(!id) return "Busy";
   const all=[...(pupilsCache||[]),...(schoolPupilsCache||[]),...(unassignedCache||[])];
   const p=all.find(x=>x.id===id);
@@ -18364,6 +18370,7 @@ async function wfTakeOver(lessonId){
   const l=wfWhoseLessons.find(x=>x.id===lessonId); if(!l) return;
   if(new Date(l.start_time) < new Date()){ showBanner("That lesson has already been."); return; }
   // Nothing to take over on an appointment or a gap: there is no pupil to move.
+  if(l.school_event_id){ openSchoolEvent(l.school_event_id); return; }
   if(!l.pupil_id){ showBanner("That block has no pupil in it, so there is nothing to move."); return; }
   const st=new Date(l.start_time);
   const time=String(st.getHours()).padStart(2,"0")+":"+String(st.getMinutes()).padStart(2,"0");
@@ -18570,8 +18577,12 @@ async function wfBookEvent(){
   if(!wfTicked.size) return alert("Tick at least one instructor.");
   const start=new Date(wfSlot.date+"T"+wfSlot.time+":00");
   const end=new Date(start.getTime()+wfSlot.minutes*60000);
+  // One id shared by every row, so the event can be found, renamed, retimed or cancelled as one
+  // thing afterwards, and so the school can tell its own entry apart from an instructor's own
+  // appointment, which has no id on it (Dale, 3 Oct 2026).
+  const eventId=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+"-"+Math.random().toString(16).slice(2));
   const rows=[...wfTicked].map(id=>({
-    instructor_id:id, pupil_id:null,
+    instructor_id:id, pupil_id:null, school_event_id:eventId,
     start_time:start.toISOString(), end_time:end.toISOString(),
     lesson_type:"private", title:"Appointment", notes:name, status:"booked",
   }));
@@ -18588,7 +18599,173 @@ async function wfBookEvent(){
   wfResult=null; wfSlot=null; wfTicked=new Set();
   await refresh();
   await wfRenderSlots();
+  await wfRenderEvents();
   showBanner(`"${name}" added to ${rows.length} diar${rows.length===1?"y":"ies"}.`);
+}
+
+// ---- School events: one thing in several diaries ----------------------------------------------
+// Booked on this screen, so changed and cancelled on this screen (Dale, 3 Oct 2026: "how/where can
+// the school change/delete/cancel that?"). Everything from here on only ever touches rows carrying a
+// school_event_id, which is how an instructor's own appointments stay out of the school's reach.
+let wfEvents=[];
+
+async function wfLoadEvents(){
+  wfEvents=[];
+  const ids=(schoolInstructorsCache||[]).map(i=>i.id);
+  if(!ids.length) return;
+  // From the start of today: an event that has already been is history, not something to change.
+  const from=new Date(); from.setHours(0,0,0,0);
+  const {data}=await sb.from("lessons")
+    .select("id,school_event_id,instructor_id,start_time,end_time,notes,status")
+    .not("school_event_id","is",null)
+    .in("instructor_id",ids)
+    .gte("start_time",from.toISOString())
+    .order("start_time",{ascending:true});
+  const byEvent=new Map();
+  (data||[]).filter(r=>r.status!=="cancelled").forEach(r=>{
+    const e=byEvent.get(r.school_event_id)||{id:r.school_event_id,name:r.notes||"School event",
+      start:r.start_time,end:r.end_time,rows:[]};
+    e.rows.push(r);
+    byEvent.set(r.school_event_id,e);
+  });
+  wfEvents=[...byEvent.values()].sort((a,b)=>new Date(a.start)-new Date(b.start));
+}
+
+function wfHhmm(d){ return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+
+function wfInstructorName(id){
+  const i=(schoolInstructorsCache||[]).find(x=>x.id===id);
+  return i?(i.full_name||i.email):"An instructor";
+}
+
+async function wfRenderEvents(){
+  const el=document.getElementById("wf-events");
+  if(!el) return;
+  await wfLoadEvents();
+  if(!wfEvents.length){ el.innerHTML=""; return; }
+  const rows=wfEvents.map(e=>{
+    const st=new Date(e.start), en=new Date(e.end);
+    const when=st.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})
+      +" "+wfHhmm(st)+"\u2013"+wfHhmm(en);
+    const who=e.rows.map(r=>wfInstructorName(r.instructor_id)).sort().join(", ");
+    return `<tr onclick="openSchoolEvent('${e.id}')" style="cursor:pointer">
+      <td><strong>${esc(e.name)}</strong><div class="muted" style="font-size:.78rem">${esc(who)}</div></td>
+      <td style="white-space:nowrap">${esc(when)}</td>
+      <td style="text-align:right;white-space:nowrap">${e.rows.length} diar${e.rows.length===1?"y":"ies"}</td>
+    </tr>`;
+  }).join("");
+  el.innerHTML=`<h3 style="margin:0 0 .35rem">Events you have booked</h3>
+    <p class="muted" style="font-size:.85rem;margin:0 0 .5rem">Anything you have put into several diaries at once. Click one to change it or call it off. Appointments an instructor booked themselves are not in this list, and are not yours to change.</p>
+    <div style="overflow-x:auto"><table><tbody>${rows}</tbody></table></div>`;
+}
+
+function openSchoolEvent(eventId){
+  const e=wfEvents.find(x=>x.id===eventId);
+  if(!e) return showBanner("That event has gone.");
+  const st=new Date(e.start);
+  const mins=Math.round((new Date(e.end)-st)/60000);
+  const who=e.rows.slice()
+    .sort((a,b)=>wfInstructorName(a.instructor_id).localeCompare(wfInstructorName(b.instructor_id)))
+    .map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--line)">
+      <span>${esc(wfInstructorName(r.instructor_id))}</span>
+      ${e.rows.length>1?`<button type="button" class="btn-outline btn-sm" onclick="schoolEventDropOne('${e.id}','${r.id}')">Take off</button>`
+        :'<span class="muted" style="font-size:.78rem">The only one left</span>'}
+    </div>`).join("");
+  const localDate=new Date(st.getTime()-st.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  openModal(`
+    <h3 style="margin-bottom:.2rem">${esc(e.name)}</h3>
+    <p class="muted" style="font-size:.85rem;margin-bottom:.8rem">Changing the name or the time changes it in every diary it is in.</p>
+    <div class="field"><label>Name</label><input id="se-name" maxlength="60" value="${esc(e.name)}"></div>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+      <div class="field" style="flex:1 1 9rem"><label>Day</label><input id="se-date" type="date" value="${localDate}"></div>
+      <div class="field" style="flex:1 1 7rem"><label>Start</label><input id="se-time" type="time" value="${wfHhmm(st)}"></div>
+      <div class="field" style="flex:1 1 7rem"><label>Minutes</label><input id="se-mins" type="number" min="15" max="600" step="15" value="${mins}"></div>
+    </div>
+    <h4 style="margin:.8rem 0 .3rem">Whose diaries it is in</h4>
+    <div>${who}</div>
+    <div class="err" id="se-err" style="margin-top:.5rem"></div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.9rem">
+      <button type="button" class="btn btn-navy" onclick="schoolEventSave('${e.id}')">Save changes</button>
+      <button type="button" class="btn-outline" onclick="closeModal()">Close</button>
+      <button type="button" class="btn-outline" style="margin-left:auto;color:var(--bad);border-color:var(--bad)" onclick="schoolEventCancel('${e.id}')">Call it off</button>
+    </div>`);
+}
+
+function seFail(msg){
+  const el=document.getElementById("se-err");
+  if(el) el.textContent=msg;
+}
+
+async function schoolEventSave(eventId){
+  const e=wfEvents.find(x=>x.id===eventId); if(!e) return;
+  const name=(document.getElementById("se-name").value||"").trim();
+  const date=document.getElementById("se-date").value;
+  const time=document.getElementById("se-time").value;
+  const mins=Number(document.getElementById("se-mins").value||0);
+  if(!name) return seFail("Give it a name.");
+  if(!date||!time) return seFail("It needs a day and a start time.");
+  if(!(mins>=15)) return seFail("It needs to be at least 15 minutes long.");
+  const start=new Date(date+"T"+time+":00");
+  const end=new Date(start.getTime()+mins*60000);
+  const {error}=await sb.from("lessons")
+    .update({notes:name, start_time:start.toISOString(), end_time:end.toISOString()})
+    .eq("school_event_id",eventId);
+  if(error) return seFail(error.message);
+  // Moving it can land on top of something booked since. The school is told who rather than being
+  // stopped: it is their event and their call (Dale, 3 Oct 2026).
+  const clash=await schoolEventClashes(eventId, e.rows.map(r=>r.instructor_id), start, end);
+  closeModal();
+  await wfRenderEvents();
+  await wfRenderSlots();
+  showBanner(clash.length
+    ? `"${name}" moved. It now clashes with something for ${clash.join(" and ")}.`
+    : `"${name}" changed in ${e.rows.length} diar${e.rows.length===1?"y":"ies"}.`);
+}
+
+// Anything else in those diaries over the new window, ignoring the event itself.
+async function schoolEventClashes(eventId, instructorIds, start, end){
+  try{
+    const {data}=await sb.from("lessons")
+      .select("instructor_id,school_event_id,status,lesson_type")
+      .in("instructor_id",instructorIds)
+      .lt("start_time",end.toISOString())
+      .gt("end_time",start.toISOString());
+    const names=new Set();
+    (data||[]).forEach(r=>{
+      if(r.school_event_id===eventId) return;
+      if(r.status==="cancelled"||r.lesson_type==="gap"||r.lesson_type==="lesson_offer") return;
+      names.add(wfInstructorName(r.instructor_id));
+    });
+    return [...names];
+  }catch(err){ return []; }
+}
+
+async function schoolEventDropOne(eventId, lessonId){
+  const {error}=await sb.from("lessons").delete().eq("id",lessonId).eq("school_event_id",eventId);
+  if(error) return seFail(error.message);
+  await wfLoadEvents();
+  if(wfEvents.find(x=>x.id===eventId)) openSchoolEvent(eventId); else closeModal();
+  await wfRenderEvents();
+  await wfRenderSlots();
+}
+
+async function schoolEventCancel(eventId){
+  const e=wfEvents.find(x=>x.id===eventId); if(!e) return;
+  // Deliberately not window.confirm: a suppressed browser dialog returns false and the button then
+  // silently does nothing, which is exactly what happened when this screen was built (3 Oct 2026).
+  // So the button asks the question itself and the second press is the answer.
+  const btn=document.querySelector(`[onclick="schoolEventCancel('${eventId}')"]`);
+  if(btn && btn.dataset.armed!=="1"){
+    btn.dataset.armed="1";
+    btn.textContent=`Take it out of ${e.rows.length} diar${e.rows.length===1?"y":"ies"}?`;
+    return;
+  }
+  const {error}=await sb.from("lessons").delete().eq("school_event_id",eventId);
+  if(error) return seFail(error.message);
+  closeModal();
+  await wfRenderEvents();
+  await wfRenderSlots();
+  showBanner(`"${e.name}" taken out of ${e.rows.length} diar${e.rows.length===1?"y":"ies"}.`);
 }
 
 // Booking it. Two different things wear the same button: giving an unassigned pupil to somebody, and

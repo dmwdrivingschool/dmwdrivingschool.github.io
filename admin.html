@@ -89,6 +89,10 @@ tbody tr:hover td{background:#f8fafc}
 .pick-row{display:flex;align-items:center;gap:.55rem;padding:.32rem .1rem;font-size:.9rem;font-weight:500;color:inherit;cursor:pointer;margin:0}
 .pick-row:hover{background:rgba(148,163,184,.12);border-radius:6px}
 .pick-box{border:1.5px solid var(--line);border-radius:10px;padding:.35rem .6rem;max-height:14rem;overflow-y:auto}
+/* Leaflet gives its panes and controls z-indexes up to 1000, and they compete with everything else on
+   the page unless the map sits in its own stacking context. Without this the map floated over the
+   Set the levels box (Dale, 3 Oct 2026). position+z-index here caps the lot below the modal's 50. */
+#school-map{position:relative;z-index:0;isolation:isolate}
 .two{display:grid;gap:.8rem}@media(min-width:700px){.two{grid-template-columns:1fr 1fr}}
 .chip{display:inline-block;padding:.24rem .6rem;border-radius:999px;font-size:.7rem;font-weight:700;text-transform:capitalize;letter-spacing:.01em}
 .chip-ok{background:#d1fae5;color:#065f46}.chip-bad{background:#ffe4e6;color:#9f1239}

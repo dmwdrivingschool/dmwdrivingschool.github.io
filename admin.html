@@ -18410,6 +18410,25 @@ async function wfTakeOver(lessonId){
   wfWhoIsFree();
 }
 
+// Changing the day or the start time in the box, rather than closing it and clicking the grid again.
+// The grid behind it follows, so the highlighted slot and the answer never disagree.
+function wfSetWhen(field, value){
+  if(!wfSlot || !value) return;
+  const date = field==="date" ? value : wfSlot.date;
+  const time = field==="time" ? value : wfSlot.time;
+  if(new Date(date+"T"+time+":00") < new Date()){
+    showBanner("That time has already been.");
+    return wfRenderResult();        // puts the old one back in the field
+  }
+  wfSlot.date=date; wfSlot.time=time;
+  // Moving to another week has to take the grid with it, or the highlight is left behind.
+  const d=document.getElementById("wf-date");
+  if(d && d.value!==date){ d.value=date; }
+  wfResult=null;
+  wfRenderSlots();
+  wfWhoIsFree();
+}
+
 async function wfPick(time, day){
   const date=day||(document.getElementById("wf-date")||{}).value;
   if(!date) return;
@@ -18483,18 +18502,26 @@ function wfRenderResult(){
       <p class="muted" style="font-size:.78rem;margin:.3rem 0 0">Goes in the diary of everybody you tick, as an appointment. Pupils see nothing.</p>
     </div>`;
 
-  const lengthBox = `
-    <div class="field" style="margin:.5rem 0 0;max-width:10rem"><label>How long</label>
-      <select id="wf-mins" onchange="wfSlot.minutes=Number(this.value);wfWhoIsFree()">
-        ${[30,60,90,120,180,240].map(m=>`<option value="${m}" ${wfSlot.minutes===m?"selected":""}>${m<60?m+" mins":(m/60)+(m===60?" hour":" hours")}</option>`).join("")}
-      </select>
+  // Clicking the grid fills these in, and they stay editable: getting the time slightly wrong meant
+  // closing the box and clicking again (Dale, 3 Oct 2026). Changing either one re-asks who is free.
+  const whenBox = `
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:.5rem 0 0">
+      <div class="field" style="margin:0;flex:1 1 9rem"><label>Day</label>
+        <input id="wf-when-date" type="date" value="${esc(wfSlot.date)}" onchange="wfSetWhen('date',this.value)"></div>
+      <div class="field" style="margin:0;flex:1 1 7rem"><label>Start</label>
+        <input id="wf-when-time" type="time" step="300" value="${esc(wfSlot.time)}" onchange="wfSetWhen('time',this.value)"></div>
+      <div class="field" style="margin:0;flex:1 1 8rem"><label>How long</label>
+        <select id="wf-mins" onchange="wfSlot.minutes=Number(this.value);wfWhoIsFree()">
+          ${[30,60,90,120,180,240].map(m=>`<option value="${m}" ${wfSlot.minutes===m?"selected":""}>${m<60?m+" mins":(m/60)+(m===60?" hour":" hours")}</option>`).join("")}
+        </select>
+      </div>
     </div>`;
 
   openModal(`
     <h2 style="margin-bottom:.15rem">Who is free?</h2>
     <p class="muted" style="margin-bottom:.7rem">${esc(when.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"}))} at ${esc(wfSlot.time)}</p>
     <div style="display:flex;gap:.35rem;margin-bottom:.7rem">${btn("lesson","A lesson")}${btn("event","A school event")}</div>
-    ${pupilBox}${eventBox}${lengthBox}
+    ${pupilBox}${eventBox}${whenBox}
     ${chosen&&!chosen.postcode?'<p class="muted" style="font-size:.8rem;margin:.4rem 0 0">This pupil has no postcode, so nobody can be put in order of how near they are.</p>':""}
     <div id="wf-list" style="margin-top:.8rem;max-height:42vh;overflow-y:auto">${wfBusy?'<p class="muted">Looking…</p>':(wfResult?wfListHtml(chosen):"")}</div>
     ${isEvent?`<div style="margin-top:.8rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
@@ -18566,6 +18593,13 @@ async function wfWhoIsFree(){
       || ((a.miles??0)-(b.miles??0))
       || String(a.full_name).localeCompare(String(b.full_name)));
     wfResult=rows;
+    // The answer has changed, so a tick made against the old one cannot be trusted: somebody ticked
+    // while they were free may now have a lesson at the new time. Anyone still free, or still only
+    // off duty, keeps their tick (Dale, 3 Oct 2026).
+    if(wfTicked.size){
+      const ok=new Set(rows.filter(r=>(r.is_free||r.off_duty)&&!r.diary_locked).map(r=>r.instructor_id));
+      [...wfTicked].forEach(id=>{ if(!ok.has(id)) wfTicked.delete(id); });
+    }
   }catch(e){
     wfResult=null;
     alert((e&&e.message)||"Could not work out who is free.");

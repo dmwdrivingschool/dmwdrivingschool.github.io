@@ -18249,7 +18249,7 @@ async function wfRenderSlots(){
   if(whoseId){
     const from=new Date(days[0]+"T00:00:00"), to=new Date(days[days.length-1]+"T23:59:59");
     const {data}=await sb.from("lessons")
-      .select("id,pupil_id,start_time,end_time,lesson_type,status,title")
+      .select("id,pupil_id,start_time,end_time,lesson_type,status")
       .eq("instructor_id",whoseId)
       .gte("start_time",from.toISOString()).lte("start_time",to.toISOString());
     wfWhoseLessons=(data||[]).filter(l=>l.status!=="cancelled");
@@ -18290,7 +18290,7 @@ async function wfRenderSlots(){
     const wide=Math.max(1,lanes.length);
     const les=mine.map(l=>{
       const a=top(mins(l.start_time)), b=top(mins(l.end_time));
-      const p=wfPupilName(l.pupil_id,l);
+      const p=wfPupilName(l.pupil_id);
       const hm=iso=>{const t=new Date(iso);return String(t.getHours()).padStart(2,"0")+":"+String(t.getMinutes()).padStart(2,"0");};
       const w=100/wide, left=l._lane*w;
       return `<div class="wf-les" style="top:${Math.max(0,a)}px;height:${Math.max(16,b-a-2)}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px);right:auto"
@@ -18314,13 +18314,17 @@ function wfClickCol(ev,day){
 
 // Any pupil in the school, whatever their status. Naming somebody is not booking them, and filtering
 // to active meant every other lesson read "Private" (Dale, 3 Oct 2026).
+// What a school may be told about a block in somebody else's diary. A pupil of theirs is their
+// business and is named. Anything without one - an appointment, a gap, a holiday, whatever the
+// instructor called it - is not: "none of school business what they are doing, all school needs
+// to know is they are not available" (Dale, 3 Oct 2026). So the title and the notes are never
+// drawn here, only the fact that the time has gone.
 function wfPupilName(id,l){
-  // A whole-school event has no pupil, so its own title is the name: "Appointment", not "Private"
-  // (Dale, 3 Oct 2026). Same reasoning as diaryBlockBaseName.
-  if(!id) return (l&&l.title)||"Private";
+  if(!id) return "Busy";
   const all=[...(pupilsCache||[]),...(schoolPupilsCache||[]),...(unassignedCache||[])];
   const p=all.find(x=>x.id===id);
-  return p ? [p.first_name,p.last_name].filter(Boolean).join(" ") : "Private";
+  // A pupil the school cannot see is somebody else's: still busy, still nameless.
+  return p ? [p.first_name,p.last_name].filter(Boolean).join(" ") : "Busy";
 }
 
 
@@ -18329,7 +18333,7 @@ async function wfTakeOver(lessonId){
   const l=wfWhoseLessons.find(x=>x.id===lessonId); if(!l) return;
   if(new Date(l.start_time) < new Date()){ showBanner("That lesson has already been."); return; }
   // Nothing to take over on an appointment or a gap: there is no pupil to move.
-  if(!l.pupil_id){ showBanner(`That is ${(l.title||"an appointment").toLowerCase()}, not a lesson, so there is no pupil to move.`); return; }
+  if(!l.pupil_id){ showBanner("That block has no pupil in it, so there is nothing to move."); return; }
   const st=new Date(l.start_time);
   const time=String(st.getHours()).padStart(2,"0")+":"+String(st.getMinutes()).padStart(2,"0");
   const mins=Math.round((new Date(l.end_time)-st)/60000);

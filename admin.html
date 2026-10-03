@@ -16080,10 +16080,13 @@ async function checkNewsUnread(){
   return newsUnreadCC;
 }
 async function renderNewsTab(content){
-  const {data,error}=await sb.from("platform_announcements").select("id,title,body,created_at,school_id").order("created_at",{ascending:false}).limit(200);
+  const {data,error}=await sb.from("platform_announcements").select("id,title,body,created_at,school_id,recipient_ids").order("created_at",{ascending:false}).limit(200);
   try{ localStorage.setItem(newsSeenKey(), new Date().toISOString()); }catch(e){}
   newsUnreadCC=false;
   const everyone=isSuperAdminUser, canPost=isSuperAdminUser||!!(isSchoolAdminUser&&currentSchoolId);
+  // Only a school picks who a post is for: a platform post goes to everybody by definition.
+  const canChoose = canPost && !isSuperAdminUser && !!currentSchoolId;
+  if(canChoose && !(schoolInstructorsCache||[]).length){ try{ await loadSchoolInstructors(); }catch(e){} }
   const when=d=>new Date(d).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
   const intro=everyone
     ? "News goes to every instructor and driving school on Drive My Way, and their phones get a notification. They can't reply to News, so say how to reach you, for example email admin@drivemyway.co.uk."
@@ -16093,12 +16096,20 @@ async function renderNewsTab(content){
   const items=error
     ? `<p class="muted">${esc(error.message)}</p>`
     : (data||[]).length
-    ? (data||[]).map(a=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><strong>📣 ${esc(a.title)}</strong><span class="chip chip-info">${a.school_id?"Your driving school":"Drive My Way"}</span></div><div class="muted" style="font-size:.75rem;margin:.1rem 0 .35rem">${when(a.created_at)}</div><div style="white-space:pre-wrap;font-size:.9rem;overflow-wrap:anywhere">${esc(a.body)}</div>${canPost?`<div class="muted" id="news-seen-${a.id}" style="font-size:.75rem;margin-top:.45rem">Counting who has read it…</div>`:""}${(isSuperAdminUser||(a.school_id&&a.school_id===currentSchoolId))?`<div style="margin-top:.45rem"><a href="#" onclick="event.preventDefault();deleteNewsCC('${a.id}')" style="color:#e11d48;font-weight:600;font-size:.78rem">Take it down</a></div>`:""}</div></div>`).join("")
+    ? (data||[]).map(a=>`<div class="list-row" style="align-items:flex-start"><div style="flex:1;min-width:0"><div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><strong>📣 ${esc(a.title)}</strong><span class="chip chip-info">${a.school_id?"Your driving school":"Drive My Way"}</span>${(a.recipient_ids&&a.recipient_ids.length)?`<span class="chip chip-info">${a.recipient_ids.length===1?"1 instructor":a.recipient_ids.length+" instructors"}</span>`:""}</div><div class="muted" style="font-size:.75rem;margin:.1rem 0 .35rem">${when(a.created_at)}</div><div style="white-space:pre-wrap;font-size:.9rem;overflow-wrap:anywhere">${esc(a.body)}</div>${canPost?`<div class="muted" id="news-seen-${a.id}" style="font-size:.75rem;margin-top:.45rem">Counting who has read it…</div>`:""}${(isSuperAdminUser||(a.school_id&&a.school_id===currentSchoolId))?`<div style="margin-top:.45rem"><a href="#" onclick="event.preventDefault();deleteNewsCC('${a.id}')" style="color:#e11d48;font-weight:600;font-size:.78rem">Take it down</a></div>`:""}</div></div>`).join("")
     : '<p class="muted">No news yet.</p>';
   content.innerHTML=`<h2>Messages</h2>${msgTabsHtml()}
     <p class="muted" style="margin:0 0 .75rem">${intro}</p>
     ${canPost?`<div class="field"><label>Title</label><input id="news-title" maxlength="120" placeholder="e.g. New in Drive My Way"></div>
     <div class="field"><label>Message</label><textarea id="news-body" rows="5" placeholder="Write your news"></textarea></div>
+    ${canChoose?`<div class="field"><label>Who gets it</label>
+      <label style="display:flex;gap:.4rem;align-items:center;font-weight:600"><input type="radio" name="news-who" value="all" checked onchange="newsWhoChanged()"> Everyone in your school</label>
+      <label style="display:flex;gap:.4rem;align-items:center;font-weight:600;margin-top:.2rem"><input type="radio" name="news-who" value="some" onchange="newsWhoChanged()"> Only the ones I tick</label>
+      <div id="news-picker" hidden style="margin-top:.4rem;padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;max-height:14rem;overflow-y:auto">
+        ${(schoolInstructorsCache||[]).filter(i=>i.id!==currentUserId).map(i=>`<label style="display:flex;gap:.45rem;align-items:center;padding:.15rem 0"><input type="checkbox" class="news-pick" value="${esc(i.id)}" onchange="newsPostLabel()"> ${esc(i.full_name||i.email)}</label>`).join("")||'<p class="muted" style="margin:0">Nobody else in your school yet.</p>'}
+      </div>
+      <p class="muted" style="font-size:.78rem;margin:.3rem 0 0">Anyone you leave out never sees the post and their phone stays quiet.</p>
+    </div>`:""}
     <button type="button" class="btn btn-navy" id="news-post" onclick="postNewsCC()">${everyone?"Post to everyone":"Post to your school"}</button>
     <div class="err" id="news-err" style="margin-top:.5rem;display:block;text-align:left"></div>
     <div id="draft-note" style="margin:.6rem 0 0"></div>`:""}
@@ -16147,6 +16158,26 @@ async function deleteNewsCC(id){
   if(error){ alert(error.message); return; }
   await loadMessagesPanel();
 }
+function newsWhoChanged(){
+  const some=(document.querySelector('input[name="news-who"]:checked')||{}).value==="some";
+  const box=document.getElementById("news-picker");
+  if(box) box.hidden=!some;
+  newsPostLabel();
+}
+function newsPicked(){
+  return [...document.querySelectorAll(".news-pick:checked")].map(c=>c.value);
+}
+// The button says what pressing it does, because "Post to your school" over a list of three ticks
+// is the kind of wrong that only shows up after it has gone out.
+function newsPostLabel(){
+  const btn=document.getElementById("news-post");
+  if(!btn||btn.disabled) return;
+  const some=(document.querySelector('input[name="news-who"]:checked')||{}).value==="some";
+  if(!some){ btn.textContent=isSuperAdminUser?"Post to everyone":"Post to your school"; return; }
+  const n=newsPicked().length;
+  btn.textContent=n?`Post to ${n} instructor${n===1?"":"s"}`:"Tick who it is for";
+}
+
 async function postNewsCC(){
   return runOnce("post-news", async()=>{
     const err=document.getElementById("news-err"); if(!err) return; err.textContent="";
@@ -16154,11 +16185,18 @@ async function postNewsCC(){
     const body=(document.getElementById("news-body").value||"").trim();
     if(!title||!body){ err.textContent="Add a title and a message"; return; }
     const everyone=isSuperAdminUser;
+    // Null means everyone, which is what every post written before this did.
+    const some=(document.querySelector('input[name="news-who"]:checked')||{}).value==="some";
+    const picked=some?newsPicked():[];
+    if(some&&!picked.length){ err.textContent="Tick who it is for, or choose everyone."; return; }
     if(!confirm(everyone
       ? "Post this to every instructor and driving school on Drive My Way? Their phones get a notification straight away."
+      : some
+      ? `Post this to ${picked.length} instructor${picked.length===1?"":"s"}? Nobody else will see it.`
       : "Post this to your driving school's instructors? Their phones get a notification straight away.")) return;
     const btn=document.getElementById("news-post"); btn.disabled=true; btn.textContent="Posting…";
-    const {error}=await sb.from("platform_announcements").insert({title, body, created_by:currentUserId, school_id:everyone?null:currentSchoolId});
+    const {error}=await sb.from("platform_announcements").insert({title, body, created_by:currentUserId,
+      school_id:everyone?null:currentSchoolId, recipient_ids:picked.length?picked:null});
     if(error){ err.textContent=error.message; btn.disabled=false; btn.textContent=everyone?"Post to everyone":"Post to your school"; return; }
     draftSaved();
     await loadMessagesPanel();

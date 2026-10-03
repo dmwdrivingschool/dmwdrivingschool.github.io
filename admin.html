@@ -83,6 +83,12 @@ tbody tr:hover td{background:#f8fafc}
 .field{margin-bottom:.8rem}.field label{display:block;font-size:.78rem;font-weight:600;color:#475569;margin-bottom:.32rem}
 .field input,.field select,.field textarea{width:100%;padding:.65rem .8rem;border:1.5px solid var(--line);border-radius:10px;font-size:.92rem;font-family:var(--fb);transition:border-color .15s,box-shadow .15s;background:#fff}
 .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+/* A tick box is not a text box: the width:100% above stretched it across the whole row and pushed
+   its own label off to the right (Dale, 3 Oct 2026). */
+.field input[type=checkbox],.field input[type=radio]{width:auto;flex:0 0 auto;padding:0;margin:0;border:0;border-radius:0;box-shadow:none;accent-color:var(--navy)}
+.pick-row{display:flex;align-items:center;gap:.55rem;padding:.32rem .1rem;font-size:.9rem;font-weight:500;color:inherit;cursor:pointer;margin:0}
+.pick-row:hover{background:rgba(148,163,184,.12);border-radius:6px}
+.pick-box{border:1.5px solid var(--line);border-radius:10px;padding:.35rem .6rem;max-height:14rem;overflow-y:auto}
 .two{display:grid;gap:.8rem}@media(min-width:700px){.two{grid-template-columns:1fr 1fr}}
 .chip{display:inline-block;padding:.24rem .6rem;border-radius:999px;font-size:.7rem;font-weight:700;text-transform:capitalize;letter-spacing:.01em}
 .chip-ok{background:#d1fae5;color:#065f46}.chip-bad{background:#ffe4e6;color:#9f1239}
@@ -1151,8 +1157,29 @@ tbody tr:hover td{background:#334263}
       <!-- One row per instructor, shut. Open it for everything the school knows about them
            (Dale, 30 Sep 2026: "minimied initially press it expands to show the full table of
            everything"). -->
-      <div style="margin:0 0 1rem"><button type="button" class="btn btn-navy btn-sm" onclick="wfToggle()">Who is free?</button>
-        <span class="muted" style="font-size:.82rem;margin-left:.5rem">Find somebody to take a lesson, or cover one.</span></div>
+      <div style="margin:0 0 1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <button type="button" class="btn btn-navy btn-sm" onclick="wfToggle()">Who is free?</button>
+        <span class="muted" style="font-size:.82rem">Find somebody to take a lesson, or cover one.</span>
+        <button type="button" class="btn btn-navy btn-sm" onclick="mapToggle()">Where you work</button>
+        <span class="muted" style="font-size:.82rem">Your pupils and your instructors' areas on a map.</span>
+      </div>
+      <!-- Where the work actually is, against where instructors say they will go (Chris Bensted,
+           3 Oct 2026). Drawn from postcodes that are already on record, so it says plainly how many
+           pupils it could place and how many it could not. -->
+      <div class="panel hidden" id="school-map-panel">
+        <h2 style="margin-bottom:.35rem">Where you work</h2>
+        <p class="muted" style="margin-bottom:.6rem">Every active pupil at their postcode, and the area each instructor says they will travel. Pupils outside every circle are the long drives; empty space inside one is room you are not filling.</p>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem">
+          <span class="d-views" id="map-views">
+            <button type="button" data-view="both" class="on" onclick="mapSetView('both')">Both</button>
+            <button type="button" data-view="pupils" onclick="mapSetView('pupils')">Pupils</button>
+            <button type="button" data-view="areas" onclick="mapSetView('areas')">Areas</button>
+          </span>
+          <button type="button" class="btn-outline btn-sm" onclick="mapRender(true)">Refresh</button>
+        </div>
+        <div id="school-map" style="height:460px;border-radius:10px;overflow:hidden;background:#e8eef3"></div>
+        <div id="map-note" class="muted" style="font-size:.82rem;margin-top:.6rem"></div>
+      </div>
       <div class="panel" id="school-instructors-panel">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;flex-wrap:wrap">
           <h2 style="margin-bottom:.35rem">Instructors at a glance</h2>
@@ -2986,6 +3013,13 @@ async function saveProfilePanel(){
       p_insurance_provider:v("pf-ins"), p_insurance_expires_on:document.getElementById("pf-ins-exp").value||null,
       p_ico_number:v("pf-ico"), p_ico_expires_on:document.getElementById("pf-ico-exp").value||null});
     if(credError) return fail(credError.message);
+  }
+  if(document.getElementById("pf-radius")){
+    const raw=(document.getElementById("pf-radius").value||"").trim();
+    const miles=raw===""?null:Number(raw);
+    if(miles!==null&&(!isFinite(miles)||miles<1||miles>100)) return fail("A travel radius has to be between 1 and 100 miles.","pf-radius");
+    const {error:radErr}=await sb.rpc("instructor_set_work_radius",{p_miles:miles});
+    if(radErr) return fail(radErr.message);
   }
   if(document.getElementById("pf-ec-name")){
     const ecName=v("pf-ec-name"), ecPhone=v("pf-ec-phone");
@@ -7216,7 +7250,7 @@ async function loadEnquiries(){
   // should actually take it, not just accept/decline.
   let assignRow = () => "";
   if(isSchoolAdminUser && currentSchoolId){
-    const {data:instrs} = await sb.from("profiles").select("id,full_name,email,adi_badge_number,adi_badge_expires_on,insurance_provider,insurance_expires_on,ico_registration_number,ico_expires_on,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone").in("role",["instructor","super_admin"]).eq("school_id",currentSchoolId).order("full_name");
+    const {data:instrs} = await sb.from("profiles").select("id,full_name,email,postcode,work_radius_miles,adi_badge_number,adi_badge_expires_on,insurance_provider,insurance_expires_on,ico_registration_number,ico_expires_on,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone").in("role",["instructor","super_admin"]).eq("school_id",currentSchoolId).order("full_name");
     schoolInstructorsCache = instrs||[];
     assignRow = (p) => `<div class="field" style="margin:.5rem 0 0"><label>Assign to instructor</label>
       <select onchange="assignEnquiryInstructor('${p.id}',this.value)">
@@ -11410,7 +11444,7 @@ async function openSettings(which){
     // Everything the "Complete your profile" popup asks for, editable any
     // time (Dale: after the popup there was nowhere to change it). Saves
     // through the same RPC as the popup; null = leave that field alone.
-    const {data:prof}=await sb.from("profiles").select("full_name,email,phone,adi_badge_number,adi_badge_expires_on,insurance_provider,insurance_expires_on,ico_registration_number,ico_expires_on,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,address_line1,address_line2,city,postcode").eq("id",currentUserId).maybeSingle();
+    const {data:prof}=await sb.from("profiles").select("full_name,email,phone,adi_badge_number,adi_badge_expires_on,work_radius_miles,insurance_provider,insurance_expires_on,ico_registration_number,ico_expires_on,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,address_line1,address_line2,city,postcode").eq("id",currentUserId).maybeSingle();
     const addr = prof||{};
     let schoolAddr = null;
     if(currentSchoolId && isSchoolAdminUser){
@@ -11448,6 +11482,12 @@ async function openSettings(which){
       ${addrField("pf-address2","Address Line 2 (Optional)",addr.address_line2)}
       ${addrField("pf-city","City",addr.city)}
       ${addrField("pf-postcode","Postcode",addr.postcode)}
+      <!-- Measured from the postcode above, which is why it sits with the address rather than on its
+           own (Chris Bensted, 3 Oct 2026). Blank means they have not said, and no circle is drawn. -->
+      <div class="field"><label>How far you will travel (Optional)</label>
+        <div style="display:flex;gap:.5rem;align-items:center"><input id="pf-radius" type="number" min="1" max="100" step="1" value="${esc(prof?.work_radius_miles||"")}" style="max-width:7rem"><span class="muted" style="font-size:.85rem">miles from your postcode</span></div>
+        <p class="muted" style="font-size:.78rem;margin:.25rem 0 0">${currentSchoolId?"Draws your area on your school's map, so they can see which pupils are a long way outside it.":"Used on the area map."} Leave it blank if you would rather not say.</p>
+      </div>
       ${schoolAddr ? `
       <h4 style="margin:1.25rem 0 .5rem">${esc(schoolAddr.display_name||schoolAddr.name||"School")} — School Address</h4>
       <p class="muted" style="margin-bottom:.5rem">The business address of the school itself. <a href="#" onclick="copyOwnAddressToSchool();return false" style="color:var(--navy);font-weight:600">Same as My Address</a></p>
@@ -12441,7 +12481,9 @@ async function updateMessagesBadge(){
   const btn=document.getElementById("nav-messages-btn"); if(!btn||!currentUserId) return;
   let n=0;
   try{
-    const a=await sb.from("messages").select("id",{count:"exact",head:true}).is("pupil_id",null).eq("recipient_id",currentUserId).is("read_at",null);
+    // neq sender_id: a message you sent yourself is not news. One slipped through on 3 Oct 2026 and
+    // the badge said 1 unread with no thread to open it in, which is the worst kind of wrong.
+    const a=await sb.from("messages").select("id",{count:"exact",head:true}).is("pupil_id",null).eq("recipient_id",currentUserId).neq("sender_id",currentUserId).is("read_at",null);
     n+=a.count||0;
     if(isSuperAdminUser){ const ad=await sb.from("admin_notifications").select("id",{count:"exact",head:true}).is("read_at",null); n+=ad.count||0; }
     // Unread notices count too (Dale, 16 Sep 2026); only this account's own are readable.
@@ -16104,12 +16146,16 @@ async function renderNewsTab(content){
     ${canPost?`<div class="field"><label>Title</label><input id="news-title" maxlength="120" placeholder="e.g. New in Drive My Way"></div>
     <div class="field"><label>Message</label><textarea id="news-body" rows="5" placeholder="Write your news"></textarea></div>
     ${canChoose?`<div class="field"><label>Who gets it</label>
-      <label style="display:flex;gap:.4rem;align-items:center;font-weight:600"><input type="radio" name="news-who" value="all" checked onchange="newsWhoChanged()"> Everyone in your school</label>
-      <label style="display:flex;gap:.4rem;align-items:center;font-weight:600;margin-top:.2rem"><input type="radio" name="news-who" value="some" onchange="newsWhoChanged()"> Only the ones I tick</label>
-      <div id="news-picker" hidden style="margin-top:.4rem;padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;max-height:14rem;overflow-y:auto">
-        ${(schoolInstructorsCache||[]).filter(i=>i.id!==currentUserId).map(i=>`<label style="display:flex;gap:.45rem;align-items:center;padding:.15rem 0"><input type="checkbox" class="news-pick" value="${esc(i.id)}" onchange="newsPostLabel()"> ${esc(i.full_name||i.email)}</label>`).join("")||'<p class="muted" style="margin:0">Nobody else in your school yet.</p>'}
+      <label class="pick-row"><input type="radio" name="news-who" value="all" checked onchange="newsWhoChanged()"><span>Everyone in your school</span></label>
+      <label class="pick-row"><input type="radio" name="news-who" value="some" onchange="newsWhoChanged()"><span>Only the ones I tick</span></label>
+      <div id="news-picker" hidden style="margin-top:.45rem">
+        <div class="pick-box">
+          ${(schoolInstructorsCache||[]).filter(i=>i.id!==currentUserId).map(i=>`<label class="pick-row"><input type="checkbox" class="news-pick" value="${esc(i.id)}" onchange="newsPostLabel()"><span>${esc(i.full_name||i.email)}</span></label>`).join("")||'<p class="muted" style="margin:.2rem 0">Nobody else in your school yet.</p>'}
+        </div>
+        <div style="margin-top:.35rem"><a href="#" onclick="event.preventDefault();newsPickAll(true)" style="color:var(--navy);font-weight:600;font-size:.8rem">Tick everyone</a>
+          <a href="#" onclick="event.preventDefault();newsPickAll(false)" style="color:var(--navy);font-weight:600;font-size:.8rem;margin-left:.75rem">Clear</a></div>
       </div>
-      <p class="muted" style="font-size:.78rem;margin:.3rem 0 0">Anyone you leave out never sees the post and their phone stays quiet.</p>
+      <p class="muted" style="font-size:.78rem;margin:.4rem 0 0">Anyone you leave out never sees the post and their phone stays quiet.</p>
     </div>`:""}
     <button type="button" class="btn btn-navy" id="news-post" onclick="postNewsCC()">${everyone?"Post to everyone":"Post to your school"}</button>
     <div class="err" id="news-err" style="margin-top:.5rem;display:block;text-align:left"></div>
@@ -16163,6 +16209,10 @@ function newsWhoChanged(){
   const some=(document.querySelector('input[name="news-who"]:checked')||{}).value==="some";
   const box=document.getElementById("news-picker");
   if(box) box.hidden=!some;
+  newsPostLabel();
+}
+function newsPickAll(on){
+  document.querySelectorAll(".news-pick").forEach(c=>{ c.checked=!!on; });
   newsPostLabel();
 }
 function newsPicked(){
@@ -18305,6 +18355,158 @@ function sortSchoolInstructors(key){
 }
 let schoolInstructorData=null;
 let schoolLast12=[], schoolAheadCache=null;
+// ---- Where you work: the area map ---------------------------------------------------------------
+// Leaflet and OpenStreetMap tiles, fetched from a CDN the first time the panel is opened, the same
+// way jsPDF and JSZip already are. No account, no key, nothing to pay for.
+let mapObj=null, mapLayers=null, mapView="both", mapLoaded=false, mapBusy=false;
+// No red in here on purpose. Red is reserved for "outside every area set", and when an instructor's
+// own colour was red as well, three of their pupils who were perfectly fine looked exactly like the
+// one that was not (seen 3 Oct 2026). A warning colour can only ever mean one thing.
+const MAP_DOT_COLOURS=["#2563eb","#16a34a","#d97706","#7c3aed","#0891b2","#db2777","#65a30d","#4338ca","#0f766e","#a16207"];
+const MAP_OUTSIDE="#dc2626";
+
+function mapToggle(){
+  const el=document.getElementById("school-map-panel"); if(!el) return;
+  const showing=el.classList.toggle("hidden")===false;
+  if(showing){ mapRender(); el.scrollIntoView({behavior:"smooth",block:"start"}); }
+}
+function mapSetView(v){
+  mapView=v;
+  document.querySelectorAll("#map-views button").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
+  mapDraw();
+}
+
+let mapLeafletLoading=null;
+function mapLoadLeaflet(){
+  if(window.L) return Promise.resolve(window.L);
+  if(mapLeafletLoading) return mapLeafletLoading;
+  mapLeafletLoading=new Promise((res,rej)=>{
+    const css=document.createElement("link");
+    css.rel="stylesheet"; css.href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
+    document.head.appendChild(css);
+    const js=document.createElement("script");
+    js.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+    js.onload=()=>res(window.L);
+    js.onerror=()=>{ mapLeafletLoading=null; rej(new Error("The map could not be loaded")); };
+    document.head.appendChild(js);
+  });
+  return mapLeafletLoading;
+}
+
+// Everything the map draws, worked out once and kept: geocoding is a network call per new postcode,
+// and panning about is not a reason to do it again.
+let mapData=null;
+async function mapRender(force){
+  if(mapBusy) return;
+  const box=document.getElementById("school-map"); if(!box) return;
+  const note=document.getElementById("map-note");
+  mapBusy=true;
+  if(note) note.textContent="Loading\u2026";
+  try{
+    await mapLoadLeaflet();
+    if(force) mapData=null;
+    if(!mapData) mapData=await mapLoad();
+    if(!mapObj){
+      mapObj=L.map(box).setView([54.0,-2.0],6);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+        maxZoom:18, attribution:"\u00a9 OpenStreetMap"
+      }).addTo(mapObj);
+      // The panel has only just been unhidden, so give the browser a frame to give it a height
+      // before Leaflet measures it.
+      await new Promise(r=>requestAnimationFrame(()=>r()));
+    }
+    mapDraw();
+    mapLoaded=true;
+  }catch(e){
+    if(note) note.textContent=(e&&e.message)||"The map could not be loaded.";
+  }
+  mapBusy=false;
+}
+
+async function mapLoad(){
+  // Active only (Dale, 3 Oct 2026). A waiting pupil is not work yet and a passed one never will be.
+  const pupils=[...pupilsCache,...schoolPupilsCache].filter(p=>p.status==="active");
+  const instructors=(schoolInstructorsCache||[]).slice();
+  const pcs=[...pupils.map(p=>p.postcode), ...instructors.map(i=>i.postcode)];
+  const pts=await wfPoints(pcs);
+  const placed=[], missed=[];
+  pupils.forEach(p=>{
+    const g=pts[wfNormPc(p.postcode)];
+    if(g) placed.push({...p, lat:g.lat, lng:g.lng}); else missed.push(p);
+  });
+  const areas=instructors.map(i=>{
+    const g=pts[wfNormPc(i.postcode)];
+    return (g && i.work_radius_miles) ? {...i, lat:g.lat, lng:g.lng} : null;
+  }).filter(Boolean);
+  return {placed, missed, total:pupils.length, areas, instructors};
+}
+
+function mapColourFor(instructorId){
+  const ids=(schoolInstructorsCache||[]).map(i=>i.id);
+  const n=ids.indexOf(instructorId);
+  return MAP_DOT_COLOURS[(n<0?ids.length:n)%MAP_DOT_COLOURS.length];
+}
+
+function mapDraw(){
+  if(!mapObj||!mapData) return;
+  if(mapLayers) mapLayers.forEach(l=>mapObj.removeLayer(l));
+  mapLayers=[];
+  const bounds=[];
+
+  if(mapView!=="pupils"){
+    mapData.areas.forEach(a=>{
+      const c=L.circle([a.lat,a.lng],{
+        radius:a.work_radius_miles*1609.34,
+        color:mapColourFor(a.id), weight:1.5, fillColor:mapColourFor(a.id), fillOpacity:.07
+      }).bindPopup(`<strong>${esc(a.full_name||a.email)}</strong><br>Will travel ${a.work_radius_miles} mile${a.work_radius_miles===1?"":"s"}`);
+      c.addTo(mapObj); mapLayers.push(c); bounds.push([a.lat,a.lng]);
+    });
+  }
+
+  if(mapView!=="areas"){
+    mapData.placed.forEach(p=>{
+      // Outside every circle, so somebody is driving further than they said they would.
+      const outside=!mapData.areas.some(a=>{
+        const m=wfMiles({lat:a.lat,lng:a.lng},{lat:p.lat,lng:p.lng});
+        return m!==null && m<=a.work_radius_miles;
+      });
+      const who=(schoolInstructorsCache||[]).find(i=>i.id===p.instructor_id);
+      // Bigger as well as ringed: a one-pixel difference in stroke is not something you spot on a
+      // map with forty dots on it.
+      const dot=L.circleMarker([p.lat,p.lng],{
+        radius:outside?8:5, weight:outside?3:1,
+        color:outside?MAP_OUTSIDE:mapColourFor(p.instructor_id),
+        fillColor:mapColourFor(p.instructor_id), fillOpacity:.85
+      }).bindPopup(`<strong>${esc([p.first_name,p.last_name].filter(Boolean).join(" "))}</strong><br>${esc(p.postcode||"")}<br>${esc(who?(who.full_name||who.email):"Nobody yet")}${outside?`<br><span style="color:${MAP_OUTSIDE}">Outside every area set</span>`:""}`);
+      dot.addTo(mapObj); mapLayers.push(dot); bounds.push([p.lat,p.lng]);
+    });
+  }
+
+  // Before fitBounds, not after. The panel starts hidden, so Leaflet measures a zero-size box, loads
+  // tiles for a sliver of it and then fits the bounds to the wrong dimensions (seen 3 Oct 2026).
+  mapObj.invalidateSize();
+  if(bounds.length) mapObj.fitBounds(bounds,{padding:[30,30],maxZoom:13});
+  mapNote();
+}
+
+// Says plainly what it is drawn from. A map built on a third of the pupils looks as authoritative as
+// one built on all of them, which is worse than no map at all (Dale, 3 Oct 2026).
+function mapNote(){
+  const el=document.getElementById("map-note"); if(!el||!mapData) return;
+  const d=mapData;
+  const noArea=(d.instructors||[]).filter(i=>!i.work_radius_miles||!wfNormPc(i.postcode)).length;
+  const outside=d.areas.length ? d.placed.filter(p=>!d.areas.some(a=>{
+    const m=wfMiles({lat:a.lat,lng:a.lng},{lat:p.lat,lng:p.lng});
+    return m!==null && m<=a.work_radius_miles;
+  })).length : 0;
+  const bits=[`Based on <strong>${d.placed.length} of ${d.total}</strong> active pupil${d.total===1?"":"s"}.`];
+  if(d.missed.length) bits.push(`${d.missed.length} ${d.missed.length===1?"has":"have"} no postcode on record, so ${d.missed.length===1?"it is":"they are"} not on the map.`);
+  if(noArea) bits.push(`${noArea} instructor${noArea===1?" has":"s have"} not set a postcode and a travel radius, so ${noArea===1?"their area is":"their areas are"} not drawn. They set it on their own Profile.`);
+  if(d.areas.length && outside) bits.push(`<strong>${outside}</strong> pupil${outside===1?" is":"s are"} outside every area set, ringed in red.`);
+  if(d.areas.length && !outside && d.placed.length) bits.push("Every pupil on the map is inside somebody's area.");
+  el.innerHTML=bits.join(" ");
+}
+
 function wfToggle(){
   const el=document.getElementById("school-whofree-panel"); if(!el) return;
   const showing=el.classList.toggle("hidden")===false;
@@ -18764,7 +18966,10 @@ let wfEvents=[];
 // no pupil on it, which the app shows in their own feed and pushes to their phone. No app build.
 // Sent on booking, on a change, and when it is called off, because all three are news to them.
 async function schoolEventTell(instructorIds, subject, body){
-  const ids=[...new Set((instructorIds||[]).filter(Boolean))];
+  // Never message yourself. Ticking your own name put a message from you to you in the feed, which
+  // counted towards the unread badge but drew no thread, so the Control Centre showed "1 unread" with
+  // nothing to read (Dale, 3 Oct 2026). You booked it; you do not need telling.
+  const ids=[...new Set((instructorIds||[]).filter(Boolean))].filter(id=>id!==currentUserId);
   if(!ids.length) return;
   try{
     const {data}=await sb.from("messages")

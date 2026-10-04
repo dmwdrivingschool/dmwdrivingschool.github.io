@@ -16625,7 +16625,22 @@ async function loadTeamsPanel(){
     theoryFeaturesCache = videoFeaturesCache;
 
     const schoolsList=document.getElementById("schools-list");
-    schoolsList.innerHTML = schoolRows.length ? schoolRows.map(s=>{
+    // Sorted for display only. schoolRows itself stays as it was, because it is handed to
+    // renderInstructorRow as the "move to a school" list, where alphabetical is what you want.
+    const schoolsSorted = teamsOrder(schoolRows.map(s=>{
+      const sub = schoolSubsByOwner[s.id];
+      const mem = instrRows.filter(i=>i.school_id===s.id);
+      return Object.assign(Object.create(Object.getPrototypeOf(s)), s, {
+        _name: s.display_name||s.name,
+        _trial: sub && sub.trial_ends_at,
+        _rank: teamsRank({
+          isTest: teamsIsTestAccount(s.display_name||s.name),
+          dd: teamsPaysByDD(sub),
+          website: mem.some(m=>teamsHasWebsite(m.id)),
+        }),
+      });
+    }));
+    schoolsList.innerHTML = schoolsSorted.length ? schoolsSorted.map(s=>{
       const count = instrRows.filter(i=>i.school_id===s.id).length;
       const nameEsc = esc(s.display_name||s.name).replace(/'/g,"&#39;");
       const lockedBadge = s.locked_at ? ' <span style="font-size:.7rem;font-weight:700;color:#b91c1c">LOCKED</span>' : "";
@@ -16664,12 +16679,32 @@ async function loadTeamsPanel(){
         ],
       });
       return `<div class="school-block" data-school-id="${s.id}" data-hidden="${accountHidden('school',s.id)?1:0}" style="border-bottom:1px solid var(--line);margin-bottom:.35rem;padding-bottom:.35rem">${schoolRow}
-        <div class="school-members" id="members-${s.id}" hidden style="margin:0 0 .25rem 1rem;padding-left:.85rem;border-left:3px solid var(--line)">${members.length ? members.map(i=>renderInstructorRow(i, schoolRows, true, {hideSchool:true})).join("") : '<p class="muted" style="font-size:.85rem;padding:.35rem 0">No instructors in this school yet.</p>'}</div></div>`;
+        <div class="school-members" id="members-${s.id}" hidden style="margin:0 0 .25rem 1rem;padding-left:.85rem;border-left:3px solid var(--line)">${members.length ? teamsOrder(members.map(i=>{
+          const ms = subsByOwnerCache[i.id];
+          return Object.assign({}, i, {
+            _name: i.full_name||i.email,
+            _trial: ms && ms.trial_ends_at,
+            _rank: teamsRank({ isTest: teamsIsTestAccount(i.full_name), dd: teamsPaysByDD(ms), website: teamsHasWebsite(i.id) }),
+          });
+        })).map(i=>renderInstructorRow(i, schoolRows, true, {hideSchool:true})).join("") : '<p class="muted" style="font-size:.85rem;padding:.35rem 0">No instructors in this school yet.</p>'}</div></div>`;
     }).join("") : '<p class="muted">No driving schools yet.</p>';
 
     const instrList=document.getElementById("instructors-list");
     const schoolIdSet = new Set(schoolRows.map(x=>x.id));
-    const soloRows = instrRows.filter(i=>!i.school_id || !schoolIdSet.has(i.school_id));
+    const soloRows = teamsOrder(instrRows
+      .filter(i=>!i.school_id || !schoolIdSet.has(i.school_id))
+      .map(i=>{
+        const sub = subsByOwnerCache[i.id];
+        return Object.assign({}, i, {
+          _name: i.full_name||i.email,
+          _trial: sub && sub.trial_ends_at,
+          _rank: teamsRank({
+            isTest: teamsIsTestAccount(i.full_name),
+            dd: teamsPaysByDD(sub),
+            website: teamsHasWebsite(i.id),
+          }),
+        });
+      }));
     instrList.innerHTML = soloRows.length ? soloRows.map(i=>renderInstructorRow(i, schoolRows, true)).join("") : '<p class="muted">No solo instructors yet.</p>';
 
     // Keep the search and which schools were open after the list reloads.
@@ -17093,6 +17128,40 @@ function toggleHiddenAccounts(){
  *
  * One chip, the most useful thing first: what they have beats what they would pay.
  */
+// The order Dale wants the Instructors tab in (4 Oct 2026): a website AND a Direct Debit first,
+// because those are the ones paying for two things; then a Direct Debit on its own; then everybody
+// still on trial, soonest to run out at the top, because that is the list he has to work through;
+// then his own test accounts, which are not customers and belong at the bottom.
+//
+// Schools and solo instructors stay in their own sections, each sorted the same way.
+function teamsIsTestAccount(name){
+  const n=String(name||"").trim().toLowerCase();
+  return /\(test\)/.test(n) || /^test[- ]/.test(n) || n==="tester" || n==="sam whitfield";
+}
+function teamsPaysByDD(sub){
+  return !!(sub && (sub.gocardless_subscription_id || sub.gocardless_mandate_id) && !sub.cancel_at_period_end);
+}
+function teamsHasWebsite(instructorId){
+  return !!(websiteGrantCache[instructorId] || {}).website;
+}
+function teamsRank(o){
+  if(o.isTest) return 3;
+  if(o.website && o.dd) return 0;
+  if(o.dd) return 1;
+  return 2;
+}
+// Only the trial band is sorted by date; the paying bands read better by name.
+function teamsOrder(list){
+  return list.slice().sort((a,b)=>{
+    if(a._rank!==b._rank) return a._rank-b._rank;
+    if(a._rank===2){
+      const at=a._trial?Date.parse(a._trial):Infinity, bt=b._trial?Date.parse(b._trial):Infinity;
+      if(at!==bt) return at-bt;
+    }
+    return String(a._name||"").localeCompare(String(b._name||""));
+  });
+}
+
 function websiteRowChip(instructorId){
   const g = websiteGrantCache[instructorId] || {};
   if (g.website) return ' <span class="chip chip-ok" title="They have a website">Website</span>';

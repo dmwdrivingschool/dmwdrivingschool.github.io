@@ -16634,6 +16634,7 @@ async function loadTeamsPanel(){
         _name: s.display_name||s.name,
         _trial: sub && sub.trial_ends_at,
         _rank: teamsRank({
+          isMine: mem.some(m=>m.id===currentUserId),
           isTest: teamsIsTestAccount(s.display_name||s.name),
           dd: teamsPaysByDD(sub),
           website: mem.some(m=>teamsHasWebsite(m.id)),
@@ -17145,6 +17146,9 @@ function teamsHasWebsite(instructorId){
   return !!(websiteGrantCache[instructorId] || {}).website;
 }
 function teamsRank(o){
+  // Dale's own driving school sits above everything (4 Oct 2026). It is the one he opens most and it
+  // is not a customer to be worked through, so it does not belong in the trial queue.
+  if(o.isMine) return -1;
   if(o.isTest) return 3;
   if(o.website && o.dd) return 0;
   if(o.dd) return 1;
